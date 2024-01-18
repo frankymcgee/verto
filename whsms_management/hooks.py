@@ -1,7 +1,7 @@
 app_name = "whsms_management"
-app_title = "Work Health and Safety Management System"
+app_title = "WHS Management System"
 app_publisher = "Webwire"
-app_description = "a custom app developed for integrating a Work Health and Safety Managemnet System for business using ERPNext"
+app_description = "Integrating a Work Health and Safety Managemnet System for SME business's using ERPNext."
 app_email = "support@webwire.com.au"
 app_license = "apache-2.0"
 # required_apps = []
@@ -11,7 +11,7 @@ app_license = "apache-2.0"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/whsms_management/css/whsms_management.css"
-# app_include_js = "/assets/whsms_management/js/whsms_management.js"
+app_include_js = "/assets/whsms_management/js/whsms_management.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/whsms_management/css/whsms_management.css"
