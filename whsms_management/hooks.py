@@ -11,7 +11,7 @@ app_license = "apache-2.0"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/whsms_management/css/whsms_management.css"
-app_include_js = "/assets/whsms_management/js/whsms_management.js"
+app_include_js = "whsms_management.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/whsms_management/css/whsms_management.css"
@@ -227,3 +227,5 @@ app_include_js = "/assets/whsms_management/js/whsms_management.js"
 #	"Logging DocType Name": 30  # days to retain logs
 # }
 
+
+website_route_rules = [{'from_route': '/dashboard/<path:app_path>', 'to_route': 'dashboard'}, {'from_route': '/mobile/<path:app_path>', 'to_route': 'mobile'}, {'from_route': '/dashboard/<path:app_path>', 'to_route': 'dashboard'},]

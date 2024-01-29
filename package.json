@@ -1,0 +1,14 @@
+{
+  "name": "whsms_management",
+  "version": "1.0.0",
+  "description": "a custom app developed for integrating a Work Health and Safety Managemnet System for business using ERPNext",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "cd dashboard && yarn dev",
+    "build": "cd dashboard && yarn build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

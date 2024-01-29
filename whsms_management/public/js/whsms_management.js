@@ -737,6 +737,7 @@ export default class Gantt {
             if (is_dragging || is_resizing_left || is_resizing_right) {
                 bars.forEach((bar) => bar.group.classList.remove('active'));
             }
+            console.log('TEST');
 
             is_dragging = false;
             is_resizing_left = false;
