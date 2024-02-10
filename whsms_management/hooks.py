@@ -1,7 +1,7 @@
 app_name = "whsms_management"
 app_title = "WHS Management System"
 app_publisher = "Webwire"
-app_description = "Integrating a Work Health and Safety Managemnet System for SME business's using ERPNext."
+app_description = "Integrating a Work Health & Safety Managemenet System using ERPNext."
 app_email = "support@webwire.com.au"
 app_license = "apache-2.0"
 # required_apps = []
