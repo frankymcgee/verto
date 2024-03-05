@@ -1,7 +1,7 @@
-app_name = "whsms_management"
-app_title = "WHS Management System"
+app_name = "verto"
+app_title = "Verto"
 app_publisher = "Webwire"
-app_description = "Integrating a Work Health & Safety Managemenet System using ERPNext."
+app_description = "Fully customised instance for ERPNext Version-15"
 app_email = "support@webwire.com.au"
 app_license = "apache-2.0"
 # required_apps = []

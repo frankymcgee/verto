@@ -1,6 +1,6 @@
-## Work Health and Safety Management System
+## Verto for ERPNext
 
-a custom app developed for integrating a Work Health and Safety Managemnet System for business using ERPNext
+A fully customised app for ERPNext tailored to Webwire Clients
 
 #### License
 
