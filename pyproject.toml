@@ -1,5 +1,5 @@
 [project]
-name = "whsms_management"
+name = "verto"
 authors = [
     { name = "Webwire", email = "support@webwire.com.au"}
 ]
