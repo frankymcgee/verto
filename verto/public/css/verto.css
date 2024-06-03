@@ -1,0 +1,25 @@
+@media only screen and (max-width: 768px) {
+    * {
+        font-size: large !important;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        white-space: normal;
+    }
+}
+
+.mobile-browser * {
+    font-size: large !important;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+}
+
+ion-tab-bar {
+    visibility: hidden;
+}
+
+.widget.shortcut-widget-box {
+    cursor: pointer;
+    padding: 2px 7px;
+    background-color: #3A1516;
+}

@@ -37,7 +37,7 @@ frappe.views.MapView = class MapView extends frappe.views.ListView {
 			frappe.utils.map_defaults.center,
 			frappe.utils.map_defaults.zoom
 		);
-		L.tileLayer(frappe.utils.map_defaults.tiles).addTo(this.map);
+		L.tileLayer(frappe.utils.map_defaults.tiles,{maxNativeZoom :17}).addTo(this.map);
 		L.tileLayer(railway_tile).addTo(this.map);		
 		L.tileLayer(terrianline_tile).addTo(this.map);		
 		L.tileLayer(terrainlabel_tile).addTo(this.map);		
@@ -45,7 +45,7 @@ frappe.views.MapView = class MapView extends frappe.views.ListView {
 		L.control.scale().addTo(this.map);
 		if (this.coords.features && this.coords.features.length) {
 			this.coords.features.forEach((coords) =>
-				L.geoJSON(coords).bindPopup(coords.properties.name).addTo(this.map)
+				L.geoJSON(coords).bindPopup('<b>Project: '+ coords.properties.project_name + '</b></br><a href="/app/task/' + coords.properties.name.toString() + '">' + coords.properties.subject + '</a>').addTo(this.map)
 			);
 			let lastCoords = this.coords.features[0].geometry.coordinates.reverse();
 			this.map.setView(lastCoords, 16);			
