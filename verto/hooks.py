@@ -233,4 +233,4 @@ app_include_js = [
 # }
 
 
-website_route_rules = [{'from_route': '/dashboard/<path:app_path>', 'to_route': 'dashboard'}, {'from_route': '/mobile/<path:app_path>', 'to_route': 'mobile'}, {'from_route': '/dashboard/<path:app_path>', 'to_route': 'dashboard'},]
+# website_route_rules = [{'from_route': '/dashboard/<path:app_path>', 'to_route': 'dashboard'}, {'from_route': '/mobile/<path:app_path>', 'to_route': 'mobile'}, {'from_route': '/dashboard/<path:app_path>', 'to_route': 'dashboard'},]
