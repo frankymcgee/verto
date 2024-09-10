@@ -1,0 +1,1294 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:CCV-{#####}",
+ "creation": "2024-07-14 11:35:07.052111",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sb_taskinfo",
+  "link_project",
+  "column_break_6lioo",
+  "link_task",
+  "column_break_mcwf",
+  "work_area",
+  "section_break_nfxsd",
+  "project_name",
+  "column_break_uh6eh",
+  "work_scope",
+  "sec_ccv_info",
+  "link_steps",
+  "ccv_selected",
+  "column_break_caqt",
+  "wo_number",
+  "op_number",
+  "column_break_qifo",
+  "task_contractor",
+  "task_supervisor",
+  "section_break_feay",
+  "lat",
+  "long",
+  "tab_cs",
+  "cs_qual",
+  "cs_qual_upload",
+  "cs_energy_source",
+  "cs_sentry",
+  "cs_zero_energy",
+  "cs_bump_test",
+  "cs_atmos_test",
+  "cs_atmos_test_upload",
+  "cs_ventilation",
+  "cs_resp_equip",
+  "cs_permit",
+  "cs_permit_upload",
+  "cs_standby",
+  "cs_emergency_plan",
+  "cs_emergency_plan_upload",
+  "tab_cwe",
+  "cwe_hv_permit",
+  "cwe_other_permits",
+  "cwe_permits_upload",
+  "cwe_powerline_corridor",
+  "cwe_energy_iso",
+  "cwe_meter_check",
+  "cwe_tfd_confirm",
+  "cwe_arc_ppe",
+  "cwe_ppe",
+  "cwe_ppe_upload",
+  "cwe_rubber_gloves",
+  "cwe_resp_equip",
+  "cwe_tools_rated",
+  "cwe_tool_condition",
+  "cwe_tool_copndition_upload",
+  "cwe_elec_safety_device",
+  "cwe_qual",
+  "cwe_qual_upload",
+  "tab_do",
+  "do_barricade",
+  "do_segregation",
+  "do_segregation_upload",
+  "do_permanent_ec",
+  "do_hang_ups",
+  "do_overheads",
+  "do_overheads_upload",
+  "do_securing_devices",
+  "do_tooling",
+  "do_tooling_upload",
+  "do_engineered_protection",
+  "tab_ec",
+  "eac_energy_sources",
+  "eac_tfc_upload",
+  "eac_mech_energy",
+  "eac_mech_blocking",
+  "eac_mech_blocking_upload",
+  "eac_zev",
+  "eac_stored_energy_restrained",
+  "eac_guarding",
+  "eac_guarding_upload",
+  "eac_estop_pull_wire",
+  "eac_unguarded_equip",
+  "eac_unguarded_equip_upload",
+  "eac_exclusive_control",
+  "eac_exclusive_control_upload",
+  "tab_ffh",
+  "ffh_qual",
+  "ffh_qual_upload",
+  "ffh_anchor_points",
+  "ffh_harness_lanyards",
+  "ffh_harness_lanyards_upload",
+  "ffh_arrest_restrain",
+  "ffh_fixed_platform",
+  "ffh_ladder_mobile",
+  "ffh_ladder_mobile_upload",
+  "ffh_motor_platform",
+  "ffh_worker_protection",
+  "ffh_motor_platform_upload",
+  "ffh_edge_prot",
+  "ffh_edge_prot_upload",
+  "ffh_scaff_complete",
+  "ffh_scaff_vehicle",
+  "ffh_scaff_complete_upload",
+  "ffh_emergency_resp",
+  "ffh_emergency_resp_upload",
+  "tab_lo",
+  "lo_qual",
+  "lo_qual_upload",
+  "lo_load_weights",
+  "lo_barricade_req",
+  "lo_comm_plan",
+  "lo_ground_condition",
+  "lo_lift_plan_upload",
+  "lo_lift_area",
+  "lo_correct_signage",
+  "lo_exclusive_control",
+  "lo_exclusive_control_upload",
+  "lo_swl",
+  "lo_swl_upload",
+  "lo_crane_cert",
+  "lo_pre_start",
+  "lo_pre_start_upload",
+  "lo_inspection_tag",
+  "lo_lifting_equip_upload",
+  "lo_lift_equip_inspect",
+  "tab_ure",
+  "ure_energy_sources",
+  "ure_energy_sources_upload",
+  "ure_qual",
+  "ure_qual_upload",
+  "ure_energy_iso",
+  "ure_energy_iso_upload",
+  "ure_guarding",
+  "ure_guarding_upload",
+  "ure_piping_clips",
+  "ure_equipment",
+  "ure_equipment_upload",
+  "ure_hydraulic_injection",
+  "ure_high_pressure_alternative",
+  "ure_zef",
+  "tab_vme",
+  "vme_qual",
+  "vme_qual_upload",
+  "vme_parking",
+  "vme_parking_upload",
+  "vme_pre_start",
+  "vme_pre_start_upload",
+  "vme_driver_cond",
+  "vms_pos_comms",
+  "vme_segregation",
+  "vme_segregation_upload",
+  "tab_wnw",
+  "wnw_pfd",
+  "wnw_pfd_upload",
+  "wnw_guarding",
+  "wnw_guarding_upload",
+  "wnw_qual",
+  "wnw_emergency_resp",
+  "wnw_rescue_boat",
+  "image_of_emergency_response_plan",
+  "tab_closeout",
+  "safety_category",
+  "select_the_area_needed_for_improvement",
+  "comments",
+  "signature"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_taskinfo",
+   "fieldtype": "Section Break",
+   "label": "Task Information"
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"=\",\"Open\"]]",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_6lioo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+   "options": "Task",
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_mcwf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fetch_from": "link_task.parent_name",
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "section_break_nfxsd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "depends_on": "eval:doc.link_project !== \"\"",
+   "fetch_from": "link_project.project_name",
+   "fetch_if_empty": 1,
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "column_break_uh6eh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\"",
+   "fetch_from": "link_task.subject",
+   "fetch_if_empty": 1,
+   "fieldname": "work_scope",
+   "fieldtype": "Data",
+   "label": "Work Scope Name"
+  },
+  {
+   "fetch_from": "link_steps.work_order",
+   "fetch_if_empty": 1,
+   "fieldname": "wo_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number"
+  },
+  {
+   "fieldname": "section_break_feay",
+   "fieldtype": "Section Break",
+   "hidden": 1
+  },
+  {
+   "fieldname": "lat",
+   "fieldtype": "Float",
+   "label": "Latitude"
+  },
+  {
+   "fieldname": "long",
+   "fieldtype": "Float",
+   "label": "longitude"
+  },
+  {
+   "fieldname": "sec_ccv_info",
+   "fieldtype": "Section Break",
+   "label": "CCV Information"
+  },
+  {
+   "fieldname": "column_break_caqt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_qifo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ccv_selected",
+   "fieldtype": "Select",
+   "label": "CCV being performed",
+   "options": "\nConfined Space\nContact with Electricity\nDropped Objects\nEntanglement & Crushing\nFall from Height\nLifting Operations\nUncontrolled Release of Energy\nVehicle & Mobile Equipment\nWorking near Water",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "link_steps.operation_line",
+   "fetch_if_empty": 1,
+   "fieldname": "op_number",
+   "fieldtype": "Data",
+   "label": "Operation Line Number"
+  },
+  {
+   "fetch_from": "link_steps.responsible_vendor",
+   "fetch_if_empty": 1,
+   "fieldname": "task_contractor",
+   "fieldtype": "Data",
+   "label": "Contractor"
+  },
+  {
+   "fetch_from": "link_steps.responsible_supervisor",
+   "fetch_if_empty": 1,
+   "fieldname": "task_supervisor",
+   "fieldtype": "Data",
+   "label": "Supervisor"
+  },
+  {
+   "fieldname": "cs_qual",
+   "fieldtype": "Select",
+   "label": "Does the worker have a valid Confined Space and Gas Tester Qualification?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Confined Space\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cs_qual_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of Qualification"
+  },
+  {
+   "fieldname": "cs_energy_source",
+   "fieldtype": "Select",
+   "label": "Are all Energy Sources isolated?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Confined Space\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cs_sentry",
+   "fieldtype": "Select",
+   "label": "Are all access points controlled by a Sentry?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Confined Space\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cs_zero_energy",
+   "fieldtype": "Select",
+   "label": "is the 'Zero Energy Verification' done?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Confined Space\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cs_bump_test",
+   "fieldtype": "Select",
+   "label": "was a 'Bump Test' completed on the Gas Tester?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Confined Space\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cs_atmos_test",
+   "fieldtype": "Select",
+   "label": "Has the atmosphere been tested & is safe for entry?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Confined Space\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cs_atmos_test_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of Atmosphere Test"
+  },
+  {
+   "fieldname": "cs_ventilation",
+   "fieldtype": "Select",
+   "label": "Is the ventilation adequate?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Confined Space\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cs_resp_equip",
+   "fieldtype": "Select",
+   "label": "Is respiratory equipment being used?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Confined Space\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cs_permit",
+   "fieldtype": "Select",
+   "label": "Is the Confined Space Permit completed & approved for use on this shift?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Confined Space\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cs_permit_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of Confined Space Permit"
+  },
+  {
+   "fieldname": "cs_standby",
+   "fieldtype": "Select",
+   "label": "Is the Standby at the Confined Space entry?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Confined Space\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cs_emergency_plan",
+   "fieldtype": "Select",
+   "label": "Is the Emergency Plan in place & understood by the team?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Confined Space\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cs_emergency_plan_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of Emergency Plan"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "depends_on": "eval:doc.ccv_selected == \"Confined Space\"",
+   "fieldname": "tab_cs",
+   "fieldtype": "Tab Break",
+   "label": "Confined Space"
+  },
+  {
+   "depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+   "fieldname": "tab_cwe",
+   "fieldtype": "Tab Break",
+   "label": "Contact with Electricity"
+  },
+  {
+   "fieldname": "cwe_hv_permit",
+   "fieldtype": "Select",
+   "label": "Have electrical permits been completed for HV switching?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cwe_other_permits",
+   "fieldtype": "Select",
+   "label": "Are other Permits & Record book entries completed?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.cwe_hv_permit.includes(\"Yes\")",
+   "fieldname": "cwe_permits_upload",
+   "fieldtype": "Attach",
+   "label": "Image of Permits",
+   "mandatory_depends_on": "eval.doc.cwe_hv_permit.includes(\"Yes\")"
+  },
+  {
+   "fieldname": "cwe_powerline_corridor",
+   "fieldtype": "Select",
+   "label": "Is Access Control implemented for the powerline corridor?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cwe_energy_iso",
+   "fieldtype": "Select",
+   "label": "Are all energy sources isolated?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cwe_meter_check",
+   "fieldtype": "Select",
+   "label": "Is the meter checked before & after the 'Test for Dead' check?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cwe_tfd_confirm",
+   "fieldtype": "Select",
+   "label": "Is the 'Test for Dead' procedure confirmed with the Isolation Officer?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cwe_arc_ppe",
+   "fieldtype": "Select",
+   "label": "is the correct arc flash PPE worn?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cwe_ppe",
+   "fieldtype": "Select",
+   "label": "Is PPE in good order?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cwe_ppe_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of PPE"
+  },
+  {
+   "fieldname": "cwe_rubber_gloves",
+   "fieldtype": "Select",
+   "label": "Are insulated rubber gloves suitable for the Voltage present?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cwe_resp_equip",
+   "fieldtype": "Select",
+   "label": "Is the appropriate respiratory equipment being used?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cwe_tools_rated",
+   "fieldtype": "Select",
+   "label": "Are the tools rated for the Voltage present?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cwe_tool_condition",
+   "fieldtype": "Select",
+   "label": "Is the tooling in good condition?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cwe_tool_copndition_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of Tooling"
+  },
+  {
+   "fieldname": "cwe_elec_safety_device",
+   "fieldtype": "Select",
+   "label": "Are electrical safety devices fitted or installed?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cwe_qual",
+   "fieldtype": "Select",
+   "label": "Is the worker trained & competent?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "cwe_qual_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of Qualification"
+  },
+  {
+   "depends_on": "eval:doc.ccv_selected !== \"\"",
+   "fieldname": "tab_closeout",
+   "fieldtype": "Tab Break",
+   "label": "Closeout"
+  },
+  {
+   "fieldname": "safety_category",
+   "fieldtype": "Select",
+   "label": "Select the Safety Category",
+   "mandatory_depends_on": "eval:doc.ccv_selected != \"\"",
+   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required"
+  },
+  {
+   "depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "fieldname": "select_the_area_needed_for_improvement",
+   "fieldtype": "Select",
+   "label": "Select the area needed for improvement",
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nTools & Equipment\nProcedures\nWork Area"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Advisor Signature",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "fieldname": "tab_do",
+   "fieldtype": "Tab Break",
+   "label": "Dropped Objects"
+  },
+  {
+   "depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "fieldname": "tab_ec",
+   "fieldtype": "Tab Break",
+   "label": "Entanglement & Crushing"
+  },
+  {
+   "depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "fieldname": "tab_ffh",
+   "fieldtype": "Tab Break",
+   "label": "Fall from Height"
+  },
+  {
+   "depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "fieldname": "tab_lo",
+   "fieldtype": "Tab Break",
+   "label": "Lifting Operations"
+  },
+  {
+   "depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "fieldname": "tab_ure",
+   "fieldtype": "Tab Break",
+   "label": "Uncontrolled Release of Energy"
+  },
+  {
+   "depends_on": "eval:doc.ccv_selected ==\"Vehicle & Mobile Equipment\"",
+   "fieldname": "tab_vme",
+   "fieldtype": "Tab Break",
+   "label": "Vehicle & Mobile Equipment"
+  },
+  {
+   "depends_on": "eval:doc.ccv_selected ==\"Working near Water\"",
+   "fieldname": "tab_wnw",
+   "fieldtype": "Tab Break",
+   "label": "Working near Water"
+  },
+  {
+   "fieldname": "do_barricade",
+   "fieldtype": "Select",
+   "label": "Does barricading stop people from entering potential drop zones?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "do_segregation",
+   "fieldtype": "Select",
+   "label": "Is the barricading & segregation suitable for drop zones?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "do_segregation_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of Barricading"
+  },
+  {
+   "fieldname": "do_permanent_ec",
+   "fieldtype": "Select",
+   "label": "Are permanent Exclusion Control in place?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "do_hang_ups",
+   "fieldtype": "Select",
+   "label": "Has the are been inspected to identify and overhead hang ups?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "do_overheads",
+   "fieldtype": "Select",
+   "label": "Are overhead items & fixtures secure & safe?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "do_overheads_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of hang up / fatigued structure"
+  },
+  {
+   "fieldname": "do_securing_devices",
+   "fieldtype": "Select",
+   "label": "Are adequate securing devices used to prevent falling objects?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "do_tooling",
+   "fieldtype": "Select",
+   "label": "Are all tools secured from falling?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "do_tooling_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of Lanyards / tethering"
+  },
+  {
+   "fieldname": "do_engineered_protection",
+   "fieldtype": "Select",
+   "label": "Is there engineering protection over walkways & roadways?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "link_steps",
+   "fieldtype": "Link",
+   "label": "Task being undertaken",
+   "link_filters": "[[\"Task\",\"parent_task\",\"=\",\"eval: doc.link_task\"],[\"Task\",\"type\",\"=\",\"Task Step\"]]",
+   "options": "Task"
+  },
+  {
+   "fieldname": "eac_energy_sources",
+   "fieldtype": "Select",
+   "label": "Are all electrical energy sources isolated & has a 'Test for Dead' been completed??",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "eac_tfc_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of lockbox, permit or simple isolation"
+  },
+  {
+   "fieldname": "eac_mech_energy",
+   "fieldtype": "Select",
+   "label": "Are all mechanical energy sources isolated?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "eac_mech_blocking",
+   "fieldtype": "Select",
+   "label": "Are mechanical locking devices (belt clamps, chocks, chains etc.) used?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "eac_mech_blocking_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of mechanical devices"
+  },
+  {
+   "fieldname": "eac_zev",
+   "fieldtype": "Select",
+   "label": "Has 'Zero Energy' verification been done?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "eac_stored_energy_restrained",
+   "fieldtype": "Select",
+   "label": "Are stored energy sources restrained?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "eac_guarding",
+   "fieldtype": "Select",
+   "label": "Are all guarding on moving parts secure & suitable?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "eac_guarding_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of guarding"
+  },
+  {
+   "fieldname": "eac_estop_pull_wire",
+   "fieldtype": "Select",
+   "label": "Are all workers aware of the nearest E-Stop & the use of pull wires?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "eac_unguarded_equip",
+   "fieldtype": "Select",
+   "label": "Is all unguarded moving equipment appropriately barricaded?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "eac_unguarded_equip_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of barricading"
+  },
+  {
+   "fieldname": "eac_exclusive_control",
+   "fieldtype": "Select",
+   "label": "Is Exclusive Control in Place?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "eac_exclusive_control_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of work area"
+  },
+  {
+   "fieldname": "ffh_qual",
+   "fieldtype": "Select",
+   "label": "Does the worker have the required qualification?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ffh_qual_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of Qualification"
+  },
+  {
+   "fieldname": "ffh_anchor_points",
+   "fieldtype": "Select",
+   "label": "Have all anchor point been inspected & are appropriate?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ffh_harness_lanyards",
+   "fieldtype": "Select",
+   "label": "Are all harnesses & lanyards inspected prior to use?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ffh_harness_lanyards_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of harness & lanyards"
+  },
+  {
+   "fieldname": "ffh_arrest_restrain",
+   "fieldtype": "Select",
+   "label": "Is the equipment appropriate to arrest or restrain the fall?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ffh_fixed_platform",
+   "fieldtype": "Select",
+   "label": "Is the fixed work platform suitable for the Task?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ffh_ladder_mobile",
+   "fieldtype": "Select",
+   "label": "Is the appropriate ladder or mobile platform selected for the Task?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ffh_ladder_mobile_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of ladder or platform"
+  },
+  {
+   "fieldname": "ffh_motor_platform",
+   "fieldtype": "Select",
+   "label": "Is the motorised platform (EWP, Scissor lift etc.) suiteable for the Task?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ffh_worker_protection",
+   "fieldtype": "Select",
+   "label": "Is the worker correctly secured within protection equipment?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ffh_motor_platform_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of motorised platform use"
+  },
+  {
+   "fieldname": "ffh_edge_prot",
+   "fieldtype": "Select",
+   "label": "Is installed edge protection adequate for prevent falls?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ffh_edge_prot_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of edge protection"
+  },
+  {
+   "fieldname": "ffh_scaff_complete",
+   "fieldtype": "Select",
+   "label": "Does the scaffold have complete floors, kick boards, mid & top hand rails and completed scaffold tag?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ffh_scaff_vehicle",
+   "fieldtype": "Select",
+   "label": "Is the scaffold protected from vehicle movement?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ffh_scaff_complete_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of Scaffold"
+  },
+  {
+   "fieldname": "ffh_emergency_resp",
+   "fieldtype": "Select",
+   "label": "is the Emergency response plan in place and is it understood by the team?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ffh_emergency_resp_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of W@H certificate & emergency response plan"
+  },
+  {
+   "fieldname": "lo_qual",
+   "fieldtype": "Select",
+   "label": "Are workers qualified, VOC'd & authorised to work?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "lo_qual_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of Qualification"
+  },
+  {
+   "fieldname": "lo_load_weights",
+   "fieldtype": "Select",
+   "label": "Does the lift plan include actual or estimate load weights?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "lo_barricade_req",
+   "fieldtype": "Select",
+   "label": "Does the lift plan include barricading requirements?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "lo_comm_plan",
+   "fieldtype": "Select",
+   "label": "Does the team have a communication plan?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "lo_ground_condition",
+   "fieldtype": "Select",
+   "label": "have the ground conditions been assessed & managed?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "lo_lift_plan_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of lift plan / ground conditions"
+  },
+  {
+   "fieldname": "lo_lift_area",
+   "fieldtype": "Select",
+   "label": "Is the entire lifting area controlled & protects people from suspended loads?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "lo_correct_signage",
+   "fieldtype": "Select",
+   "label": "Do the barricaded areas have correct signage & tags?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "lo_exclusive_control",
+   "fieldtype": "Select",
+   "label": "Is exclusive control in place?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "lo_exclusive_control_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of barricading"
+  },
+  {
+   "fieldname": "lo_swl_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of SWL"
+  },
+  {
+   "fieldname": "lo_crane_cert",
+   "fieldtype": "Select",
+   "label": "Is the annual crane certification valid?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "lo_pre_start",
+   "fieldtype": "Select",
+   "label": "Has a pre start been completed?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "lo_pre_start_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of pre start"
+  },
+  {
+   "fieldname": "lo_inspection_tag",
+   "fieldtype": "Select",
+   "label": "Doe the lifting equipment have a current inspection tag?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "lo_lifting_equip_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of lifting equipment"
+  },
+  {
+   "fieldname": "lo_lift_equip_inspect",
+   "fieldtype": "Select",
+   "label": "Is lifting equipment inspected prior to use?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "lo_swl",
+   "fieldtype": "Select",
+   "label": "Is the safe working limit indicated on the crane?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ure_energy_sources",
+   "fieldtype": "Select",
+   "label": "Have all energy sources been identified?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ure_energy_sources_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of JHA"
+  },
+  {
+   "fieldname": "ure_qual",
+   "fieldtype": "Select",
+   "label": "Are the workers qualified & competent?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ure_qual_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of qualifications"
+  },
+  {
+   "fieldname": "ure_energy_iso",
+   "fieldtype": "Select",
+   "label": "Are all potential energy sources isolated?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ure_energy_iso_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of isolation"
+  },
+  {
+   "fieldname": "ure_guarding",
+   "fieldtype": "Select",
+   "label": "Is guarding and/or barricading in place?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ure_guarding_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Images of guarding / barricading"
+  },
+  {
+   "fieldname": "ure_piping_clips",
+   "fieldtype": "Select",
+   "label": "Are all piping / hoses secured with safety clips / whip checks?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ure_equipment",
+   "fieldtype": "Select",
+   "label": "Is all equipment in good condition with a pre start completed?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ure_equipment_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of pre start of equipment"
+  },
+  {
+   "fieldname": "ure_hydraulic_injection",
+   "fieldtype": "Select",
+   "label": "Are all controls in place to prevent hydraulic injection?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ure_high_pressure_alternative",
+   "fieldtype": "Select",
+   "label": "Have any alternatives to high pressure tooling been considered?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ure_zef",
+   "fieldtype": "Select",
+   "label": "Has the 'Zero Energy' verification been completed?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "vme_qual",
+   "fieldtype": "Select",
+   "label": "Is the worker qualified, VOC'd & authorised to work?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Vehicle & Mobile Equipment\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "vme_qual_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of Qualification"
+  },
+  {
+   "fieldname": "vme_parking",
+   "fieldtype": "Select",
+   "label": "Are vehicles & SME's parked fundamentally stable?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Vehicle & Mobile Equipment\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "vme_parking_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of parking"
+  },
+  {
+   "fieldname": "vme_pre_start",
+   "fieldtype": "Select",
+   "label": "Has a vehicle or SME specific pre start been completed?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Vehicle & Mobile Equipment\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "vme_pre_start_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of pre start"
+  },
+  {
+   "fieldname": "vme_driver_cond",
+   "fieldtype": "Select",
+   "label": "Are seat belts worn & driver is driving to conditions?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Vehicle & Mobile Equipment\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "vms_pos_comms",
+   "fieldtype": "Select",
+   "label": "Is positive communication being used during operations?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Vehicle & Mobile Equipment\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "vme_segregation",
+   "fieldtype": "Select",
+   "label": "Are segregation controls suitable for risk between LV vs person?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Vehicle & Mobile Equipment\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "vme_segregation_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of segregation"
+  },
+  {
+   "fieldname": "wnw_pfd",
+   "fieldtype": "Select",
+   "label": "Are PFD's available and in good condition?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Working near Water\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "wnw_pfd_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of PFD's"
+  },
+  {
+   "fieldname": "wnw_guarding",
+   "fieldtype": "Select",
+   "label": "Are all guarding & barricading installed & effective?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Working near Water\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "wnw_guarding_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of guarding / barricading"
+  },
+  {
+   "fieldname": "wnw_qual",
+   "fieldtype": "Select",
+   "label": "Is the worker trained & competent?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Working near Water\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "wnw_emergency_resp",
+   "fieldtype": "Select",
+   "label": "is an emergency response plan in place?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Working near Water\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "wnw_rescue_boat",
+   "fieldtype": "Select",
+   "label": "Is a rescue boat required & is a communication plan in place?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Working near Water\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "image_of_emergency_response_plan",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Image of emergency response plan"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
+ "links": [],
+ "modified": "2024-08-06 11:19:40.664041",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Critical Control Verification",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Site Safety Advisor - External",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

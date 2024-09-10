@@ -1,0 +1,251 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:CMI-{#####}",
+ "creation": "2024-07-24 12:55:32.188326",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "sec_project_info",
+  "link_project",
+  "column_break_iknn",
+  "link_task",
+  "column_break_dwxa",
+  "work_area",
+  "section_break_stgw",
+  "project_name",
+  "work_scope_name",
+  "column_break_dxhj",
+  "contractor",
+  "supervisor",
+  "column_break_riyz",
+  "wo_number",
+  "section_break_pcye",
+  "site_risk_assessed",
+  "risk_assessment_review",
+  "risk_assessment_review_upload",
+  "change_management",
+  "change_management_upload",
+  "load_unload",
+  "work_area_commitment",
+  "work_area_commitment_upload",
+  "interaction_categorisation_section",
+  "safety_category",
+  "improvement_required_category",
+  "comments",
+  "signature"
+ ],
+ "fields": [
+  {
+   "fieldname": "sec_project_info",
+   "fieldtype": "Section Break",
+   "label": "Project Information"
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"=\",\"Open\"]]",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_iknn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_if_empty": 1,
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+   "options": "Task",
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_dwxa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "link_task.parent_name",
+   "fetch_if_empty": 1,
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "fieldname": "section_break_stgw",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fetch_from": "link_project.project_name",
+   "fetch_if_empty": 1,
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "fetch_from": "link_task.subject",
+   "fetch_if_empty": 1,
+   "fieldname": "work_scope_name",
+   "fieldtype": "Data",
+   "label": "Work Scope Name"
+  },
+  {
+   "fieldname": "column_break_dxhj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "link_task.responsible_vendor",
+   "fetch_if_empty": 1,
+   "fieldname": "contractor",
+   "fieldtype": "Data",
+   "label": "Contractor"
+  },
+  {
+   "fetch_from": "link_task.responsible_supervisor",
+   "fetch_if_empty": 1,
+   "fieldname": "supervisor",
+   "fieldtype": "Data",
+   "label": "Supervisor"
+  },
+  {
+   "fieldname": "column_break_riyz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "link_task.work_order",
+   "fetch_if_empty": 1,
+   "fieldname": "wo_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number"
+  },
+  {
+   "fieldname": "section_break_pcye",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "site_risk_assessed",
+   "fieldtype": "Select",
+   "label": "Has the team utilised the site risk assessment (Take 5, JHA etc.) as required?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "risk_assessment_review",
+   "fieldtype": "Select",
+   "label": "Has the risk assessment been reviewed be the team prior to starting work?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "risk_assessment_review_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Upload photo evidence of risk assessment review"
+  },
+  {
+   "fieldname": "change_management",
+   "fieldtype": "Select",
+   "label": "Has the risk assessment been updated to capture change management (Conditions, Tooling, Methodology, SIMOPS)?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "change_management_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Upload photo evidence of change management"
+  },
+  {
+   "fieldname": "load_unload",
+   "fieldtype": "Select",
+   "label": "Is the truck loading / unloading procedure known & followed?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "work_area_commitment",
+   "fieldtype": "Select",
+   "label": "Does the work area demonstrate a commitment to keep themselves & others safe?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "work_area_commitment_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Photo evidence of work area"
+  },
+  {
+   "fieldname": "interaction_categorisation_section",
+   "fieldtype": "Section Break",
+   "label": "Interaction Categorisation"
+  },
+  {
+   "fieldname": "safety_category",
+   "fieldtype": "Select",
+   "label": "What would you deem is the safety category?",
+   "options": "\nNo Risk\nImprovement Required\nStop Work - Reset Required",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.safety_category == \"Improvement Required\"",
+   "fieldname": "improvement_required_category",
+   "fieldtype": "Select",
+   "label": "Improvement required category",
+   "mandatory_depends_on": "eval:doc.safety_category == \"Improvement Required\"",
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPPE\nProcedures\nTools & Equipment\nWork Area"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Signature",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-08-06 11:12:31.863561",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Commitment Interaction",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Site Safety Advisor - External",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

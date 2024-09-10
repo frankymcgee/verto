@@ -1,0 +1,317 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:PTO-{######}",
+ "creation": "2024-05-21 11:00:29.928778",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "project_information_section",
+  "link_project",
+  "current_user",
+  "column_break_ngwb",
+  "link_task",
+  "column_break_dtsc",
+  "work_area",
+  "section_break_lhhm",
+  "project_name",
+  "column_break_jdgb",
+  "work_scope_name",
+  "observation_information_section",
+  "swms__sop__win__no",
+  "ptw_number_if_applicable",
+  "reason_for_observation",
+  "evaluation_section",
+  "safe_and_logical_steps_followed",
+  "safe_log_comments",
+  "used_correct_tooling_and_equipment",
+  "tooling_equip_comments",
+  "used_correct_ppe",
+  "ppe_comments",
+  "work_area_safe",
+  "wrk_area_comments",
+  "health_and_safety_of_other_workers_considered",
+  "h_and_s_comments",
+  "work_area_housekeeping_in_good_order",
+  "housekeeping_comments",
+  "all_hazards_identified_and_controls_implemented",
+  "hazards_controls_comments",
+  "recommendations_section",
+  "write_new_swms__sop__win__jha",
+  "modify_existing_swms__sop__win__jha",
+  "repair_equipment",
+  "rearrange_equipment",
+  "introduce_new_hse_policy",
+  "introduce_new_hse_procedure",
+  "retrain_worker",
+  "perform_ergonomic_study",
+  "final_comments",
+  "overall_percent",
+  "signature"
+ ],
+ "fields": [
+  {
+   "fieldname": "project_information_section",
+   "fieldtype": "Section Break",
+   "label": "Project Information"
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"=\",\"Open\"],[\"Project\",\"_assign\",\"like\",\"eval:doc.current_user\"]]",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_ngwb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"custom_is_work_summary\",\"=\",1]]",
+   "options": "Task"
+  },
+  {
+   "fieldname": "column_break_dtsc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "link_task.custom_parent_task_name",
+   "fetch_if_empty": 1,
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "fieldname": "observation_information_section",
+   "fieldtype": "Section Break",
+   "label": "Observation Information"
+  },
+  {
+   "fieldname": "swms__sop__win__no",
+   "fieldtype": "Data",
+   "label": "SWMS / SOP / WIN / No"
+  },
+  {
+   "fieldname": "ptw_number_if_applicable",
+   "fieldtype": "Data",
+   "label": "PTW Number (If applicable)"
+  },
+  {
+   "fieldname": "reason_for_observation",
+   "fieldtype": "Select",
+   "label": "Reason for Observation",
+   "options": "\nNew Worker\nGood Performer\nPoor Performer\nWorker with known Impairment\nRisk Taker\nRoutine Observation\nUnplanned Observation\nPrevious Incident"
+  },
+  {
+   "fieldname": "evaluation_section",
+   "fieldtype": "Section Break",
+   "label": "Evaluation"
+  },
+  {
+   "fieldname": "safe_and_logical_steps_followed",
+   "fieldtype": "Rating",
+   "label": "Safe and logical steps followed?"
+  },
+  {
+   "depends_on": "eval:doc.safe_and_logical_steps_followed !== \"\"",
+   "fieldname": "safe_log_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "used_correct_tooling_and_equipment",
+   "fieldtype": "Rating",
+   "label": "Used correct Tooling and Equipment?"
+  },
+  {
+   "fieldname": "tooling_equip_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "used_correct_ppe",
+   "fieldtype": "Rating",
+   "label": "Used correct PPE?"
+  },
+  {
+   "fieldname": "ppe_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "work_area_safe",
+   "fieldtype": "Rating",
+   "label": "Work area safe?"
+  },
+  {
+   "fieldname": "wrk_area_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "health_and_safety_of_other_workers_considered",
+   "fieldtype": "Rating",
+   "label": "Health and Safety of other workers considered?"
+  },
+  {
+   "fieldname": "h_and_s_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "work_area_housekeeping_in_good_order",
+   "fieldtype": "Rating",
+   "label": "Work area housekeeping in good order?"
+  },
+  {
+   "fieldname": "housekeeping_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "all_hazards_identified_and_controls_implemented",
+   "fieldtype": "Rating",
+   "label": "All Hazards identified and Controls implemented?"
+  },
+  {
+   "fieldname": "hazards_controls_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "recommendations_section",
+   "fieldtype": "Section Break",
+   "label": "Recommendations"
+  },
+  {
+   "default": "0",
+   "fieldname": "write_new_swms__sop__win__jha",
+   "fieldtype": "Check",
+   "label": "Write new SWMS / SOP / WIN / JHA"
+  },
+  {
+   "default": "0",
+   "fieldname": "modify_existing_swms__sop__win__jha",
+   "fieldtype": "Check",
+   "label": "Modify existing SWMS / SOP / WIN / JHA"
+  },
+  {
+   "default": "0",
+   "fieldname": "repair_equipment",
+   "fieldtype": "Check",
+   "label": "Repair Equipment"
+  },
+  {
+   "default": "0",
+   "fieldname": "rearrange_equipment",
+   "fieldtype": "Check",
+   "label": "Rearrange Equipment"
+  },
+  {
+   "default": "0",
+   "fieldname": "introduce_new_hse_policy",
+   "fieldtype": "Check",
+   "label": "Introduce new HSE Policy"
+  },
+  {
+   "default": "0",
+   "fieldname": "introduce_new_hse_procedure",
+   "fieldtype": "Check",
+   "label": "Introduce new HSE Procedure"
+  },
+  {
+   "default": "0",
+   "fieldname": "retrain_worker",
+   "fieldtype": "Check",
+   "label": "Retrain Worker"
+  },
+  {
+   "default": "0",
+   "fieldname": "perform_ergonomic_study",
+   "fieldtype": "Check",
+   "label": "Perform Ergonomic Study"
+  },
+  {
+   "fieldname": "final_comments",
+   "fieldtype": "Small Text",
+   "label": "Final Comments"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Signature"
+  },
+  {
+   "fieldname": "overall_percent",
+   "fieldtype": "Percent",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Overall Percent",
+   "precision": "2"
+  },
+  {
+   "fieldname": "section_break_lhhm",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_jdgb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "current_user",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Created By"
+  },
+  {
+   "fetch_from": "link_project.project_name",
+   "fetch_if_empty": 1,
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Project Name"
+  },
+  {
+   "fetch_from": "link_task.subject",
+   "fetch_if_empty": 1,
+   "fieldname": "work_scope_name",
+   "fieldtype": "Data",
+   "label": "Work Scope Name"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-07-05 17:00:24.783367",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Planned Task Observation",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

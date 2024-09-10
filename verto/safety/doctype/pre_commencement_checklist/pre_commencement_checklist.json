@@ -1,0 +1,574 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:PCC-{####}",
+ "creation": "2024-06-04 11:56:16.617840",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "project_information_section",
+  "link_project",
+  "column_break_einp",
+  "link_task",
+  "column_break_bsxx",
+  "work_area",
+  "section_break_hcge",
+  "project_name",
+  "work_scope_name",
+  "wo_number",
+  "column_break_rlop",
+  "resp_vendor",
+  "resp_supervisor",
+  "verification_section",
+  "washdown",
+  "washdown_comments",
+  "handover",
+  "handover_comments",
+  "jha_verification",
+  "jha_verification_comments",
+  "major_hazards",
+  "major_hazards_comments",
+  "swi",
+  "swi_comments",
+  "wah",
+  "wah_comments",
+  "wah_controls",
+  "wah_controls_comments",
+  "scaff_suitable",
+  "scaff_suitable_comments",
+  "dropped_tooling",
+  "dropped_tooling_comments",
+  "yes_dropped_tooling",
+  "yes_dropped_tooling_comments",
+  "isolation_required",
+  "isolation_required_comments",
+  "asset_number",
+  "asset_number_comments",
+  "challenged_isolation",
+  "chalenged_isolation_comments",
+  "permit_reference",
+  "permit_reference_comments",
+  "certs_authorised",
+  "certs_authorised_comments",
+  "hot_works",
+  "hot_works_comments",
+  "fire_suppression",
+  "fire_suppression_comments",
+  "suspended_loads",
+  "suspended_loads_comments",
+  "rigging_required",
+  "rigging_required_comments",
+  "wet_conditions",
+  "wet_conditions_yes",
+  "wet_conditions_comments",
+  "tooling_inspected",
+  "tooling_inspected_comments",
+  "electrical_leads",
+  "electrical_leads_comments",
+  "banned_tooling",
+  "banned_tooling_comments",
+  "barricading",
+  "barricading_comments",
+  "nearby_crews",
+  "nearby_crews_comments",
+  "emergency_procedures",
+  "emergency_procedures_comments",
+  "impact_gloves",
+  "impact_gloves_comments",
+  "controls_adequate",
+  "controls_adequate_comments",
+  "section_break_otlm",
+  "team_leader_name",
+  "team_leader_signature",
+  "column_break_gpgb",
+  "supervisor_name",
+  "supervisor_signature"
+ ],
+ "fields": [
+  {
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"=\",\"Open\"]]",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_einp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"type\",\"=\",\"Work Summary\"],[\"Task\",\"parent_task\",\"=\",\"eval:doc.link_project\"]]",
+   "options": "Task",
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_bsxx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "link_task.parent_name",
+   "fetch_if_empty": 1,
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "fieldname": "project_information_section",
+   "fieldtype": "Section Break",
+   "label": "Project Information"
+  },
+  {
+   "fieldname": "section_break_hcge",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fetch_from": "link_project.project_name",
+   "fetch_if_empty": 1,
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "fieldname": "column_break_rlop",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "link_task.subject",
+   "fetch_if_empty": 1,
+   "fieldname": "work_scope_name",
+   "fieldtype": "Data",
+   "label": "Work Scope Name"
+  },
+  {
+   "fetch_from": "link_task.work_order",
+   "fetch_if_empty": 1,
+   "fieldname": "wo_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number"
+  },
+  {
+   "fetch_from": "link_task.responsible_vendor",
+   "fetch_if_empty": 1,
+   "fieldname": "resp_vendor",
+   "fieldtype": "Data",
+   "label": "Responsible Vendor"
+  },
+  {
+   "fetch_from": "link_task.responsible_supervisor",
+   "fetch_if_empty": 1,
+   "fieldname": "resp_supervisor",
+   "fieldtype": "Data",
+   "label": "Responsible Supervisor"
+  },
+  {
+   "fieldname": "verification_section",
+   "fieldtype": "Section Break",
+   "label": "Verification"
+  },
+  {
+   "fieldname": "washdown",
+   "fieldtype": "Select",
+   "label": "Is washdown complete - Do you accept the work area?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.washdown !== \"\"",
+   "fieldname": "washdown_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "depends_on": "eval:doc.handover !== \"\"",
+   "fieldname": "handover_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "jha_verification",
+   "fieldtype": "Select",
+   "label": "Have you discussed the JHA with the team & ensured their understanding with sign on verification?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.jha_verification !== \"\"",
+   "fieldname": "jha_verification_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "major_hazards",
+   "fieldtype": "Select",
+   "label": "Have all major hazards been listed as pause points in the JHA?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.major_hazards !== \"\"",
+   "fieldname": "major_hazards_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "swi",
+   "fieldtype": "Select",
+   "label": "Is there an SWI for this task & does the JHA reflect the steps?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.swi !== \"\"",
+   "fieldname": "swi_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "handover",
+   "fieldtype": "Select",
+   "label": "Does the team understand the handover from the previous shift?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "wah",
+   "fieldtype": "Select",
+   "label": "Will the team be exposed to working at heights?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.wah !== \"\"",
+   "fieldname": "wah_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "wah_controls",
+   "fieldtype": "Select",
+   "label": "Are working at heights controls in place & effective?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.wah_controls !== \"\"",
+   "fieldname": "wah_controls_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "scaff_suitable",
+   "fieldtype": "Select",
+   "label": "If scaffold is used, is it suitable for the task and has a current tag?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.scaff_suitable !== \"\"",
+   "fieldname": "scaff_suitable_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "dropped_tooling",
+   "fieldtype": "Select",
+   "label": "Is there a risk of dropped tooling or equipment?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.dropped_tooling !== \"\"",
+   "fieldname": "dropped_tooling_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "depends_on": "eval:doc.dropped_tooling.includes(\"Yes\")",
+   "fieldname": "yes_dropped_tooling",
+   "fieldtype": "Select",
+   "label": "Are control measures such as drop matting, mesh guarding, tool lanyards, buckets & chin straps in place?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.yes_dropped_tooling != \"\"",
+   "fieldname": "yes_dropped_tooling_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "isolation_required",
+   "fieldtype": "Select",
+   "label": "Are the isolations required for the task listed on the JHA & the isolation permit?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.isolation_required !== \"\"",
+   "fieldname": "isolation_required_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "asset_number",
+   "fieldtype": "Select",
+   "label": "Have all team members documented & verified the isolated asset # on the take control?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.asset_number != \"\"",
+   "fieldname": "asset_number_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "challenged_isolation",
+   "fieldtype": "Select",
+   "label": "Has the team challenged & verified the permit number & any high risk certificates?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.challenged_isolation !== \"\"",
+   "fieldname": "chalenged_isolation_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "permit_reference",
+   "fieldtype": "Select",
+   "label": "Does the JHA reference the permit number & any high-risk certificates?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.permit_reference !== \"\"",
+   "fieldname": "permit_reference_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "certs_authorised",
+   "fieldtype": "Select",
+   "label": "Are high-risk certificates authorised & current? i.e., hot works, working at heights, confined space entry etc.",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.certs_authorised !== \"\"",
+   "fieldname": "certs_authorised_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "hot_works",
+   "fieldtype": "Select",
+   "label": "Will any hot works be required for the task?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.hot_works !== \"\"",
+   "fieldname": "hot_works_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "depends_on": "eval:doc.hot_works.includes(\"yes\")",
+   "fieldname": "fire_suppression",
+   "fieldtype": "Select",
+   "label": "Are fire suppression controls, charged hose & spotters in place?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.fire_suppression != \"\"",
+   "fieldname": "fire_suppression_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "suspended_loads",
+   "fieldtype": "Select",
+   "label": "Will the team be exposed to any suspended loads?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.suspended_loads !== \"\"",
+   "fieldname": "suspended_loads_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "rigging_required",
+   "fieldtype": "Select",
+   "label": "Has all rigging required for the task been inspected & has a current tag?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.rigging_required !== \"\"",
+   "fieldname": "rigging_required_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "wet_conditions",
+   "fieldtype": "Select",
+   "label": "Are the working conditions damp or wet & will electrical tooling be used?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.wet_conditions.includes(\"Yes\")",
+   "fieldname": "wet_conditions_yes",
+   "fieldtype": "Heading",
+   "label": "Electrical Tooling Checklist must be completed"
+  },
+  {
+   "depends_on": "eval:doc.wet_conditions !== \"\"",
+   "fieldname": "wet_conditions_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "tooling_inspected",
+   "fieldtype": "Select",
+   "label": "Has all tooling & equipment been inspected for damage, complies with current tagging expectations & is in good working condition?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.tooling_inspected !== \"\"",
+   "fieldname": "tooling_inspected_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "electrical_leads",
+   "fieldtype": "Select",
+   "label": "Are all electrical leads set up off the ground & clear of walkways?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.electrical_leads !== \"\"",
+   "fieldname": "electrical_leads_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "banned_tooling",
+   "fieldtype": "Select",
+   "label": "Are there any banned or restricted tooling (unless approved & has accompanying TBRA) on the job?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.banned_tooling !== \"\"",
+   "fieldname": "banned_tooling_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "barricading",
+   "fieldtype": "Select",
+   "label": "Does the work area have the correct 360\u00b0 barricading with correct tags?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.barricading !== \"\"",
+   "fieldname": "barricading_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "nearby_crews",
+   "fieldtype": "Select",
+   "label": "If there are nearby crews, have you discussed your task with them?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.nearby_crews !== \"\"",
+   "fieldname": "nearby_crews_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "emergency_procedures",
+   "fieldtype": "Select",
+   "label": "Are site emergency procedures known by the team? i.e., location of muster points, how to raise an emergency",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.emergency_procedures !== \"\"",
+   "fieldname": "emergency_procedures_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "impact_gloves",
+   "fieldtype": "Select",
+   "label": "Do all personnel have impact gloves?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.impact_gloves !== \"\"",
+   "fieldname": "impact_gloves_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "controls_adequate",
+   "fieldtype": "Select",
+   "label": "Are all controls in place adequate to protect team members extremedies?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.controls_adequate !== \"\"",
+   "fieldname": "controls_adequate_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "section_break_otlm",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "team_leader_name",
+   "fieldtype": "Data",
+   "label": "Team leader name"
+  },
+  {
+   "fieldname": "team_leader_signature",
+   "fieldtype": "Signature",
+   "label": "Team leader signature"
+  },
+  {
+   "fieldname": "column_break_gpgb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "supervisor_name",
+   "fieldtype": "Data",
+   "label": "Supervisor Name"
+  },
+  {
+   "fieldname": "supervisor_signature",
+   "fieldtype": "Signature",
+   "label": "Supervisor signature"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-07-30 16:43:58.037698",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Pre-Commencement Checklist",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

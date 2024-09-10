@@ -1,0 +1,121 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:GEN-{######}",
+ "creation": "2024-07-19 18:03:41.755430",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "sec_document",
+  "input_file",
+  "sec_replacement",
+  "replacement_id",
+  "client",
+  "company_logo",
+  "company_name",
+  "abbreviation",
+  "managing_director",
+  "publish_date",
+  "review_date",
+  "teb_generated",
+  "generated_document_url"
+ ],
+ "fields": [
+  {
+   "fieldname": "input_file",
+   "fieldtype": "Attach",
+   "label": "Input '.docx' file"
+  },
+  {
+   "fieldname": "company_name",
+   "fieldtype": "Data",
+   "label": "Company Name"
+  },
+  {
+   "fieldname": "managing_director",
+   "fieldtype": "Data",
+   "label": "Managing Director"
+  },
+  {
+   "fieldname": "sec_document",
+   "fieldtype": "Section Break",
+   "label": "Document Upload"
+  },
+  {
+   "fieldname": "sec_replacement",
+   "fieldtype": "Section Break",
+   "label": "Replacement Information"
+  },
+  {
+   "fetch_from": "client.doc_logo",
+   "fetch_if_empty": 1,
+   "fieldname": "company_logo",
+   "fieldtype": "Attach",
+   "label": "Company logo"
+  },
+  {
+   "fieldname": "teb_generated",
+   "fieldtype": "Section Break",
+   "label": "Generated Document"
+  },
+  {
+   "fieldname": "generated_document_url",
+   "fieldtype": "Attach",
+   "label": "Generated Document"
+  },
+  {
+   "fieldname": "replacement_id",
+   "fieldtype": "Data",
+   "label": "Image replacement ID (e.g. image1)"
+  },
+  {
+   "fieldname": "publish_date",
+   "fieldtype": "Data",
+   "label": "Publish Date"
+  },
+  {
+   "fieldname": "review_date",
+   "fieldtype": "Data",
+   "label": "Review Date"
+  },
+  {
+   "fieldname": "abbreviation",
+   "fieldtype": "Data",
+   "label": "Company Abbreviation"
+  },
+  {
+   "fieldname": "client",
+   "fieldtype": "Link",
+   "label": "Client",
+   "options": "Customer"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-07-23 10:26:26.264349",
+ "modified_by": "Administrator",
+ "module": "Verto",
+ "name": "Generated Documents",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

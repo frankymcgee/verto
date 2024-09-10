@@ -1,0 +1,107 @@
+{
+ "add_total_row": 0,
+ "columns": [
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee",
+   "width": 0
+  },
+  {
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project",
+   "width": 0
+  },
+  {
+   "fieldname": "date_submitted",
+   "fieldtype": "Date",
+   "label": "Date",
+   "width": 0
+  },
+  {
+   "fieldname": "day_of_week",
+   "fieldtype": "Data",
+   "label": "Day",
+   "width": 0
+  },
+  {
+   "fieldname": "shift_type",
+   "fieldtype": "Data",
+   "label": "Shift",
+   "width": 0
+  },
+  {
+   "fieldname": "start_time",
+   "fieldtype": "Time",
+   "label": "Start Time",
+   "width": 0
+  },
+  {
+   "fieldname": "end_time",
+   "fieldtype": "Time",
+   "label": "End Time",
+   "width": 0
+  },
+  {
+   "fieldname": "hours_worked",
+   "fieldtype": "Data",
+   "label": "Total Hours",
+   "width": 0
+  }
+ ],
+ "creation": "2024-09-03 15:34:49.153240",
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start Date",
+   "mandatory": 1,
+   "wildcard_filter": 0
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "label": "End Date",
+   "mandatory": 1,
+   "wildcard_filter": 0
+  },
+  {
+   "default": "No",
+   "fieldname": "exclude_operations",
+   "fieldtype": "Select",
+   "label": "Exclude Internal Hours",
+   "mandatory": 0,
+   "options": "Yes\nNo",
+   "wildcard_filter": 0
+  }
+ ],
+ "idx": 0,
+ "is_standard": "Yes",
+ "json": "{}",
+ "letter_head": "",
+ "letterhead": null,
+ "modified": "2024-09-03 16:04:41.797392",
+ "modified_by": "Administrator",
+ "module": "Verto",
+ "name": "Weekly Timesheet v2",
+ "owner": "Administrator",
+ "prepared_report": 0,
+ "query": "SELECT\r\n    employee_name, project_name, date_submitted, day_of_week, shift_type, start_time, end_time, hours_worked\r\nFROM (\r\n    -- Regular data rows\r\n    SELECT\r\n        u.full_name AS employee_name,\r\n        dt.date AS date_submitted,\r\n        DAYNAME(dt.date) AS day_of_week,\r\n        dt.project AS project_name,\r\n        dt.shift AS shift_type,\r\n        dt.start_time AS start_time,\r\n        dt.end_time AS end_time,\r\n        dt.duration / 3600 AS hours_worked,\r\n        u.full_name AS group_order,\r\n        0 AS sort_order\r\n        \r\n    FROM\r\n        `tabDaily Timesheet` dt\r\n    JOIN\r\n        `tabUser` u ON dt.owner = u.name\r\n    WHERE\r\n        dt.date BETWEEN %(start_date)s AND %(end_date)s\r\n        AND (%(exclude_operations)s = 'No' \r\n            OR dt.project NOT LIKE '%%Operations & Execution%%')\r\n\r\n    UNION ALL\r\n\r\n    -- Total row\r\n    SELECT\r\n        u.full_name AS employee_name,\r\n        NULL AS date_submitted,\r\n        NULL AS day_of_week,\r\n        NULL AS project_name,\r\n        'Total Working Hours' AS shift_type,\r\n        NULL AS start_time,\r\n        NULL AS end_time,\r\n        SUM(dt.duration) / 3600 AS hours_worked,\r\n        u.full_name AS group_order,\r\n        1 AS sort_order\r\n    FROM\r\n        `tabDaily Timesheet` dt\r\n    JOIN\r\n        `tabUser` u ON dt.owner = u.name\r\n    WHERE\r\n        dt.date BETWEEN %(start_date)s AND %(end_date)s\r\n        AND (%(exclude_operations)s = 'No' \r\n            OR dt.project NOT LIKE '%%Operations & Execution%%')\r\n    GROUP BY\r\n        u.full_name\r\n\r\n    UNION ALL\r\n\r\n    -- Blank row to separate groups\r\n    SELECT\r\n        '' AS employee_name,\r\n        NULL AS date_submitted,\r\n        NULL AS day_of_week,\r\n        '' AS project_name,\r\n        NULL AS shift_type,\r\n        NULL AS start_time,\r\n        NULL AS end_time,\r\n        NULL AS hours_worked,\r\n        u.full_name AS group_order,\r\n        2 AS sort_order\r\n    FROM\r\n        `tabDaily Timesheet` dt\r\n    JOIN\r\n        `tabUser` u ON dt.owner = u.name\r\n    WHERE\r\n        dt.date BETWEEN %(start_date)s AND %(end_date)s\r\n    GROUP BY\r\n        u.full_name\r\n) AS combined\r\nORDER BY\r\n    combined.group_order, combined.sort_order, combined.date_submitted\r\n",
+ "ref_doctype": "Daily Timesheet",
+ "reference_report": "",
+ "report_name": "Weekly Timesheet v2",
+ "report_script": "def execute(filters=None):\r\n    # Debug: Print filters\r\n    frappe.msgprint(str(filters))\r\n\r\n    columns = [\r\n        {\"fieldname\": \"employee_name\", \"label\": \"Employee Name\", \"fieldtype\": \"Data\", \"width\": 150},\r\n        {\"fieldname\": \"date_submitted\", \"label\": \"Date Submitted\", \"fieldtype\": \"Date\", \"width\": 100},\r\n        {\"fieldname\": \"day_of_week\", \"label\": \"Day of Week\", \"fieldtype\": \"Data\", \"width\": 100},\r\n        {\"fieldname\": \"project_name\", \"label\": \"Project Name\", \"fieldtype\": \"Data\", \"width\": 150},\r\n        {\"fieldname\": \"shift_type\", \"label\": \"Shift Type\", \"fieldtype\": \"Data\", \"width\": 100},\r\n        {\"fieldname\": \"start_time\", \"label\": \"Start Time\", \"fieldtype\": \"Time\", \"width\": 100},\r\n        {\"fieldname\": \"end_time\", \"label\": \"End Time\", \"fieldtype\": \"Time\", \"width\": 100},\r\n        {\"fieldname\": \"hours_worked\", \"label\": \"Hours Worked\", \"fieldtype\": \"Float\", \"width\": 100},\r\n    ]\r\n\r\n    result = []\r\n\r\n    # Debug: Print SQL query with filters\r\n    frappe.msgprint(f\"\"\"\r\n        SELECT\r\n            u.full_name AS employee_name,\r\n            dt.date AS date_submitted,\r\n            DAYNAME(dt.date) AS day_of_week,\r\n            dt.project AS project_name,\r\n            dt.shift AS shift_type,\r\n            dt.start_time AS start_time,\r\n            dt.end_time AS end_time,\r\n            dt.duration / 3600 AS hours_worked\r\n        FROM\r\n            `tabDaily Timesheet` dt\r\n        JOIN\r\n            `tabUser` u ON dt.owner = u.name\r\n        WHERE\r\n            dt.date BETWEEN '{filters.get(\"start_date\")}' AND '{filters.get(\"end_date\")}'\r\n            AND ('{filters.get(\"exclude_operations\")}' = 'No' \r\n                OR dt.project NOT LIKE '%%Operations & Execution%%')\r\n        ORDER BY\r\n            u.full_name, dt.date;\r\n    \"\"\")\r\n\r\n    # Execute the query\r\n    result = frappe.db.sql(\"\"\"\r\n        SELECT\r\n            u.full_name AS employee_name,\r\n            dt.date AS date_submitted,\r\n            DAYNAME(dt.date) AS day_of_week,\r\n            dt.project AS project_name,\r\n            dt.shift AS shift_type,\r\n            dt.start_time AS start_time,\r\n            dt.end_time AS end_time,\r\n            dt.duration / 3600 AS hours_worked\r\n        FROM\r\n            `tabDaily Timesheet` dt\r\n        JOIN\r\n            `tabUser` u ON dt.owner = u.name\r\n        WHERE\r\n            dt.date BETWEEN %(start_date)s AND %(end_date)s\r\n            AND (%(exclude_operations)s = 'No' \r\n                OR dt.project NOT LIKE '%%Operations & Execution%%')\r\n        ORDER BY\r\n            u.full_name, dt.date\r\n    \"\"\", filters, as_dict=1)\r\n\r\n    # Debug: Print result\r\n    frappe.msgprint(str(result))\r\n\r\n    return columns, result\r\n",
+ "report_type": "Script Report",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "WHS Advisor - Internal"
+  }
+ ]
+}

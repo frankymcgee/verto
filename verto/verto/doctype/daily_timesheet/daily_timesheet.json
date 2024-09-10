@@ -1,0 +1,145 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:TS-{current_user}-{date}",
+ "creation": "2024-08-01 11:12:49.869896",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "shift_information_section",
+  "current_user",
+  "date",
+  "shift_allocation",
+  "column_break_nxgq",
+  "shift",
+  "project",
+  "timehseet_activity_section",
+  "start_time",
+  "column_break_lcin",
+  "end_time",
+  "column_break_qdwh",
+  "duration",
+  "section_break_ejhs",
+  "signature"
+ ],
+ "fields": [
+  {
+   "fieldname": "shift_information_section",
+   "fieldtype": "Section Break",
+   "label": "Shift Information"
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Date"
+  },
+  {
+   "fieldname": "shift_allocation",
+   "fieldtype": "Link",
+   "label": "Shift Allocation",
+   "link_filters": "[[\"Shift Assignment\",\"start_date\",\"<=\",\"eval:doc.date\"],[\"Shift Assignment\",\"end_date\",\">=\",\"eval:doc.date\"],[\"Shift Assignment\",\"employee_name\",\"=\",\"eval:doc.current_user\"],[\"Shift Assignment\",\"docstatus\",\"=\",\"1\"]]",
+   "options": "Shift Assignment"
+  },
+  {
+   "fieldname": "column_break_nxgq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "shift_allocation.shift_type",
+   "fetch_if_empty": 1,
+   "fieldname": "shift",
+   "fieldtype": "Data",
+   "label": "Shift"
+  },
+  {
+   "fetch_from": "shift_allocation.custom_project_name",
+   "fetch_if_empty": 1,
+   "fieldname": "project",
+   "fieldtype": "Data",
+   "label": "Project"
+  },
+  {
+   "fieldname": "timehseet_activity_section",
+   "fieldtype": "Section Break",
+   "label": "Timehseet Activity"
+  },
+  {
+   "fieldname": "start_time",
+   "fieldtype": "Time",
+   "label": "Start Time"
+  },
+  {
+   "fieldname": "column_break_lcin",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "end_time",
+   "fieldtype": "Time",
+   "label": "End Time"
+  },
+  {
+   "fieldname": "column_break_qdwh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_ejhs",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Signature"
+  },
+  {
+   "fieldname": "duration",
+   "fieldtype": "Duration",
+   "label": "Total Hours",
+   "options": "end_time - start_time"
+  },
+  {
+   "fieldname": "current_user",
+   "fieldtype": "Data",
+   "label": "User ID"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
+ "links": [],
+ "modified": "2024-08-01 16:18:20.995919",
+ "modified_by": "Administrator",
+ "module": "Verto",
+ "name": "Daily Timesheet",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "WHS Advisor - Internal",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

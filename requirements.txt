@@ -1,0 +1,2 @@
+# verto/requirements.txt
+python-docx

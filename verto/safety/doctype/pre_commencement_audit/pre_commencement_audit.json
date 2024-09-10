@@ -1,0 +1,288 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:PCA{######}",
+ "creation": "2024-07-05 12:50:33.417054",
+ "description": "This audit ensures that all necessary preparations, safety measures, and compliance requirements are in place. It typically includes checking the availability and condition of tools and materials, verifying that workers have received proper training and safety briefings, ensuring that risk assessments and method statements are completed, and confirming that any necessary permits and approvals are obtained. The goal is to identify and mitigate potential hazards or issues, thereby promoting a safe and efficient work environment.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "sec_project",
+  "link_project",
+  "column_break_nioa",
+  "link_task",
+  "column_break_gjvx",
+  "work_area",
+  "sec_proj_info",
+  "project_name",
+  "work_scope_name",
+  "wo_number",
+  "column_break_ftgy",
+  "contractor",
+  "supervisor",
+  "sec_audit",
+  "task_and_location_if_no_work_scope_is_selected",
+  "pre_comm",
+  "upload_pre_commencement",
+  "simops",
+  "simops_upload",
+  "do_risk",
+  "do_risk_ex",
+  "do_risk_ex_header",
+  "control_example",
+  "do_risk_upload",
+  "is_the_work_area_appropriately_barricaded",
+  "signage",
+  "upload_barricading",
+  "sec_safety",
+  "safety_category",
+  "improvement_required_category",
+  "final_comments",
+  "advisor_sign_off"
+ ],
+ "fields": [
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"=\",\"Open\"]]",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_nioa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_gjvx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_if_empty": 1,
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+   "options": "Task",
+   "search_index": 1
+  },
+  {
+   "depends_on": "eval:doc.link_task !== \"\"",
+   "fetch_from": "link_task.parent_name",
+   "fetch_if_empty": 1,
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "fieldname": "sec_project",
+   "fieldtype": "Section Break",
+   "label": "Project Information"
+  },
+  {
+   "depends_on": "eval:doc.link_project !== \"\"",
+   "fetch_from": "link_project.project_name",
+   "fetch_if_empty": 1,
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "fieldname": "column_break_ftgy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.link_task !== \"\"",
+   "fetch_from": "link_task.subject",
+   "fetch_if_empty": 1,
+   "fieldname": "work_scope_name",
+   "fieldtype": "Data",
+   "label": "Work Scope Name"
+  },
+  {
+   "fieldname": "sec_proj_info",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fetch_from": "link_task.work_order",
+   "fetch_if_empty": 1,
+   "fieldname": "wo_number",
+   "fieldtype": "Data",
+   "label": "WO Number"
+  },
+  {
+   "fetch_from": "link_task.responsible_vendor",
+   "fetch_if_empty": 1,
+   "fieldname": "contractor",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Contractor"
+  },
+  {
+   "fetch_from": "link_task.responsible_supervisor",
+   "fetch_if_empty": 1,
+   "fieldname": "supervisor",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Supervisor"
+  },
+  {
+   "fieldname": "sec_audit",
+   "fieldtype": "Section Break",
+   "label": "Audit Information"
+  },
+  {
+   "depends_on": "eval:doc.work_scope_name == \"\"",
+   "fieldname": "task_and_location_if_no_work_scope_is_selected",
+   "fieldtype": "Data",
+   "label": "Task and Location (if no Work Scope is selected)"
+  },
+  {
+   "fieldname": "upload_pre_commencement",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Upload Pre Commencement"
+  },
+  {
+   "fieldname": "pre_comm",
+   "fieldtype": "Select",
+   "label": "Has a Pre Commencement been completed?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "simops",
+   "fieldtype": "Select",
+   "label": "Have SIMOPS been captured and team signed onto the JHA?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "simops_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Upload JHA"
+  },
+  {
+   "fieldname": "do_risk",
+   "fieldtype": "Select",
+   "label": "Has Dropped Object risk been controlled?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "default": "https://dashboard.minesitesupport.com.au/files/barricading_ex.jpg",
+   "fieldname": "do_risk_ex",
+   "fieldtype": "Attach Image",
+   "hidden": 1
+  },
+  {
+   "fieldname": "control_example",
+   "fieldtype": "Image",
+   "hidden": 1,
+   "label": "Control Example",
+   "options": "do_risk_ex"
+  },
+  {
+   "fieldname": "do_risk_upload",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Upload Dropped Objects Risk Control"
+  },
+  {
+   "fieldname": "is_the_work_area_appropriately_barricaded",
+   "fieldtype": "Select",
+   "label": "Is the work area appropriately barricaded?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "signage",
+   "fieldtype": "Select",
+   "label": "Are correct Tags, Signage, and ECA sign on sheets in place?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "upload_barricading",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Upload Barricading"
+  },
+  {
+   "fieldname": "sec_safety",
+   "fieldtype": "Section Break",
+   "label": "Work Area Categorisation"
+  },
+  {
+   "fieldname": "safety_category",
+   "fieldtype": "Select",
+   "label": "What would you deem is the Safety Category?",
+   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required"
+  },
+  {
+   "depends_on": "eval:doc.safety_category == \"Improvement Required\"",
+   "fieldname": "improvement_required_category",
+   "fieldtype": "Select",
+   "label": "Improvement Required Category?",
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPPE\nProcedures\nTools & Equipment"
+  },
+  {
+   "depends_on": "eval:doc.safety_category !== \"\"",
+   "fieldname": "final_comments",
+   "fieldtype": "Small Text",
+   "label": "Final Comments",
+   "mandatory_depends_on": "eval:doc.category !== \"\""
+  },
+  {
+   "depends_on": "eval:doc.safety_category !== \"\"",
+   "fieldname": "advisor_sign_off",
+   "fieldtype": "Signature",
+   "label": "Advisor Sign Off",
+   "mandatory_depends_on": "eval:doc.safety_category !== \"\""
+  },
+  {
+   "fieldname": "do_risk_ex_header",
+   "fieldtype": "Heading",
+   "hidden": 1,
+   "label": "Photo Example"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-08-06 11:09:33.788857",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Pre-Commencement Audit",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Site Safety Advisor - External",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

@@ -1,0 +1,242 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:T5-{########}",
+ "creation": "2024-05-19 16:29:53.151998",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "personnel_information_section",
+  "full_name",
+  "date",
+  "task",
+  "1_think_through_the_task_section",
+  "do_you_understand_the_task_scope",
+  "does_a_procedure_exist",
+  "do_you_understand_the_steps_required_to_do_the_task",
+  "are_tools_and_equipment_in_good_order",
+  "do_you_have_the_correct_ppe",
+  "do_you_have_the_necessary_permits",
+  "have_you_got_a_clear_plan_in_mind",
+  "2_spot_the_hazards_section",
+  "hazard_image",
+  "image_zrvo",
+  "guards_remived",
+  "others_risk",
+  "hazardous_materials",
+  "no_iso_procedure",
+  "wah",
+  "other_activity",
+  "other_hse_hazards",
+  "3_assess_the_risks_section",
+  "risk_levels",
+  "you_must_complete_a_jha_for_this_task_prior_doing_this_task",
+  "4_make_the_changes_section",
+  "implement_controls",
+  "you_may_now_proceed_with_completing_the_task"
+ ],
+ "fields": [
+  {
+   "fieldname": "personnel_information_section",
+   "fieldtype": "Section Break",
+   "label": "Personnel Information"
+  },
+  {
+   "fieldname": "full_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Full Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "task",
+   "fieldtype": "Data",
+   "label": "Task",
+   "reqd": 1
+  },
+  {
+   "fieldname": "1_think_through_the_task_section",
+   "fieldtype": "Section Break",
+   "label": "1. Think Through the Task"
+  },
+  {
+   "fieldname": "do_you_understand_the_task_scope",
+   "fieldtype": "Select",
+   "label": "Do you understand the task scope?",
+   "options": "\nYes\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "does_a_procedure_exist",
+   "fieldtype": "Select",
+   "label": "Does a procedure exist?",
+   "options": "\nYes\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "do_you_understand_the_steps_required_to_do_the_task",
+   "fieldtype": "Select",
+   "label": "Do you understand the steps required to do the task?",
+   "options": "\nYes\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "are_tools_and_equipment_in_good_order",
+   "fieldtype": "Select",
+   "label": "Are tools and equipment in good order?",
+   "options": "\nYes\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "do_you_have_the_correct_ppe",
+   "fieldtype": "Select",
+   "label": "Do you have the correct PPE?",
+   "options": "\nYes\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "do_you_have_the_necessary_permits",
+   "fieldtype": "Select",
+   "label": "Do you have the necessary permits?",
+   "options": "\nYes\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "have_you_got_a_clear_plan_in_mind",
+   "fieldtype": "Select",
+   "label": "Have you got a clear plan in mind?",
+   "options": "\nYes\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "2_spot_the_hazards_section",
+   "fieldtype": "Section Break",
+   "label": "2. Spot the Hazards"
+  },
+  {
+   "default": "https://dashboard.minesitesupport.com.au/files/hazard_workflow.png",
+   "fieldname": "hazard_image",
+   "fieldtype": "Attach Image",
+   "hidden": 1
+  },
+  {
+   "fieldname": "image_zrvo",
+   "fieldtype": "Image",
+   "label": "Hazard Analysis and Control Reference",
+   "options": "hazard_image"
+  },
+  {
+   "fieldname": "guards_remived",
+   "fieldtype": "Select",
+   "label": "Will I be operating equipment with the guards removed?",
+   "options": "\nYes\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "others_risk",
+   "fieldtype": "Select",
+   "label": "Am I or others at risk from the operation of vehicles or mobile equipment?",
+   "options": "\nYes\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "hazardous_materials",
+   "fieldtype": "Select",
+   "label": "Does the task involve hazardous materials?",
+   "options": "\nYes\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "no_iso_procedure",
+   "fieldtype": "Select",
+   "label": "Will I be performing a task without a specific isolation procedure?",
+   "options": "\nYes\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "wah",
+   "fieldtype": "Select",
+   "label": "Will I be working at heights?",
+   "options": "\nYes\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "other_activity",
+   "fieldtype": "Select",
+   "label": "Will I be impacted by other activity in the vicinity?",
+   "options": "\nYes\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "other_hse_hazards",
+   "fieldtype": "Table",
+   "label": "Other HSE hazards?",
+   "options": "Take 5 Hazard Identification"
+  },
+  {
+   "fieldname": "3_assess_the_risks_section",
+   "fieldtype": "Section Break",
+   "label": "3. Assess the risks"
+  },
+  {
+   "fieldname": "risk_levels",
+   "fieldtype": "Select",
+   "label": "Are any risk levels equal to or greater than High (11)?",
+   "options": "\nYes\nNo",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.risk_levels == \"Yes\"",
+   "fieldname": "you_must_complete_a_jha_for_this_task_prior_doing_this_task",
+   "fieldtype": "Heading",
+   "label": "You MUST complete a JHA for this task prior doing this task"
+  },
+  {
+   "depends_on": "eval:doc.risk_levels !== \"\"",
+   "fieldname": "4_make_the_changes_section",
+   "fieldtype": "Section Break",
+   "label": "4. Make the changes and do the task safely"
+  },
+  {
+   "fieldname": "implement_controls",
+   "fieldtype": "Heading",
+   "label": "Implement controls and review Take 5 if changes in the task occur"
+  },
+  {
+   "fieldname": "you_may_now_proceed_with_completing_the_task",
+   "fieldtype": "Heading",
+   "label": "You may now proceed with completing the task"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-06-03 13:43:02.411270",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Take 5",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

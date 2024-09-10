@@ -1,0 +1,311 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "format:FLD-{####}",
+ "creation": "2024-01-07 12:39:01.917094",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sb_taskinfo",
+  "link_project",
+  "column_break_6lioo",
+  "link_task",
+  "column_break_mcwf",
+  "work_area",
+  "section_break_nfxsd",
+  "project_name",
+  "column_break_uh6eh",
+  "work_scope",
+  "interaction_details_section",
+  "interaction_stage",
+  "link_steps",
+  "task_being_undertaken_manual_entry",
+  "column_break_uvqwd",
+  "wo_number",
+  "op_line_number",
+  "column_break_zaus9",
+  "contractor",
+  "supervisor",
+  "section_break_wrie",
+  "attach_image_qllr",
+  "example_photo",
+  "example",
+  "column_break_opfj",
+  "photo_of_work_area",
+  "wa_photo",
+  "section_break_705zw",
+  "category",
+  "room_for_improvement_category",
+  "comments",
+  "signature",
+  "location",
+  "section_break_feay",
+  "lat",
+  "long"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_taskinfo",
+   "fieldtype": "Section Break",
+   "label": "Task Information"
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"=\",\"Open\"]]",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_6lioo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+   "options": "Task",
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_mcwf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fetch_from": "link_task.parent_name",
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "section_break_nfxsd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "depends_on": "eval:doc.link_project !== \"\"",
+   "fetch_from": "link_project.project_name",
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "column_break_uh6eh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\"",
+   "fetch_from": "link_task.subject",
+   "fieldname": "work_scope",
+   "fieldtype": "Data",
+   "label": "Work Scope Name"
+  },
+  {
+   "fieldname": "interaction_details_section",
+   "fieldtype": "Section Break",
+   "label": "Interaction Details"
+  },
+  {
+   "fieldname": "interaction_stage",
+   "fieldtype": "Select",
+   "label": "When is this Interaction conducted?",
+   "options": "\nJob Planning / Setup\nPre-Execution Works\nExecution Works\nPost-Execution Works",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_task !== \"\"",
+   "fetch_from": "link_steps.subject",
+   "fetch_if_empty": 1,
+   "fieldname": "task_being_undertaken_manual_entry",
+   "fieldtype": "Data",
+   "label": "Task Being Undertaken (manual entry)"
+  },
+  {
+   "fieldname": "column_break_uvqwd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "link_steps.work_order",
+   "fetch_if_empty": 1,
+   "fieldname": "wo_number",
+   "fieldtype": "Data",
+   "label": "WO Number"
+  },
+  {
+   "fetch_from": "link_steps.operation_line",
+   "fetch_if_empty": 1,
+   "fieldname": "op_line_number",
+   "fieldtype": "Data",
+   "label": "OP Line Number"
+  },
+  {
+   "fieldname": "column_break_zaus9",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "link_steps.responsible_vendor",
+   "fetch_if_empty": 1,
+   "fieldname": "contractor",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Contractor"
+  },
+  {
+   "fetch_from": "link_steps.responsible_supervisor",
+   "fetch_if_empty": 1,
+   "fieldname": "supervisor",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Supervisor"
+  },
+  {
+   "fieldname": "section_break_wrie",
+   "fieldtype": "Section Break",
+   "hidden": 1,
+   "label": "Photo of Work Area"
+  },
+  {
+   "default": "https://dashboard.minesitesupport.com.au/files/IMG_1731.jpeg",
+   "fieldname": "attach_image_qllr",
+   "fieldtype": "Attach Image",
+   "hidden": 1
+  },
+  {
+   "fieldname": "example_photo",
+   "fieldtype": "Heading",
+   "hidden": 1,
+   "label": "Example Photo"
+  },
+  {
+   "fieldname": "example",
+   "fieldtype": "Image",
+   "hidden": 1,
+   "label": "Example",
+   "max_height": "300px",
+   "options": "attach_image_qllr",
+   "width": "300px"
+  },
+  {
+   "fieldname": "column_break_opfj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "photo_of_work_area",
+   "fieldtype": "Attach Image",
+   "hidden": 1,
+   "label": "Photo of Work Area"
+  },
+  {
+   "fieldname": "wa_photo",
+   "fieldtype": "Image",
+   "hidden": 1,
+   "label": "Work Area Photo",
+   "options": "photo_of_work_area"
+  },
+  {
+   "fieldname": "section_break_705zw",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "No Risk / Improvement Required?",
+   "options": "\nNo Risk\nImprovement Required\nStop Work - Reset Required",
+   "reqd": 1,
+   "sort_options": 1
+  },
+  {
+   "depends_on": "eval:doc.category == \"Improvement Required\"",
+   "fieldname": "room_for_improvement_category",
+   "fieldtype": "Select",
+   "label": "Room for Improvement Category",
+   "options": "\nPositions of People\nPPE\nTools & Equipment\nProcedures\nWork Area"
+  },
+  {
+   "depends_on": "eval:doc.category !== \"\"",
+   "fieldname": "comments",
+   "fieldtype": "Small Text",
+   "label": "Comments",
+   "reqd": 1
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "hidden": 1,
+   "label": "Signature"
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Location",
+   "options": "\nOverland Conveyor\nScreening\nScrubbing\nDesands\nCrushing\nTLO\nCar Dumper\nStockyard\nPort Screening\nMarine",
+   "sort_options": 1
+  },
+  {
+   "fieldname": "section_break_feay",
+   "fieldtype": "Section Break",
+   "hidden": 1
+  },
+  {
+   "fieldname": "lat",
+   "fieldtype": "Float",
+   "label": "Latitude"
+  },
+  {
+   "fieldname": "long",
+   "fieldtype": "Float",
+   "label": "longitude"
+  },
+  {
+   "depends_on": "eval:doc.link_task !== \"\"",
+   "fetch_if_empty": 1,
+   "fieldname": "link_steps",
+   "fieldtype": "Link",
+   "label": "Task being undertaken",
+   "link_filters": "[[\"Task\",\"parent_task\",\"=\",\"eval: doc.link_task\"]]",
+   "options": "Task"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
+ "links": [],
+ "modified": "2024-08-06 11:11:14.878028",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Field Interaction",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}
