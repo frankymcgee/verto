@@ -10,13 +10,15 @@ app_license = "apache-2.0"
 # ------------------
 
 # include js, css files in header of desk.html
-app_include_css = "/assets/verto/css/verto.css"
+app_include_css = [
+	"/assets/verto/css/verto.css"
+]
 app_include_js = [
 	"/assets/verto/js/gantt_view.js",
 	"/assets/verto/js/geolocation.js",
 	"/assets/verto/js/map_defaults.js",
 	"/assets/verto/js/map_view.js"
-	]	
+]	
 
 # include js, css files in header of web template
 # web_include_css = "/assets/verto/css/verto.css"

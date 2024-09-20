@@ -561,6 +561,7 @@
    "fieldname": "select_the_area_needed_for_improvement",
    "fieldtype": "Select",
    "label": "Select the area needed for improvement",
+   "mandatory_depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
    "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nTools & Equipment\nProcedures\nWork Area"
   },
   {
@@ -1254,7 +1255,7 @@
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2024-08-06 11:19:40.664041",
+ "modified": "2024-09-19 12:47:16.838141",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Critical Control Verification",

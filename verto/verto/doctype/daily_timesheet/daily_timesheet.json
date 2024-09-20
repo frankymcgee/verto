@@ -20,6 +20,7 @@
   "column_break_qdwh",
   "duration",
   "section_break_ejhs",
+  "comments",
   "signature"
  ],
  "fields": [
@@ -100,12 +101,17 @@
    "fieldname": "current_user",
    "fieldtype": "Data",
    "label": "User ID"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2024-08-01 16:18:20.995919",
+ "modified": "2024-09-18 17:11:58.397566",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Daily Timesheet",
