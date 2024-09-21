@@ -81,13 +81,6 @@
     }
 }
 
-.level-left {
-    display: inline-grid;
-    justify-content: start;
-    align-items: end;
-    align-content: space-between;
-    justify-items: start;
-}
 .gantt-task-column {
     width: 20%;
     padding: 0 0 15px 0;
@@ -113,7 +106,7 @@
     cursor: pointer;
     transition: background-color 0.3s;
     color: var(--text-grey);
-    font-size: 14px; /* Slightly larger for better readability */
+    font-size: 12px; /* Slightly larger for better readability */
     /* fill: #ffffff; */
 }
 

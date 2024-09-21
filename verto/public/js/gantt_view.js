@@ -56,9 +56,24 @@ frappe.views.GanttView = class GanttView extends frappe.views.ListView {
 				label = item[field_map.title];
 			}
 
-			// Parse start and end times using moment.js
-			var start_time = moment(item[field_map.start], 'YYYY-MM-DD HH:mm:ss').subtract(12, 'hours');
-			var end_time = moment(item[field_map.end], 'YYYY-MM-DD HH:mm:ss').subtract(12, 'hours');
+			// Parse start and end times using the exp_start_time for HH:mm:ss
+                var date_part_start = moment(item[field_map.start], 'YYYY-MM-DD');
+                var time_part_start = moment(item.exp_start_time, 'HH:mm:ss');
+                var date_part_end = moment(item[field_map.end], 'YYYY-MM-DD');
+                var time_part_end = moment(item.exp_end_time, 'HH:mm:ss');
+
+                // Combine date and time parts for start and end times
+                var start_time = date_part_start
+                    .hour(time_part_start.hour())
+                    .minute(time_part_start.minute())
+                    .second(time_part_start.second())
+                    .subtract(12, 'hours');
+
+                var end_time = date_part_end
+                    .hour(time_part_end.hour())
+                    .minute(time_part_end.minute())
+                    .second(time_part_end.second())
+                    .subtract(12, 'hours');
 
 			// Check if start_time and end_time are valid
 			if (!start_time.isValid() || !end_time.isValid()) {
@@ -74,6 +89,7 @@ frappe.views.GanttView = class GanttView extends frappe.views.ListView {
 				doctype: me.doctype,
 				progress: progress,
 				dependencies: item.depends_on_tasks || "",
+				task: item.subject,
 			};
 
 			if (item.color && frappe.ui.color.validate_hex(item.color)) {
@@ -115,25 +131,18 @@ render_task_column($taskColumn) {
     $taskColumn.append($header);
 
     // Loop through the tasks and add each task name to the column
-    this.tasks.forEach(task => {
-        // Extract the task name without the bracketed part and percentage
-        let cleanTaskName = task.name.replace(/\s*\(.*?\)\s*-\s*\d+%/g, '').trim();
-
+    this.tasks.forEach(task => {        
         // Create task item
-        const $taskItem = $(`<div class="gantt-task-item">${cleanTaskName}</div>`);
-        
+        const $taskItem = $(`<div class="gantt-task-item">${task.task}</div>`);        
         // Optional: Add a click handler to focus on the task in the Gantt chart
         $taskItem.on("click", () => {
-            // You can scroll or highlight the task in the Gantt chart here
-            console.log(`Task clicked: ${cleanTaskName}`);
+            frappe.set_route("Form", task.doctype, task.id);
         });
-
         $taskColumn.append($taskItem);
     });
 }
 
-	render_header() {}
-	
+	render_header() {}	
 
 	render_gantt($ganttContainer) {
     const me = this;
