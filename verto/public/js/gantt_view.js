@@ -56,9 +56,19 @@ frappe.views.GanttView = class GanttView extends frappe.views.ListView {
 				label = item[field_map.title];
 			}
 
+			// Parse start and end times using moment.js
+			var start_time = moment(item[field_map.start], 'YYYY-MM-DD HH:mm:ss').subtract(12, 'hours');
+			var end_time = moment(item[field_map.end], 'YYYY-MM-DD HH:mm:ss').subtract(12, 'hours');
+
+			// Check if start_time and end_time are valid
+			if (!start_time.isValid() || !end_time.isValid()) {
+				console.error("Invalid date:", item);
+				return null;  // Skip this item if dates are invalid
+			}
+
 			var r = {
-				start: item[field_map.start],
-				end: item[field_map.end],
+				start: start_time.toDate(),  // Ensure the start and end are Date objects
+				end: end_time.toDate(),
 				name: label,
 				id: item[field_map.id || "name"],
 				doctype: me.doctype,
@@ -75,87 +85,120 @@ frappe.views.GanttView = class GanttView extends frappe.views.ListView {
 			}
 
 			return r;
-		});
+		}).filter(item => item !== null);  // Filter out any null items
 	}
 
 	render() {
 		this.load_lib.then(() => {
-			this.render_gantt();
-		});
-	}
+			// Create a container for the task names list
+        this.$result.empty();
+        this.$result.addClass("gantt-modern");
+
+        const $taskColumn = $('<div class="gantt-task-column"></div>');
+        const $ganttContainer = $('<div class="gantt-chart-container"></div>');
+
+        this.$result.append($taskColumn);   // Add task list container
+        this.$result.append($ganttContainer); // Add Gantt chart container
+
+        // Call the method that will render the task names
+        this.render_task_column($taskColumn);
+
+        // Render the Gantt chart
+        this.render_gantt($ganttContainer);
+    });
+}
+render_task_column($taskColumn) {
+    const me = this;
+
+    // Create a header for the task names column
+    const $header = $('<div class="gantt-task-header"><strong>Tasks</strong></div>');
+    $taskColumn.append($header);
+
+    // Loop through the tasks and add each task name to the column
+    this.tasks.forEach(task => {
+        // Extract the task name without the bracketed part and percentage
+        let cleanTaskName = task.name.replace(/\s*\(.*?\)\s*-\s*\d+%/g, '').trim();
+
+        // Create task item
+        const $taskItem = $(`<div class="gantt-task-item">${cleanTaskName}</div>`);
+        
+        // Optional: Add a click handler to focus on the task in the Gantt chart
+        $taskItem.on("click", () => {
+            // You can scroll or highlight the task in the Gantt chart here
+            console.log(`Task clicked: ${cleanTaskName}`);
+        });
+
+        $taskColumn.append($taskItem);
+    });
+}
 
 	render_header() {}
+	
 
-	render_gantt() {
-		const me = this;
-		const gantt_view_mode = this.view_user_settings.gantt_view_mode || "Day";
-		const field_map = this.calendar_settings.field_map;
-		const date_format = "YYYY-MM-DD HH:MM:SS";
+	render_gantt($ganttContainer) {
+    const me = this;
+    const gantt_view_mode = this.view_user_settings.gantt_view_mode || "Day";
+    const field_map = this.calendar_settings.field_map;
+    const date_format = "YYYY-MM-DD HH:mm:ss";
 
-		this.$result.empty();
-		this.$result.addClass("gantt-modern");
+    $ganttContainer.empty();
 
-		this.gantt = new Gantt(this.$result[0], this.tasks, {
-			bar_height: 35,
-			bar_corner_radius: 4,
-			resize_handle_width: 8,
-			resize_handle_height: 28,
-			resize_handle_corner_radius: 3,
-			resize_handle_offset: 4,
-			view_mode: gantt_view_mode,
-			date_format: "YYYY-MM-DD HH:MM:SS",
-			on_click: (task) => {
-				frappe.set_route("Form", task.doctype, task.id);
-			},
-			on_date_change: (task, start, end) => {
-				if (!me.can_write) return;
-				frappe.db.set_value(task.doctype, task.id, {
-					[field_map.start]: moment(start).format(date_format),
-					[field_map.end]: moment(end).format(date_format),
-				});
-			},
-			on_progress_change: (task, progress) => {
-				if (!me.can_write) return;
-				var progress_fieldname = "progress";
+    this.gantt = new Gantt($ganttContainer[0], this.tasks, {
+        bar_height: 35,
+        bar_corner_radius: 4,
+        view_mode: gantt_view_mode,
+        date_format: date_format,
+        on_click: (task) => {
+            frappe.set_route("Form", task.doctype, task.id);
+        },
+        on_date_change: (task, start, end) => {
+            if (!me.can_write) return;
+            frappe.db.set_value(task.doctype, task.id, {
+                [field_map.start]: moment(start).utc().format(date_format),
+                [field_map.end]: moment(end).utc().format(date_format),
+            });
+        },
+        on_progress_change: (task, progress) => {
+            if (!me.can_write) return;
+            var progress_fieldname = "progress";
 
-				if ($.isFunction(field_map.progress)) {
-					progress_fieldname = null;
-				} else if (field_map.progress) {
-					progress_fieldname = field_map.progress;
-				}
+            if ($.isFunction(field_map.progress)) {
+                progress_fieldname = null;
+            } else if (field_map.progress) {
+                progress_fieldname = field_map.progress;
+            }
 
-				if (progress_fieldname) {
-					frappe.db.set_value(task.doctype, task.id, {
-						[progress_fieldname]: parseInt(progress),
-					});
-				}
-			},
-			on_view_change: (mode) => {
-				// save view mode
-				me.save_view_user_settings({
-					gantt_view_mode: mode,
-				});
-			},
-			custom_popup_html: (task) => {
-				var item = me.get_item(task.id);
+            if (progress_fieldname) {
+                frappe.db.set_value(task.doctype, task.id, {
+                    [progress_fieldname]: parseInt(progress),
+                });
+            }
+        },
+        on_view_change: (mode) => {
+            me.save_view_user_settings({
+                gantt_view_mode: mode,
+            });
+        },
+        custom_popup_html: (task) => {
+            var item = me.get_item(task.id);
 
-				var html = `<div class="title">${task.name}</div>
-					<div class="subtitle">${moment(task._start).format("MMM D")} - ${moment(task._end).format(
-					"MMM D"
-				)}</div>`;
+            var html = `<div class="title">${task.name}</div>
+                <div class="subtitle">${moment(task._start).format("MMM D")} - ${moment(task._end).format(
+                "MMM D"
+            )}</div>`;
 
-				// custom html in doctype settings
-				var custom = me.settings.gantt_custom_popup_html;
-				if (custom && $.isFunction(custom)) {
-					var ganttobj = task;
-					html = custom(ganttobj, item);
-				}
-				return '<div class="details-container">' + html + "</div>";
-			},
-		});
-		this.setup_view_mode_buttons();
-		this.set_colors();
-	}
+            var custom = me.settings.gantt_custom_popup_html;
+            if (custom && $.isFunction(custom)) {
+                var ganttobj = task;
+                html = custom(ganttobj, item);
+            }
+            return '<div class="details-container">' + html + "</div>";
+        },
+    });
+    this.setup_view_mode_buttons();
+    this.set_colors();
+}
+
 
 	setup_view_mode_buttons() {
 		// view modes (for translation) __("Day"), __("Week"), __("Month"),
@@ -229,4 +272,5 @@ frappe.views.GanttView = class GanttView extends frappe.views.ListView {
 			"assets/frappe/node_modules/frappe-gantt/dist/frappe-gantt.min.js",
 		];
 	}
+	
 };

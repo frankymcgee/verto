@@ -1,76 +1,92 @@
 {
  "charts": [],
- "content": "[{\"id\":\"WoNbB4stP8\",\"type\":\"card\",\"data\":{\"card_name\":\"Standard Forms\",\"col\":4}}]",
- "creation": "2024-06-14 10:20:25.328198",
+ "content": "[{\"id\":\"KmsEFcP9Cn\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Create New:</span>\",\"col\":12}},{\"id\":\"6o2F5GhEmJ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pre Commencement Audit\",\"col\":3}},{\"id\":\"MYR2ytbVdh\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Field Interaction\",\"col\":3}},{\"id\":\"wMa-x11pAk\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Critical Control Verification\",\"col\":3}},{\"id\":\"d2In51bxHF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Planned Task Observation\",\"col\":3}},{\"id\":\"QyXw-uoNpC\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Commitment Interaction\",\"col\":3}},{\"id\":\"9JABN1wbI0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Jha Quality Review\",\"col\":3}},{\"id\":\"7beZVlBtJd\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Workplace Inspection\",\"col\":3}},{\"id\":\"tidS2vtAFc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Take 5\",\"col\":3}}]",
+ "creation": "2024-09-21 07:43:40.887754",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
  "for_user": "",
- "hide_custom": 0,
- "icon": "file-large",
+ "hide_custom": 1,
+ "icon": "milestone",
  "idx": 0,
- "indicator_color": "",
+ "indicator_color": "green",
  "is_hidden": 0,
  "label": "Forms",
  "links": [],
- "modified": "2024-09-10 09:46:34.692553",
+ "modified": "2024-09-21 07:47:18.245996",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Forms",
  "number_cards": [],
- "owner": "sean@minesitesupport.com.au",
- "parent_page": "Safety",
+ "owner": "Administrator",
+ "parent_page": "",
  "public": 1,
  "quick_lists": [],
  "roles": [],
- "sequence_id": 4.0,
+ "sequence_id": 3.0,
  "shortcuts": [
   {
+   "color": "Grey",
    "doc_view": "New",
-   "label": "Pre-Commencement Audit",
+   "label": "Pre Commencement Audit",
    "link_to": "Pre-Commencement Audit",
+   "stats_filter": "[]",
    "type": "DocType"
   },
   {
+   "color": "Grey",
    "doc_view": "New",
    "label": "Field Interaction",
    "link_to": "Field Interaction",
+   "stats_filter": "[]",
    "type": "DocType"
   },
   {
+   "color": "Grey",
    "doc_view": "New",
    "label": "Critical Control Verification",
    "link_to": "Critical Control Verification",
+   "stats_filter": "[]",
    "type": "DocType"
   },
   {
+   "color": "Grey",
    "doc_view": "New",
    "label": "Planned Task Observation",
    "link_to": "Planned Task Observation",
+   "stats_filter": "[]",
    "type": "DocType"
   },
   {
+   "color": "Grey",
    "doc_view": "New",
    "label": "Commitment Interaction",
    "link_to": "Commitment Interaction",
+   "stats_filter": "[]",
    "type": "DocType"
   },
   {
+   "color": "Grey",
    "doc_view": "New",
-   "label": "JHA Review",
+   "label": "Jha Quality Review",
    "link_to": "JHA Quality Review",
+   "stats_filter": "[]",
    "type": "DocType"
   },
   {
+   "color": "Grey",
    "doc_view": "New",
    "label": "Workplace Inspection",
    "link_to": "Workplace Inspection",
+   "stats_filter": "[]",
    "type": "DocType"
   },
   {
+   "color": "Grey",
    "doc_view": "New",
    "label": "Take 5",
    "link_to": "Take 5",
+   "stats_filter": "[]",
    "type": "DocType"
   }
  ],
