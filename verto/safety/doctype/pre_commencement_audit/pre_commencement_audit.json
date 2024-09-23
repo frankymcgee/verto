@@ -224,7 +224,7 @@
    "fieldname": "improvement_required_category",
    "fieldtype": "Select",
    "label": "Improvement Required Category?",
-   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPPE\nProcedures\nTools & Equipment"
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
   },
   {
    "depends_on": "eval:doc.safety_category !== \"\"",
@@ -249,7 +249,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-09-19 12:22:42.960020",
+ "modified": "2024-09-22 15:11:04.945794",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Pre-Commencement Audit",

@@ -220,8 +220,8 @@
    "fieldname": "category",
    "fieldtype": "Select",
    "in_list_view": 1,
-   "label": "No Risk / Improvement Required?",
-   "options": "\nNo Risk\nImprovement Required\nStop Work - Reset Required",
+   "label": "What would you deem the Safety Category?",
+   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required",
    "reqd": 1,
    "sort_options": 1
   },
@@ -230,7 +230,7 @@
    "fieldname": "room_for_improvement_category",
    "fieldtype": "Select",
    "label": "Room for Improvement Category",
-   "options": "\nPositions of People\nPPE\nTools & Equipment\nProcedures\nWork Area"
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
   },
   {
    "depends_on": "eval:doc.category !== \"\"",
@@ -282,7 +282,7 @@
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2024-09-21 09:16:23.565783",
+ "modified": "2024-09-22 15:10:37.018567",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Field Interaction",

@@ -82,7 +82,7 @@
    "fieldtype": "Column Break"
   },
   {
-   "fetch_from": "link_task.custom_parent_task_name",
+   "fetch_from": "link_task.parent_task_name",
    "fetch_if_empty": 1,
    "fieldname": "work_area",
    "fieldtype": "Data",
@@ -288,7 +288,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-07-05 17:00:24.783367",
+ "modified": "2024-09-22 09:35:00.065915",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Planned Task Observation",

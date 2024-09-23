@@ -70,7 +70,7 @@
    "fieldtype": "Column Break"
   },
   {
-   "fetch_from": "link_task.parent_name",
+   "fetch_from": "link_task.parent_task_name",
    "fetch_if_empty": 1,
    "fieldname": "work_area",
    "fieldtype": "Data",
@@ -99,14 +99,14 @@
    "fieldtype": "Column Break"
   },
   {
-   "fetch_from": "link_task.responsible_vendor",
+   "fetch_from": "link_task.responsible_contractor",
    "fetch_if_empty": 1,
    "fieldname": "contractor",
    "fieldtype": "Data",
    "label": "Contractor"
   },
   {
-   "fetch_from": "link_task.responsible_supervisor",
+   "fetch_from": "link_task.supervisor",
    "fetch_if_empty": 1,
    "fieldname": "supervisor",
    "fieldtype": "Data",
@@ -117,7 +117,7 @@
    "fieldtype": "Column Break"
   },
   {
-   "fetch_from": "link_task.work_order",
+   "fetch_from": "link_task.work_order_number",
    "fetch_if_empty": 1,
    "fieldname": "wo_number",
    "fieldtype": "Data",
@@ -186,7 +186,7 @@
    "fieldname": "safety_category",
    "fieldtype": "Select",
    "label": "What would you deem is the safety category?",
-   "options": "\nNo Risk\nImprovement Required\nStop Work - Reset Required",
+   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required",
    "reqd": 1
   },
   {
@@ -195,7 +195,7 @@
    "fieldtype": "Select",
    "label": "Improvement required category",
    "mandatory_depends_on": "eval:doc.safety_category == \"Improvement Required\"",
-   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPPE\nProcedures\nTools & Equipment\nWork Area"
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
   },
   {
    "fieldname": "comments",
@@ -211,7 +211,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-08-06 11:12:31.863561",
+ "modified": "2024-09-22 15:14:44.028121",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Commitment Interaction",
