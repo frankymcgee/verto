@@ -1,6 +1,19 @@
 {
- "charts": [],
- "content": "[{\"id\":\"T0AQXk8e2Q\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>General Forms</b></span>\",\"col\":12}},{\"id\":\"oH3xGrS1d7\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Pre-Commencement Audit\",\"col\":4}},{\"id\":\"i_PkDHDlWp\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Field Interaction\",\"col\":4}},{\"id\":\"lEMBzbeCUr\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"JHA Quality Review\",\"col\":4}},{\"id\":\"__EWEIi5z1\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"OPF Workplace Inspection\",\"col\":4}},{\"id\":\"KKfKATbu-m\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Critical Control Verifications</b></span>\",\"col\":12}},{\"id\":\"LyeQPyvHiH\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Dropped Objects\",\"col\":4}},{\"id\":\"xbJs_CDA_m\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Confined Space\",\"col\":4}},{\"id\":\"yf89U9IzvJ\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Fall From Height\",\"col\":4}},{\"id\":\"XQQe4vp4gf\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Lifting Operations\",\"col\":4}},{\"id\":\"LsdCG7ut9H\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Vehicle & Mobile Equipment\",\"col\":4}},{\"id\":\"xuVVRT3WNZ\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Entanglement & Crushing\",\"col\":4}},{\"id\":\"Jl_tZx06qu\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Electricity\",\"col\":4}},{\"id\":\"ZHzM1VbB9x\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Working Near Water\",\"col\":4}},{\"id\":\"cS59RL77s-\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Uncontrolled Release of Energy\",\"col\":4}}]",
+ "charts": [
+  {
+   "chart_name": "Pre-Commencement Audit Heatmap",
+   "label": "Pre-Commencement Audit Heatmap"
+  },
+  {
+   "chart_name": "Critical Control Verification Heatmap",
+   "label": "Critical Control Verification Heatmap"
+  },
+  {
+   "chart_name": "Field Interaction Heatmap",
+   "label": "Field Interaction Heatmap"
+  }
+ ],
+ "content": "[{\"id\":\"T0AQXk8e2Q\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>General Forms</b></span>\",\"col\":12}},{\"id\":\"F4RaHXYpz1\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Pre-Commencement Audit Heatmap\",\"col\":8}},{\"id\":\"ClGsxiT2cC\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Pre-Commencement Audit\",\"col\":4}},{\"id\":\"bnXsqtNWgN\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Field Interaction Heatmap\",\"col\":8}},{\"id\":\"YM8Lheh78g\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Field Interaction\",\"col\":4}},{\"id\":\"bUpOeNQZhi\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Critical Control Verification Heatmap\",\"col\":8}},{\"id\":\"4sfYyxe8OK\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Critical Control Verification\",\"col\":4}}]",
  "creation": "2023-11-11 13:32:20.158192",
  "custom_blocks": [],
  "docstatus": 0,
@@ -9,10 +22,11 @@
  "hide_custom": 0,
  "icon": "permission",
  "idx": 0,
+ "indicator_color": "",
  "is_hidden": 0,
  "label": "Safety",
  "links": [],
- "modified": "2024-05-01 05:12:45.909813",
+ "modified": "2024-09-24 06:24:40.895541",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Safety",
@@ -22,7 +36,7 @@
  "public": 1,
  "quick_lists": [
   {
-   "document_type": "Supervisor Pre Commencement Audit",
+   "document_type": "Pre-Commencement Audit",
    "label": "Pre-Commencement Audit",
    "quick_list_filter": "[]"
   },
@@ -32,63 +46,17 @@
    "quick_list_filter": "[]"
   },
   {
-   "document_type": "JHA Quality Review",
-   "label": "JHA Quality Review",
-   "quick_list_filter": "[]"
-  },
-  {
-   "document_type": "OPF Workplace Inspection",
-   "label": "OPF Workplace Inspection",
-   "quick_list_filter": "[]"
-  },
-  {
-   "document_type": "CCV Dropped Objects",
-   "label": "Dropped Objects",
-   "quick_list_filter": "[]"
-  },
-  {
-   "document_type": "CCV Confined Space",
-   "label": "Confined Space",
-   "quick_list_filter": "[]"
-  },
-  {
-   "document_type": "CCV Fall From Height",
-   "label": "Fall From Height",
-   "quick_list_filter": "[]"
-  },
-  {
-   "document_type": "CCV Lifting Operations",
-   "label": "Lifting Operations",
-   "quick_list_filter": "[]"
-  },
-  {
-   "document_type": "CCV Vehicle and Mobile Equipment",
-   "label": "Vehicle & Mobile Equipment",
-   "quick_list_filter": "[]"
-  },
-  {
-   "document_type": "CCV Entanglement and Crushing",
-   "label": "Entanglement & Crushing",
-   "quick_list_filter": "[]"
-  },
-  {
-   "document_type": "CCV Electricity",
-   "label": "Electricity",
-   "quick_list_filter": "[]"
-  },
-  {
-   "document_type": "CCV Working Near Water",
-   "label": "Working Near Water",
-   "quick_list_filter": "[]"
-  },
-  {
-   "document_type": "CCV Uncontrolled Release of Energy",
-   "label": "Uncontrolled Release of Energy",
+   "document_type": "Critical Control Verification",
+   "label": "Critical Control Verification",
    "quick_list_filter": "[]"
   }
  ],
- "roles": [],
- "sequence_id": 27.0,
+ "roles": [
+  {
+   "role": "Employee"
+  }
+ ],
+ "sequence_id": 6.0,
  "shortcuts": [],
  "title": "Safety"
 }

@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"e8Tgk0a_Fz\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Test</span>\",\"col\":12}},{\"id\":\"YuAlMfB-vC\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Assigned Tasks v2\",\"col\":12}},{\"id\":\"pBma-GuVsk\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Bottom NavBar\",\"col\":12}}]",
+ "content": "[{\"id\":\"e8Tgk0a_Fz\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Test</span>\",\"col\":12}},{\"id\":\"YuAlMfB-vC\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Assigned Tasks v2\",\"col\":12}},{\"id\":\"pBma-GuVsk\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Install PWA Prompt\",\"col\":12}}]",
  "creation": "2024-08-04 15:02:02.427851",
  "custom_blocks": [
   {
@@ -8,8 +8,8 @@
    "label": "Assigned Tasks v2"
   },
   {
-   "custom_block_name": "Bottom NavBar",
-   "label": "Bottom NavBar"
+   "custom_block_name": "Install PWA Prompt",
+   "label": "Install PWA Prompt"
   }
  ],
  "docstatus": 0,
@@ -21,7 +21,7 @@
  "is_hidden": 0,
  "label": "Test",
  "links": [],
- "modified": "2024-09-21 07:44:46.163618",
+ "modified": "2024-09-24 07:41:30.277187",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Test",

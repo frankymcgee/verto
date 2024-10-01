@@ -1,0 +1,298 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"JuIpL2EHfa\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Check-in V2\",\"col\":12}},{\"id\":\"L0uWTIymD4\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Allocated Tasks:</b></span>\",\"col\":12}},{\"id\":\"XapUHBbBxq\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Assigned Tasks v2\",\"col\":12}},{\"id\":\"_wa_rHs-qd\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Submit Daily Timesheet\",\"col\":12}},{\"id\":\"inQ4ehRt2z\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Create New:</b></span>\",\"col\":12}},{\"id\":\"H4ci9dRSru\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pre Commencement Audit\",\"col\":3}},{\"id\":\"dRQvoPz37q\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Field Interaction\",\"col\":3}},{\"id\":\"_KXiUge1zN\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Critical Control Verification\",\"col\":3}},{\"id\":\"2idr1IjkPy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Planned Task Observation\",\"col\":3}},{\"id\":\"_plgs4Yphm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Commitment Interaction\",\"col\":3}},{\"id\":\"MHdNBBnNqF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"JHA Quality Review\",\"col\":3}},{\"id\":\"uF6-1DQm_H\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Workplace Inspection\",\"col\":3}},{\"id\":\"ZVgJtzTx_2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Take 5\",\"col\":3}}]",
+ "creation": "2020-01-23 13:46:38.833076",
+ "custom_blocks": [
+  {
+   "custom_block_name": "Check-in V2",
+   "label": "Check-in V2"
+  },
+  {
+   "custom_block_name": "Assigned Tasks v2",
+   "label": "Assigned Tasks v2"
+  }
+ ],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "map",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Home",
+ "links": [
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Chart of Accounts",
+   "link_count": 0,
+   "link_to": "Account",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Company",
+   "link_count": 0,
+   "link_to": "Company",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customer",
+   "link_count": 0,
+   "link_to": "Customer",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Supplier",
+   "link_count": 0,
+   "link_to": "Supplier",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Item",
+   "link_count": 0,
+   "link_to": "Item",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Warehouse",
+   "link_count": 0,
+   "link_to": "Warehouse",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Brand",
+   "link_count": 0,
+   "link_to": "Brand",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Unit of Measure (UOM)",
+   "link_count": 0,
+   "link_to": "UOM",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Stock Reconciliation",
+   "link_count": 0,
+   "link_to": "Stock Reconciliation",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Lead",
+   "link_count": 0,
+   "link_to": "Lead",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customer Group",
+   "link_count": 0,
+   "link_to": "Customer Group",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Territory",
+   "link_count": 0,
+   "link_to": "Territory",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Import Data",
+   "link_count": 0,
+   "link_to": "Data Import",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Opening Invoice Creation Tool",
+   "link_count": 0,
+   "link_to": "Opening Invoice Creation Tool",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Chart of Accounts Importer",
+   "link_count": 0,
+   "link_to": "Chart of Accounts Importer",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Letter Head",
+   "link_count": 0,
+   "link_to": "Letter Head",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Email Account",
+   "link_count": 0,
+   "link_to": "Email Account",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  }
+ ],
+ "modified": "2024-09-24 10:37:06.461266",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Home",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "restrict_to_domain": "",
+ "roles": [],
+ "sequence_id": 1.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "New",
+   "label": "Workplace Inspection",
+   "link_to": "Workplace Inspection",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "New",
+   "label": "Field Interaction",
+   "link_to": "Field Interaction",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "New",
+   "label": "Take 5",
+   "link_to": "Take 5",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "New",
+   "label": "Commitment Interaction",
+   "link_to": "Commitment Interaction",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "New",
+   "label": "Critical Control Verification",
+   "link_to": "Critical Control Verification",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "New",
+   "label": "Planned Task Observation",
+   "link_to": "Planned Task Observation",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "New",
+   "label": "JHA Quality Review",
+   "link_to": "JHA Quality Review",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "New",
+   "label": "Pre Commencement Audit",
+   "link_to": "Pre-Commencement Audit",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "New",
+   "label": "Submit Daily Timesheet",
+   "link_to": "Daily Timesheet",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "Home"
+}
