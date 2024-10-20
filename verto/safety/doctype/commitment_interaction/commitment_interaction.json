@@ -16,10 +16,10 @@
   "project_name",
   "work_scope_name",
   "column_break_dxhj",
+  "wo_number",
+  "column_break_riyz",
   "contractor",
   "supervisor",
-  "column_break_riyz",
-  "wo_number",
   "section_break_pcye",
   "site_risk_assessed",
   "risk_assessment_review",
@@ -31,9 +31,10 @@
   "work_area_commitment_upload",
   "interaction_categorisation_section",
   "safety_category",
-  "improvement_required_category",
+  "improvement_required",
   "comments",
-  "signature"
+  "signature",
+  "compliance_percentage"
  ],
  "fields": [
   {
@@ -190,14 +191,6 @@
    "reqd": 1
   },
   {
-   "depends_on": "eval:doc.safety_category == \"Improvement Required\"",
-   "fieldname": "improvement_required_category",
-   "fieldtype": "Select",
-   "label": "Improvement required category",
-   "mandatory_depends_on": "eval:doc.safety_category == \"Improvement Required\"",
-   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
-  },
-  {
    "fieldname": "comments",
    "fieldtype": "Small Text",
    "label": "Comments"
@@ -207,11 +200,27 @@
    "fieldtype": "Signature",
    "label": "Signature",
    "reqd": 1
+  },
+  {
+   "fieldname": "compliance_percentage",
+   "fieldtype": "Percent",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Compliance Percentage",
+   "precision": "2"
+  },
+  {
+   "depends_on": "eval:doc.safety_category == \"Improvement Required\"",
+   "fieldname": "improvement_required",
+   "fieldtype": "Select",
+   "label": "Improvement required category",
+   "mandatory_depends_on": "eval:doc.safety_category == \"Improvement Required\"",
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-09-22 15:14:44.028121",
+ "modified": "2024-10-19 15:29:48.704977",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Commitment Interaction",

@@ -12,9 +12,10 @@
   "form_id",
   "contractor",
   "supervisor",
-  "ccv_performed",
+  "ccv_selected",
   "safety_category",
-  "improvement_category"
+  "improvement_required",
+  "compliance_percentage"
  ],
  "fields": [
   {
@@ -53,13 +54,6 @@
    "label": "Safety Category"
   },
   {
-   "columns": 2,
-   "fieldname": "improvement_category",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Improvement Category"
-  },
-  {
    "columns": 1,
    "fieldname": "form_id",
    "fieldtype": "Data",
@@ -67,23 +61,38 @@
    "label": "Form ID"
   },
   {
-   "columns": 1,
-   "fieldname": "ccv_performed",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "CCV Performed"
-  },
-  {
    "fieldname": "submitted_by",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Submitted by"
+  },
+  {
+   "columns": 1,
+   "fieldname": "compliance_percentage",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Compliance Percentage",
+   "precision": "2"
+  },
+  {
+   "columns": 1,
+   "fieldname": "improvement_required",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Improvement Category"
+  },
+  {
+   "columns": 1,
+   "fieldname": "ccv_selected",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "CCV Selected"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-09-26 11:39:34.706040",
+ "modified": "2024-10-19 14:29:44.646945",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Safety Metrics",

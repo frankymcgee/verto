@@ -1,19 +1,27 @@
 {
  "charts": [
   {
-   "chart_name": "Pre-Commencement Audit Heatmap",
-   "label": "Pre-Commencement Audit Heatmap"
+   "chart_name": "Commitment Interaction Heatmap",
+   "label": "Commitment Interactions"
   },
   {
    "chart_name": "Critical Control Verification Heatmap",
-   "label": "Critical Control Verification Heatmap"
+   "label": "Critical Control Verifications"
   },
   {
    "chart_name": "Field Interaction Heatmap",
-   "label": "Field Interaction Heatmap"
+   "label": "Field Interactions"
+  },
+  {
+   "chart_name": "Pre-Commencement Audit Heatmap",
+   "label": "Pre-Commencement Audits"
+  },
+  {
+   "chart_name": "Workplace Inspection Heatmap",
+   "label": "Workplace Inspections"
   }
  ],
- "content": "[{\"id\":\"T0AQXk8e2Q\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>General Forms</b></span>\",\"col\":12}},{\"id\":\"F4RaHXYpz1\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Pre-Commencement Audit Heatmap\",\"col\":8}},{\"id\":\"ClGsxiT2cC\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Pre-Commencement Audit\",\"col\":4}},{\"id\":\"bnXsqtNWgN\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Field Interaction Heatmap\",\"col\":8}},{\"id\":\"YM8Lheh78g\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Field Interaction\",\"col\":4}},{\"id\":\"bUpOeNQZhi\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Critical Control Verification Heatmap\",\"col\":8}},{\"id\":\"4sfYyxe8OK\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Critical Control Verification\",\"col\":4}}]",
+ "content": "[{\"id\":\"T0AQXk8e2Q\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Safety Interaction Activity</b></span>\",\"col\":12}},{\"id\":\"F4RaHXYpz1\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Commitment Interactions\",\"col\":8}},{\"id\":\"ClGsxiT2cC\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Latest Submissions\",\"col\":4}},{\"id\":\"bnXsqtNWgN\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Critical Control Verifications\",\"col\":8}},{\"id\":\"YM8Lheh78g\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Latest Submissions\",\"col\":4}},{\"id\":\"bUpOeNQZhi\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Field Interactions\",\"col\":8}},{\"id\":\"4sfYyxe8OK\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Latest Submissions\",\"col\":4}},{\"id\":\"SprMF3ScPz\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Pre-Commencement Audits\",\"col\":8}},{\"id\":\"hbjxqwkx_1\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Latest Submissions\",\"col\":4}},{\"id\":\"XIJ1OBC_mt\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Workplace Inspections\",\"col\":8}},{\"id\":\"9SUNoP-9ZK\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Latest Submissions\",\"col\":4}}]",
  "creation": "2023-11-11 13:32:20.158192",
  "custom_blocks": [],
  "docstatus": 0,
@@ -26,7 +34,7 @@
  "is_hidden": 0,
  "label": "Safety",
  "links": [],
- "modified": "2024-09-24 06:24:40.895541",
+ "modified": "2024-10-19 16:19:10.759246",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Safety",
@@ -36,18 +44,8 @@
  "public": 1,
  "quick_lists": [
   {
-   "document_type": "Pre-Commencement Audit",
-   "label": "Pre-Commencement Audit",
-   "quick_list_filter": "[]"
-  },
-  {
-   "document_type": "Field Interaction",
-   "label": "Field Interaction",
-   "quick_list_filter": "[]"
-  },
-  {
-   "document_type": "Critical Control Verification",
-   "label": "Critical Control Verification",
+   "document_type": "Workplace Inspection",
+   "label": "Latest Submissions",
    "quick_list_filter": "[]"
   }
  ],

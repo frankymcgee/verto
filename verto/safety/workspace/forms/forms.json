@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"KmsEFcP9Cn\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Create New:</span>\",\"col\":12}},{\"id\":\"6o2F5GhEmJ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pre Commencement Audit\",\"col\":3}},{\"id\":\"MYR2ytbVdh\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Field Interaction\",\"col\":3}},{\"id\":\"wMa-x11pAk\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Critical Control Verification\",\"col\":3}},{\"id\":\"d2In51bxHF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Planned Task Observation\",\"col\":3}},{\"id\":\"QyXw-uoNpC\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Commitment Interaction\",\"col\":3}},{\"id\":\"9JABN1wbI0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Jha Quality Review\",\"col\":3}},{\"id\":\"7beZVlBtJd\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Workplace Inspection\",\"col\":3}},{\"id\":\"tidS2vtAFc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Take 5\",\"col\":3}}]",
+ "content": "[{\"id\":\"KmsEFcP9Cn\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Create New:</span>\",\"col\":12}},{\"id\":\"6o2F5GhEmJ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pre Commencement Audit\",\"col\":3}},{\"id\":\"MYR2ytbVdh\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Field Interaction\",\"col\":3}},{\"id\":\"wMa-x11pAk\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Critical Control Verification\",\"col\":3}},{\"id\":\"d2In51bxHF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Planned Task Observation\",\"col\":3}},{\"id\":\"QyXw-uoNpC\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Commitment Interaction\",\"col\":3}},{\"id\":\"9JABN1wbI0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Jha Quality Review\",\"col\":3}},{\"id\":\"7beZVlBtJd\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Workplace Inspection\",\"col\":3}},{\"id\":\"tidS2vtAFc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Take 5\",\"col\":3}},{\"id\":\"9ABBYetvT0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Prohib. & Rest. Tooling Checklist\",\"col\":3}}]",
  "creation": "2024-09-21 07:43:40.887754",
  "custom_blocks": [],
  "docstatus": 0,
@@ -13,7 +13,7 @@
  "is_hidden": 0,
  "label": "Forms",
  "links": [],
- "modified": "2024-09-24 06:24:40.230140",
+ "modified": "2024-10-05 08:48:35.788732",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Forms",
@@ -25,6 +25,14 @@
  "roles": [],
  "sequence_id": 2.0,
  "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "New",
+   "label": "Prohib. & Rest. Tooling Checklist",
+   "link_to": "Prohibited and Restricted Tooling Checklist",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
   {
    "color": "Grey",
    "doc_view": "New",

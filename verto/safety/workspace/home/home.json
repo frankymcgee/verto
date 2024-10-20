@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"JuIpL2EHfa\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Check-in V2\",\"col\":12}},{\"id\":\"L0uWTIymD4\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Allocated Tasks:</b></span>\",\"col\":12}},{\"id\":\"XapUHBbBxq\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Assigned Tasks v2\",\"col\":12}},{\"id\":\"_wa_rHs-qd\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Submit Daily Timesheet\",\"col\":12}},{\"id\":\"inQ4ehRt2z\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Create New:</b></span>\",\"col\":12}},{\"id\":\"H4ci9dRSru\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pre Commencement Audit\",\"col\":3}},{\"id\":\"dRQvoPz37q\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Field Interaction\",\"col\":3}},{\"id\":\"_KXiUge1zN\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Critical Control Verification\",\"col\":3}},{\"id\":\"2idr1IjkPy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Planned Task Observation\",\"col\":3}},{\"id\":\"_plgs4Yphm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Commitment Interaction\",\"col\":3}},{\"id\":\"MHdNBBnNqF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"JHA Quality Review\",\"col\":3}},{\"id\":\"uF6-1DQm_H\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Workplace Inspection\",\"col\":3}},{\"id\":\"ZVgJtzTx_2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Take 5\",\"col\":3}}]",
+ "content": "[{\"id\":\"JuIpL2EHfa\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Check-in V2\",\"col\":12}},{\"id\":\"L0uWTIymD4\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Allocated Tasks:</b></span>\",\"col\":12}},{\"id\":\"XapUHBbBxq\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Assigned Tasks v2\",\"col\":12}}]",
  "creation": "2020-01-23 13:46:38.833076",
  "custom_blocks": [
   {
@@ -209,7 +209,7 @@
    "type": "Link"
   }
  ],
- "modified": "2024-09-24 10:37:06.461266",
+ "modified": "2024-10-19 09:56:10.249724",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Home",
@@ -221,78 +221,6 @@
  "restrict_to_domain": "",
  "roles": [],
  "sequence_id": 1.0,
- "shortcuts": [
-  {
-   "color": "Grey",
-   "doc_view": "New",
-   "label": "Workplace Inspection",
-   "link_to": "Workplace Inspection",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "New",
-   "label": "Field Interaction",
-   "link_to": "Field Interaction",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "New",
-   "label": "Take 5",
-   "link_to": "Take 5",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "New",
-   "label": "Commitment Interaction",
-   "link_to": "Commitment Interaction",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "New",
-   "label": "Critical Control Verification",
-   "link_to": "Critical Control Verification",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "New",
-   "label": "Planned Task Observation",
-   "link_to": "Planned Task Observation",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "New",
-   "label": "JHA Quality Review",
-   "link_to": "JHA Quality Review",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "New",
-   "label": "Pre Commencement Audit",
-   "link_to": "Pre-Commencement Audit",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "New",
-   "label": "Submit Daily Timesheet",
-   "link_to": "Daily Timesheet",
-   "stats_filter": "[]",
-   "type": "DocType"
-  }
- ],
+ "shortcuts": [],
  "title": "Home"
 }

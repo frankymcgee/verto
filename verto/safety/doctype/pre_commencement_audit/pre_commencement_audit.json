@@ -16,8 +16,9 @@
   "sec_proj_info",
   "project_name",
   "work_scope_name",
-  "wo_number",
   "column_break_ftgy",
+  "wo_number",
+  "column_break_thig",
   "contractor",
   "supervisor",
   "sec_audit",
@@ -36,9 +37,10 @@
   "upload_barricading",
   "sec_safety",
   "safety_category",
-  "improvement_required_category",
+  "improvement_required",
   "final_comments",
-  "advisor_sign_off"
+  "advisor_sign_off",
+  "compliance_percentage"
  ],
  "fields": [
   {
@@ -220,13 +222,6 @@
    "reqd": 1
   },
   {
-   "depends_on": "eval:doc.safety_category == \"Improvement Required\"",
-   "fieldname": "improvement_required_category",
-   "fieldtype": "Select",
-   "label": "Improvement Required Category?",
-   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
-  },
-  {
    "depends_on": "eval:doc.safety_category !== \"\"",
    "fieldname": "final_comments",
    "fieldtype": "Small Text",
@@ -245,11 +240,29 @@
    "fieldtype": "Heading",
    "hidden": 1,
    "label": "Photo Example"
+  },
+  {
+   "fieldname": "compliance_percentage",
+   "fieldtype": "Percent",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Compliance Percentage"
+  },
+  {
+   "depends_on": "eval:doc.safety_category == \"Improvement Required\"",
+   "fieldname": "improvement_required",
+   "fieldtype": "Select",
+   "label": "Improvement Required Category?",
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
+  },
+  {
+   "fieldname": "column_break_thig",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-09-22 15:11:04.945794",
+ "modified": "2024-10-19 15:33:37.471217",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Pre-Commencement Audit",

@@ -29,6 +29,28 @@
   "column_break_zaus9",
   "contractor",
   "supervisor",
+  "interaction_observations_section",
+  "job_hazards",
+  "safety_procedures",
+  "tool_safety",
+  "safe_distance",
+  "good_comms",
+  "thermal_extremes",
+  "ppe",
+  "impact_gloves",
+  "barricading",
+  "supervisor_present",
+  "manual_handling",
+  "work_at_heights",
+  "uncontrolled_energy",
+  "environmental",
+  "fall_from_height",
+  "section_break_705zw",
+  "safety_category",
+  "improvement_required",
+  "comments",
+  "signature",
+  "compliance_percentage",
   "section_break_wrie",
   "attach_image_qllr",
   "example_photo",
@@ -36,13 +58,8 @@
   "column_break_opfj",
   "photo_of_work_area",
   "wa_photo",
-  "section_break_705zw",
-  "category",
-  "room_for_improvement_category",
-  "comments",
-  "signature",
-  "location",
   "section_break_feay",
+  "location",
   "lat",
   "long"
  ],
@@ -217,27 +234,11 @@
    "fieldtype": "Section Break"
   },
   {
-   "fieldname": "category",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "What would you deem the Safety Category?",
-   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required",
-   "reqd": 1,
-   "sort_options": 1
-  },
-  {
-   "depends_on": "eval:doc.category == \"Improvement Required\"",
-   "fieldname": "room_for_improvement_category",
-   "fieldtype": "Select",
-   "label": "Room for Improvement Category",
-   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
-  },
-  {
-   "depends_on": "eval:doc.category !== \"\"",
+   "depends_on": "eval:doc.safety_category == \"Improvement Required\"",
    "fieldname": "comments",
    "fieldtype": "Small Text",
    "label": "Comments",
-   "reqd": 1
+   "mandatory_depends_on": "eval:doc.improvement_required !== \"\""
   },
   {
    "fieldname": "signature",
@@ -257,7 +258,8 @@
   {
    "fieldname": "section_break_feay",
    "fieldtype": "Section Break",
-   "hidden": 1
+   "hidden": 1,
+   "label": "Archived"
   },
   {
    "fieldname": "lat",
@@ -277,12 +279,131 @@
    "label": "Task being undertaken",
    "link_filters": "[[\"Task\",\"parent_task\",\"=\",\"eval: doc.link_task\"]]",
    "options": "Task"
+  },
+  {
+   "fieldname": "interaction_observations_section",
+   "fieldtype": "Section Break",
+   "label": "Interaction Observations"
+  },
+  {
+   "fieldname": "job_hazards",
+   "fieldtype": "Select",
+   "label": "Are all personnel briefed on the job hazards before starting work",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "safety_procedures",
+   "fieldtype": "Select",
+   "label": "Are all field personnel adhering to the agreed safety procedures for site?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "tool_safety",
+   "fieldtype": "Select",
+   "label": "Are tools & equipment being used in accordance with safety protocols?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "safe_distance",
+   "fieldtype": "Select",
+   "label": "Are all workers maintaining safe distances from hazardous areas?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "good_comms",
+   "fieldtype": "Select",
+   "label": "Are there adequate communication methods being used in the area?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "thermal_extremes",
+   "fieldtype": "Select",
+   "label": "Are weather conditions being actively monitored and considered in the work area?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "ppe",
+   "fieldtype": "Select",
+   "label": "Are personnel wearing correct PPE where required?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "impact_gloves",
+   "fieldtype": "Select",
+   "label": "Are personnel wearing impact gloves in the work area?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "barricading",
+   "fieldtype": "Select",
+   "label": "Are barricades & signage in place to prevent unauthorised access in the area?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "supervisor_present",
+   "fieldtype": "Select",
+   "label": "Is there a supervisor present to oversee and inspect the work area?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "manual_handling",
+   "fieldtype": "Select",
+   "label": "Are personnel following correct lifting & manual handling techniques?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "work_at_heights",
+   "fieldtype": "Select",
+   "label": "Are adequate controls in place for working at heights?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "uncontrolled_energy",
+   "fieldtype": "Select",
+   "label": "Is the work area free from uncontrolled energy sources?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "environmental",
+   "fieldtype": "Select",
+   "label": "Are personnel complying with environmental policies & procedures?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "fall_from_height",
+   "fieldtype": "Select",
+   "label": "Are fall protection systems in place & used correctly by personnel?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "safety_category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "What would you deem the Safety Category?",
+   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required",
+   "reqd": 1,
+   "sort_options": 1
+  },
+  {
+   "depends_on": "eval:doc.safety_category == \"Improvement Required\"",
+   "fieldname": "improvement_required",
+   "fieldtype": "Select",
+   "label": "Improvement required category",
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
+  },
+  {
+   "fieldname": "compliance_percentage",
+   "fieldtype": "Percent",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Compliance Percentage",
+   "precision": "2"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2024-09-22 15:10:37.018567",
+ "modified": "2024-10-20 08:09:31.483787",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Field Interaction",

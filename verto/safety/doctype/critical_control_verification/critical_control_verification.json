@@ -25,8 +25,8 @@
   "wo_number",
   "op_number",
   "column_break_qifo",
-  "task_contractor",
-  "task_supervisor",
+  "contractor",
+  "supervisor",
   "section_break_feay",
   "lat",
   "long",
@@ -169,9 +169,10 @@
   "image_of_emergency_response_plan",
   "tab_closeout",
   "safety_category",
-  "select_the_area_needed_for_improvement",
+  "improvement_required",
   "comments",
-  "signature"
+  "signature",
+  "compliance_percentage"
  ],
  "fields": [
   {
@@ -277,7 +278,7 @@
   {
    "fieldname": "ccv_selected",
    "fieldtype": "Select",
-   "label": "CCV being performed",
+   "label": "Select CCV",
    "options": "\nConfined Space\nContact with Electricity\nDropped Objects\nEntanglement & Crushing\nFall from Height\nLifting Operations\nUncontrolled Release of Energy\nVehicle & Mobile Equipment\nWorking near Water",
    "reqd": 1
   },
@@ -287,20 +288,6 @@
    "fieldname": "op_number",
    "fieldtype": "Data",
    "label": "Operation Line Number"
-  },
-  {
-   "fetch_from": "link_steps.responsible_contractor",
-   "fetch_if_empty": 1,
-   "fieldname": "task_contractor",
-   "fieldtype": "Data",
-   "label": "Contractor"
-  },
-  {
-   "fetch_from": "link_steps.supervisor",
-   "fetch_if_empty": 1,
-   "fieldname": "task_supervisor",
-   "fieldtype": "Data",
-   "label": "Supervisor"
   },
   {
    "fieldname": "cs_qual",
@@ -552,17 +539,9 @@
   {
    "fieldname": "safety_category",
    "fieldtype": "Select",
-   "label": "Select the Safety Category",
+   "label": "What would you deem is the Safety Category?",
    "mandatory_depends_on": "eval:doc.ccv_selected != \"\"",
    "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required"
-  },
-  {
-   "depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
-   "fieldname": "select_the_area_needed_for_improvement",
-   "fieldtype": "Select",
-   "label": "Select the area needed for improvement",
-   "mandatory_depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
-   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
   },
   {
    "fieldname": "signature",
@@ -1250,12 +1229,42 @@
    "fieldtype": "Attach",
    "hidden": 1,
    "label": "Image of emergency response plan"
+  },
+  {
+   "fetch_from": "link_steps.responsible_contractor",
+   "fetch_if_empty": 1,
+   "fieldname": "contractor",
+   "fieldtype": "Data",
+   "label": "Contractor"
+  },
+  {
+   "fetch_from": "link_steps.supervisor",
+   "fetch_if_empty": 1,
+   "fieldname": "supervisor",
+   "fieldtype": "Data",
+   "label": "Supervisor"
+  },
+  {
+   "depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "fieldname": "improvement_required",
+   "fieldtype": "Select",
+   "label": "Select the area needed for improvement",
+   "mandatory_depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
+  },
+  {
+   "fieldname": "compliance_percentage",
+   "fieldtype": "Percent",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Compliance Percentage",
+   "precision": "2"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2024-09-22 15:10:23.529585",
+ "modified": "2024-10-19 15:32:39.752878",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Critical Control Verification",
