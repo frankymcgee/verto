@@ -1264,7 +1264,7 @@
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2024-10-19 15:32:39.752878",
+ "modified": "2024-11-16 11:48:28.654318",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Critical Control Verification",
@@ -1295,7 +1295,7 @@
    "write": 1
   }
  ],
- "sort_field": "modified",
+ "sort_field": "name",
  "sort_order": "DESC",
  "states": [],
  "track_changes": 1,

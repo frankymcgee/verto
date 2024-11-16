@@ -45,23 +45,78 @@
   "uncontrolled_energy",
   "environmental",
   "fall_from_height",
+  "positive_behaviours_section",
+  "pos_pop",
+  "pos_eop",
+  "pos_lof",
+  "pos_pp",
+  "pos_post",
+  "pos_push",
+  "pos_asc",
+  "column_break_lflv",
+  "pos_ppe",
+  "pos_eyes",
+  "pos_ears",
+  "pos_head",
+  "pos_hands",
+  "pos_feet",
+  "pos_resp",
+  "pos_trunk",
+  "column_break_gfso",
+  "pos_tool",
+  "pos_tselect",
+  "pos_tuse",
+  "pos_tcond",
+  "column_break_fydx",
+  "pos_procedures",
+  "pos_papp",
+  "pos_pknow",
+  "pos_pfollow",
+  "pos_hazcom",
+  "column_break_duko",
+  "pos_work",
+  "pos_house",
+  "pos_light",
+  "pos_vent",
+  "pos_access",
+  "at_risk_behaviours_section",
+  "neg_pop",
+  "neg_eop",
+  "neg_lof",
+  "neg_pp",
+  "neg_posture",
+  "neg_push",
+  "neg_asc",
+  "column_break_vknl",
+  "neg_ppe",
+  "neg_eyes",
+  "neg_ears",
+  "neg_head",
+  "neg_hands",
+  "neg_feet",
+  "neg_resp",
+  "neg_trunk",
+  "column_break_amkp",
+  "neg_tools",
+  "neg_tselect",
+  "neg_tuse",
+  "neg_tcond",
+  "column_break_sccs",
+  "neg_procedures",
+  "neg_papp",
+  "neg_pknow",
+  "neg_pfollow",
+  "neg_hazcom",
+  "column_break_rmiv",
+  "neg_work",
+  "neg_house",
+  "neg_light",
+  "53_ventilation",
+  "neg_access",
   "section_break_705zw",
   "safety_category",
   "improvement_required",
-  "comments",
-  "signature",
-  "compliance_percentage",
-  "section_break_wrie",
-  "attach_image_qllr",
-  "example_photo",
-  "example",
-  "column_break_opfj",
-  "photo_of_work_area",
-  "wa_photo",
-  "section_break_feay",
-  "location",
-  "lat",
-  "long"
+  "compliance_percentage"
  ],
  "fields": [
   {
@@ -186,90 +241,9 @@
    "label": "Supervisor"
   },
   {
-   "fieldname": "section_break_wrie",
-   "fieldtype": "Section Break",
-   "hidden": 1,
-   "label": "Photo of Work Area"
-  },
-  {
-   "default": "https://dashboard.minesitesupport.com.au/files/IMG_1731.jpeg",
-   "fieldname": "attach_image_qllr",
-   "fieldtype": "Attach Image",
-   "hidden": 1
-  },
-  {
-   "fieldname": "example_photo",
-   "fieldtype": "Heading",
-   "hidden": 1,
-   "label": "Example Photo"
-  },
-  {
-   "fieldname": "example",
-   "fieldtype": "Image",
-   "hidden": 1,
-   "label": "Example",
-   "max_height": "300px",
-   "options": "attach_image_qllr",
-   "width": "300px"
-  },
-  {
-   "fieldname": "column_break_opfj",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "photo_of_work_area",
-   "fieldtype": "Attach Image",
-   "hidden": 1,
-   "label": "Photo of Work Area"
-  },
-  {
-   "fieldname": "wa_photo",
-   "fieldtype": "Image",
-   "hidden": 1,
-   "label": "Work Area Photo",
-   "options": "photo_of_work_area"
-  },
-  {
    "fieldname": "section_break_705zw",
-   "fieldtype": "Section Break"
-  },
-  {
-   "depends_on": "eval:doc.safety_category == \"Improvement Required\"",
-   "fieldname": "comments",
-   "fieldtype": "Small Text",
-   "label": "Comments",
-   "mandatory_depends_on": "eval:doc.improvement_required !== \"\""
-  },
-  {
-   "fieldname": "signature",
-   "fieldtype": "Signature",
-   "hidden": 1,
-   "label": "Signature"
-  },
-  {
-   "fieldname": "location",
-   "fieldtype": "Select",
-   "hidden": 1,
-   "in_list_view": 1,
-   "label": "Location",
-   "options": "\nOverland Conveyor\nScreening\nScrubbing\nDesands\nCrushing\nTLO\nCar Dumper\nStockyard\nPort Screening\nMarine",
-   "sort_options": 1
-  },
-  {
-   "fieldname": "section_break_feay",
    "fieldtype": "Section Break",
-   "hidden": 1,
-   "label": "Archived"
-  },
-  {
-   "fieldname": "lat",
-   "fieldtype": "Float",
-   "label": "Latitude"
-  },
-  {
-   "fieldname": "long",
-   "fieldtype": "Float",
-   "label": "longitude"
+   "label": "Closeout"
   },
   {
    "depends_on": "eval:doc.link_task !== \"\"",
@@ -398,12 +372,452 @@
    "in_list_view": 1,
    "label": "Compliance Percentage",
    "precision": "2"
+  },
+  {
+   "description": "Select the relevant categories and sub-categories",
+   "fieldname": "positive_behaviours_section",
+   "fieldtype": "Section Break",
+   "label": "Positive Behaviours"
+  },
+  {
+   "default": "0",
+   "fieldname": "pos_pop",
+   "fieldtype": "Check",
+   "label": "1. Positions of People"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_pop == 1",
+   "fieldname": "pos_eop",
+   "fieldtype": "Check",
+   "label": "1.1 Eyes on Path / Task"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_pop == 1",
+   "fieldname": "pos_lof",
+   "fieldtype": "Check",
+   "label": "1.2 Line of Fire"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_pop == 1",
+   "fieldname": "pos_pp",
+   "fieldtype": "Check",
+   "label": "1.3 Pinch Points"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_pop == 1",
+   "fieldname": "pos_post",
+   "fieldtype": "Check",
+   "label": "1.4 Posture / Lifting / Lowering / Twisting"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_pop == 1",
+   "fieldname": "pos_push",
+   "fieldtype": "Check",
+   "label": "1.5 Pushing / Pulling"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_pop == 1",
+   "fieldname": "pos_asc",
+   "fieldtype": "Check",
+   "label": "1.6 Ascending / Descending"
+  },
+  {
+   "fieldname": "column_break_lflv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "pos_ppe",
+   "fieldtype": "Check",
+   "label": "2. PPE"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_ppe == 1",
+   "fieldname": "pos_eyes",
+   "fieldtype": "Check",
+   "label": "2.1 Eyes & Face"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_ppe == 1",
+   "fieldname": "pos_ears",
+   "fieldtype": "Check",
+   "label": "2.2 Ears"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_ppe == 1",
+   "fieldname": "pos_head",
+   "fieldtype": "Check",
+   "label": "2.3 Head"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_ppe == 1",
+   "fieldname": "pos_hands",
+   "fieldtype": "Check",
+   "label": "2.4 Hands & Arms"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_ppe == 1",
+   "fieldname": "pos_feet",
+   "fieldtype": "Check",
+   "label": "2.5 Feet & Legs"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_ppe == 1",
+   "fieldname": "pos_resp",
+   "fieldtype": "Check",
+   "label": "2.6 Respiratory Systems"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_ppe == 1",
+   "fieldname": "pos_trunk",
+   "fieldtype": "Check",
+   "label": "2.7 Trunk"
+  },
+  {
+   "fieldname": "column_break_gfso",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_fydx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_duko",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "pos_tool",
+   "fieldtype": "Check",
+   "label": "3. Tools & Equipment"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_tool == 1",
+   "fieldname": "pos_tselect",
+   "fieldtype": "Check",
+   "label": "3.1 Tool Selection"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_tool == 1",
+   "fieldname": "pos_tuse",
+   "fieldtype": "Check",
+   "label": "3.2 Tool Use"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_tool == 1",
+   "fieldname": "pos_tcond",
+   "fieldtype": "Check",
+   "label": "3.3 Tool Condition"
+  },
+  {
+   "default": "0",
+   "fieldname": "pos_procedures",
+   "fieldtype": "Check",
+   "label": "4. Procedures"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_procedures == 1",
+   "fieldname": "pos_papp",
+   "fieldtype": "Check",
+   "label": "4.1 Procedure Appropriate"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_procedures == 1",
+   "fieldname": "pos_pknow",
+   "fieldtype": "Check",
+   "label": "4.2 Procedure Knowledge"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_procedures == 1",
+   "fieldname": "pos_pfollow",
+   "fieldtype": "Check",
+   "label": "4.3 Procedure Followed"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_procedures == 1",
+   "fieldname": "pos_hazcom",
+   "fieldtype": "Check",
+   "label": "4.4 Hazards & Controls Communicated"
+  },
+  {
+   "default": "0",
+   "fieldname": "pos_work",
+   "fieldtype": "Check",
+   "label": "5. Work Area"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_work == 1",
+   "fieldname": "pos_house",
+   "fieldtype": "Check",
+   "label": "5.1 Housekeeping / Storage"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_work == 1",
+   "fieldname": "pos_light",
+   "fieldtype": "Check",
+   "label": "5.2 Lighting"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_work == 1",
+   "fieldname": "pos_vent",
+   "fieldtype": "Check",
+   "label": "5.3 Ventilation"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.pos_work == 1",
+   "fieldname": "pos_access",
+   "fieldtype": "Check",
+   "label": "5.4 Accessing / Egressing"
+  },
+  {
+   "description": "Select the relevant categories and sub-categories",
+   "fieldname": "at_risk_behaviours_section",
+   "fieldtype": "Section Break",
+   "label": "At Risk Behaviours"
+  },
+  {
+   "default": "0",
+   "fieldname": "neg_pop",
+   "fieldtype": "Check",
+   "label": "1. Positions of People"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_pop == 1",
+   "fieldname": "neg_eop",
+   "fieldtype": "Check",
+   "label": "1.1 Eyes on Path / Task"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_pop == 1",
+   "fieldname": "neg_lof",
+   "fieldtype": "Check",
+   "label": "1.2 Line of Fire Copy"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_pop == 1",
+   "fieldname": "neg_pp",
+   "fieldtype": "Check",
+   "label": "1.3 Pinch Points"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_pop == 1",
+   "fieldname": "neg_posture",
+   "fieldtype": "Check",
+   "label": "1.4 Posture / Lifting / Lowering / Twisting"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_pop == 1",
+   "fieldname": "neg_push",
+   "fieldtype": "Check",
+   "label": "1.5 Pushing / Pulling"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_pop == 1",
+   "fieldname": "neg_asc",
+   "fieldtype": "Check",
+   "label": "1.6 Ascending / Descending"
+  },
+  {
+   "fieldname": "column_break_vknl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_amkp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_sccs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_rmiv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "neg_ppe",
+   "fieldtype": "Check",
+   "label": "2. PPE"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_ppe == 1",
+   "fieldname": "neg_eyes",
+   "fieldtype": "Check",
+   "label": "2.1 Eyes & Face"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_ppe == 1",
+   "fieldname": "neg_ears",
+   "fieldtype": "Check",
+   "label": "2.2 Ears"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_ppe == 1",
+   "fieldname": "neg_head",
+   "fieldtype": "Check",
+   "label": "2.3 Head"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_ppe == 1",
+   "fieldname": "neg_hands",
+   "fieldtype": "Check",
+   "label": "2.4 Hands & Arms"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_ppe == 1",
+   "fieldname": "neg_feet",
+   "fieldtype": "Check",
+   "label": "2.5 Feet & Legs"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_ppe == 1",
+   "fieldname": "neg_resp",
+   "fieldtype": "Check",
+   "label": "2.6 Respiratory Systems"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_ppe == 1",
+   "fieldname": "neg_trunk",
+   "fieldtype": "Check",
+   "label": "2.7 Trunk"
+  },
+  {
+   "default": "0",
+   "fieldname": "neg_tools",
+   "fieldtype": "Check",
+   "label": "3. Tools & Equipment"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_tools == 1",
+   "fieldname": "neg_tselect",
+   "fieldtype": "Check",
+   "label": "3.1 Tool Selection"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_tools == 1",
+   "fieldname": "neg_tuse",
+   "fieldtype": "Check",
+   "label": "3.2 Tool Use"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_tools == 1",
+   "fieldname": "neg_tcond",
+   "fieldtype": "Check",
+   "label": "3.3 Tool Condition"
+  },
+  {
+   "default": "0",
+   "fieldname": "neg_procedures",
+   "fieldtype": "Check",
+   "label": "4. Procedures"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_procedures == 1",
+   "fieldname": "neg_papp",
+   "fieldtype": "Check",
+   "label": "4.1 Procedure Appropriate"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_procedures == 1",
+   "fieldname": "neg_pknow",
+   "fieldtype": "Check",
+   "label": "4.2 Procedure Knowledge"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_procedures == 1",
+   "fieldname": "neg_pfollow",
+   "fieldtype": "Check",
+   "label": "4.3 Procedure Followed"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_procedures == 1",
+   "fieldname": "neg_hazcom",
+   "fieldtype": "Check",
+   "label": "4.4 Hazards & Controls Communicated"
+  },
+  {
+   "default": "0",
+   "fieldname": "neg_work",
+   "fieldtype": "Check",
+   "label": "5. Work Area"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_work == 1",
+   "fieldname": "neg_house",
+   "fieldtype": "Check",
+   "label": "5.1 Housekeeping / Storage"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_work == 1",
+   "fieldname": "neg_light",
+   "fieldtype": "Check",
+   "label": "5.2 Lighting"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_work == 1",
+   "fieldname": "53_ventilation",
+   "fieldtype": "Check",
+   "label": "5.3 Ventilation"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.neg_work == 1",
+   "fieldname": "neg_access",
+   "fieldtype": "Check",
+   "label": "5.4 Accessing / Egressing"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2024-10-20 08:09:31.483787",
+ "modified": "2024-10-30 10:07:02.684022",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Field Interaction",

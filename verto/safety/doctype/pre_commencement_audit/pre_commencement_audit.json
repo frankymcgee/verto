@@ -176,20 +176,26 @@
    "default": "https://dashboard.minesitesupport.com.au/files/barricading_ex.jpg",
    "fieldname": "do_risk_ex",
    "fieldtype": "Attach Image",
-   "hidden": 1
+   "hidden": 1,
+   "print_hide": 1,
+   "report_hide": 1
   },
   {
    "fieldname": "control_example",
    "fieldtype": "Image",
    "hidden": 1,
    "label": "Control Example",
-   "options": "do_risk_ex"
+   "options": "do_risk_ex",
+   "print_hide": 1,
+   "report_hide": 1
   },
   {
    "fieldname": "do_risk_upload",
    "fieldtype": "Attach",
    "hidden": 1,
-   "label": "Upload Dropped Objects Risk Control"
+   "label": "Upload Dropped Objects Risk Control",
+   "print_hide": 1,
+   "report_hide": 1
   },
   {
    "fieldname": "is_the_work_area_appropriately_barricaded",
@@ -239,7 +245,9 @@
    "fieldname": "do_risk_ex_header",
    "fieldtype": "Heading",
    "hidden": 1,
-   "label": "Photo Example"
+   "label": "Photo Example",
+   "print_hide": 1,
+   "report_hide": 1
   },
   {
    "fieldname": "compliance_percentage",
@@ -262,7 +270,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-10-19 15:33:37.471217",
+ "modified": "2024-11-15 14:39:16.068877",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Pre-Commencement Audit",

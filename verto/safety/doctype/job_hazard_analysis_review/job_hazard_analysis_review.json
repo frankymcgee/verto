@@ -1,0 +1,271 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:JQR-{#####}",
+ "creation": "2024-10-20 08:21:01.277897",
+ "default_view": "List",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "project_section",
+  "link_project",
+  "column_break_kbki",
+  "link_task",
+  "column_break_oqei",
+  "work_area",
+  "sec_project_info",
+  "project_name",
+  "column_break_yxzp",
+  "work_scope_name",
+  "column_break_oyeu",
+  "contractor",
+  "column_break_yzym",
+  "supervisor",
+  "checklist_section",
+  "swi_activities",
+  "loc_description",
+  "individual_steps",
+  "jha_flow",
+  "hezards_identified",
+  "critical_controls",
+  "worst_outcome",
+  "line_of_fire",
+  "hold_pause_points",
+  "jha_signed",
+  "comments__corrective_actions",
+  "finalisation_section",
+  "safety_category",
+  "improvement_required",
+  "compliance_percentage"
+ ],
+ "fields": [
+  {
+   "fieldname": "project_section",
+   "fieldtype": "Section Break",
+   "label": "Project Information"
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"=\",\"Open\"]]",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_kbki",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_if_empty": 1,
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+   "options": "Task"
+  },
+  {
+   "fieldname": "column_break_oqei",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "link_task.parent_task_name",
+   "fetch_if_empty": 1,
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "fieldname": "checklist_section",
+   "fieldtype": "Section Break",
+   "label": "Checklist"
+  },
+  {
+   "description": "Coaching required if Lifesaving choices or Major hazards not considered or noted on the JHA.",
+   "fieldname": "comments__corrective_actions",
+   "fieldtype": "Small Text",
+   "label": "Other (Opportunity to capture any other findings)"
+  },
+  {
+   "fieldname": "sec_project_info",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fetch_from": "link_project.project_name",
+   "fetch_if_empty": 1,
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "fieldname": "column_break_yxzp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "link_task.subject",
+   "fetch_if_empty": 1,
+   "fieldname": "work_scope_name",
+   "fieldtype": "Data",
+   "label": "Work Scope Name"
+  },
+  {
+   "fieldname": "column_break_oyeu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "link_task.responsible_contractor",
+   "fetch_if_empty": 1,
+   "fieldname": "contractor",
+   "fieldtype": "Data",
+   "label": "Contractor"
+  },
+  {
+   "fieldname": "column_break_yzym",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "link_task.supervisor",
+   "fetch_if_empty": 1,
+   "fieldname": "supervisor",
+   "fieldtype": "Data",
+   "label": "Supervisor"
+  },
+  {
+   "fieldname": "swi_activities",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "If only using an SWI, does the SWI capture all activities that will be completed for the task?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "loc_description",
+   "fieldtype": "Select",
+   "label": "Does the location and description of the task on the JHA align with what the team have described they will be doing?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "individual_steps",
+   "fieldtype": "Select",
+   "label": "Does the risk assessment capture the individual steps in the task?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "jha_flow",
+   "fieldtype": "Select",
+   "label": "Are all identified exposures that flow through the JHA with risks identified and preventative controls detailed?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "hezards_identified",
+   "fieldtype": "Select",
+   "label": "Have all Major Hazards relevant to the work area & task been identified and captured in the Risk Assessment?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "critical_controls",
+   "fieldtype": "Select",
+   "label": "Have Critical Controls been implemented?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "worst_outcome",
+   "fieldtype": "Select",
+   "label": "Has the worst possible outcome been considered, and controls implemented to prevent it from happening?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "line_of_fire",
+   "fieldtype": "Select",
+   "label": "Have Line of Fire details that are specific to the task being completed?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "hold_pause_points",
+   "fieldtype": "Select",
+   "label": "Are Hold Points & Pause Points used correctly in the JHA?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "jha_signed",
+   "fieldtype": "Select",
+   "label": "Do all team members, including the supervisor, understand the contents of the JHA and have they signed on to it?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "finalisation_section",
+   "fieldtype": "Section Break",
+   "label": "Finalisation"
+  },
+  {
+   "fieldname": "safety_category",
+   "fieldtype": "Select",
+   "label": "What would you deem is the Safety Category?",
+   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required"
+  },
+  {
+   "fieldname": "improvement_required",
+   "fieldtype": "Select",
+   "label": "Improvement Required Category?",
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
+  },
+  {
+   "fieldname": "compliance_percentage",
+   "fieldtype": "Percent",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Compliance Percentage",
+   "precision": "2"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-10-20 08:36:42.207233",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Job Hazard Analysis Review",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Site Safety Advisor - External",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}
