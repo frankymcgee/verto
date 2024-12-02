@@ -20,16 +20,6 @@ app_include_js = [
 	"/assets/verto/js/map_view.js"
 ]	
 
-add_to_apps_screen = [
-	{
-		"name": "insights",
-		"logo": "/assets/verto/insights-logo.png",
-		"title": "Insights",
-		"route": "/insights",
-		# "has_permission": "raven.permissions.check_app_permission",
-	}
-]
-
 # include js, css files in header of web template
 # web_include_css = "/assets/verto/css/verto.css"
 # web_include_js = "/assets/verto/js/verto.js"
