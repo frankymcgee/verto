@@ -1,12 +1,13 @@
 import frappe
 from datetime import datetime
 from frappe.utils.pdf import get_pdf
+from frappe.utils.print_format import download_pdf
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def fetch_created_records():
     # Define the DocTypes to include in the list
     doctypes = ["Commitment Interaction", "Critical Control Verification", "Field Interaction", 
-                "Job Hazard Analysis Review", "Pre-Commencement Audit", "Workplace Inspection"]
+                "Job Hazard Analysis Review", "Pre-Commencement Audit", "Workplace Inspection","Prohibited and Restricted Tooling Checklist"]
     start_date = frappe.form_dict.get("start_date") or "2000-01-01"
     end_date = frappe.form_dict.get("end_date") or frappe.utils.nowdate()
 
@@ -65,7 +66,7 @@ def fetch_created_records():
     sorted_records = sorted(all_records, key=lambda x: datetime.strptime(x["creation"], "%d-%b-%y %H:%M"), reverse=True)
 
     return sorted_records
-
+@frappe.whitelist(allow_guest=True)
 def generate_record_pdf(doctype, name):
     """
     Generate and return a PDF for the given record.
@@ -83,3 +84,39 @@ def generate_record_pdf(doctype, name):
         frappe.local.response.type = "download"
     except Exception as e:
         frappe.throw(f"Failed to generate PDF: {str(e)}")
+
+@frappe.whitelist(allow_guest=True)
+def open_pdf():
+    """
+    Generate and return a PDF for the given record using get_pdf.
+    """
+    doctype = frappe.form_dict.get("doctype")
+    name = frappe.form_dict.get("name")
+
+    if not doctype or not name:
+        frappe.throw("Missing required parameters: doctype or name")
+
+    try:
+        # Validate document existence
+        doc = frappe.get_doc(doctype, name)
+        if not doc:
+            frappe.throw(f"The document {doctype} {name} does not exist.")
+
+        # Validate permissions
+        if not frappe.has_permission(doctype, "read"):
+            frappe.throw(f"You do not have permission to access {doctype}.")
+
+        # Fetch the HTML representation of the document
+        html = frappe.get_print(doctype, name, print_format=None)
+
+        # Generate the PDF from the HTML
+        pdf_data = get_pdf(html)
+
+        # Set the response headers for downloading
+        frappe.response['filename'] = f"{name}.pdf"
+        frappe.response['filecontent'] = pdf_data
+        frappe.response['type'] = 'binary'
+    except Exception as e:
+        # Log error details for debugging
+        frappe.log_error(message=f"PDF Generation Error: {str(e)}", title="PDF Generation Error")
+        frappe.throw(f"Could not generate PDF: {str(e)}")

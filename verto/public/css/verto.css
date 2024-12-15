@@ -1,6 +1,6 @@
 @media only screen and (max-width: 768px) {
     * {
-        font-size: large !important;
+        font-size: x-large !important;
         word-wrap: break-word;
         overflow-wrap: break-word;
         white-space: normal;
@@ -25,8 +25,18 @@
     white-space: normal;
     cursor: pointer;
     margin: 0px;
-    background-color: #3A1516;
+    background-color: var(--bg-dark-blue);
     display: block;
+    box-shadow: 0px 10px 14px -7px #808080;
+    padding-bottom: 5px;
+    border: 0px solid #e0e0e0;
+    border-radius: 5px;
+    display: inline-block;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    text-decoration: none;
+    width: 100%;
 }
 
 .ce-block__content {
