@@ -1,12 +1,8 @@
 {
  "charts": [],
- "content": "[{\"id\":\"JuIpL2EHfa\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Check-in V2\",\"col\":12}},{\"id\":\"L0uWTIymD4\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Allocated Tasks:</b></span>\",\"col\":12}},{\"id\":\"XapUHBbBxq\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Assigned Tasks v2\",\"col\":12}}]",
+ "content": "[{\"id\":\"L0uWTIymD4\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h5\\\">Allocated Tasks:</span>\",\"col\":12}},{\"id\":\"XapUHBbBxq\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Assigned Tasks v2\",\"col\":12}}]",
  "creation": "2020-01-23 13:46:38.833076",
  "custom_blocks": [
-  {
-   "custom_block_name": "Check-in V2",
-   "label": "Check-in V2"
-  },
   {
    "custom_block_name": "Assigned Tasks v2",
    "label": "Assigned Tasks v2"
@@ -17,7 +13,7 @@
  "for_user": "",
  "hide_custom": 0,
  "icon": "map",
- "idx": 11,
+ "idx": 15,
  "is_hidden": 0,
  "label": "Home",
  "links": [
@@ -209,7 +205,7 @@
    "type": "Link"
   }
  ],
- "modified": "2024-11-30 07:54:07.657228",
+ "modified": "2024-12-15 17:04:32.720379",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Home",
