@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:PCA{######}",
+ "autoname": "format:PCA-{####}",
  "creation": "2024-07-05 12:50:33.417054",
  "description": "This audit ensures that all necessary preparations, safety measures, and compliance requirements are in place. It typically includes checking the availability and condition of tools and materials, verifying that workers have received proper training and safety briefings, ensuring that risk assessments and method statements are completed, and confirming that any necessary permits and approvals are obtained. The goal is to identify and mitigate potential hazards or issues, thereby promoting a safe and efficient work environment.",
  "doctype": "DocType",
@@ -270,7 +270,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-11-15 14:39:16.068877",
+ "modified": "2025-02-10 16:17:51.799736",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Pre-Commencement Audit",

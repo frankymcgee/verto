@@ -45,7 +45,7 @@ frappe.views.MapView = class MapView extends frappe.views.ListView {
 		L.control.scale().addTo(this.map);
 		if (this.coords.features && this.coords.features.length) {
 			this.coords.features.forEach((coords) =>
-				L.geoJSON(coords).bindPopup('<b>Project: '+ coords.properties.project_name + '</b></br><a href="/app/task/' + coords.properties.name.toString() + '">' + coords.properties.subject + '</a>').addTo(this.map)
+				L.geoJSON(coords).bindPopup('<b>'+ coords.properties.project_scope_name + '</b></br><i>' + coords.properties.parent_task_name + ' - ' + coords.properties.subject + '</i>' + '</br>Contractor: ' + coords.properties.responsible_contractor + '</br><a href="/app/task/' + coords.properties.name.toString() + '">Open Task</a>').addTo(this.map)
 			);
 			let lastCoords = this.coords.features[0].geometry.coordinates.reverse();
 			this.map.setView(lastCoords, 16);			
@@ -54,7 +54,7 @@ frappe.views.MapView = class MapView extends frappe.views.ListView {
 
 	get_coords() {
 		let get_coords_method =
-			(this.settings && this.settings.get_coords_method) || "frappe.geo.utils.get_coords";
+			(this.settings && this.settings.get_coords_method) || "verto.geo.utils.verto_get_coords";
 
 		if (
 			cur_list.meta.fields.find(

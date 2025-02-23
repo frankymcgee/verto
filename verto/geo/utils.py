@@ -39,8 +39,10 @@ def verto_merge_location_features_in_one(coords):
 			continue
 		for coord in geojson_loc["features"]:
 			coord["properties"]["name"] = element["name"]
-			coord["properties"]["subject"] = element["subject"]
-			coord["properties"]["project_name"] = element["project_name"]
+			coord["properties"]["subject"] = element["subject"]			
+			coord["properties"]["parent_task_name"] = element["parent_task_name"]
+			coord["properties"]["project_scope_name"] = element["project_scope_name"]			
+			coord["properties"]["responsible_contractor"] = element["responsible_contractor"]
 			geojson_dict.append(coord.copy())
 
 	return geojson_dict
@@ -53,7 +55,9 @@ def verto_create_gps_markers(coords):
 		node = {"type": "Feature", "properties": {}, "geometry": {"type": "Point", "coordinates": None}}
 		node["properties"]["name"] = i.name
 		node["properties"]["subject"] = i.subject
-		node["properties"]["project"] = i.project_name
+		node["properties"]["parent_task_name"] = i.parent_task_name
+		node["properties"]["project_scope_name"] = i.project_scope_name
+		node["properties"]["responsible_contractor"] = i.responsible_contractor
 		node["geometry"]["coordinates"] = [i.longitude, i.latitude]  # geojson needs it reverse!
 		geojson_dict.append(node.copy())
 
@@ -65,22 +69,22 @@ def verto_return_location(doctype, filters_sql):
 	if filters_sql:
 		try:
 			coords = frappe.db.sql(
-				f"""SELECT name, subject, project_name, location FROM `tab{doctype}`  WHERE {filters_sql}""", as_dict=True
+				f"""SELECT name, subject, project_scope_name, responsible_contractor, parent_task_name, location FROM `tab{doctype}`  WHERE {filters_sql}""", as_dict=True
 			)
 		except frappe.db.InternalError:
 			frappe.msgprint(frappe._("This Doctype does not contain location fields"), raise_exception=True)
 			return
 	else:
-		coords = frappe.get_all(doctype, fields=["name","subject", "project_name", "location"])
+		coords = frappe.get_all(doctype, fields=["name","subject", "project_scope_name", "location", "responsible_contractor", "parent_task_name"])
 	return coords
 
 
 def verto_return_coordinates(doctype, filters_sql):
-	"""Get name, latitude and longitude fields for Doctype."""
+	"""Get name, latitude, longitude, project_scope_name, and subject fields for Doctype."""
 	if filters_sql:
 		try:
 			coords = frappe.db.sql(
-				f"""SELECT name, subject, project_name, latitude, longitude FROM `tab{doctype}`  WHERE {filters_sql}""",
+				f"""SELECT name, subject, project_scope_name, responsible_contractor, parent_task_name, subject, latitude, longitude FROM `tab{doctype}`  WHERE {filters_sql}""",
 				as_dict=True,
 			)
 		except frappe.db.InternalError:
@@ -89,7 +93,7 @@ def verto_return_coordinates(doctype, filters_sql):
 			)
 			return
 	else:
-		coords = frappe.get_all(doctype, fields=["name", "subject"," project_name", "latitude", "longitude"])
+		coords = frappe.get_all(doctype, fields=["name", "subject"," project_scope_name", "latitude", "longitude", "subject", "responsible_contractor", "parent_task_name"])
 	return coords
 
 

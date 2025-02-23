@@ -1,0 +1,224 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:LV-PS-{#####}",
+ "creation": "2025-02-10 15:57:32.066197",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "asset_information_section",
+  "asset",
+  "column_break_klyq",
+  "current_kms",
+  "category_a_faults_inspection_section",
+  "a_steering",
+  "a_seatbelts",
+  "a_handbrake",
+  "a_uhf",
+  "a_lights",
+  "a_tyres",
+  "a_wheel_nuts",
+  "category_b_fault_inspection_section",
+  "b_aircon",
+  "b_reverse_horn",
+  "b_windscreen",
+  "b_washers",
+  "b_flag",
+  "category_c_fault_inspection_section",
+  "c_liquids",
+  "c_gauges",
+  "c_doors_mirrors",
+  "c_clean",
+  "sing_off",
+  "signature"
+ ],
+ "fields": [
+  {
+   "fieldname": "asset",
+   "fieldtype": "Link",
+   "label": "Asset",
+   "link_filters": "[[\"Asset\",\"asset_category\",\"=\",\"LV\"]]",
+   "options": "Asset"
+  },
+  {
+   "fieldname": "column_break_klyq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "asset_information_section",
+   "fieldtype": "Section Break",
+   "label": "Asset Information"
+  },
+  {
+   "description": "If any of these are non-compliant, vehicle cannot be operated.",
+   "fieldname": "category_a_faults_inspection_section",
+   "fieldtype": "Section Break",
+   "label": "Category A Faults Inspection"
+  },
+  {
+   "fieldname": "a_steering",
+   "fieldtype": "Select",
+   "label": "Steering system operational",
+   "options": "\nCompliant\nNon-Compliant"
+  },
+  {
+   "fieldname": "a_seatbelts",
+   "fieldtype": "Select",
+   "label": "Seatbelt operational & servicable",
+   "options": "\nCompliant\nNon-Compliant"
+  },
+  {
+   "fieldname": "a_handbrake",
+   "fieldtype": "Select",
+   "label": "Service & park brake operational",
+   "options": "\nCompliant\nNon-Compliant"
+  },
+  {
+   "fieldname": "a_uhf",
+   "fieldtype": "Select",
+   "label": "Two-way radio operational",
+   "options": "\nCompliant\nNon-Compliant"
+  },
+  {
+   "fieldname": "a_lights",
+   "fieldtype": "Select",
+   "label": "Driving lights & beacon operational",
+   "options": "\nCompliant\nNon-Compliant"
+  },
+  {
+   "fieldname": "a_tyres",
+   "fieldtype": "Select",
+   "label": "Tyre condition & available spare",
+   "options": "\nCompliant\nNon-Compliant"
+  },
+  {
+   "fieldname": "a_wheel_nuts",
+   "fieldtype": "Select",
+   "label": "Wheel nuts / studs / wheel nut indicators in place",
+   "options": "\nCompliant\nNon-Compliant"
+  },
+  {
+   "description": "If any of these are non-compliant, they must be rectified unless previously approved.",
+   "fieldname": "category_b_fault_inspection_section",
+   "fieldtype": "Section Break",
+   "label": "Category B Fault Inspection"
+  },
+  {
+   "fieldname": "b_aircon",
+   "fieldtype": "Select",
+   "label": "Air conditioning operational",
+   "options": "\nCompliant\nNon-Compliant"
+  },
+  {
+   "fieldname": "b_reverse_horn",
+   "fieldtype": "Select",
+   "label": "Reverse beeper & horn operational",
+   "options": "\nCompliant\nNon-Compliant"
+  },
+  {
+   "fieldname": "b_windscreen",
+   "fieldtype": "Select",
+   "label": "Windscreen condition - no cracks or chips",
+   "options": "\nCompliant\nNon-Compliant"
+  },
+  {
+   "fieldname": "b_washers",
+   "fieldtype": "Select",
+   "label": "Wipers / washers operational",
+   "options": "\nCompliant\nNon-Compliant"
+  },
+  {
+   "fieldname": "b_flag",
+   "fieldtype": "Select",
+   "label": "Flag serviceable",
+   "options": "\nCompliant\nNon-Compliant"
+  },
+  {
+   "description": "If any of these are non-compliant, vehicle can still be operated, but corrective actions are required.",
+   "fieldname": "category_c_fault_inspection_section",
+   "fieldtype": "Section Break",
+   "label": "Category C Fault Inspection"
+  },
+  {
+   "fieldname": "c_liquids",
+   "fieldtype": "Select",
+   "label": "Fuel, oil & coolant levels",
+   "options": "\nCompliant\nNon-Compliant"
+  },
+  {
+   "fieldname": "c_gauges",
+   "fieldtype": "Select",
+   "label": "Gauges functional",
+   "options": "\nCompliant\nNon-Compliant"
+  },
+  {
+   "fieldname": "c_doors_mirrors",
+   "fieldtype": "Select",
+   "label": "Doors & mirrors functional",
+   "options": "\nCompliant\nNon-Compliant"
+  },
+  {
+   "fieldname": "c_clean",
+   "fieldtype": "Select",
+   "label": "Cab clean",
+   "options": "\nCompliant\nNon-Compliant"
+  },
+  {
+   "fieldname": "sing_off",
+   "fieldtype": "Section Break",
+   "label": "Sign-off"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "in_list_view": 1,
+   "label": "SIgnature",
+   "reqd": 1
+  },
+  {
+   "fieldname": "current_kms",
+   "fieldtype": "Float",
+   "label": "Current Km's",
+   "precision": "2"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-02-19 13:13:12.007887",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "LV Pre-Start",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Site Safety Advisor - External",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

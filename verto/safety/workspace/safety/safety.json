@@ -1,0 +1,45 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"T0AQXk8e2Q\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Safety Interaction Activity</b></span>\",\"col\":12}},{\"id\":\"WqhRLsAYGI\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Activity Feed\",\"col\":12}},{\"id\":\"V1jiVGtgDQ\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Bottom NavBar\",\"col\":12}}]",
+ "creation": "2023-11-11 13:32:20.158192",
+ "custom_blocks": [
+  {
+   "custom_block_name": "Bottom NavBar",
+   "label": "Bottom NavBar"
+  },
+  {
+   "custom_block_name": "Activity Feed",
+   "label": "Activity Feed"
+  }
+ ],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "permission",
+ "idx": 0,
+ "indicator_color": "",
+ "is_hidden": 0,
+ "label": "Safety",
+ "links": [],
+ "modified": "2025-02-18 10:20:22.257342",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Safety",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Employee"
+  },
+  {
+   "role": "WHS Advisor - Internal"
+  }
+ ],
+ "sequence_id": 29.0,
+ "shortcuts": [],
+ "title": "Safety"
+}

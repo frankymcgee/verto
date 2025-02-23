@@ -11,13 +11,21 @@ app_license = "apache-2.0"
 
 # include js, css files in header of desk.html
 app_include_css = [
-	"/assets/verto/css/verto.css"
+	"/assets/verto/css/verto.css",
+    "/assets/verto/css/leaflet.css",
+    "/assets/verto/css/leaflet.draw.css",
+    "/assets/verto/css/easy-button.css",
+    "/assets/verto/css/L.Control.Locate.css"
 ]
 app_include_js = [
 	"/assets/verto/js/gantt_view.js",
 	"/assets/verto/js/geolocation.js",
 	"/assets/verto/js/map_defaults.js",
-	"/assets/verto/js/map_view.js"
+	"/assets/verto/js/map_view.js",
+    "/assets/verto/js/leaflet.js",
+    "/assets/verto/js/leaflet.draw.js",
+    "/assets/verto/js/easy-button.js",
+    "/assets/verto/js/L.Control.Locate.js"
 ]	
 
 # include js, css files in header of web template
@@ -169,6 +177,9 @@ app_include_js = [
 # override_whitelisted_methods = {
 #	"frappe.desk.doctype.event.event.get_events": "verto.event.get_events"
 # }
+override_whitelisted_methods = {
+    "frappe.geo.utils.get_coords": "verto.geo.utils.verto_get_coords"
+}
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,

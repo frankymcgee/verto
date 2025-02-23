@@ -1,4 +1,25 @@
-frappe.provide("frappe.utils");
+frappe.router.on("change", () => {
+    console.log("Page changed, checking Leaflet status...");
+
+    // Remove old Leaflet instance
+    if (window.map) {
+        console.log("Cleaning up map instance...");
+        window.map.off(); // Remove all event listeners
+        window.map.remove();
+        delete window.map;
+    }
+frappe.require([
+    "/assets/verto/js/leaflet.draw.js",
+    "/assets/verto/css/leaflet.draw.css",
+	"/assets/verto/js/L.Control.Locate.min.js",
+    "/assets/verto/css/L.Control.Locate.min.css"
+], () => {
+    console.log("Leaflet Draw loaded successfully");
+
+    if (typeof L.Control.Draw === "undefined") {
+        console.error("Leaflet Draw plugin not loaded!");
+        return;
+    }
 
 frappe.ui.form.ControlGeolocation = class ControlGeolocation extends frappe.ui.form.ControlData {
 	static horizontal = false;
@@ -25,13 +46,14 @@ frappe.ui.form.ControlGeolocation = class ControlGeolocation extends frappe.ui.f
 		$(this.disp_area).removeClass("like-disabled-input");
 		$(this.disp_area).css("display", "block");
 
-		if (this.frm) {
-			this.make_map(value);
-		} else {
-			$(document).on("frappe.ui.Dialog:shown", () => {
-				this.make_map();
-			});
-		}
+		if (!window.L || typeof L.Control.Draw === "undefined") {
+            frappe.require(["/assets/verto/js/leaflet.draw.js"], () => {
+                console.log("Leaflet Draw reloaded for task view.");
+                this.make_map(value);
+            });
+        } else {
+            this.make_map(value);
+        }
 	}
 
 	make_map(value) {
@@ -261,3 +283,5 @@ frappe.ui.form.ControlGeolocation = class ControlGeolocation extends frappe.ui.f
 		!hide && this.fit_and_recenter_map();
 	}
 };
+});
+});

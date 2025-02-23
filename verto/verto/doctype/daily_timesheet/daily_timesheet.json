@@ -13,6 +13,8 @@
   "column_break_nxgq",
   "shift",
   "project",
+  "project_id",
+  "customer",
   "timehseet_activity_section",
   "start_time",
   "column_break_lcin",
@@ -106,12 +108,27 @@
    "fieldname": "comments",
    "fieldtype": "Small Text",
    "label": "Comments"
+  },
+  {
+   "fetch_from": "shift_allocation.custom_client",
+   "fetch_if_empty": 1,
+   "fieldname": "customer",
+   "fieldtype": "Data",
+   "label": "Customer"
+  },
+  {
+   "fetch_from": "shift_allocation.custom_project",
+   "fetch_if_empty": 1,
+   "fieldname": "project_id",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Project ID"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2024-09-18 17:11:58.397566",
+ "modified": "2025-02-09 15:06:24.662192",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Daily Timesheet",

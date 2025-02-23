@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:CMI-{#####}",
+ "autoname": "format:CMI-{####}",
  "creation": "2024-07-24 12:55:32.188326",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -220,7 +220,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-10-19 15:29:48.704977",
+ "modified": "2025-02-10 16:17:15.897969",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Commitment Interaction",

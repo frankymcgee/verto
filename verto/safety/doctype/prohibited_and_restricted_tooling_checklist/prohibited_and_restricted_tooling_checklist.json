@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:PRT{######}",
+ "autoname": "format:PRT-{#####}",
  "creation": "2024-10-05 08:09:25.674495",
  "default_view": "List",
  "description": "The checklist categorizes tools into two sections:\n\nProhibited Tools: These are tools that are banned from the premises or specific work areas due to safety risks, environmental hazards, or regulatory constraints. Examples may include outdated, unapproved, or high-risk tools such as certain power tools, hazardous cutting devices, or equipment without proper safety mechanisms.\n\nRestricted Tools: These are tools that may only be used under specific conditions or with proper authorization, training, or supervision. The restrictions could involve limiting the type of users (e.g., only certified personnel), certain operational areas, or specific times when the tools can be deployed. The checklist outlines the safety precautions and required protective measures (PPE) when using restricted tools.",
@@ -473,7 +473,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-10-05 08:41:41.677304",
+ "modified": "2025-02-19 13:12:09.053696",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Prohibited and Restricted Tooling Checklist",
