@@ -71,8 +71,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-
 
-      - name: Install MariaDB Client
-        run: sudo apt-get install mariadb-client-10.6
+      - name: Install MariaDB Client 10.6
+        run: |
+          sudo apt-get install -y software-properties-common
+          sudo add-apt-repository 'deb [arch=amd64,arm64,ppc64el] http://mirror.netinch.com/pub/mariadb/repo/10.6/ubuntu jammy main'
+          sudo apt-get update
+          sudo apt-get install -y mariadb-client
+
 
       - name: Setup
         run: |
