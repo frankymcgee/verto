@@ -1,10 +1,14 @@
 {
  "charts": [],
- "content": "[{\"id\":\"L0uWTIymD4\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h5\\\">Allocated Tasks:</span>\",\"col\":12}},{\"id\":\"XapUHBbBxq\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Assigned Tasks v2\",\"col\":12}}]",
+ "content": "[{\"id\":\"L0uWTIymD4\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h5\\\">Tasks</span>\",\"col\":12}},{\"id\":\"fhZ0JVa5WA\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Bottom NavBar\",\"col\":12}},{\"id\":\"XapUHBbBxq\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Assigned Tasks v2\",\"col\":12}}]",
  "creation": "2020-01-23 13:46:38.833076",
  "custom_blocks": [
   {
-   "custom_block_name": "Assigned Tasks v2",
+   "custom_block_name": "Bottom NavBar",
+   "label": "Bottom NavBar"
+  },
+  {
+   "custom_block_name": "Assigned Tasks",
    "label": "Assigned Tasks v2"
   }
  ],
@@ -13,7 +17,7 @@
  "for_user": "",
  "hide_custom": 0,
  "icon": "map",
- "idx": 15,
+ "idx": 37,
  "is_hidden": 0,
  "label": "Home",
  "links": [
@@ -205,7 +209,7 @@
    "type": "Link"
   }
  ],
- "modified": "2024-12-15 17:04:32.720379",
+ "modified": "2025-03-12 09:54:46.363865",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Home",

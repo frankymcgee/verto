@@ -37,8 +37,7 @@
    "fieldname": "asset",
    "fieldtype": "Link",
    "label": "Asset",
-   "link_filters": "[[\"Asset\",\"asset_category\",\"=\",\"LV\"]]",
-   "options": "Asset"
+   "options": "Vehicle"
   },
   {
    "fieldname": "column_break_klyq",
@@ -184,7 +183,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-02-19 13:13:12.007887",
+ "modified": "2025-03-05 14:56:34.002973",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "LV Pre-Start",

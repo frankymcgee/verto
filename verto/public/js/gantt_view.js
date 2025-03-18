@@ -36,17 +36,17 @@ frappe.views.GanttView = class GanttView extends frappe.views.ListView {
 		var me = this;
 		var meta = this.meta;
 		var field_map = this.calendar_settings.field_map;
-
+	
 		this.tasks = this.data.map(function (item) {
-			// set progress
+			// Set progress
 			var progress = 0;
 			if (field_map.progress && $.isFunction(field_map.progress)) {
 				progress = field_map.progress(item);
 			} else if (field_map.progress) {
 				progress = item[field_map.progress];
 			}
-
-			// title
+	
+			// Title
 			var label;
 			if (meta.title_field) {
 				label = item.progress
@@ -55,32 +55,32 @@ frappe.views.GanttView = class GanttView extends frappe.views.ListView {
 			} else {
 				label = item[field_map.title];
 			}
-
+	
 			// Parse start and end times using the exp_start_time for HH:mm:ss
-                var date_part_start = moment(item[field_map.start], 'YYYY-MM-DD');
-                var time_part_start = moment(item.exp_start_time, 'HH:mm:ss');
-                var date_part_end = moment(item[field_map.end], 'YYYY-MM-DD');
-                var time_part_end = moment(item.exp_end_time, 'HH:mm:ss');
-
-                // Combine date and time parts for start and end times
-                var start_time = date_part_start
-                    .hour(time_part_start.hour())
-                    .minute(time_part_start.minute())
-                    .second(time_part_start.second())
-                    .subtract(12, 'hours');
-
-                var end_time = date_part_end
-                    .hour(time_part_end.hour())
-                    .minute(time_part_end.minute())
-                    .second(time_part_end.second())
-                    .subtract(12, 'hours');
-
+			var date_part_start = moment(item[field_map.start], 'YYYY-MM-DD');
+			var time_part_start = moment(item.exp_start_time, 'HH:mm:ss');
+			var date_part_end = moment(item[field_map.end], 'YYYY-MM-DD');
+			var time_part_end = moment(item.exp_end_time, 'HH:mm:ss');
+	
+			// Combine date and time parts for start and end times
+			var start_time = date_part_start
+				.hour(time_part_start.hour())
+				.minute(time_part_start.minute())
+				.second(time_part_start.second())
+				.subtract(12, 'hours');
+	
+			var end_time = date_part_end
+				.hour(time_part_end.hour())
+				.minute(time_part_end.minute())
+				.second(time_part_end.second())
+				.subtract(12, 'hours');
+	
 			// Check if start_time and end_time are valid
 			if (!start_time.isValid() || !end_time.isValid()) {
 				console.error("Invalid date:", item);
-				return null;  // Skip this item if dates are invalid
+				return null; // Skip this item if dates are invalid
 			}
-
+	
 			var r = {
 				start: start_time.toDate(),  // Ensure the start and end are Date objects
 				end: end_time.toDate(),
@@ -91,18 +91,21 @@ frappe.views.GanttView = class GanttView extends frappe.views.ListView {
 				dependencies: item.depends_on_tasks || "",
 				task: item.subject,
 			};
-
-			if (item.color && frappe.ui.color.validate_hex(item.color)) {
-				r["custom_class"] = "color-" + item.color.substr(1);
+	
+			// Check for color: use item.color, if not available, fallback to item.color_label
+			let color_value = item.color || item.color_label;
+			if (color_value && frappe.ui.color.validate_hex(color_value)) {
+				r["custom_class"] = "color-" + color_value.substr(1);
 			}
-
+	
 			if (item.is_milestone) {
 				r["custom_class"] = "bar-milestone";
 			}
-
+	
 			return r;
 		}).filter(item => item !== null);  // Filter out any null items
 	}
+	
 
 	render() {
 		this.load_lib.then(() => {
@@ -132,15 +135,21 @@ render_task_column($taskColumn) {
 
     // Loop through the tasks and add each task name to the column
     this.tasks.forEach(task => {        
+        // Determine the display name
+        const displayName = task.task || task.name || "Unnamed Task";
+
         // Create task item
-        const $taskItem = $(`<div class="gantt-task-item">${task.task}</div>`);        
+        const $taskItem = $(`<div class="gantt-task-item">${displayName}</div>`);        
+
         // Optional: Add a click handler to focus on the task in the Gantt chart
         $taskItem.on("click", () => {
             frappe.set_route("Form", task.doctype, task.id);
         });
+
         $taskColumn.append($taskItem);
     });
 }
+
 
 	render_header() {}	
 
@@ -249,27 +258,31 @@ render_task_column($taskColumn) {
 	set_colors() {
 		const classes = this.tasks
 			.map((t) => t.custom_class)
-			.filter((c) => c && c.startsWith("color-"));
-
+			.filter((c) => c && typeof c === "string" && c.startsWith("color-"));
+	
 		let style = classes
 			.map((c) => {
 				const class_name = c.replace("#", "");
-				const bar_color = "#" + c.substr(6);
+				const bar_color = "#" + c.substring(6);
 				const progress_color = frappe.ui.color.get_contrast_color(bar_color);
+	
 				return `
-				.gantt .bar-wrapper.${class_name} .bar {
-					fill: ${bar_color};
-				}
-				.gantt .bar-wrapper.${class_name} .bar-progress {
-					fill: ${progress_color};
-				}
-			`;
+					.gantt .bar-wrapper.${class_name} .bar {
+						fill: ${bar_color};
+					}
+					.gantt .bar-wrapper.${class_name} .bar-progress {
+						fill: ${progress_color};
+					}
+				`;
 			})
 			.join("");
-
-		style = `<style>${style}</style>`;
-		this.$result.prepend(style);
+	
+		if (style) {
+			style = `<style>${style}</style>`;
+			this.$result.prepend(style);
+		}
 	}
+	
 
 	get_item(name) {
 		return this.data.find((item) => item.name === name);
