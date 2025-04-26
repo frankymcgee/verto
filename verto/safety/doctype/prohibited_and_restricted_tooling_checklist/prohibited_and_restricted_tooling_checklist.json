@@ -10,16 +10,17 @@
  "field_order": [
   "sec_project",
   "link_project",
+  "project_name",
   "column_break_nioa",
-  "link_task",
+  "scope_or_wo",
+  "work_scope",
   "column_break_gjvx",
+  "link_task",
+  "work_order_number",
   "work_area",
   "sec_proj_info",
-  "project_name",
-  "work_scope_name",
-  "wo_number",
-  "column_break_ftgy",
   "contractor",
+  "column_break_ftgy",
   "supervisor",
   "sec_prohibited",
   "230mm_9_inch_angle_grinder",
@@ -95,6 +96,7 @@
    "fieldtype": "Column Break"
   },
   {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
    "fetch_if_empty": 1,
    "fieldname": "link_task",
    "fieldtype": "Link",
@@ -110,14 +112,14 @@
   {
    "depends_on": "eval:doc.link_task !== \"\"",
    "fetch_from": "link_task.parent_task_name",
-   "fetch_if_empty": 1,
    "fieldname": "work_area",
    "fieldtype": "Data",
    "label": "Work Area"
   },
   {
    "fieldname": "sec_proj_info",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Interaction Details"
   },
   {
    "depends_on": "eval:doc.link_project !== \"\"",
@@ -128,39 +130,25 @@
    "label": "Project Name"
   },
   {
-   "depends_on": "eval:doc.link_task !== \"\"",
-   "fetch_from": "link_task.subject",
-   "fetch_if_empty": 1,
-   "fieldname": "work_scope_name",
-   "fieldtype": "Data",
-   "label": "Work Scope Name"
-  },
-  {
-   "fetch_from": "link_task.work_order_number",
-   "fetch_if_empty": 1,
-   "fieldname": "wo_number",
-   "fieldtype": "Data",
-   "label": "WO Number"
-  },
-  {
    "fieldname": "column_break_ftgy",
    "fieldtype": "Column Break"
   },
   {
-   "fetch_from": "link_task.responsible_contractor",
-   "fetch_if_empty": 1,
+   "description": "Select from the list. If missing, select \"MISSING\"",
    "fieldname": "contractor",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Contractor"
+   "label": "Contractor",
+   "options": "Contractor",
+   "reqd": 1
   },
   {
-   "fetch_from": "link_task.supervisor",
-   "fetch_if_empty": 1,
+   "description": "Please enter full name",
    "fieldname": "supervisor",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Supervisor"
+   "label": "Supervisor",
+   "reqd": 1
   },
   {
    "fieldname": "sec_safety",
@@ -184,133 +172,133 @@
    "fieldname": "230mm_9_inch_angle_grinder",
    "fieldtype": "Select",
    "label": "230mm (9 inch) Angle Grinder",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "lock_on_button",
    "fieldtype": "Select",
    "label": "Lock-On Button/Switch On Handheld Rotating Tools",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "drill_presses_and_lathes_without_deadman_switches",
    "fieldtype": "Select",
    "label": "Drill Presses and Lathes Without Deadman Switches",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "manually_operated_torque_multipliers",
    "fieldtype": "Select",
    "label": "Manually Operated Torque Multipliers",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "aluminium_air_conditioning_flushing_canisters",
    "fieldtype": "Select",
    "label": "Aluminium Air Conditioning Flushing Canisters",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "homemade_and_modified_tools",
    "fieldtype": "Select",
    "label": "Homemade (and Modified) Tools",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "over_centre_lever_load_binders",
    "fieldtype": "Select",
    "label": "Over Centre Lever Load Binders",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "grab_hooks_without_a_safety_latch",
    "fieldtype": "Select",
    "label": "Grab Hooks without a Safety Latch",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "unrated_load__lifting_equipment__tooling",
    "fieldtype": "Select",
    "label": "Unrated Load / Lifting Equipment / Tooling",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "test_screwdriver",
    "fieldtype": "Select",
    "label": "Test Screwdriver",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "genie_zx13575_knuckle_boom_ewp_with_no_compliance_decal_affixed",
    "fieldtype": "Select",
    "label": "Genie ZX135/75 Knuckle Boom EWP with NO Compliance Decal Affixed",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "asbestos_materials",
    "fieldtype": "Select",
    "label": "Asbestos Materials",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "hazardous_substances",
    "fieldtype": "Select",
    "label": "Hazardous Substances and/or Dangerous Goods Prohibited in The Country or Region of Operations",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "oxy_acetylene_sets_without_flash_back_arrestors",
    "fieldtype": "Select",
    "label": "Oxy Acetylene Sets without Flash Back Arrestors",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "welders_without_vrd_fitted",
    "fieldtype": "Select",
    "label": "Welders without VRD Fitted",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "genset_without_rcd_protection",
    "fieldtype": "Select",
    "label": "Genset without RCD Protection",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "220_volt_outlets_in_light_vehicles_without_rcd_protection",
    "fieldtype": "Select",
    "label": "220 Volt Outlets in Light Vehicles without RCD Protection",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "power_board_without_switches_or_circuit_breakers",
    "fieldtype": "Select",
    "label": "Power Board Without Switches or Circuit Breakers",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "double_adaptors",
    "fieldtype": "Select",
    "label": "Double Adaptors",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "electrical_leads_with_2_male_plugs",
    "fieldtype": "Select",
    "label": "Electrical Leads with 2 Male Plugs",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "non_safe_equip",
    "fieldtype": "Select",
    "label": "Non-Intrinsically Safe Equipment (inc Watches, Phones, Jewellery, PPE) in Hazardous Areas",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "aerosol_type_handheld_extinguishers",
    "fieldtype": "Select",
    "label": "Aerosol Type Handheld Extinguishers",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "description": "Restricted items are those items which require approval from a relevant Department Manager prior to possession and/or use including residential camp accommodation. Completion of a Team Based Risk Assessment (TBRA) with Departmental Manager approval must occur prior to use of restricted items.",
@@ -322,145 +310,145 @@
    "fieldname": "audio_devices",
    "fieldtype": "Select",
    "label": "In-Ear / Over Ear Audio Devices",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "mixed_scaffold_systems_on_same_scaffold_structure",
    "fieldtype": "Select",
    "label": "Mixed Scaffold Systems (on Same Scaffold Structure)",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "leatherman",
    "fieldtype": "Select",
    "label": "Leatherman Multi-Tool / Stanley Knives (Cutting Tools with a Blade Which May Be Locked/Fixed in an Open Position)",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "belt_splicing_knives",
    "fieldtype": "Select",
    "label": "Belt Splicing Knives",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "hardened_steel_hammers__225kg_or_hammers_with_dead_weight__9kg",
    "fieldtype": "Select",
    "label": "Hardened Steel Hammers > 2.25kg or Hammers With Dead Weight > 9kg",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "180mm_7_inch_grinders_with_dual_action_deadman_switch",
    "fieldtype": "Select",
    "label": "180mm (7 Inch) Grinders with Dual Action Deadman Switch",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "grinders_wo_switches",
    "fieldtype": "Select",
    "label": "125mm (5 Inch) and Below Grinders without Dual Action Dead Man Switches / Handles",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "small_cutting_discs",
    "fieldtype": "Select",
    "label": "Cutting Discs (Thickness \u22642mm)",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "buffing_tools",
    "fieldtype": "Select",
    "label": "Buffing Tools",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "grindersbuffing_tools_with_wire_wheel_attachments",
    "fieldtype": "Select",
    "label": "Grinders/Buffing Tools with Wire Wheel Attachments",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "belt_saws__demolition_saws",
    "fieldtype": "Select",
    "label": "Belt Saws / Demolition Saws",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "pry__crow_bars_without_grommets__collars",
    "fieldtype": "Select",
    "label": "Pry / Crow Bars without Grommets / Collars",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "explosive_powered_tools_epts",
    "fieldtype": "Select",
    "label": "Explosive Powered Tools (EPTs)",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "compressed_air_tools",
    "fieldtype": "Select",
    "label": "Compressed Air Tools",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "karabiners",
    "fieldtype": "Select",
    "label": "Karabiners",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "multi_directional_screw_clamp_also_known_as_eagle_clamps",
    "fieldtype": "Select",
    "label": "Multi Directional Screw Clamp (also Known as Eagle Clamps)",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "forklift_attachments",
    "fieldtype": "Select",
    "label": "Non-OEM Issued Forklift or Multi-Purpose Tool Carrier (MPTC) Attachments",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "flammable_contact_cleaner",
    "fieldtype": "Select",
    "label": "Flammable Contact Cleaner",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "haz_substances",
    "fieldtype": "Select",
    "label": "Hazardous Substances and/or Dangerous Goods (Not Listed in ChemAlert SDS Register)",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "roo_jack",
    "fieldtype": "Select",
    "label": "High-Lift (Roo) Jack",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "jerry_cans_of_greater_than_or_equal_to_20l_capacity",
    "fieldtype": "Select",
    "label": "Jerry Cans of Greater Than or Equal To 20L Capacity",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "ratchet_type_vehicle_support_stands",
    "fieldtype": "Select",
    "label": "Ratchet Type Vehicle Support Stands",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "encapsulator_fire_fighting_agents_or_water_additives",
    "fieldtype": "Select",
    "label": "Encapsulator Fire Fighting Agents or Water Additives",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "pfas_fire_suppression_systems",
    "fieldtype": "Select",
    "label": "PFAS Fire Suppression Systems",
-   "options": "\nCompliant\nNot Compliant"
+   "options": "\nCompliant\nNot Compliant\nN/A"
   },
   {
    "fieldname": "compliance_percentage",
@@ -469,11 +457,34 @@
    "in_list_view": 1,
    "label": "Compliance Percentage",
    "precision": "0"
+  },
+  {
+   "fieldname": "scope_or_wo",
+   "fieldtype": "Select",
+   "label": "Work Scope or WO Number?",
+   "options": "Work Scope\nWork Order Number",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_task !== \"\"",
+   "fetch_from": "link_task.subject",
+   "fetch_if_empty": 1,
+   "fieldname": "work_scope",
+   "fieldtype": "Data",
+   "label": "Work Summary"
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Order Number\"",
+   "fetch_from": "link_task.work_order_number",
+   "fetch_if_empty": 1,
+   "fieldname": "work_order_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-02-19 13:12:09.053696",
+ "modified": "2025-04-13 02:32:42.900706",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Prohibited and Restricted Tooling Checklist",

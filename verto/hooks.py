@@ -149,7 +149,7 @@ app_include_js = [
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
+scheduler_events = {
 #	"all": [
 #		"verto.tasks.all"
 #	],
@@ -165,7 +165,12 @@ app_include_js = [
 #	"monthly": [
 #		"verto.tasks.monthly"
 #	],
-# }
+    "cron": {
+            "0 9 * * MON": [
+                "verto.api.automate.send_weekly_timesheets"
+            ]
+        },    
+}
 
 # Testing
 # -------

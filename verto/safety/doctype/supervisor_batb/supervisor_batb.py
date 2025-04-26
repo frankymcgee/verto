@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class PreCommencementAudit(Document):
+class SupervisorBATB(Document):
 	pass

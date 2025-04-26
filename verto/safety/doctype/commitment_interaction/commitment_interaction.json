@@ -8,27 +8,24 @@
  "field_order": [
   "sec_project_info",
   "link_project",
+  "project_name",
   "column_break_iknn",
-  "link_task",
+  "scope_or_wo",
+  "work_scope",
   "column_break_dwxa",
+  "link_task",
+  "work_order_number",
   "work_area",
   "section_break_stgw",
-  "project_name",
-  "work_scope_name",
-  "column_break_dxhj",
-  "wo_number",
-  "column_break_riyz",
   "contractor",
+  "column_break_dxhj",
   "supervisor",
   "section_break_pcye",
   "site_risk_assessed",
   "risk_assessment_review",
-  "risk_assessment_review_upload",
   "change_management",
-  "change_management_upload",
   "load_unload",
   "work_area_commitment",
-  "work_area_commitment_upload",
   "interaction_categorisation_section",
   "safety_category",
   "improvement_required",
@@ -58,6 +55,7 @@
    "fieldtype": "Column Break"
   },
   {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
    "fetch_if_empty": 1,
    "fieldname": "link_task",
    "fieldtype": "Link",
@@ -71,6 +69,7 @@
    "fieldtype": "Column Break"
   },
   {
+   "depends_on": "eval:doc.link_task !== \"\"",
    "fetch_from": "link_task.parent_task_name",
    "fetch_if_empty": 1,
    "fieldname": "work_area",
@@ -89,44 +88,28 @@
    "label": "Project Name"
   },
   {
-   "fetch_from": "link_task.subject",
-   "fetch_if_empty": 1,
-   "fieldname": "work_scope_name",
-   "fieldtype": "Data",
-   "label": "Work Scope Name"
-  },
-  {
    "fieldname": "column_break_dxhj",
    "fieldtype": "Column Break"
   },
   {
-   "fetch_from": "link_task.responsible_contractor",
+   "description": "Select from the list. If missing, select \"MISSING\"",
    "fetch_if_empty": 1,
    "fieldname": "contractor",
-   "fieldtype": "Data",
-   "label": "Contractor"
+   "fieldtype": "Link",
+   "label": "Contractor",
+   "options": "Contractor"
   },
   {
-   "fetch_from": "link_task.supervisor",
+   "description": "Please enter full name",
    "fetch_if_empty": 1,
    "fieldname": "supervisor",
    "fieldtype": "Data",
    "label": "Supervisor"
   },
   {
-   "fieldname": "column_break_riyz",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fetch_from": "link_task.work_order_number",
-   "fetch_if_empty": 1,
-   "fieldname": "wo_number",
-   "fieldtype": "Data",
-   "label": "Work Order Number"
-  },
-  {
    "fieldname": "section_break_pcye",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Interaction Questions"
   },
   {
    "fieldname": "site_risk_assessed",
@@ -143,22 +126,10 @@
    "reqd": 1
   },
   {
-   "fieldname": "risk_assessment_review_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Upload photo evidence of risk assessment review"
-  },
-  {
    "fieldname": "change_management",
    "fieldtype": "Select",
    "label": "Has the risk assessment been updated to capture change management (Conditions, Tooling, Methodology, SIMOPS)?",
    "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "change_management_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Upload photo evidence of change management"
   },
   {
    "fieldname": "load_unload",
@@ -171,12 +142,6 @@
    "fieldtype": "Select",
    "label": "Does the work area demonstrate a commitment to keep themselves & others safe?",
    "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "work_area_commitment_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Photo evidence of work area"
   },
   {
    "fieldname": "interaction_categorisation_section",
@@ -216,11 +181,33 @@
    "label": "Improvement required category",
    "mandatory_depends_on": "eval:doc.safety_category == \"Improvement Required\"",
    "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
+  },
+  {
+   "fieldname": "scope_or_wo",
+   "fieldtype": "Select",
+   "label": "Work Scope or WO Number?",
+   "options": "Work Scope\nWork Order Number",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_task !== \"\"",
+   "fetch_from": "link_task.subject",
+   "fieldname": "work_scope",
+   "fieldtype": "Data",
+   "label": "Work Summary"
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Order Number\"",
+   "fetch_from": "link_task.work_order_number",
+   "fetch_if_empty": 1,
+   "fieldname": "work_order_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-02-10 16:17:15.897969",
+ "modified": "2025-03-31 08:49:13.191718",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Commitment Interaction",

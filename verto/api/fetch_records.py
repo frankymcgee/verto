@@ -7,7 +7,7 @@ from frappe.utils.print_format import download_pdf
 def fetch_created_records():
     # Define the DocTypes to include in the list
     doctypes = ["Commitment Interaction", "Critical Control Verification", "Field Interaction", 
-                "Job Hazard Analysis Review", "Pre-Commencement Audit", "Workplace Inspection","Prohibited and Restricted Tooling Checklist"]
+                "Job Hazard Analysis Review", "Supervisor BATB", "Workplace Inspection","Prohibited and Restricted Tooling Checklist"]
     start_date = frappe.form_dict.get("start_date") or "2000-01-01"
     end_date = frappe.form_dict.get("end_date") or frappe.utils.nowdate()
 
@@ -24,7 +24,7 @@ def fetch_created_records():
         include_compliance = "compliance_percentage" in columns
 
         # Fields to fetch, include 'compliance_percentage' if it exists
-        fields = ["name", "owner", "creation"]
+        fields = ["name", "owner", "creation", "project_name", "contractor", "supervisor"]
         if include_compliance:
             fields.append("compliance_percentage")
 
@@ -54,12 +54,23 @@ def fetch_created_records():
             # Fetch full name of the owner
             full_name = frappe.db.get_value("User", record.owner, "full_name") or record.owner
 
+             # Generate link to the record
+            link = f"/app/{doctype.replace(' ', '-').lower()}/{record.name}"
+
+            project = record.get("project_name") if hasattr(record, 'project_name') else None
+            contractor = record.get("contractor") if hasattr(record, 'contractor') else None
+            supervisor = record.get("supervisor") if hasattr(record, 'supervisor') else None
+
             all_records.append({
                 "doctype": doctype,
                 "name": record.name,
                 "owner": full_name,  # Use full name instead of email
                 "creation": formatted_creation,
-                "compliance_percentage": compliance_percentage
+                "compliance_percentage": compliance_percentage,
+                "link": link,
+                "project" : project,
+                "contractor": contractor,
+                "supervisor": supervisor
             })
 
     # Sort the combined list by 'creation' in descending order
@@ -73,7 +84,7 @@ def generate_record_pdf(doctype, name):
     """
     try:
         # Fetch the HTML representation of the document
-        html = frappe.get_print(doctype, name, print_format=None)
+        html = frappe.get_print(doctype, name, print_format=doctype)
         
         # Generate the PDF from the HTML
         pdf = get_pdf(html)
@@ -107,7 +118,7 @@ def open_pdf():
             frappe.throw(f"You do not have permission to access {doctype}.")
 
         # Fetch the HTML representation of the document
-        html = frappe.get_print(doctype, name, print_format=None)
+        html = frappe.get_print(doctype, name, print_format=doctype)
 
         # Generate the PDF from the HTML
         pdf_data = get_pdf(html)

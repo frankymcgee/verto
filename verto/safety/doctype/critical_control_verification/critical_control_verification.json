@@ -10,23 +10,21 @@
  "field_order": [
   "sb_taskinfo",
   "link_project",
+  "project_name",
   "column_break_6lioo",
-  "link_task",
+  "scope_or_wo",
+  "work_scope",
   "column_break_mcwf",
+  "link_task",
+  "work_order_number",
   "work_area",
   "section_break_nfxsd",
-  "project_name",
-  "column_break_uh6eh",
-  "work_scope",
-  "sec_ccv_info",
-  "link_steps",
-  "ccv_selected",
-  "column_break_caqt",
-  "wo_number",
-  "op_number",
-  "column_break_qifo",
   "contractor",
+  "column_break_uh6eh",
   "supervisor",
+  "sec_ccv_info",
+  "ccv_selected",
+  "ccv_prompt",
   "section_break_feay",
   "lat",
   "long",
@@ -196,6 +194,7 @@
    "fieldtype": "Column Break"
   },
   {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
    "fieldname": "link_task",
    "fieldtype": "Link",
    "label": "Work Scope",
@@ -217,7 +216,8 @@
   {
    "depends_on": "eval:doc.link_task !==\"\";",
    "fieldname": "section_break_nfxsd",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Vendor Information"
   },
   {
    "depends_on": "eval:doc.link_project !== \"\"",
@@ -233,19 +233,12 @@
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "eval:doc.link_task !==\"\"",
+   "depends_on": "eval:doc.link_task !== \"\"",
    "fetch_from": "link_task.subject",
-   "fetch_if_empty": 1,
    "fieldname": "work_scope",
    "fieldtype": "Data",
-   "label": "Work Scope Name"
-  },
-  {
-   "fetch_from": "link_steps.work_order_number",
-   "fetch_if_empty": 1,
-   "fieldname": "wo_number",
-   "fieldtype": "Data",
-   "label": "Work Order Number"
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]"
   },
   {
    "fieldname": "section_break_feay",
@@ -268,26 +261,11 @@
    "label": "CCV Information"
   },
   {
-   "fieldname": "column_break_caqt",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "column_break_qifo",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "ccv_selected",
    "fieldtype": "Select",
    "label": "Select CCV",
    "options": "\nConfined Space\nContact with Electricity\nDropped Objects\nEntanglement & Crushing\nFall from Height\nLifting Operations\nUncontrolled Release of Energy\nVehicle & Mobile Equipment\nWorking near Water",
    "reqd": 1
-  },
-  {
-   "fetch_from": "link_steps.operation_number",
-   "fetch_if_empty": 1,
-   "fieldname": "op_number",
-   "fieldtype": "Data",
-   "label": "Operation Line Number"
   },
   {
    "fieldname": "cs_qual",
@@ -664,13 +642,6 @@
    "label": "Is there engineering protection over walkways & roadways?",
    "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "link_steps",
-   "fieldtype": "Link",
-   "label": "Task being undertaken",
-   "link_filters": "[[\"Task\",\"parent_task\",\"=\",\"eval: doc.link_task\"],[\"Task\",\"type\",\"=\",\"Task Step\"]]",
-   "options": "Task"
   },
   {
    "fieldname": "eac_energy_sources",
@@ -1231,15 +1202,15 @@
    "label": "Image of emergency response plan"
   },
   {
-   "fetch_from": "link_steps.responsible_contractor",
+   "description": "Select from the list. If missing, select \"MISSING\"",
    "fetch_if_empty": 1,
    "fieldname": "contractor",
-   "fieldtype": "Data",
-   "label": "Contractor"
+   "fieldtype": "Link",
+   "label": "Contractor",
+   "options": "Contractor"
   },
   {
-   "fetch_from": "link_steps.supervisor",
-   "fetch_if_empty": 1,
+   "description": "Please enter full name",
    "fieldname": "supervisor",
    "fieldtype": "Data",
    "label": "Supervisor"
@@ -1259,12 +1230,33 @@
    "in_list_view": 1,
    "label": "Compliance Percentage",
    "precision": "2"
+  },
+  {
+   "fieldname": "scope_or_wo",
+   "fieldtype": "Select",
+   "label": "Work Scope or WO Number?",
+   "options": "Work Scope\nWork Order Number",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Order Number\"",
+   "fetch_from": "link_steps.work_order_number",
+   "fetch_if_empty": 1,
+   "fieldname": "work_order_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number"
+  },
+  {
+   "depends_on": "eval:doc.ccv_selected !== \"\"",
+   "fieldname": "ccv_prompt",
+   "fieldtype": "Heading",
+   "label": "Please click the selected CCV tab at the top of the form to complete"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2024-11-16 11:48:28.654318",
+ "modified": "2025-03-31 08:32:08.767194",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Critical Control Verification",

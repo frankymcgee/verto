@@ -1,7 +1,7 @@
 // Copyright (c) 2024, Webwire and contributors
 // For license information, please see license.txt
 
-// frappe.ui.form.on("Pre-Commencement Audit", {
+// frappe.ui.form.on("Supervisor BATB", {
 // 	refresh(frm) {
 
 // 	},
