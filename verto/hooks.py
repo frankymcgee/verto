@@ -166,7 +166,7 @@ scheduler_events = {
 #		"verto.tasks.monthly"
 #	],
     "cron": {
-            "0 9 * * MON": [
+            "0 9 * * TUE": [
                 "verto.api.automate.send_weekly_timesheets"
             ]
         },    
