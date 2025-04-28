@@ -78,6 +78,7 @@ def send_weekly_timesheets():
                             <p><strong>Week Range:</strong> {start_date_formatted} → {end_date_formatted}</p>
                             <p><strong>Total Hours:</strong> {ts.total_hours} Hours</p>
                             <p>We kindly ask that you review and approve the timesheet at your earliest convenience. Once approved, please <b>reply directly to this email</b>.</p>
+                            <p>Alternatively, to sign digitally, please <b><a href="htps://dashboard.minesitesupport.com.au/sign-timesheet?name={ts.name}> Click Here</b>.</p>
                             <p>If you have any questions or concerns, please reach out to our site team.</p>
                             <p>Kind Regards,<br><strong>Mine Site Support</strong></p>
                         </td>
