@@ -1,6 +1,4 @@
 import frappe
-import base64
-from frappe.utils.file_manager import save_file
 
 @frappe.whitelist(allow_guest=True)
 def sign_timesheet(timesheet_name, signature_base64, full_name=None, date_signed=None):
