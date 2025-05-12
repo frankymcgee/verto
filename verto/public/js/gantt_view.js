@@ -210,9 +210,28 @@ render_task_column($taskColumn) {
                 var ganttobj = task;
                 html = custom(ganttobj, item);
             }
-            return '<div class="details-container">' + html + "</div>";
-        },
-    });
+			setTimeout(() => {
+				const popup = document.querySelector(".details-container");
+				if (popup) {
+					popup.addEventListener("click", function () {
+						const doctype = this.getAttribute("data-doctype");
+						const id = this.getAttribute("data-id");
+						if (doctype && id) {
+							frappe.set_route("Form", doctype, id);
+						}
+					});
+				}
+			}, 10);
+			
+            return `
+				<div class="details-container" 
+					style="pointer-events:auto;cursor:pointer;padding:8px;" 
+					data-doctype="${task.doctype}" 
+					data-id="${task.id}">
+					${html}
+				</div>`;
+        },		
+    });	
     this.setup_view_mode_buttons();
     this.set_colors();
 }

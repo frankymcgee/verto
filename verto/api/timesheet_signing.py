@@ -66,3 +66,15 @@ def sign_timesheet(timesheet_name, signature_base64, full_name=None, date_signed
                 attachments=[attachment]
             )
     return "Success"
+
+@frappe.whitelist(allow_guest=True)
+def get_timesheet_public(name):
+    # Limit fields to avoid leaking sensitive info
+    return frappe.get_value("Timesheet", name, [
+        "employee",
+        "employee_name",
+        "project_name",
+        "total_hours",
+        "custom_monday_date",
+        "custom_sunday_date"
+    ], as_dict=True)
