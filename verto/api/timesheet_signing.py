@@ -7,6 +7,11 @@ def sign_timesheet(timesheet_name, signature_base64, full_name=None, date_signed
 
     # Update Timesheet with signature link
     ts = frappe.get_doc("Timesheet", timesheet_name)
+
+        # 🚫 Prevent re-signing
+    if ts.custom_client_signed == 1:
+        return "Already signed"
+    
     ts.db_set('custom_client_signature', signature_base64)
     ts.db_set('custom_client_signed', 1)
     
@@ -41,7 +46,7 @@ def sign_timesheet(timesheet_name, signature_base64, full_name=None, date_signed
                         <tr>
                         <td style="font-family: sans-serif; font-size: 14px; color: #333;">
                             <p>Hi there,</p>
-                            <p>Please find attached the signed weekly timesheet for <strong>{ts.employee_name}</strong>:</p>
+                            <p>Please find attached the signed weekly timesheet for <strong>{ts.employee_name}</strong>.</p>
                             <p>Kind Regards,<br><strong>Mine Site Support</strong></p>
                         </td>
                         </tr>

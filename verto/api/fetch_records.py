@@ -1,7 +1,6 @@
 import frappe
 from datetime import datetime
 from frappe.utils.pdf import get_pdf
-from frappe.utils.print_format import download_pdf
 
 @frappe.whitelist(allow_guest=True)
 def fetch_created_records():
@@ -22,11 +21,14 @@ def fetch_created_records():
         # Check if the 'compliance_percentage' field exists for the current Doctype
         columns = frappe.db.get_table_columns(doctype)
         include_compliance = "compliance_percentage" in columns
+        include_task_name = "work_scope" in columns
 
         # Fields to fetch, include 'compliance_percentage' if it exists
         fields = ["name", "owner", "creation", "project_name", "contractor", "supervisor"]
         if include_compliance:
             fields.append("compliance_percentage")
+        if include_task_name:
+            fields.append("work_scope")
 
         # Apply filters based on whether the user is Administrator
         filters = {"creation": ["between", [start_date, end_date]]}
@@ -60,6 +62,7 @@ def fetch_created_records():
             project = record.get("project_name") if hasattr(record, 'project_name') else None
             contractor = record.get("contractor") if hasattr(record, 'contractor') else None
             supervisor = record.get("supervisor") if hasattr(record, 'supervisor') else None
+            task = record.get("work_scope") if hasattr(record, 'work_scope') else None
 
             all_records.append({
                 "doctype": doctype,
@@ -70,7 +73,8 @@ def fetch_created_records():
                 "link": link,
                 "project" : project,
                 "contractor": contractor,
-                "supervisor": supervisor
+                "supervisor": supervisor,
+                "task": task
             })
 
     # Sort the combined list by 'creation' in descending order

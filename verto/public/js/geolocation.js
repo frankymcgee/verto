@@ -1,9 +1,7 @@
 frappe.router.on("change", () => {
-    console.log("Page changed, checking Leaflet status...");
 
     // Remove old Leaflet instance
     if (window.map) {
-        console.log("Cleaning up map instance...");
         window.map.off(); // Remove all event listeners
         window.map.remove();
         delete window.map;
@@ -14,7 +12,6 @@ frappe.require([
 	"/assets/verto/js/L.Control.Locate.min.js",
     "/assets/verto/css/L.Control.Locate.min.css"
 ], () => {
-    console.log("Leaflet Draw loaded successfully");
 
     if (typeof L.Control.Draw === "undefined") {
         console.error("Leaflet Draw plugin not loaded!");

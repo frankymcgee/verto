@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:JQR-{####}",
+ "autoname": "format:JQR-{YYYY}{MM}{DD}-{####}",
  "creation": "2024-10-20 08:21:01.277897",
  "default_view": "List",
  "doctype": "DocType",
@@ -239,7 +239,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-03-31 09:05:48.034301",
+ "modified": "2025-05-15 02:28:23.277806",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Job Hazard Analysis Review",

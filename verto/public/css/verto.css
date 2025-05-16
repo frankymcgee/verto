@@ -5,6 +5,22 @@
         overflow-wrap: break-word;
         white-space: normal;
     }
+
+    input,
+    select,
+    textarea,
+    .form-control,
+    .control-input,
+    .input-with-feedback {
+        font-size: x-large !important;
+        height: auto !important;
+        line-height: 1.5 !important;
+    }
+
+    .form-group label,
+    .form-label {
+        font-size: x-large !important;
+    }
 }
 
 .mobile-browser * {
