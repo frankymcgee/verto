@@ -4,19 +4,33 @@ from frappe.utils.pdf import get_pdf
 import datetime
 import time
 
-def send_weekly_timesheets():
+def get_timesheet_date_range():
     today = getdate(nowdate())
-    # Step 1: Find this week's Monday
-    this_week_monday = today - datetime.timedelta(days=today.weekday())
-    # Step 2: Previous week's Monday and Sunday
-    last_week_monday = add_days(this_week_monday, -7)
-    last_week_sunday = add_days(this_week_monday, -1)
-    print(f"\n[Timesheet Emailer] Running for last week: {last_week_monday} → {last_week_sunday}")
+    weekday = today.weekday()  # Monday = 0, Sunday = 6
+
+    this_week_monday = today - datetime.timedelta(days=weekday)
+    this_week_sunday = this_week_monday + datetime.timedelta(days=6)
+
+    if weekday <= 3:  # Monday to Thursday
+        start_date = add_days(this_week_monday, -7)
+        end_date = add_days(this_week_monday, -1)
+        allowed_days = ["Monday", "Tuesday", "Wednesday", "Thursday"]
+    else:  # Friday to Sunday
+        start_date = this_week_monday
+        end_date = this_week_sunday
+        allowed_days = ["Friday", "Saturday", "Sunday"]
+
+    return start_date, end_date, allowed_days
+
+def send_weekly_timesheets():
+    start_date, end_date, allowed_days = get_timesheet_date_range()
+    print(f"\n[Timesheet Emailer] Running for: {start_date} → {end_date}")
+    
     timesheets = frappe.get_all("Timesheet",
         filters={
-        "docstatus": 0,
-        "custom_monday_date": ["=", last_week_monday],
-        "custom_sunday_date": ["=", last_week_sunday],
+            "docstatus": 0,
+            "custom_monday_date": ["=", start_date],
+            "custom_sunday_date": ["=", end_date],
         },
         fields=["name", "employee", "parent_project", "project_name", "total_hours", "role","custom_monday_date", "custom_sunday_date"]
     )
@@ -29,10 +43,17 @@ def send_weekly_timesheets():
             continue
         try:
             project = frappe.get_doc("Project", ts.parent_project)
+
+            if project.day_of_the_week not in allowed_days:
+                print(f"  ⤷ Skipped (Project day {project.day_of_the_week} not in {allowed_days})")
+                continue
+
             email_list = project.get("timesheet_email_list")
+
             if not email_list:
                 print(f"  ⤷ Skipped (No email list in project {ts.parent_project})")
                 continue
+
             attachment = frappe.attach_print(
                 doctype="Timesheet",
                 name=ts.name,
@@ -103,18 +124,14 @@ def send_weekly_timesheets():
             frappe.log_error(f"Failed to send Timesheet {ts.name}", str(e))
 
 def send_weekly_timesheet_verification():
-    today = getdate(nowdate())
-    # Step 1: Find this week's Monday
-    this_week_monday = today - datetime.timedelta(days=today.weekday())
-    # Step 2: Previous week's Monday and Sunday
-    last_week_monday = add_days(this_week_monday, -7)
-    last_week_sunday = add_days(this_week_monday, -1)
-    print(f"\n[Timesheet Emailer] Running for last week: {last_week_monday} → {last_week_sunday}")
+    start_date, end_date, allowed_days = get_timesheet_date_range()
+    print(f"\n[Timesheet Emailer] Running for: {start_date} → {end_date}")
+
     timesheets = frappe.get_all("Timesheet",
         filters={
-        "docstatus": 0,
-        "custom_monday_date": ["=", last_week_monday],
-        "custom_sunday_date": ["=", last_week_sunday],
+            "docstatus": 0,
+            "custom_monday_date": ["=", start_date],
+            "custom_sunday_date": ["=", end_date],
         },
         fields=["name", "employee", "parent_project", "project_name", "total_hours", "role","custom_monday_date", "custom_sunday_date"]
     )
@@ -124,7 +141,12 @@ def send_weekly_timesheet_verification():
         if not ts.parent_project:
             print(f"  ⤷ Skipped (No parent_project)")
             continue
-        try:   
+        try:
+            project = frappe.get_doc("Project", ts.parent_project)
+            if project.day_of_the_week not in allowed_days:
+                print(f"  ⤷ Skipped (Project day {project.day_of_the_week} not in {allowed_days})")
+                continue
+         
             attachment = frappe.attach_print(
                 doctype="Timesheet",
                 name=ts.name,
