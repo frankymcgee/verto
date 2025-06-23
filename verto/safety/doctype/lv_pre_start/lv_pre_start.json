@@ -178,12 +178,13 @@
    "fieldname": "current_kms",
    "fieldtype": "Float",
    "label": "Current Km's",
-   "precision": "2"
+   "precision": "0"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-03-05 14:56:34.002973",
+ "modified": "2025-06-23 12:26:27.265303",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "LV Pre-Start",
@@ -214,6 +215,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
