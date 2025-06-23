@@ -365,8 +365,7 @@ def send_timesheet_followup_reminders(timesheet_name=None):
 
         frappe.sendmail(
             recipients=[email.strip() for email in email_list.split(",")],
-            #bcc=["sean@minesitesupport.com.au", "jess@minesitesupport.com.au"],
-            bcc=["sean@minesitesupport.com.au"],
+            bcc=["sean@minesitesupport.com.au", "jess@minesitesupport.com.au"],
             reply_to="enquiries@minesitesupport.com.au",
             subject=f"[Reminder] Timesheet Pending Signature for {employee_name} - {ts.project_name}",
             message = f"""
