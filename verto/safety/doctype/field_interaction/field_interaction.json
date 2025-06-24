@@ -25,6 +25,8 @@
   "supervisor",
   "interaction_observations_section",
   "interaction_stage",
+  "precommencement_completed",
+  "quality_precommencement",
   "job_hazards",
   "safety_procedures",
   "tool_safety",
@@ -780,12 +782,25 @@
    "fieldname": "neg_54",
    "fieldtype": "Check",
    "label": "5.4 Accessing / Egressing"
+  },
+  {
+   "fieldname": "precommencement_completed",
+   "fieldtype": "Select",
+   "label": "Is there a completed Pre-Commencement Checklist available at the job front",
+   "options": "\nCompleted\nNot Completed"
+  },
+  {
+   "depends_on": "eval:doc.precommencement_completed == \"Completed\"",
+   "fieldname": "quality_precommencement",
+   "fieldtype": "Select",
+   "label": "Does the Quality of the Pre-Commencement Checklist adhere to the standards of the client?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2025-05-15 02:28:13.801940",
+ "modified": "2025-06-24 10:05:08.187342",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Field Interaction",
@@ -805,6 +820,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

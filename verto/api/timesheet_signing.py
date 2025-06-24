@@ -8,7 +8,7 @@ def sign_timesheet(timesheet_name, signature_base64, full_name=None, date_signed
     # Update Timesheet with signature link
     ts = frappe.get_doc("Timesheet", timesheet_name)
 
-        # 🚫 Prevent re-signing
+    # 🚫 Prevent re-signing
     if ts.custom_client_signed == 1:
         return "Already signed"
     
