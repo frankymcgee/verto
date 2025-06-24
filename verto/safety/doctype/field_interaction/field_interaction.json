@@ -27,23 +27,23 @@
   "interaction_stage",
   "precommencement_completed",
   "quality_precommencement",
-  "job_hazards",
-  "safety_procedures",
-  "tool_safety",
-  "safe_distance",
-  "good_comms",
-  "thermal_extremes",
-  "ppe",
-  "impact_gloves",
-  "barricading",
-  "supervisor_present",
-  "manual_handling",
-  "work_at_heights",
-  "uncontrolled_energy",
-  "environmental",
-  "fall_from_height",
+  "personnel_briefed_on_job_hazards",
+  "personnel_adhering_to_safety_procedures",
+  "tools_used_safely",
+  "workers_maintaining_safe_distance",
+  "good_comms_in_work_area",
+  "weather_conditions_actively_monitored",
+  "personnel_wearing_correct_ppe",
+  "personnel_wearing_impact_gloves",
+  "barricading_and_signs_in_place",
+  "supervisor_present_to_oversee",
+  "personnel_following_correct_manual_handling",
+  "work_at_heights_controls_in_place",
+  "work_area_free_from_uncontrolled_energy",
+  "personnel_complying_with_environmental",
+  "fall_from_height_controls_in_place",
   "positive_behaviours_section",
-  "pos_pop",
+  "positive_positions_of_people",
   "pos_11",
   "pos_12",
   "pos_13",
@@ -51,7 +51,7 @@
   "pos_15",
   "pos_16",
   "column_break_lflv",
-  "pos_ppe",
+  "positive_ppe",
   "pos_21",
   "pos_22",
   "pos_23",
@@ -60,24 +60,24 @@
   "pos_26",
   "pos_27",
   "column_break_gfso",
-  "pos_tool",
+  "positive_tool_and_equipment",
   "pos_31",
   "pos_32",
   "pos_33",
   "column_break_fydx",
-  "pos_procedures",
+  "positive_procedures",
   "pos_41",
   "pos_42",
   "pos_43",
   "pos_44",
   "column_break_duko",
-  "pos_work",
+  "positive_work_area",
   "pos_51",
   "pos_52",
   "pos_53",
   "pos_54",
   "at_risk_behaviours_section",
-  "neg_pop",
+  "at_risk_positions_of_people",
   "neg_11",
   "neg_12",
   "neg_13",
@@ -85,7 +85,7 @@
   "neg_15",
   "neg_16",
   "column_break_vknl",
-  "neg_ppe",
+  "at_risk_ppe",
   "neg_21",
   "neg_22",
   "neg_23",
@@ -94,18 +94,18 @@
   "neg_26",
   "neg_27",
   "column_break_amkp",
-  "neg_tools",
+  "at_risk_tools_and_equipment",
   "neg_31",
   "neg_32",
   "neg_33",
   "column_break_sccs",
-  "neg_procedures",
+  "at_risk_procedures",
   "neg_41",
   "neg_42",
   "neg_43",
   "neg_44",
   "column_break_rmiv",
-  "neg_work",
+  "at_risk_work_area",
   "neg_51",
   "neg_52",
   "neg_53",
@@ -214,96 +214,6 @@
    "label": "Interaction Observations"
   },
   {
-   "fieldname": "job_hazards",
-   "fieldtype": "Select",
-   "label": "Are all personnel briefed on the job hazards before starting work",
-   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "safety_procedures",
-   "fieldtype": "Select",
-   "label": "Are all field personnel adhering to the agreed safety procedures for site?",
-   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "tool_safety",
-   "fieldtype": "Select",
-   "label": "Are tools & equipment being used in accordance with safety protocols?",
-   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "safe_distance",
-   "fieldtype": "Select",
-   "label": "Are all workers maintaining safe distances from hazardous areas?",
-   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "good_comms",
-   "fieldtype": "Select",
-   "label": "Are there adequate communication methods being used in the area?",
-   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "thermal_extremes",
-   "fieldtype": "Select",
-   "label": "Are weather conditions being actively monitored and considered in the work area?",
-   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "ppe",
-   "fieldtype": "Select",
-   "label": "Are personnel wearing correct PPE where required?",
-   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "impact_gloves",
-   "fieldtype": "Select",
-   "label": "Are personnel wearing impact gloves in the work area?",
-   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "barricading",
-   "fieldtype": "Select",
-   "label": "Are barricades & signage in place to prevent unauthorised access in the area?",
-   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "supervisor_present",
-   "fieldtype": "Select",
-   "label": "Is there a supervisor present to oversee and inspect the work area?",
-   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "manual_handling",
-   "fieldtype": "Select",
-   "label": "Are personnel following correct lifting & manual handling techniques?",
-   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "work_at_heights",
-   "fieldtype": "Select",
-   "label": "Are adequate controls in place for working at heights?",
-   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "uncontrolled_energy",
-   "fieldtype": "Select",
-   "label": "Is the work area free from uncontrolled energy sources?",
-   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "environmental",
-   "fieldtype": "Select",
-   "label": "Are personnel complying with environmental policies & procedures?",
-   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "fall_from_height",
-   "fieldtype": "Select",
-   "label": "Are fall protection systems in place & used correctly by personnel?",
-   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
-  },
-  {
    "fieldname": "safety_category",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -334,20 +244,8 @@
    "label": "Positive Behaviours"
   },
   {
-   "default": "0",
-   "fieldname": "pos_pop",
-   "fieldtype": "Check",
-   "label": "1. Positions of People"
-  },
-  {
    "fieldname": "column_break_lflv",
    "fieldtype": "Column Break"
-  },
-  {
-   "default": "0",
-   "fieldname": "pos_ppe",
-   "fieldtype": "Check",
-   "label": "2. PPE"
   },
   {
    "fieldname": "column_break_gfso",
@@ -362,34 +260,10 @@
    "fieldtype": "Column Break"
   },
   {
-   "default": "0",
-   "fieldname": "pos_tool",
-   "fieldtype": "Check",
-   "label": "3. Tools & Equipment"
-  },
-  {
-   "default": "0",
-   "fieldname": "pos_procedures",
-   "fieldtype": "Check",
-   "label": "4. Procedures"
-  },
-  {
-   "default": "0",
-   "fieldname": "pos_work",
-   "fieldtype": "Check",
-   "label": "5. Work Area"
-  },
-  {
    "description": "Select the relevant categories and sub-categories",
    "fieldname": "at_risk_behaviours_section",
    "fieldtype": "Section Break",
    "label": "At Risk Behaviours"
-  },
-  {
-   "default": "0",
-   "fieldname": "neg_pop",
-   "fieldtype": "Check",
-   "label": "1. Positions of People"
   },
   {
    "fieldname": "column_break_vknl",
@@ -406,30 +280,6 @@
   {
    "fieldname": "column_break_rmiv",
    "fieldtype": "Column Break"
-  },
-  {
-   "default": "0",
-   "fieldname": "neg_ppe",
-   "fieldtype": "Check",
-   "label": "2. PPE"
-  },
-  {
-   "default": "0",
-   "fieldname": "neg_tools",
-   "fieldtype": "Check",
-   "label": "3. Tools & Equipment"
-  },
-  {
-   "default": "0",
-   "fieldname": "neg_procedures",
-   "fieldtype": "Check",
-   "label": "4. Procedures"
-  },
-  {
-   "default": "0",
-   "fieldname": "neg_work",
-   "fieldtype": "Check",
-   "label": "5. Work Area"
   },
   {
    "fieldname": "scope_or_wo",
@@ -449,336 +299,336 @@
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_pop == 1",
+   "depends_on": "eval:doc.positive_positions_of_people == 1",
    "fieldname": "pos_11",
    "fieldtype": "Check",
    "label": "1.1 Eyes on Path / Task"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_pop == 1",
+   "depends_on": "eval:doc.positive_positions_of_people == 1",
    "fieldname": "pos_12",
    "fieldtype": "Check",
    "label": "1.2 Line of Fire"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_pop == 1",
+   "depends_on": "eval:doc.positive_positions_of_people == 1",
    "fieldname": "pos_13",
    "fieldtype": "Check",
    "label": "1.3 Pinch Points"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_pop == 1",
+   "depends_on": "eval:doc.positive_positions_of_people == 1",
    "fieldname": "pos_14",
    "fieldtype": "Check",
    "label": "1.4 Posture / Lifting / Lowering / Twisting"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_pop == 1",
+   "depends_on": "eval:doc.positive_positions_of_people == 1",
    "fieldname": "pos_15",
    "fieldtype": "Check",
    "label": "1.5 Pushing / Pulling"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_pop == 1",
+   "depends_on": "eval:doc.positive_positions_of_people == 1",
    "fieldname": "pos_16",
    "fieldtype": "Check",
    "label": "1.6 Ascending / Descending"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_ppe == 1",
+   "depends_on": "eval:doc.positive_ppe == 1",
    "fieldname": "pos_21",
    "fieldtype": "Check",
    "label": "2.1 Eyes & Face"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_ppe == 1",
+   "depends_on": "eval:doc.positive_ppe == 1",
    "fieldname": "pos_22",
    "fieldtype": "Check",
    "label": "2.2 Ears"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_ppe == 1",
+   "depends_on": "eval:doc.positive_ppe == 1",
    "fieldname": "pos_23",
    "fieldtype": "Check",
    "label": "2.3 Head"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_ppe == 1",
+   "depends_on": "eval:doc.positive_ppe == 1",
    "fieldname": "pos_24",
    "fieldtype": "Check",
    "label": "2.4 Hands & Arms"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_ppe == 1",
+   "depends_on": "eval:doc.positive_ppe == 1",
    "fieldname": "pos_25",
    "fieldtype": "Check",
    "label": "2.5 Feet & Legs"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_ppe == 1",
+   "depends_on": "eval:doc.positive_ppe == 1",
    "fieldname": "pos_26",
    "fieldtype": "Check",
    "label": "2.6 Respiratory Systems"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_ppe == 1",
+   "depends_on": "eval:doc.positive_ppe == 1",
    "fieldname": "pos_27",
    "fieldtype": "Check",
    "label": "2.7 Trunk"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_tool == 1",
+   "depends_on": "eval:doc.positive_tool_and_equipment == 1",
    "fieldname": "pos_31",
    "fieldtype": "Check",
    "label": "3.1 Tool Selection"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_tool == 1",
+   "depends_on": "eval:doc.positive_tool_and_equipment == 1",
    "fieldname": "pos_32",
    "fieldtype": "Check",
    "label": "3.2 Tool Use"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_tool == 1",
+   "depends_on": "eval:doc.positive_tool_and_equipment == 1",
    "fieldname": "pos_33",
    "fieldtype": "Check",
    "label": "3.3 Tool Condition"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_procedures == 1",
+   "depends_on": "eval:doc.positive_procedures == 1",
    "fieldname": "pos_41",
    "fieldtype": "Check",
    "label": "4.1 Procedure Appropriate"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_procedures == 1",
+   "depends_on": "eval:doc.positive_procedures == 1",
    "fieldname": "pos_42",
    "fieldtype": "Check",
    "label": "4.2 Procedure Knowledge"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_procedures == 1",
+   "depends_on": "eval:doc.positive_procedures == 1",
    "fieldname": "pos_43",
    "fieldtype": "Check",
    "label": "4.3 Procedure Followed"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_procedures == 1",
+   "depends_on": "eval:doc.positive_procedures == 1",
    "fieldname": "pos_44",
    "fieldtype": "Check",
    "label": "4.4 Hazards & Controls Communicated"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_work == 1",
+   "depends_on": "eval:doc.positive_work_area == 1",
    "fieldname": "pos_51",
    "fieldtype": "Check",
    "label": "5.1 Housekeeping / Storage"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_work == 1",
+   "depends_on": "eval:doc.positive_work_area == 1",
    "fieldname": "pos_52",
    "fieldtype": "Check",
    "label": "5.2 Lighting"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_work == 1",
+   "depends_on": "eval:doc.positive_work_area == 1",
    "fieldname": "pos_53",
    "fieldtype": "Check",
    "label": "5.3 Ventilation"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.pos_work == 1",
+   "depends_on": "eval:doc.positive_work_area == 1",
    "fieldname": "pos_54",
    "fieldtype": "Check",
    "label": "5.4 Accessing / Egressing"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_pop == 1",
+   "depends_on": "eval:doc.at_risk_positions_of_people == 1",
    "fieldname": "neg_11",
    "fieldtype": "Check",
    "label": "1.1 Eyes on Path / Task"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_pop == 1",
+   "depends_on": "eval:doc.at_risk_positions_of_people == 1",
    "fieldname": "neg_12",
    "fieldtype": "Check",
    "label": "1.2 Line of Fire"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_pop == 1",
+   "depends_on": "eval:doc.at_risk_positions_of_people == 1",
    "fieldname": "neg_13",
    "fieldtype": "Check",
    "label": "1.3 Pinch Points"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_pop == 1",
+   "depends_on": "eval:doc.at_risk_positions_of_people == 1",
    "fieldname": "neg_14",
    "fieldtype": "Check",
    "label": "1.4 Posture / Lifting / Lowering / Twisting"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_pop == 1",
+   "depends_on": "eval:doc.at_risk_positions_of_people == 1",
    "fieldname": "neg_15",
    "fieldtype": "Check",
    "label": "1.5 Pushing / Pulling"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_pop == 1",
+   "depends_on": "eval:doc.at_risk_positions_of_people == 1",
    "fieldname": "neg_16",
    "fieldtype": "Check",
    "label": "1.6 Ascending / Descending"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_ppe == 1",
+   "depends_on": "eval:doc.at_risk_ppe == 1",
    "fieldname": "neg_21",
    "fieldtype": "Check",
    "label": "2.1 Eyes & Face"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_ppe == 1",
+   "depends_on": "eval:doc.at_risk_ppe == 1",
    "fieldname": "neg_22",
    "fieldtype": "Check",
    "label": "2.2 Ears"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_ppe == 1",
+   "depends_on": "eval:doc.at_risk_ppe == 1",
    "fieldname": "neg_23",
    "fieldtype": "Check",
    "label": "2.3 Head"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_ppe == 1",
+   "depends_on": "eval:doc.at_risk_ppe == 1",
    "fieldname": "neg_24",
    "fieldtype": "Check",
    "label": "2.4 Hands & Arms"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_ppe == 1",
+   "depends_on": "eval:doc.at_risk_ppe == 1",
    "fieldname": "neg_25",
    "fieldtype": "Check",
    "label": "2.5 Feet & Legs"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_ppe == 1",
+   "depends_on": "eval:doc.at_risk_ppe == 1",
    "fieldname": "neg_26",
    "fieldtype": "Check",
    "label": "2.6 Respiratory Systems"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_ppe == 1",
+   "depends_on": "eval:doc.at_risk_ppe == 1",
    "fieldname": "neg_27",
    "fieldtype": "Check",
    "label": "2.7 Trunk"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_tools == 1",
+   "depends_on": "eval:doc.at_risk_tools_and_equipment == 1",
    "fieldname": "neg_31",
    "fieldtype": "Check",
    "label": "3.1 Tool Selection"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_tools == 1",
+   "depends_on": "eval:doc.at_risk_tools_and_equipment == 1",
    "fieldname": "neg_32",
    "fieldtype": "Check",
    "label": "3.2 Tool Use"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_tools == 1",
+   "depends_on": "eval:doc.at_risk_tools_and_equipment == 1",
    "fieldname": "neg_33",
    "fieldtype": "Check",
    "label": "3.3 Tool Condition"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_procedures == 1",
+   "depends_on": "eval:doc.at_risk_procedures == 1",
    "fieldname": "neg_41",
    "fieldtype": "Check",
    "label": "4.1 Procedure Appropriate"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_procedures == 1",
+   "depends_on": "eval:doc.at_risk_procedures == 1",
    "fieldname": "neg_42",
    "fieldtype": "Check",
    "label": "4.2 Procedure Knowledge"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_procedures == 1",
+   "depends_on": "eval:doc.at_risk_procedures == 1",
    "fieldname": "neg_43",
    "fieldtype": "Check",
    "label": "4.3 Procedure Followed"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_procedures == 1",
+   "depends_on": "eval:doc.at_risk_procedures == 1",
    "fieldname": "neg_44",
    "fieldtype": "Check",
    "label": "4.4 Hazards & Controls Communicated"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_work == 1",
+   "depends_on": "eval:doc.at_risk_work_area == 1",
    "fieldname": "neg_51",
    "fieldtype": "Check",
    "label": "5.1 Housekeeping / Storage"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_work == 1",
+   "depends_on": "eval:doc.at_risk_work_area == 1",
    "fieldname": "neg_52",
    "fieldtype": "Check",
    "label": "5.2 Lighting"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_work == 1",
+   "depends_on": "eval:doc.at_risk_work_area == 1",
    "fieldname": "neg_53",
    "fieldtype": "Check",
    "label": "5.3 Ventilation"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.neg_work == 1",
+   "depends_on": "eval:doc.at_risk_work_area == 1",
    "fieldname": "neg_54",
    "fieldtype": "Check",
    "label": "5.4 Accessing / Egressing"
@@ -795,12 +645,162 @@
    "fieldtype": "Select",
    "label": "Does the Quality of the Pre-Commencement Checklist adhere to the standards of the client?",
    "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "personnel_briefed_on_job_hazards",
+   "fieldtype": "Select",
+   "label": "Are all personnel briefed on the job hazards before starting work",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "personnel_adhering_to_safety_procedures",
+   "fieldtype": "Select",
+   "label": "Are all field personnel adhering to the agreed safety procedures for site?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "tools_used_safely",
+   "fieldtype": "Select",
+   "label": "Are tools & equipment being used in accordance with safety protocols?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "workers_maintaining_safe_distance",
+   "fieldtype": "Select",
+   "label": "Are all workers maintaining safe distances from hazardous areas?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "good_comms_in_work_area",
+   "fieldtype": "Select",
+   "label": "Are there adequate communication methods being used in the area?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "weather_conditions_actively_monitored",
+   "fieldtype": "Select",
+   "label": "Are weather conditions being actively monitored and considered in the work area?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "personnel_wearing_correct_ppe",
+   "fieldtype": "Select",
+   "label": "Are personnel wearing correct PPE where required?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "personnel_wearing_impact_gloves",
+   "fieldtype": "Select",
+   "label": "Are personnel wearing impact gloves in the work area?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "barricading_and_signs_in_place",
+   "fieldtype": "Select",
+   "label": "Are barricades & signage in place to prevent unauthorised access in the area?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "supervisor_present_to_oversee",
+   "fieldtype": "Select",
+   "label": "Is there a supervisor present to oversee and inspect the work area?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "personnel_following_correct_manual_handling",
+   "fieldtype": "Select",
+   "label": "Are personnel following correct lifting & manual handling techniques?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "work_at_heights_controls_in_place",
+   "fieldtype": "Select",
+   "label": "Are adequate controls in place for working at heights?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "work_area_free_from_uncontrolled_energy",
+   "fieldtype": "Select",
+   "label": "Is the work area free from uncontrolled energy sources?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "personnel_complying_with_environmental",
+   "fieldtype": "Select",
+   "label": "Are personnel complying with environmental policies & procedures?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "fall_from_height_controls_in_place",
+   "fieldtype": "Select",
+   "label": "Are fall protection systems in place & used correctly by personnel?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "default": "0",
+   "fieldname": "positive_positions_of_people",
+   "fieldtype": "Check",
+   "label": "1. Positions of People"
+  },
+  {
+   "default": "0",
+   "fieldname": "positive_ppe",
+   "fieldtype": "Check",
+   "label": "2. PPE"
+  },
+  {
+   "default": "0",
+   "fieldname": "positive_tool_and_equipment",
+   "fieldtype": "Check",
+   "label": "3. Tools & Equipment"
+  },
+  {
+   "default": "0",
+   "fieldname": "positive_procedures",
+   "fieldtype": "Check",
+   "label": "4. Procedures"
+  },
+  {
+   "default": "0",
+   "fieldname": "positive_work_area",
+   "fieldtype": "Check",
+   "label": "5. Work Area"
+  },
+  {
+   "default": "0",
+   "fieldname": "at_risk_positions_of_people",
+   "fieldtype": "Check",
+   "label": "1. Positions of People"
+  },
+  {
+   "default": "0",
+   "fieldname": "at_risk_ppe",
+   "fieldtype": "Check",
+   "label": "2. PPE"
+  },
+  {
+   "default": "0",
+   "fieldname": "at_risk_tools_and_equipment",
+   "fieldtype": "Check",
+   "label": "3. Tools & Equipment"
+  },
+  {
+   "default": "0",
+   "fieldname": "at_risk_procedures",
+   "fieldtype": "Check",
+   "label": "4. Procedures"
+  },
+  {
+   "default": "0",
+   "fieldname": "at_risk_work_area",
+   "fieldtype": "Check",
+   "label": "5. Work Area"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2025-06-24 10:05:08.187342",
+ "modified": "2025-06-24 12:12:43.408235",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Field Interaction",

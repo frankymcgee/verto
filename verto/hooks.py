@@ -171,6 +171,9 @@ scheduler_events = {
         ],
         "0 13 * * *": [
             "verto.api.automate.send_weekly_timesheets"
+        ],
+        "0 12 * * *": [
+            "verto.api.automate.send_timesheet_followup_reminders"
         ]
     }
 }
