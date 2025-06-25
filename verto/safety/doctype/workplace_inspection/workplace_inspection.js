@@ -1,12 +1,12 @@
-// Copyright (c) 2024, Webwire and contributors
+// Copyright (c) 2025, Webwire and contributors
 // For license information, please see license.txt
 
-// frappe.ui.form.on("Critical Control Verification", {
+// frappe.ui.form.on("Workplace Inspection", {
 // 	refresh(frm) {
 
 // 	},
 // });
-frappe.ui.form.on('Critical Control Verification', {
+frappe.ui.form.on('Workplace Inspection', {
     refresh: function(frm) {
         // Function to add a button
         const add_button = function (location, class_name, label, style, callback, prepend = false) {

@@ -1,0 +1,440 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:WPI-{YYYY}{MM}{DD}-{####}",
+ "creation": "2024-07-29 14:33:37.619522",
+ "default_view": "List",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "project_information_section",
+  "link_project",
+  "project_name",
+  "column_break_jiys",
+  "scope_or_wo",
+  "work_scope",
+  "column_break_kyus",
+  "link_task",
+  "work_order_number",
+  "work_area",
+  "section_break_ndjk",
+  "contractor",
+  "column_break_qdel",
+  "supervisor",
+  "jha_section",
+  "jha_completed",
+  "jha_quality",
+  "verify_controls",
+  "image_of_jha",
+  "documentation_section",
+  "oem_swi",
+  "oem_swi_understood",
+  "image_of_oemswi",
+  "ppe_section",
+  "ppe_suited",
+  "ppe_appropriate",
+  "image_of_non_complainant_ppe",
+  "tooling_section",
+  "tools_correct",
+  "tooling_inspected",
+  "image_of_tooling",
+  "equip_prestart",
+  "image_of_pre_start",
+  "permits_section",
+  "isolations",
+  "image_of_permit",
+  "iso_understood",
+  "image_of_hrw_certificate",
+  "safety_section",
+  "line_of_fire",
+  "lof_controls",
+  "image_of_implemented_controls",
+  "do_section",
+  "drop_protection",
+  "drop_zone",
+  "comments_section",
+  "positive_behavioursplanningsite_set_up",
+  "at_risk_behavioursplanningsite_set_up",
+  "safety_category",
+  "improvement_required",
+  "signature",
+  "compliance_percentage"
+ ],
+ "fields": [
+  {
+   "fieldname": "project_information_section",
+   "fieldtype": "Section Break",
+   "label": "Project Information"
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"=\",\"Open\"]]",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "link_project.project_name",
+   "fetch_if_empty": 1,
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "fieldname": "column_break_jiys",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scope_or_wo",
+   "fieldtype": "Select",
+   "label": "Work Scope or WO Number?",
+   "options": "Work Scope\nWork Order Number",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_task !== \"\"",
+   "fetch_from": "link_task.subject",
+   "fieldname": "work_scope",
+   "fieldtype": "Data",
+   "label": "Work Summary"
+  },
+  {
+   "fieldname": "column_break_kyus",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+   "fetch_if_empty": 1,
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"type\",\"=\",\"Work Summary\"],[\"Task\",\"project\",\"=\",\"eval:doc.link_project\"]]",
+   "options": "Task",
+   "search_index": 1
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Order Number\"",
+   "fetch_from": "link_task.work_order_number",
+   "fetch_if_empty": 1,
+   "fieldname": "work_order_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number"
+  },
+  {
+   "depends_on": "eval:doc.link_task !== \"\"",
+   "fetch_from": "link_task.parent_task_name",
+   "fetch_if_empty": 1,
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "fieldname": "section_break_ndjk",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "Select from the list. If missing, select \"MISSING\"",
+   "fieldname": "contractor",
+   "fieldtype": "Link",
+   "label": "Contractor",
+   "options": "Contractor"
+  },
+  {
+   "fieldname": "column_break_qdel",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Please enter full name",
+   "fetch_from": "link_steps.supervisor",
+   "fetch_if_empty": 1,
+   "fieldname": "supervisor",
+   "fieldtype": "Data",
+   "label": "Supervisor"
+  },
+  {
+   "fieldname": "jha_section",
+   "fieldtype": "Section Break",
+   "label": "JHA"
+  },
+  {
+   "fieldname": "jha_completed",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Has a JHA been completed for this task?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.jha_completed.includes(\"Yes\")",
+   "fieldname": "jha_quality",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Is the JHA quality align to the refresher training?",
+   "mandatory_depends_on": "eval:doc.jha_completed.includes(\"Yes\")",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.jha_quality.includes(\"Yes\")",
+   "fieldname": "verify_controls",
+   "fieldtype": "Select",
+   "label": "Are the controls listed in the JHA implemented correctly?",
+   "mandatory_depends_on": "eval:doc.jha_quality.includes(\"Yes\")",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "image_of_jha",
+   "fieldtype": "Attach Image",
+   "hidden": 1,
+   "label": "Image of JHA"
+  },
+  {
+   "fieldname": "documentation_section",
+   "fieldtype": "Section Break",
+   "label": "DOCUMENTATION"
+  },
+  {
+   "fieldname": "oem_swi",
+   "fieldtype": "Select",
+   "label": "Is there an OEM procedure, High Risk Permit/Cert or SWI for the task?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.oem_swi.includes(\"Yes\")",
+   "fieldname": "oem_swi_understood",
+   "fieldtype": "Select",
+   "label": "Have they read and understood it?",
+   "mandatory_depends_on": "eval:doc.oem_swi.includes(\"Yes\")",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "image_of_oemswi",
+   "fieldtype": "Attach Image",
+   "hidden": 1,
+   "label": "Image of OEM/SWI"
+  },
+  {
+   "fieldname": "ppe_section",
+   "fieldtype": "Section Break",
+   "label": "PPE"
+  },
+  {
+   "fieldname": "ppe_suited",
+   "fieldtype": "Select",
+   "label": "Is the PPE suited for the task?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.ppe_suited.includes(\"Yes\")",
+   "fieldname": "ppe_appropriate",
+   "fieldtype": "Select",
+   "label": "Are gloves being worn and are appropriate?",
+   "mandatory_depends_on": "eval:doc.ppe_suited.includes(\"Yes\")",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "image_of_non_complainant_ppe",
+   "fieldtype": "Attach Image",
+   "hidden": 1,
+   "label": "Image of non complainant PPE"
+  },
+  {
+   "fieldname": "tooling_section",
+   "fieldtype": "Section Break",
+   "label": "TOOLING"
+  },
+  {
+   "fieldname": "tools_correct",
+   "fieldtype": "Select",
+   "label": "Are the tools correct?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.tools_correct.includes(\"Yes\")",
+   "fieldname": "tooling_inspected",
+   "fieldtype": "Select",
+   "label": "Has the tooling been inspected for condition/tags?",
+   "mandatory_depends_on": "eval:doc.tools_correct.includes(\"Yes\")",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "image_of_tooling",
+   "fieldtype": "Attach Image",
+   "hidden": 1,
+   "label": "Image of Tooling"
+  },
+  {
+   "depends_on": "eval:doc.tools_correct.includes(\"Yes\")",
+   "fieldname": "equip_prestart",
+   "fieldtype": "Select",
+   "label": "Has an equipment Pre Start been conducted? ",
+   "mandatory_depends_on": "eval:doc.tools_correct.includes(\"Yes\")",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "image_of_pre_start",
+   "fieldtype": "Attach Image",
+   "hidden": 1,
+   "label": "Image of Pre Start"
+  },
+  {
+   "fieldname": "permits_section",
+   "fieldtype": "Section Break",
+   "label": "ISOLATIONS"
+  },
+  {
+   "fieldname": "isolations",
+   "fieldtype": "Select",
+   "label": "Are all isolations in place correctly?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "fieldname": "image_of_permit",
+   "fieldtype": "Attach Image",
+   "hidden": 1,
+   "label": "Image of Permit"
+  },
+  {
+   "depends_on": "eval:doc.isolations.includes(\"Yes\")",
+   "fieldname": "iso_understood",
+   "fieldtype": "Select",
+   "label": "Do they have a clear understanding of the isolation?",
+   "mandatory_depends_on": "eval:doc.isolations.includes(\"Yes\")",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "image_of_hrw_certificate",
+   "fieldtype": "Attach Image",
+   "hidden": 1,
+   "label": "Image of HRW Certificate"
+  },
+  {
+   "fieldname": "safety_section",
+   "fieldtype": "Section Break",
+   "label": "HAND SAFETY"
+  },
+  {
+   "fieldname": "line_of_fire",
+   "fieldtype": "Select",
+   "label": "Has Line of Fire & Pinch Point exposures been identified?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.line_of_fire.includes(\"Yes\")",
+   "fieldname": "lof_controls",
+   "fieldtype": "Select",
+   "label": "Are the controls sufficient?",
+   "mandatory_depends_on": "eval:doc.line_of_fire.includes(\"Yes\")",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "image_of_implemented_controls",
+   "fieldtype": "Attach Image",
+   "hidden": 1,
+   "label": "Image of Implemented Controls "
+  },
+  {
+   "fieldname": "do_section",
+   "fieldtype": "Section Break",
+   "label": "DROPPED OBJECTS"
+  },
+  {
+   "fieldname": "drop_protection",
+   "fieldtype": "Select",
+   "label": "Tool & equipment are tethered/stored correctly & drop matting in place?",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.drop_protection.includes(\"Yes\")",
+   "fieldname": "drop_zone",
+   "fieldtype": "Select",
+   "label": "Is a Drop / Exclusion Zone in place for work areas below?",
+   "mandatory_depends_on": "eval:doc.drop_protection.includes(\"Yes\")",
+   "options": "\nYes\nYes (fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "comments_section",
+   "fieldtype": "Section Break",
+   "label": "COMMENTS"
+  },
+  {
+   "fieldname": "positive_behavioursplanningsite_set_up",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "Positive Behaviours/Planning/Site Set Up"
+  },
+  {
+   "fieldname": "at_risk_behavioursplanningsite_set_up",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "At Risk Behaviours/Planning/Site Set Up"
+  },
+  {
+   "fieldname": "safety_category",
+   "fieldtype": "Select",
+   "label": "What would you deem is the Safety Category?",
+   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "fieldname": "improvement_required",
+   "fieldtype": "Select",
+   "label": "Select the area needed for improvement",
+   "mandatory_depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Sign off",
+   "reqd": 1
+  },
+  {
+   "fieldname": "compliance_percentage",
+   "fieldtype": "Percent",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Compliance Percentage",
+   "precision": "2"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-06-25 08:55:07.959345",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Workplace Inspection",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}
