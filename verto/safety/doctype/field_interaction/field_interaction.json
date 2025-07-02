@@ -25,7 +25,7 @@
   "supervisor",
   "interaction_observations_section",
   "interaction_stage",
-  "precommencement_completed",
+  "pre_commencement_completed",
   "quality_precommencement",
   "personnel_briefed_on_job_hazards",
   "personnel_adhering_to_safety_procedures",
@@ -113,7 +113,10 @@
   "section_break_705zw",
   "safety_category",
   "improvement_required",
-  "compliance_percentage"
+  "compliance_percentage",
+  "column_break_bokr",
+  "ai_agent_accuracy",
+  "ai_agent_feedback"
  ],
  "fields": [
   {
@@ -634,13 +637,7 @@
    "label": "5.4 Accessing / Egressing"
   },
   {
-   "fieldname": "precommencement_completed",
-   "fieldtype": "Select",
-   "label": "Is there a completed Pre-Commencement Checklist available at the job front",
-   "options": "\nCompleted\nNot Completed"
-  },
-  {
-   "depends_on": "eval:doc.precommencement_completed == \"Completed\"",
+   "depends_on": "eval:doc.pre_commencement_completed == \"Completed\"",
    "fieldname": "quality_precommencement",
    "fieldtype": "Select",
    "label": "Does the Quality of the Pre-Commencement Checklist adhere to the standards of the client?",
@@ -795,12 +792,36 @@
    "fieldname": "at_risk_work_area",
    "fieldtype": "Check",
    "label": "5. Work Area"
+  },
+  {
+   "fieldname": "pre_commencement_completed",
+   "fieldtype": "Select",
+   "label": "Is there a completed Pre-Commencement Checklist available at the job front",
+   "options": "\nCompleted\nNot Completed"
+  },
+  {
+   "fieldname": "column_break_bokr",
+   "fieldtype": "Column Break",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "ai_agent_accuracy",
+   "fieldtype": "Rating",
+   "label": "AI Agent Accuracy",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "ai_agent_feedback",
+   "fieldtype": "Small Text",
+   "label": "AI Agent Feedback",
+   "print_hide": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2025-06-24 12:12:43.408235",
+ "modified": "2025-07-02 21:52:29.770163",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Field Interaction",

@@ -17,6 +17,7 @@
   "safety_category",
   "improvement_required",
   "compliance_percentage",
+  "pre_commencement_completed",
   "positive_behaviours_section",
   "pos_11",
   "pos_12",
@@ -74,7 +75,16 @@
   "neg_51",
   "neg_52",
   "neg_53",
-  "neg_54"
+  "neg_54",
+  "supervisor_rating_section",
+  "professionalism",
+  "column_break_zxis",
+  "engagement",
+  "column_break_nopr",
+  "communication",
+  "section_break_acvw",
+  "ai_agent_accuracy",
+  "ai_agent_feedback"
  ],
  "fields": [
   {
@@ -481,18 +491,67 @@
    "fieldname": "neg_54",
    "fieldtype": "Check",
    "label": "5.4 Accessing / Egressing"
+  },
+  {
+   "fieldname": "supervisor_rating_section",
+   "fieldtype": "Section Break",
+   "label": "Supervisor Rating"
+  },
+  {
+   "fieldname": "professionalism",
+   "fieldtype": "Rating",
+   "label": "Professionalism"
+  },
+  {
+   "fieldname": "column_break_zxis",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "engagement",
+   "fieldtype": "Rating",
+   "label": "Engagement"
+  },
+  {
+   "fieldname": "column_break_nopr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "communication",
+   "fieldtype": "Rating",
+   "label": "Communication"
+  },
+  {
+   "fieldname": "pre_commencement_completed",
+   "fieldtype": "Data",
+   "label": "Pre-Commencement Completed"
+  },
+  {
+   "fieldname": "section_break_acvw",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "ai_agent_accuracy",
+   "fieldtype": "Rating",
+   "label": "AI Agent Accuracy"
+  },
+  {
+   "fieldname": "ai_agent_feedback",
+   "fieldtype": "Small Text",
+   "label": "AI Agent Feedback"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-03-13 13:46:49.411729",
+ "modified": "2025-06-25 11:35:53.530494",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Safety Metrics",
  "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

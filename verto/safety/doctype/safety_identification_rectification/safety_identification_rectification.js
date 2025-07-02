@@ -78,11 +78,11 @@ frappe.ui.form.on('Safety Identification Rectification', {
             'Save',
             'width: 100%; padding: 12px 0; font-size: 16px; text-align: center; display: block;',
             function () {
-                // Save the form
-                frm.save_or_update();
-                setTimeout(() => {
+                frm.save().then(() => {
                     window.location.href = '/app/home';
-                    }, 2000);  // Redirect after 2 seconds
+                }).catch((err) => {
+                    frappe.msgprint(__('Failed to save the form. Please check for required fields or validation issues.'));
+                });
             }
         );
     },

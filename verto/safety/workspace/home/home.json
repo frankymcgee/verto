@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"L0uWTIymD4\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h5\\\">Tasks</span>\",\"col\":12}},{\"id\":\"fhZ0JVa5WA\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Bottom NavBar\",\"col\":12}},{\"id\":\"XapUHBbBxq\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Assigned Tasks v2\",\"col\":12}}]",
+ "content": "[{\"id\":\"fhZ0JVa5WA\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Bottom NavBar\",\"col\":12}},{\"id\":\"XapUHBbBxq\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Assigned Tasks v2\",\"col\":12}}]",
  "creation": "2020-01-23 13:46:38.833076",
  "custom_blocks": [
   {
@@ -17,7 +17,7 @@
  "for_user": "",
  "hide_custom": 0,
  "icon": "map",
- "idx": 54,
+ "idx": 74,
  "is_hidden": 0,
  "label": "Home",
  "links": [
@@ -209,7 +209,7 @@
    "type": "Link"
   }
  ],
- "modified": "2025-04-02 07:40:15.420837",
+ "modified": "2025-06-25 14:53:54.790977",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Home",

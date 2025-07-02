@@ -61,13 +61,11 @@ frappe.ui.form.on('Job Hazard Analysis Review', {
             'Add Attachment',
             'width: 100%; padding: 12px 0; font-size: 16px; text-align: center; display: block; margin-bottom: 10px;',
             function () {
-                if (frm.is_new()) {
-                    frm.save().then(() => {
-                        frm.attachments.new_attachment();
-                    });
-                } else {
-                    frm.attachments.new_attachment();
-                }
+                frm.save().then(() => {
+                    window.location.href = '/app/home';
+                }).catch((err) => {
+                    frappe.msgprint(__('Failed to save the form. Please check for required fields or validation issues.'));
+                });
             }
         );
 

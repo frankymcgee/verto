@@ -42,6 +42,8 @@
   "engagement",
   "column_break_niqt",
   "communication",
+  "section_break_ceqt",
+  "supervisor_interaction_notes",
   "sec_safety",
   "safety_category",
   "improvement_required",
@@ -137,26 +139,31 @@
    "fieldname": "sec_safety",
    "fieldtype": "Section Break",
    "hidden": 1,
-   "label": "Work Area Categorisation"
+   "label": "Work Area Categorisation",
+   "print_hide": 1
   },
   {
    "fieldname": "safety_category",
    "fieldtype": "Select",
    "label": "What would you deem is the Safety Category?",
-   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required"
+   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required",
+   "print_hide": 1
   },
   {
    "depends_on": "eval:doc.safety_category !== \"\"",
    "fieldname": "final_comments",
    "fieldtype": "Small Text",
-   "label": "Final Comments"
+   "label": "Final Comments",
+   "print_hide": 1
   },
   {
    "depends_on": "eval:doc.safety_category !== \"\"",
    "fieldname": "advisor_sign_off",
    "fieldtype": "Signature",
+   "hidden": 1,
    "label": "Advisor Sign Off",
-   "mandatory_depends_on": "eval:doc.safety_category !== \"\""
+   "mandatory_depends_on": "eval:doc.safety_category !== \"\"",
+   "print_hide": 1
   },
   {
    "fieldname": "compliance_percentage",
@@ -170,7 +177,8 @@
    "fieldname": "improvement_required",
    "fieldtype": "Select",
    "label": "Improvement Required Category?",
-   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area",
+   "print_hide": 1
   },
   {
    "fieldname": "scope_or_wo",
@@ -275,40 +283,57 @@
   {
    "fieldname": "supervisor_rating_section",
    "fieldtype": "Section Break",
-   "label": "Supervisor Rating"
+   "label": "Supervisor Rating",
+   "print_hide": 1
   },
   {
    "description": "e.g., do they present well, use appropriate language etc.",
    "fieldname": "professionalism",
    "fieldtype": "Rating",
-   "label": "Professionalism"
+   "label": "Professionalism",
+   "print_hide": 1
   },
   {
    "fieldname": "column_break_vnht",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "print_hide": 1
   },
   {
    "description": "e.g., how do they engage with you, do they conduct in open dialogue etc.",
    "fieldname": "engagement",
    "fieldtype": "Rating",
-   "label": "Engagement"
+   "label": "Engagement",
+   "print_hide": 1
   },
   {
    "fieldname": "column_break_niqt",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "print_hide": 1
   },
   {
    "description": "e.g., how do they communicate information to their teams, how detailed are they with their team when they ask questions to them etc.",
    "fieldname": "communication",
    "fieldtype": "Rating",
-   "label": "Communication"
+   "label": "Communication",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "section_break_ceqt",
+   "fieldtype": "Section Break",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "supervisor_interaction_notes",
+   "fieldtype": "Small Text",
+   "label": "Supervisor Interaction Notes",
+   "print_hide": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
  "make_attachments_public": 1,
- "modified": "2025-06-24 10:11:55.616066",
- "modified_by": "Administrator",
+ "modified": "2025-07-01 22:15:33.465967",
+ "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "Supervisor BATB",
  "naming_rule": "Expression",
