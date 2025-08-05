@@ -60,7 +60,7 @@ frappe.ui.form.on('Daily Timesheet', {
         });
 
         // Set the date field to today's date if it is not already set
-        if (!frm.doc.date_field) {
+        if (!frm.doc.date) {
             let today = frappe.datetime.get_today();
             frm.set_value('date', today);
         }
@@ -132,6 +132,7 @@ frappe.ui.form.on('Daily Timesheet', {
                 create_or_update_timesheet(frm, existing_timesheet, week_start);
             }
         });
+        setTimeout(() => {window.location.href = '/app/shifts';}, 2000);  // Redirect after 2 seconds
     }
 });
 
@@ -181,10 +182,12 @@ function create_or_update_timesheet(frm, timesheet_id, week_start) {
         to_time: formatted_to_time,
         hours: hours_in_float,
         is_billable: 1,
+        billing_hours: hours_in_float,
         project: frm.doc.project_id,
         shift_type: frm.doc.shift,
         work_day: work_day_name,
-        description: frm.doc.comments
+        description: frm.doc.comments,
+        daily_timesheet_id: frm.doc.name
     };
 
     if (timesheet_id) {
@@ -200,8 +203,21 @@ function create_or_update_timesheet(frm, timesheet_id, week_start) {
                 if (!timesheet.time_logs) {
                     timesheet.time_logs = [];
                 }
+                let existing_log = timesheet.time_logs.find(log => log.daily_timesheet_id === frm.doc.name);
 
+                // Remove existing if present
+                timesheet.time_logs = timesheet.time_logs.filter(log => log.daily_timesheet_id !== frm.doc.name);
+
+                // Add the new/updated one
                 timesheet.time_logs.push(timesheet_entry);
+
+                // Sort by from_time
+                timesheet.time_logs.sort((a, b) => new Date(a.from_time) - new Date(b.from_time));
+
+                // Re-index to force correct numbering in the UI
+                timesheet.time_logs.forEach((log, idx) => {
+                    log.idx = idx + 1;
+                });
 
                 frappe.call({
                     method: "frappe.client.save",
@@ -209,32 +225,54 @@ function create_or_update_timesheet(frm, timesheet_id, week_start) {
                         doc: timesheet
                     },
                     callback: function() {
-                        frappe.msgprint("Updated existing weekly Timesheet for this project.");
+                        frappe.show_alert({
+                            message: __("Updated existing weekly Timesheet for this project."),
+                            indicator: 'green'
+                        }, 2);
                     }
                 });
             }
         });
     } else {
         frappe.call({
-            method: "frappe.client.insert",
+            method: "frappe.client.get_value",
             args: {
-                doc: {
-                    doctype: "Timesheet",
-                    employee_name: frm.doc.user_full_name,
-                    start_date: week_start,
-                    custom_monday_date: getMonday(frm.doc.date),
-                    custom_sunday_date: frappe.datetime.add_days(week_start, 6),
-                    customer: frm.doc.customer,
-                    parent_project: frm.doc.project_id,
-                    time_logs: [timesheet_entry]
-                }
+                doctype: "Employee",
+                filters: {
+                    user_id: frappe.session.user
+                },
+                fieldname: "name"
             },
-            callback: function() {
-                frappe.msgprint("Created new weekly Timesheet for this project.");
+            callback: function(r) {
+                if (r.message) {
+                    const employeeId = r.message.name;
+                    console.log("Employee ID:", employeeId);
+                    frappe.call({
+                        method: "frappe.client.insert",
+                        args: {
+                            doc: {
+                                doctype: "Timesheet",
+                                employee: employeeId,
+                                employee_name: frm.doc.user_full_name,
+                                start_date: week_start,
+                                custom_monday_date: getMonday(frm.doc.date),
+                                custom_sunday_date: frappe.datetime.add_days(week_start, 6),
+                                customer: frm.doc.customer,
+                                parent_project: frm.doc.project_id,
+                                time_logs: [timesheet_entry]
+                            }
+                        },
+                        callback: function() {
+                            frappe.show_alert({
+                                message: __("Created new weekly Timesheet for this project."),
+                                indicator: 'green'
+                            }, 2);
+                        }
+                    });
+                }
             }
-        });
+        });        
     }
-    setTimeout(() => {window.location.href = '/app/shifts';}, 2000);  // Redirect after 2 seconds
 }
 
 // Function to get the Monday of the week for a given date

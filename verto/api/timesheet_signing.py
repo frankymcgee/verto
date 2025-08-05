@@ -4,22 +4,15 @@ import frappe
 def sign_timesheet(timesheet_name, signature_base64, full_name=None, date_signed=None):
     if not timesheet_name or not signature_base64:
         frappe.throw("Missing timesheet or signature.")
-
-    # Update Timesheet with signature link
     ts = frappe.get_doc("Timesheet", timesheet_name)
-
-    # 🚫 Prevent re-signing
     if ts.custom_client_signed == 1:
-        return "Already signed"
-    
+        return "Already signed"    
     ts.db_set('custom_client_signature', signature_base64)
-    ts.db_set('custom_client_signed', 1)
-    
+    ts.db_set('custom_client_signed', 1)    
     if full_name:
         ts.db_set('custom_signed_full_name', full_name)
     if date_signed:
         ts.db_set('custom_date_signed', date_signed)
-
     frappe.db.commit()    
     logo_url = frappe.utils.get_url("/files/Company Logo.JPG")
     attachment = frappe.attach_print(
@@ -27,8 +20,7 @@ def sign_timesheet(timesheet_name, signature_base64, full_name=None, date_signed
                 name=ts.name,
                 print_format="Weekly Timesheet",
                 file_name=f"{ts.name}.pdf"
-            )
-    
+            )    
     frappe.sendmail(
                 recipients=["jess@minesitesupport.com.au", "enquiries@minesitesupport.com.au"],
                 reply_to="enquiries@minesitesupport.com.au",
@@ -81,3 +73,13 @@ def get_timesheet_public(name):
         "custom_monday_date",
         "custom_sunday_date"
     ], as_dict=True)
+
+@frappe.whitelist()
+def approve_timesheet_with_signature(timesheet, signature_dataurl, approved_by):
+    doc = frappe.get_doc("Timesheet", timesheet)
+    doc.internal_approved = 1
+    doc.employee_approved = approved_by
+    doc.approved_signature = signature_dataurl
+    doc.save(ignore_permissions=True)
+    frappe.db.commit()
+    return {"status": "success", "message": f"{timesheet} updated"}

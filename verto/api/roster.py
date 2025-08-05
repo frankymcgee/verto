@@ -1,6 +1,6 @@
 import frappe
 from frappe import _
-from frappe.utils import add_days, date_diff
+from frappe.utils import add_days, date_diff, getdate
 
 from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
 
@@ -299,3 +299,47 @@ def group_by_employee(events: list[dict]) -> dict[str, list[dict]]:
 			{k: v for k, v in event.items() if k != "employee"}
 		)
 	return grouped_events
+
+@frappe.whitelist()
+def get_available_employees(start_date: str, end_date: str, filters: dict = None):
+    """
+    Returns a list of employee names who have no shift assignments in the given date range.
+    Optional filters: company, department, branch, designation, etc.
+    """
+    filters = {
+		key: value
+		for key, value in frappe.parse_json(filters or {}).items()
+		if key in ["company", "department", "branch", "designation"]  # known valid fields
+	}
+
+    start = getdate(start_date)
+    end = getdate(end_date)
+
+    # Get employees with overlapping shifts in date range
+    overlapping = frappe.get_all(
+        "Shift Assignment",
+        filters={
+            "start_date": ["<=", end],
+            "end_date": [">=", start]
+        },
+        fields=["employee"],
+        distinct=True,
+    )
+    excluded_employees = [d.employee for d in overlapping]
+
+    # Build filters for employee list
+    employee_filters = {"status": "Active"}
+    for field in ["company", "department", "branch", "designation"]:
+        if filters.get(field):
+            employee_filters[field] = filters[field]
+
+    if excluded_employees:
+        employee_filters["name"] = ["not in", excluded_employees]
+
+    # Return available employees
+    return frappe.get_all(
+        "Employee",
+        filters=employee_filters,
+        fields=["name", "employee_name"],
+        limit_page_length=100,
+    )
