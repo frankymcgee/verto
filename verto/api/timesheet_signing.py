@@ -71,7 +71,8 @@ def get_timesheet_public(name):
         "project_name",
         "total_hours",
         "custom_monday_date",
-        "custom_sunday_date"
+        "custom_sunday_date",
+        "custom_client_signed"
     ], as_dict=True)
 
 @frappe.whitelist()

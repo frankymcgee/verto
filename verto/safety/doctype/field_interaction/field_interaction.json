@@ -115,6 +115,7 @@
   "improvement_required",
   "compliance_percentage",
   "column_break_bokr",
+  "peri_used",
   "ai_agent_accuracy",
   "ai_agent_feedback"
  ],
@@ -805,23 +806,33 @@
    "print_hide": 1
   },
   {
+   "depends_on": "eval: doc.peri_used == \"Yes\"",
    "fieldname": "ai_agent_accuracy",
    "fieldtype": "Rating",
    "label": "AI Agent Accuracy",
-   "print_hide": 1,
-   "reqd": 1
+   "mandatory_depends_on": "eval: doc.peri_used == \"Yes\"",
+   "print_hide": 1
   },
   {
+   "depends_on": "eval: doc.peri_used == \"Yes\"",
    "fieldname": "ai_agent_feedback",
    "fieldtype": "Small Text",
    "label": "AI Agent Feedback",
+   "mandatory_depends_on": "eval: doc.peri_used == \"Yes\"",
    "print_hide": 1
+  },
+  {
+   "fieldname": "peri_used",
+   "fieldtype": "Select",
+   "label": "Was P.E.R.I used?",
+   "options": "\nYes\nNo",
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2025-07-02 21:52:29.770163",
+ "modified": "2025-08-18 04:46:26.701366",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Field Interaction",

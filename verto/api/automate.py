@@ -85,16 +85,24 @@ def build_email_body(content_html):
                 {footer_html}
     """
 
-def send_weekly_timesheets():
+def send_weekly_timesheets(timesheet_name=None):
     start_date, end_date, allowed_days = get_timesheet_date_range()
-    timesheets = frappe.get_all("Timesheet",
-        filters={
-            "docstatus": 0,
-            "custom_monday_date": ["=", start_date],
-            "custom_sunday_date": ["=", end_date],
-        },
-        fields=["name", "employee", "parent_project", "project_name", "total_hours", "role","custom_monday_date", "custom_sunday_date", "customer_abbreviation"]
-    )
+    timesheets = []
+    if timesheet_name:
+        print(f"\n[Timesheet Follow-up] Forcing Timesheet email for: {timesheet_name}")
+        ts = frappe.get_doc("Timesheet", timesheet_name)
+        if not ts.parent_project:
+            return
+        timesheets = [ts]
+    else:
+        timesheets = frappe.get_all("Timesheet",
+            filters={
+                "docstatus": 0,
+                "custom_monday_date": ["=", start_date],
+                "custom_sunday_date": ["=", end_date],
+            },
+            fields=["name", "employee", "parent_project", "project_name", "total_hours", "role","custom_monday_date", "custom_sunday_date", "customer_abbreviation"]
+        )
     for ts in timesheets:
         if not ts.parent_project:
             continue
