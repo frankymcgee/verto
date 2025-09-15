@@ -111,7 +111,7 @@ frappe.ui.form.on('Field Interaction', {
         let total_rating = 0;
         let count = 0;
         $.each(frm.fields_dict, function(fieldname, field) {// Iterate through all fields in the form
-            if (fieldname.includes('safety_category') || fieldname.includes('improvement_required') || field.df.fieldtype !== "Select") { // Skip fields containing 'safety_category' or 'improvement_required' and non-Select fields
+            if (fieldname.includes('safety_category') || fieldname.includes('improvement_required') || fieldname.includes('peri_used') || field.df.fieldtype !== "Select") { // Skip fields containing 'safety_category' or 'improvement_required' and non-Select fields
                 return;  // Skip this iteration
             }
             let field_value = frm.doc[fieldname];

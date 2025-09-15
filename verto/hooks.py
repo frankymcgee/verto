@@ -19,6 +19,7 @@ app_include_css = [
 ]
 app_include_js = [
 	"/assets/verto/js/gantt_view.js",
+    "/assets/verto/js/task_gantt_map.js",
 	"/assets/verto/js/geolocation.js",
 	"/assets/verto/js/map_defaults.js",
 	"/assets/verto/js/project_calendar.js",

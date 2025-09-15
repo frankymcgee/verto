@@ -22,3 +22,17 @@ frappe.views.calendar["Project"] = {
 	],
 	get_events_method: "frappe.desk.calendar.get_events",
 };
+
+frappe.views.calendar["Task"] = {
+  gantt: {
+    field_map: {
+      id: "name",
+      title: "subject",
+      start: "exp_start_date",   // standard Task field
+      end: "exp_end_date",       // standard Task field
+      exp_start_time: "exp_start_time", // your custom time field
+      exp_end_time: "exp_end_time",     // your custom time field
+      progress: "progress"
+    }
+  }
+};

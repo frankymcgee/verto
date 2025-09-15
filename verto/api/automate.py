@@ -85,6 +85,7 @@ def build_email_body(content_html):
                 {footer_html}
     """
 
+@frappe.whitelist()
 def send_weekly_timesheets(timesheet_name=None):
     start_date, end_date, allowed_days = get_timesheet_date_range()
     timesheets = []
@@ -210,7 +211,7 @@ def send_timesheet_followup_reminders(timesheet_name=None):
             "custom_monday_date": ["=", start_date],
             "custom_sunday_date": ["=", end_date],
         }, fields=["name", "employee", "parent_project", "project_name", "total_hours", "role", "custom_monday_date", "custom_sunday_date", "customer_abbreviation"])
-        bcc_recipients = ["sean@minesitesupport.com.au", "jess@minesitesupport.com.au"]    
+        bcc_recipients = ["sean@minesitesupport.com.au", "jess@minesitesupport.com.au", "enquiries@minesitesupport.com.au"]    
 
     for ts in timesheets:
         try:
