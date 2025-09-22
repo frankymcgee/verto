@@ -154,12 +154,12 @@ scheduler_events = {
 #	"all": [
 #		"verto.tasks.all"
 #	],
-#	"daily": [
-#		"verto.tasks.daily"
-#	],
-#	"hourly": [
-#		"verto.tasks.hourly"
-#	],
+    "daily": [
+        "verto.jobs.daily.populate_kpi_snapshots",
+    ],
+    "hourly": [
+        "verto.jobs.hourly.escalate_overdue_actions",
+    ],
 #	"weekly": [
 #		"verto.tasks.weekly"
 #	],

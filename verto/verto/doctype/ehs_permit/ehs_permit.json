@@ -1,0 +1,137 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:PRM-{#####}",
+ "creation": "2025-09-16 15:27:40.482616",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "permit_type",
+  "job_description",
+  "location",
+  "start",
+  "end",
+  "isolation_required",
+  "related_risk",
+  "approver",
+  "permit_status",
+  "checklist",
+  "amended_from",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "permit_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Permit Type",
+   "options": "\nHot Work\nConfined Space\nWorking at Heights\nElectrical"
+  },
+  {
+   "fieldname": "job_description",
+   "fieldtype": "Text",
+   "label": "Job Description"
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Link",
+   "label": "Location",
+   "options": "Location"
+  },
+  {
+   "fieldname": "start",
+   "fieldtype": "Datetime",
+   "label": "Start"
+  },
+  {
+   "fieldname": "end",
+   "fieldtype": "Datetime",
+   "label": "End"
+  },
+  {
+   "default": "0",
+   "fieldname": "isolation_required",
+   "fieldtype": "Check",
+   "label": "Isolation Required"
+  },
+  {
+   "fieldname": "related_risk",
+   "fieldtype": "Link",
+   "label": "Related Risk",
+   "options": "EHS Risk Register"
+  },
+  {
+   "fieldname": "approver",
+   "fieldtype": "Link",
+   "label": "Approver",
+   "options": "User"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "permit_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Permit Status",
+   "options": "\nDraft\nApproved\nActive\nClosed\nCancelled"
+  },
+  {
+   "fieldname": "checklist",
+   "fieldtype": "Table",
+   "label": "Checklist",
+   "options": "EHS Inspection Item"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "EHS Permit",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "EHS Permit",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-09-16 15:27:40.482616",
+ "modified_by": "Administrator",
+ "module": "Verto",
+ "name": "EHS Permit",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "Employee"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

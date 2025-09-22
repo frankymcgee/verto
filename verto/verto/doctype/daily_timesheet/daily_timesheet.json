@@ -6,24 +6,25 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "shift_information_section",
-  "current_user",
-  "date",
-  "shift_allocation",
-  "column_break_nxgq",
-  "shift",
-  "project",
-  "project_id",
-  "customer",
   "timehseet_activity_section",
   "start_time",
   "column_break_lcin",
   "end_time",
-  "column_break_qdwh",
-  "duration",
   "section_break_ejhs",
   "comments",
-  "signature"
+  "column_break_sshq",
+  "signature",
+  "shift_details_tab",
+  "shift_information_section",
+  "current_user",
+  "date",
+  "shift_allocation",
+  "duration",
+  "column_break_nxgq",
+  "shift",
+  "project_id",
+  "project",
+  "customer"
  ],
  "fields": [
   {
@@ -39,7 +40,6 @@
   {
    "fieldname": "shift_allocation",
    "fieldtype": "Link",
-   "hidden": 1,
    "label": "Shift Allocation",
    "link_filters": "[[\"Shift Assignment\",\"start_date\",\"<=\",\"eval:doc.date\"],[\"Shift Assignment\",\"end_date\",\">=\",\"eval:doc.date\"],[\"Shift Assignment\",\"employee_name\",\"=\",\"eval:doc.current_user\"],[\"Shift Assignment\",\"docstatus\",\"=\",\"1\"]]",
    "options": "Shift Assignment"
@@ -53,7 +53,6 @@
    "fetch_if_empty": 1,
    "fieldname": "shift",
    "fieldtype": "Data",
-   "hidden": 1,
    "label": "Shift"
   },
   {
@@ -61,7 +60,6 @@
    "fetch_if_empty": 1,
    "fieldname": "project",
    "fieldtype": "Data",
-   "hidden": 1,
    "label": "Project"
   },
   {
@@ -70,6 +68,7 @@
    "label": "Timesheet Activity"
   },
   {
+   "allow_in_quick_entry": 1,
    "fieldname": "start_time",
    "fieldtype": "Time",
    "label": "Start Time"
@@ -79,19 +78,17 @@
    "fieldtype": "Column Break"
   },
   {
+   "allow_in_quick_entry": 1,
    "fieldname": "end_time",
    "fieldtype": "Time",
    "label": "End Time"
-  },
-  {
-   "fieldname": "column_break_qdwh",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "section_break_ejhs",
    "fieldtype": "Section Break"
   },
   {
+   "allow_in_quick_entry": 1,
    "fieldname": "signature",
    "fieldtype": "Signature",
    "label": "Signature"
@@ -105,10 +102,10 @@
   {
    "fieldname": "current_user",
    "fieldtype": "Data",
-   "hidden": 1,
    "label": "User ID"
   },
   {
+   "allow_in_quick_entry": 1,
    "fieldname": "comments",
    "fieldtype": "Small Text",
    "label": "Comments"
@@ -118,7 +115,6 @@
    "fetch_if_empty": 1,
    "fieldname": "customer",
    "fieldtype": "Data",
-   "hidden": 1,
    "label": "Customer"
   },
   {
@@ -126,15 +122,23 @@
    "fetch_if_empty": 1,
    "fieldname": "project_id",
    "fieldtype": "Data",
-   "hidden": 1,
    "label": "Project ID"
+  },
+  {
+   "fieldname": "shift_details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Shift Details"
+  },
+  {
+   "fieldname": "column_break_sshq",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2025-06-04 13:22:21.928605",
- "modified_by": "Administrator",
+ "modified": "2025-09-22 09:57:30.823569",
+ "modified_by": "sean@minesitesupport.com.au",
  "module": "Verto",
  "name": "Daily Timesheet",
  "naming_rule": "Expression",
@@ -164,6 +168,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

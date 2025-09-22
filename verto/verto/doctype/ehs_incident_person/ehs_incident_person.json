@@ -1,0 +1,82 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-09-16 15:27:06.436609",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "person_type",
+  "employee",
+  "contractor_supplier",
+  "person_name",
+  "role_relationship",
+  "injury_type",
+  "treatment_details",
+  "time_lost_days"
+ ],
+ "fields": [
+  {
+   "fieldname": "person_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Person Type",
+   "options": "\nEmployee\nContractor\nVisitor\nPublic"
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Employee",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "contractor_supplier",
+   "fieldtype": "Link",
+   "label": "Contractor (Supplier)",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "person_name",
+   "fieldtype": "Data",
+   "label": "Person Name"
+  },
+  {
+   "fieldname": "role_relationship",
+   "fieldtype": "Data",
+   "label": "Role/Relationship"
+  },
+  {
+   "fieldname": "injury_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Injury Type",
+   "options": "\nNone\nFirst Aid\nMedical Treatment\nLTI"
+  },
+  {
+   "fieldname": "treatment_details",
+   "fieldtype": "Text",
+   "label": "Treatment Details"
+  },
+  {
+   "fieldname": "time_lost_days",
+   "fieldtype": "Float",
+   "label": "Time Lost (Days)"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-09-16 15:27:06.436609",
+ "modified_by": "Administrator",
+ "module": "Verto",
+ "name": "EHS Incident Person",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

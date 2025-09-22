@@ -8,11 +8,35 @@
 // });
 frappe.ui.form.on('Daily Timesheet', {
     refresh: function(frm) {
+        if (!frm.doc.current_user) {
+            let currentUser = frappe.session.user;
+
+            frappe.call({
+                method: 'frappe.client.get_value',
+                args: {
+                    doctype: 'User',
+                    filters: { 'name': currentUser },
+                    fieldname: ['full_name']
+                },
+                callback: function(r) {
+                    if (r.message) {
+                        let fullName = r.message.full_name;
+                        frm.set_value('current_user', fullName);
+
+                        // Now that we have fullName, do the shift allocation
+                        set_shift_allocation(frm, fullName);
+                    }
+                }
+            });
+        } else {
+            // already has current_user → reuse it
+            set_shift_allocation(frm, frm.doc.current_user);
+        }        
         // Set the date field to today's date if it is not already set
         if (!frm.doc.date) {
             let today = frappe.datetime.get_today();
             frm.set_value('date', today);
-        }        
+        }                           
         // Function to add a button
         const add_button = function (location, class_name, label, style, callback, prepend = false) {
             if (!$(location).find(`.${class_name}`).length) {
@@ -61,6 +85,33 @@ frappe.ui.form.on('Daily Timesheet', {
         setTimeout(() => {window.location.href = '/app/shifts';}, 2000);  // Redirect after 2 seconds
     }
 });
+
+// helper for shift allocation
+function set_shift_allocation(frm, fullName) {
+    if (!frm.doc.shift_allocation) {
+        frappe.call({
+            method: 'frappe.client.get_list',
+            args: {
+                doctype: 'Shift Assignment',
+                filters: [
+                    ["start_date", "<=", frm.doc.date],
+                    ["end_date", ">=", frm.doc.date],
+                    ["employee_name", "=", fullName],
+                    ["docstatus", "=", "1"]
+                ],
+                limit: 1,
+                fields: ['name']
+            },
+            callback: function(r) {
+                if (r.message && r.message.length > 0) {
+                    frm.set_value('shift_allocation', r.message[0].name);
+                } else {
+                    frappe.msgprint(__('No allocated shifts found. Please contact the office.'));
+                }
+            }
+        });
+    }
+}
 
 // Function to get the Monday of the week for a given date
 function getMonday(date) {

@@ -1,0 +1,87 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:KPI-{#####}",
+ "creation": "2025-09-16 15:27:07.404180",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "as_of",
+  "incidents_mtd",
+  "ltis_ytd",
+  "open_actions",
+  "trifr",
+  "ltifr",
+  "comments"
+ ],
+ "fields": [
+  {
+   "fieldname": "as_of",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "As Of"
+  },
+  {
+   "fieldname": "incidents_mtd",
+   "fieldtype": "Int",
+   "label": "Incidents (MTD)"
+  },
+  {
+   "fieldname": "ltis_ytd",
+   "fieldtype": "Int",
+   "label": "LTIs (YTD)"
+  },
+  {
+   "fieldname": "open_actions",
+   "fieldtype": "Int",
+   "label": "Open Actions"
+  },
+  {
+   "fieldname": "trifr",
+   "fieldtype": "Float",
+   "label": "TRIFR"
+  },
+  {
+   "fieldname": "ltifr",
+   "fieldtype": "Float",
+   "label": "LTIFR"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Text",
+   "label": "Comments"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-09-16 15:27:07.404180",
+ "modified_by": "Administrator",
+ "module": "Verto",
+ "name": "EHS KPI Snapshot",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "Employee"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

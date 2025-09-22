@@ -1,0 +1,217 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "creation": "2025-09-16 06:30:57.432126",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "section_break_4",
+    "hazard",
+    "area_location",
+    "job_task",
+    "risk_process",
+    "section_break_5",
+    "consequence",
+    "likelihood",
+    "risk_rating_pre",
+    "existing_controls",
+    "section_break_6",
+    "control_measures",
+    "residual_consequence",
+    "residual_likelihood",
+    "risk_rating_post",
+    "section_break_7",
+    "risk_owner",
+    "review_date",
+    "status"
+  ],
+  "fields": [
+    {
+      "fieldname": "section_break_4",
+      "fieldtype": "Section Break"
+    },
+    {
+      "fieldtype": "Data",
+      "label": "Hazard",
+      "fieldname": "hazard",
+      "reqd": 1,
+      "in_list_view": 1,
+      "read_only": 0,
+      "options": ""
+    },
+    {
+      "fieldtype": "Link",
+      "label": "Area / Location",
+      "fieldname": "area_location",
+      "reqd": 0,
+      "in_list_view": 1,
+      "read_only": 0,
+      "options": "Location"
+    },
+    {
+      "fieldtype": "Data",
+      "label": "Job / Task",
+      "fieldname": "job_task",
+      "reqd": 0,
+      "in_list_view": 0,
+      "read_only": 0,
+      "options": ""
+    },
+    {
+      "fieldtype": "Data",
+      "label": "Process",
+      "fieldname": "risk_process",
+      "reqd": 0,
+      "in_list_view": 0,
+      "read_only": 0,
+      "options": ""
+    },
+    {
+      "fieldname": "section_break_5",
+      "fieldtype": "Section Break"
+    },
+    {
+      "fieldtype": "Select",
+      "label": "Consequence",
+      "fieldname": "consequence",
+      "reqd": 0,
+      "in_list_view": 1,
+      "read_only": 0,
+      "options": "\n1\n2\n3\n4\n5"
+    },
+    {
+      "fieldtype": "Select",
+      "label": "Likelihood",
+      "fieldname": "likelihood",
+      "reqd": 0,
+      "in_list_view": 1,
+      "read_only": 0,
+      "options": "\n1\n2\n3\n4\n5"
+    },
+    {
+      "fieldtype": "Int",
+      "label": "Risk Rating Pre",
+      "fieldname": "risk_rating_pre",
+      "reqd": 0,
+      "in_list_view": 1,
+      "read_only": 1,
+      "options": ""
+    },
+    {
+      "fieldtype": "Text",
+      "label": "Existing Controls",
+      "fieldname": "existing_controls",
+      "reqd": 0,
+      "in_list_view": 0,
+      "read_only": 0,
+      "options": ""
+    },
+    {
+      "fieldname": "section_break_6",
+      "fieldtype": "Section Break"
+    },
+    {
+      "fieldtype": "Table",
+      "label": "Control Measures",
+      "fieldname": "control_measures",
+      "options": "EHS Control Measure",
+      "reqd": 0,
+      "in_list_view": 0,
+      "read_only": 0
+    },
+    {
+      "fieldtype": "Select",
+      "label": "Residual Consequence",
+      "fieldname": "residual_consequence",
+      "reqd": 0,
+      "in_list_view": 0,
+      "read_only": 0,
+      "options": "\n1\n2\n3\n4\n5"
+    },
+    {
+      "fieldtype": "Select",
+      "label": "Residual Likelihood",
+      "fieldname": "residual_likelihood",
+      "reqd": 0,
+      "in_list_view": 0,
+      "read_only": 0,
+      "options": "\n1\n2\n3\n4\n5"
+    },
+    {
+      "fieldtype": "Int",
+      "label": "Risk Rating Post",
+      "fieldname": "risk_rating_post",
+      "reqd": 0,
+      "in_list_view": 1,
+      "read_only": 1,
+      "options": ""
+    },
+    {
+      "fieldname": "section_break_7",
+      "fieldtype": "Section Break"
+    },
+    {
+      "fieldtype": "Link",
+      "label": "Risk Owner",
+      "fieldname": "risk_owner",
+      "reqd": 0,
+      "in_list_view": 0,
+      "read_only": 0,
+      "options": "User"
+    },
+    {
+      "fieldtype": "Date",
+      "label": "Review Date",
+      "fieldname": "review_date",
+      "reqd": 0,
+      "in_list_view": 0,
+      "read_only": 0,
+      "options": ""
+    },
+    {
+      "fieldtype": "Select",
+      "label": "Status",
+      "fieldname": "status",
+      "reqd": 0,
+      "in_list_view": 1,
+      "read_only": 0,
+      "options": "\nDraft\nActive\nClosed",
+      "default": "Active"
+    }
+  ],
+  "grid_page_length": 50,
+  "index_web_pages_for_search": 1,
+  "links": [],
+  "modified": "2025-09-16 06:30:57.432145",
+  "modified_by": "Administrator",
+  "module": "Verto",
+  "name": "EHS Risk Register",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "read": 1,
+      "report": 0,
+      "role": "Employee",
+      "write": 0
+    }
+  ],
+  "row_format": "Dynamic",
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "states": [],
+  "track_changes": 1,
+  "autoname": "format:RSK-{#####}"
+}
