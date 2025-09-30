@@ -7,6 +7,12 @@
 // 	},
 // });
 frappe.ui.form.on('Daily Timesheet', {
+    start_time: function(frm) {
+        calculate_duration(frm);
+    },
+    end_time: function(frm) {
+        calculate_duration(frm);
+    },
     refresh: function(frm) {
         if (!frm.doc.current_user) {
             let currentUser = frappe.session.user;
@@ -80,6 +86,33 @@ frappe.ui.form.on('Daily Timesheet', {
                 frm.save_or_update();
             }
         );
+    },
+    before_save: function(frm) {
+        // Skip confirm if we already asked
+        if (frm.skip_confirm) {
+            frm.skip_confirm = false; // reset for next time
+            return;
+        }
+
+        if (frm.doc.duration) {
+            const hours = (frm.doc.duration / 3600).toFixed(2);
+
+            frappe.validated = false; // stop save
+
+            frappe.confirm(
+                __("Your current hours for this shift is {0} hours. Is this correct?", [hours]),
+                function() {
+                    // ✅ Yes → set guard + retry save
+                    frm.skip_confirm = true;
+                    frappe.validated = true;
+                    frm.save();
+                },
+                function() {
+                    // ❌ No → let them adjust
+                    frappe.validated = false;
+                }
+            );
+        }
     },
     after_save: function(frm) {        
         setTimeout(() => {window.location.href = '/app/shifts';}, 2000);  // Redirect after 2 seconds
