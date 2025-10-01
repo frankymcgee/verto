@@ -119,6 +119,23 @@ frappe.ui.form.on('Daily Timesheet', {
     }
 });
 
+function calculate_duration(frm) {
+     if (frm.doc.start_time && frm.doc.end_time) { // Parse start and end times as moment.js objects
+         var start_time = moment(frm.doc.start_time, 'HH:mm:ss');
+         var end_time = moment(frm.doc.end_time, 'HH:mm:ss');
+         // Handle case where end time is past midnight
+         if (end_time.isBefore(start_time)) {
+             end_time.add(1, 'day');
+         }
+         // Calculate the difference in milliseconds
+         var duration_ms = end_time.diff(start_time);
+         // Convert duration from milliseconds to seconds
+         var duration_seconds = duration_ms / 1000;
+         // Set the duration in the form
+         frm.set_value('duration', duration_seconds);
+     }
+}
+
 // helper for shift allocation
 function set_shift_allocation(frm, fullName) {
     if (!frm.doc.shift_allocation) {

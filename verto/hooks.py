@@ -132,7 +132,7 @@ app_include_js = [
 # Override standard doctype classes
 
 # override_doctype_class = {
-#	"ToDo": "custom_app.overrides.CustomToDo"
+#     "Shift Schedule Assignment": "verto.overrides.shift_schedule_assignment.CustomShiftScheduleAssignment"
 # }
 
 # Document Events
@@ -191,8 +191,9 @@ scheduler_events = {
 #	"frappe.desk.doctype.event.event.get_events": "verto.event.get_events"
 # }
 override_whitelisted_methods = {
-    "frappe.geo.utils.get_coords": "verto.geo.utils.verto_get_coords"
+    "frappe.geo.utils.get_coords": "verto.geo.utils.verto_get_coords",
 }
+
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
