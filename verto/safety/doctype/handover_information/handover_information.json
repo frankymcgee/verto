@@ -1,0 +1,204 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-10-26 23:32:20.156237",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "date",
+  "coverage",
+  "column_break_bpns",
+  "outgoing_lead_advisor",
+  "outgoing_full_name",
+  "column_break_clvs",
+  "incoming_lead_advisor",
+  "full_name",
+  "section_break_ymij",
+  "shift_handover",
+  "shift_safety_summary",
+  "incidents",
+  "incident_information",
+  "shares_snapshots",
+  "ccv_snapshot",
+  "shift_focus",
+  "raised_at_meetings",
+  "shift_findings",
+  "upcoming_shift_focus",
+  "communication_stakeholders",
+  "actions",
+  "section_break_uylr",
+  "signoff",
+  "update_parent"
+ ],
+ "fields": [
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "shift_safety_summary",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Shift Safety Summary",
+   "options": "\nSafe Shift\nLess than Safe Shift\nUnsafe Shift\nUnsafe Shift resulting in Injury"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "description": "If &gt;0, new fields appear (below) to capture details.",
+   "fieldname": "incidents",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Incidents"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "depends_on": "eval:doc.incidents > 0",
+   "description": "Example: \u201cINC-2025-1042: LV reversed into bund (no injury). Scene made safe; Take-5 refresher completed with crew.\u201d",
+   "fieldname": "incident_information",
+   "fieldtype": "Text Editor",
+   "label": "Incident Information"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "description": "What H&S priorities you actively worked on (e.g., critical control verifications, targeted observations, health monitoring).",
+   "fieldname": "shift_focus",
+   "fieldtype": "Text Editor",
+   "in_list_view": 1,
+   "label": "Shift Focus"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "description": "Key H&S topics you tabled in pre-starts/toolboxes/ops meetings and outcomes/commitments.",
+   "fieldname": "raised_at_meetings",
+   "fieldtype": "Text Editor",
+   "in_list_view": 1,
+   "label": "Raised at Meetings"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "description": "Brief notes from inspections/audits/field leadership: what\u2019s working, what\u2019s not, trends, non-conformances.\n(Think \u201cevidence from field\u201d, not production status.)",
+   "fieldname": "shift_findings",
+   "fieldtype": "Text Editor",
+   "in_list_view": 1,
+   "label": "Shift Findings"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "description": "What you want the incoming advisor to prioritise (e.g., isolation audit sample at Crusher; follow-up on heat stress controls).",
+   "fieldname": "upcoming_shift_focus",
+   "fieldtype": "Text Editor",
+   "in_list_view": 1,
+   "label": "Upcoming Shift Focus"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "signoff",
+   "fieldtype": "Signature",
+   "in_list_view": 1,
+   "label": "Sign-off"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "date",
+   "fieldtype": "Datetime",
+   "label": "Date & Time",
+   "reqd": 1
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "shift_handover",
+   "fieldtype": "Select",
+   "label": "Shift Handover",
+   "options": "\nDS -> NS\nNS -> DS"
+  },
+  {
+   "fetch_from": "incoming_lead_advisor.full_name",
+   "fieldname": "full_name",
+   "fieldtype": "Data",
+   "label": "Full Name"
+  },
+  {
+   "fetch_from": "outgoing_lead_advisor.full_name",
+   "fieldname": "outgoing_full_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Full Name"
+  },
+  {
+   "fieldname": "column_break_bpns",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "incoming_lead_advisor",
+   "fieldtype": "Link",
+   "label": "Incoming Advisor",
+   "options": "User"
+  },
+  {
+   "fieldname": "section_break_ymij",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_uylr",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "outgoing_lead_advisor",
+   "fieldtype": "Link",
+   "label": "Outgoing Advisor",
+   "options": "User"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "description": "Which part of the mine/plant this handover relates to.<br>\nExample: \u201cPit B \u2013 West Wall / ROM Pad / Primary Crusher.\u201d",
+   "fieldname": "coverage",
+   "fieldtype": "Data",
+   "label": "Area / Section Covered"
+  },
+  {
+   "fieldname": "column_break_clvs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Example: \u201cTraffic interaction \u2013 Needs attention: radar checks increased after two infringements.\u201d",
+   "fieldname": "ccv_snapshot",
+   "fieldtype": "Text Editor",
+   "label": "Critical Control Verification snapshot"
+  },
+  {
+   "description": "Who you briefed (ops supervisors, managers, contractors, JHSC/HSC), how (toolbox, line-up, email, channel), and whether confirmation received.<br>",
+   "fieldname": "communication_stakeholders",
+   "fieldtype": "Text Editor",
+   "label": "Communication & Stakeholders"
+  },
+  {
+   "description": "Carry-over actions with clear owner + due time/date; flag \u201cmust do before work continues\u201d if applicable.",
+   "fieldname": "actions",
+   "fieldtype": "Text Editor",
+   "label": "Actions & Owners"
+  },
+  {
+   "description": "Upload any Safey Shares or Dashboard Snapshots here",
+   "fieldname": "shares_snapshots",
+   "fieldtype": "Text Editor",
+   "label": "Shares & Data Snapshots"
+  },
+  {
+   "fieldname": "update_parent",
+   "fieldtype": "Button",
+   "label": "Save"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-11-22 07:33:19.691929",
+ "modified_by": "sean@minesitesupport.com.au",
+ "module": "Safety",
+ "name": "Handover Information",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

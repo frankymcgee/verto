@@ -1,0 +1,127 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{project_name}",
+ "creation": "2025-10-27 18:32:25.766880",
+ "default_view": "List",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "project",
+  "project_name",
+  "column_break_khxm",
+  "project_type",
+  "location",
+  "section_break_ddcj",
+  "ds_message_template",
+  "column_break_wpjy",
+  "ns_message_template",
+  "section_break_zwns",
+  "table_hhdr"
+ ],
+ "fields": [
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "project.project_name",
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_khxm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "project.project_type",
+   "fetch_if_empty": 1,
+   "fieldname": "project_type",
+   "fieldtype": "Data",
+   "label": "Project Type",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "project.custom_project_location",
+   "fetch_if_empty": 1,
+   "fieldname": "location",
+   "fieldtype": "Data",
+   "label": "Location",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_ddcj",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "Morning Team,\n\nPlease don't forget to attend your allocated area for SIMOPS this morning. Attached is the Safety Share for the shift.\n\t\u2022 Incidents over the last 24 Hours:\n\t\t- \nAny questions please use this chat to ask.",
+   "fieldname": "ds_message_template",
+   "fieldtype": "Small Text",
+   "label": "DS Message Template"
+  },
+  {
+   "fieldname": "column_break_wpjy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Evening Team,\n\nPlease don't forget to attend your allocated area for SIMOPS this evening. Attached is the Safety Share for the shift.\n\t\u2022 Incidents over the last 24 Hours:\n\t\t- \nAny questions please use this chat to ask.",
+   "fieldname": "ns_message_template",
+   "fieldtype": "Small Text",
+   "label": "NS Message Template"
+  },
+  {
+   "fieldname": "section_break_zwns",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "table_hhdr",
+   "fieldtype": "Table",
+   "label": "Handover",
+   "options": "Handover Information"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-10-27 18:34:13.301910",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Safety Handover",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "WHS Advisor - Internal",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
