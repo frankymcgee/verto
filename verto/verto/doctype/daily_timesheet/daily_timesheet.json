@@ -52,8 +52,9 @@
    "fetch_from": "shift_allocation.shift_type",
    "fetch_if_empty": 1,
    "fieldname": "shift",
-   "fieldtype": "Data",
-   "label": "Shift"
+   "fieldtype": "Link",
+   "label": "Shift",
+   "options": "Shift Type"
   },
   {
    "fetch_from": "shift_allocation.custom_project_name",
@@ -137,8 +138,8 @@
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2025-09-22 09:57:30.823569",
- "modified_by": "sean@minesitesupport.com.au",
+ "modified": "2025-12-08 11:39:01.989549",
+ "modified_by": "Administrator",
  "module": "Verto",
  "name": "Daily Timesheet",
  "naming_rule": "Expression",

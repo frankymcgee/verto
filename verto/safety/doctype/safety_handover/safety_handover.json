@@ -12,6 +12,7 @@
   "column_break_khxm",
   "project_type",
   "location",
+  "sms_template",
   "section_break_ddcj",
   "ds_message_template",
   "column_break_wpjy",
@@ -56,6 +57,7 @@
    "read_only": 1
   },
   {
+   "depends_on": "eval:doc.sms_template == 1",
    "fieldname": "section_break_ddcj",
    "fieldtype": "Section Break"
   },
@@ -84,13 +86,19 @@
    "fieldtype": "Table",
    "label": "Handover",
    "options": "Handover Information"
+  },
+  {
+   "default": "0",
+   "fieldname": "sms_template",
+   "fieldtype": "Check",
+   "label": "Message Template Required"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-27 18:34:13.301910",
- "modified_by": "Administrator",
+ "modified": "2026-01-03 10:34:27.185385",
+ "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "Safety Handover",
  "naming_rule": "Expression",

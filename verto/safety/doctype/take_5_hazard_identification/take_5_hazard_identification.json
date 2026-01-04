@@ -22,27 +22,27 @@
    "columns": 4,
    "fieldname": "controls_if_multiple_separate_with_comma",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "label": "Controls (if multiple, separate with comma)"
   },
   {
    "columns": 2,
    "fieldname": "risk_score",
    "fieldtype": "Select",
-   "in_list_view": 1,
    "label": "Risk Score",
    "options": "\nLow (1)\nLow (2)\nLow (3)\nLow (4)\nLow (5)\nMedium (6)\nMedium (7)\nMedium (8)\nMedium (9)\nMedium (10)\nHigh (11)\nHigh (12)\nHigh (13)\nHigh (14)\nHigh (15)\nHigh (16)\nHigh (17)\nExtreme (18)\nExtreme (19)\nExtreme (20)\nExtreme (21)\nExtreme (22)\nExtreme (23)\nExtreme (24)\nExtreme (25)"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-05-19 16:54:42.829368",
- "modified_by": "Administrator",
+ "modified": "2026-01-04 12:14:52.313946",
+ "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "Take 5 Hazard Identification",
  "owner": "Administrator",
  "permissions": [],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

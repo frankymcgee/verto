@@ -1,4 +1,5 @@
 import frappe
+from verto.api.automate import get_employee_doc, generate_attachment_name, generate_attachment
 
 @frappe.whitelist(allow_guest=True)
 def sign_timesheet(timesheet_name, signature_base64, full_name=None, date_signed=None):
@@ -15,16 +16,14 @@ def sign_timesheet(timesheet_name, signature_base64, full_name=None, date_signed
         ts.db_set('custom_date_signed', date_signed)
     frappe.db.commit()    
     logo_url = frappe.utils.get_url("/files/Company Logo.JPG")
-    attachment = frappe.attach_print(
-                doctype="Timesheet",
-                name=ts.name,
-                print_format="Weekly Timesheet",
-                file_name=f"{ts.name}.pdf"
-            )    
+    employee_doc = get_employee_doc(ts)
+    employee_name = employee_doc.employee_name
+    file_name = generate_attachment_name(ts, employee_doc, include_project=True)
+    attachment = generate_attachment(ts, file_name)
     frappe.sendmail(
                 recipients=["jess@minesitesupport.com.au", "enquiries@minesitesupport.com.au"],
                 reply_to="enquiries@minesitesupport.com.au",
-                subject=f"Signed Timesheet for {ts.employee_name} - {ts.project_name}",
+                subject=f"Signed Timesheet for {employee_name} - {ts.project_name}",
                 message = f"""
                 <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4; padding: 20px;">
                 <tr>
@@ -38,7 +37,7 @@ def sign_timesheet(timesheet_name, signature_base64, full_name=None, date_signed
                         <tr>
                         <td style="font-family: sans-serif; font-size: 14px; color: #333;">
                             <p>Hi there,</p>
-                            <p>Please find attached the signed weekly timesheet for <strong>{ts.employee_name}</strong>.</p>
+                            <p>Please find attached the signed weekly timesheet for <strong>{employee_name}</strong>.</p>
                             <p>Kind Regards,<br><strong>Mine Site Support</strong></p>
                         </td>
                         </tr>

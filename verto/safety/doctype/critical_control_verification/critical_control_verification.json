@@ -25,152 +25,125 @@
   "sec_ccv_info",
   "ccv_selected",
   "ccv_prompt",
-  "section_break_feay",
-  "lat",
-  "long",
   "tab_cs",
   "cs_qual",
-  "cs_qual_upload",
   "cs_energy_source",
   "cs_sentry",
   "cs_zero_energy",
   "cs_bump_test",
   "cs_atmos_test",
-  "cs_atmos_test_upload",
   "cs_ventilation",
   "cs_resp_equip",
   "cs_permit",
-  "cs_permit_upload",
   "cs_standby",
   "cs_emergency_plan",
-  "cs_emergency_plan_upload",
   "tab_cwe",
   "cwe_hv_permit",
   "cwe_other_permits",
-  "cwe_permits_upload",
   "cwe_powerline_corridor",
   "cwe_energy_iso",
   "cwe_meter_check",
   "cwe_tfd_confirm",
   "cwe_arc_ppe",
   "cwe_ppe",
-  "cwe_ppe_upload",
   "cwe_rubber_gloves",
   "cwe_resp_equip",
   "cwe_tools_rated",
   "cwe_tool_condition",
-  "cwe_tool_copndition_upload",
   "cwe_elec_safety_device",
   "cwe_qual",
-  "cwe_qual_upload",
   "tab_do",
   "do_barricade",
   "do_segregation",
-  "do_segregation_upload",
   "do_permanent_ec",
   "do_hang_ups",
   "do_overheads",
-  "do_overheads_upload",
   "do_securing_devices",
   "do_tooling",
-  "do_tooling_upload",
   "do_engineered_protection",
   "tab_ec",
   "eac_energy_sources",
-  "eac_tfc_upload",
   "eac_mech_energy",
   "eac_mech_blocking",
-  "eac_mech_blocking_upload",
   "eac_zev",
   "eac_stored_energy_restrained",
   "eac_guarding",
-  "eac_guarding_upload",
   "eac_estop_pull_wire",
   "eac_unguarded_equip",
-  "eac_unguarded_equip_upload",
   "eac_exclusive_control",
-  "eac_exclusive_control_upload",
   "tab_ffh",
   "ffh_qual",
-  "ffh_qual_upload",
   "ffh_anchor_points",
   "ffh_harness_lanyards",
-  "ffh_harness_lanyards_upload",
   "ffh_arrest_restrain",
   "ffh_fixed_platform",
   "ffh_ladder_mobile",
-  "ffh_ladder_mobile_upload",
   "ffh_motor_platform",
   "ffh_worker_protection",
-  "ffh_motor_platform_upload",
   "ffh_edge_prot",
-  "ffh_edge_prot_upload",
   "ffh_scaff_complete",
   "ffh_scaff_vehicle",
-  "ffh_scaff_complete_upload",
   "ffh_emergency_resp",
-  "ffh_emergency_resp_upload",
+  "tab_hw",
+  "hw_combustible",
+  "hw_rest_plan",
+  "hw_heat_stress",
+  "hw_papr",
+  "hw_fit_check",
+  "hw_electric_shock_path",
+  "hw_pre_start",
+  "hw_ppe",
+  "hw_weather",
+  "hw_spotters",
+  "hw_fire_equip",
+  "hw_em_resp",
+  "hw_impact",
   "tab_lo",
   "lo_qual",
-  "lo_qual_upload",
   "lo_load_weights",
   "lo_barricade_req",
   "lo_comm_plan",
   "lo_ground_condition",
-  "lo_lift_plan_upload",
   "lo_lift_area",
   "lo_correct_signage",
   "lo_exclusive_control",
-  "lo_exclusive_control_upload",
   "lo_swl",
-  "lo_swl_upload",
   "lo_crane_cert",
   "lo_pre_start",
-  "lo_pre_start_upload",
   "lo_inspection_tag",
-  "lo_lifting_equip_upload",
   "lo_lift_equip_inspect",
   "tab_ure",
   "ure_energy_sources",
-  "ure_energy_sources_upload",
   "ure_qual",
-  "ure_qual_upload",
   "ure_energy_iso",
-  "ure_energy_iso_upload",
   "ure_guarding",
-  "ure_guarding_upload",
   "ure_piping_clips",
   "ure_equipment",
-  "ure_equipment_upload",
   "ure_hydraulic_injection",
   "ure_high_pressure_alternative",
   "ure_zef",
   "tab_vme",
   "vme_qual",
-  "vme_qual_upload",
   "vme_parking",
-  "vme_parking_upload",
   "vme_pre_start",
-  "vme_pre_start_upload",
   "vme_driver_cond",
   "vms_pos_comms",
   "vme_segregation",
-  "vme_segregation_upload",
   "tab_wnw",
   "wnw_pfd",
-  "wnw_pfd_upload",
   "wnw_guarding",
-  "wnw_guarding_upload",
   "wnw_qual",
   "wnw_emergency_resp",
   "wnw_rescue_boat",
-  "image_of_emergency_response_plan",
   "tab_closeout",
   "safety_category",
   "improvement_required",
   "comments",
   "signature",
-  "compliance_percentage"
+  "compliance_percentage",
+  "section_break_feay",
+  "lat",
+  "long"
  ],
  "fields": [
   {
@@ -264,7 +237,7 @@
    "fieldname": "ccv_selected",
    "fieldtype": "Select",
    "label": "Select CCV",
-   "options": "\nConfined Space\nContact with Electricity\nDropped Objects\nEntanglement & Crushing\nFall from Height\nLifting Operations\nUncontrolled Release of Energy\nVehicle & Mobile Equipment\nWorking near Water",
+   "options": "\nConfined Space\nContact with Electricity\nDropped Objects\nEntanglement & Crushing\nFall from Height\nHot Works\nLifting Operations\nUncontrolled Release of Energy\nVehicle & Mobile Equipment\nWorking near Water",
    "reqd": 1
   },
   {
@@ -273,12 +246,6 @@
    "label": "Does the worker have a valid Confined Space and Gas Tester Qualification?",
    "mandatory_depends_on": "eval:doc.ccv_selected == \"Confined Space\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "cs_qual_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of Qualification"
   },
   {
    "fieldname": "cs_energy_source",
@@ -316,12 +283,6 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "cs_atmos_test_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of Atmosphere Test"
-  },
-  {
    "fieldname": "cs_ventilation",
    "fieldtype": "Select",
    "label": "Is the ventilation adequate?",
@@ -343,12 +304,6 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "cs_permit_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of Confined Space Permit"
-  },
-  {
    "fieldname": "cs_standby",
    "fieldtype": "Select",
    "label": "Is the Standby at the Confined Space entry?",
@@ -361,12 +316,6 @@
    "label": "Is the Emergency Plan in place & understood by the team?",
    "mandatory_depends_on": "eval:doc.ccv_selected == \"Confined Space\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "cs_emergency_plan_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of Emergency Plan"
   },
   {
    "fieldname": "comments",
@@ -398,13 +347,6 @@
    "label": "Are other Permits & Record book entries completed?",
    "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "depends_on": "eval:doc.cwe_hv_permit.includes(\"Yes\")",
-   "fieldname": "cwe_permits_upload",
-   "fieldtype": "Attach",
-   "label": "Image of Permits",
-   "mandatory_depends_on": "eval.doc.cwe_hv_permit.includes(\"Yes\")"
   },
   {
    "fieldname": "cwe_powerline_corridor",
@@ -449,12 +391,6 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "cwe_ppe_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of PPE"
-  },
-  {
    "fieldname": "cwe_rubber_gloves",
    "fieldtype": "Select",
    "label": "Are insulated rubber gloves suitable for the Voltage present?",
@@ -483,12 +419,6 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "cwe_tool_copndition_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of Tooling"
-  },
-  {
    "fieldname": "cwe_elec_safety_device",
    "fieldtype": "Select",
    "label": "Are electrical safety devices fitted or installed?",
@@ -501,12 +431,6 @@
    "label": "Is the worker trained & competent?",
    "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "cwe_qual_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of Qualification"
   },
   {
    "depends_on": "eval:doc.ccv_selected !== \"\"",
@@ -584,12 +508,6 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "do_segregation_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of Barricading"
-  },
-  {
    "fieldname": "do_permanent_ec",
    "fieldtype": "Select",
    "label": "Are permanent Exclusion Control in place?",
@@ -611,12 +529,6 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "do_overheads_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of hang up / fatigued structure"
-  },
-  {
    "fieldname": "do_securing_devices",
    "fieldtype": "Select",
    "label": "Are adequate securing devices used to prevent falling objects?",
@@ -629,12 +541,6 @@
    "label": "Are all tools secured from falling?",
    "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "do_tooling_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of Lanyards / tethering"
   },
   {
    "fieldname": "do_engineered_protection",
@@ -651,12 +557,6 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "eac_tfc_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of lockbox, permit or simple isolation"
-  },
-  {
    "fieldname": "eac_mech_energy",
    "fieldtype": "Select",
    "label": "Are all mechanical energy sources isolated?",
@@ -669,12 +569,6 @@
    "label": "Are mechanical locking devices (belt clamps, chocks, chains etc.) used?",
    "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "eac_mech_blocking_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of mechanical devices"
   },
   {
    "fieldname": "eac_zev",
@@ -698,12 +592,6 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "eac_guarding_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of guarding"
-  },
-  {
    "fieldname": "eac_estop_pull_wire",
    "fieldtype": "Select",
    "label": "Are all workers aware of the nearest E-Stop & the use of pull wires?",
@@ -718,12 +606,6 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "eac_unguarded_equip_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of barricading"
-  },
-  {
    "fieldname": "eac_exclusive_control",
    "fieldtype": "Select",
    "label": "Is Exclusive Control in Place?",
@@ -731,23 +613,11 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "eac_exclusive_control_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of work area"
-  },
-  {
    "fieldname": "ffh_qual",
    "fieldtype": "Select",
    "label": "Does the worker have the required qualification?",
    "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "ffh_qual_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of Qualification"
   },
   {
    "fieldname": "ffh_anchor_points",
@@ -762,12 +632,6 @@
    "label": "Are all harnesses & lanyards inspected prior to use?",
    "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "ffh_harness_lanyards_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of harness & lanyards"
   },
   {
    "fieldname": "ffh_arrest_restrain",
@@ -791,12 +655,6 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "ffh_ladder_mobile_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of ladder or platform"
-  },
-  {
    "fieldname": "ffh_motor_platform",
    "fieldtype": "Select",
    "label": "Is the motorised platform (EWP, Scissor lift etc.) suiteable for the Task?",
@@ -811,23 +669,11 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "ffh_motor_platform_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of motorised platform use"
-  },
-  {
    "fieldname": "ffh_edge_prot",
    "fieldtype": "Select",
    "label": "Is installed edge protection adequate for prevent falls?",
    "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "ffh_edge_prot_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of edge protection"
   },
   {
    "fieldname": "ffh_scaff_complete",
@@ -844,12 +690,6 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "ffh_scaff_complete_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of Scaffold"
-  },
-  {
    "fieldname": "ffh_emergency_resp",
    "fieldtype": "Select",
    "label": "is the Emergency response plan in place and is it understood by the team?",
@@ -857,23 +697,11 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "ffh_emergency_resp_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of W@H certificate & emergency response plan"
-  },
-  {
    "fieldname": "lo_qual",
    "fieldtype": "Select",
    "label": "Are workers qualified, VOC'd & authorised to work?",
    "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "lo_qual_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of Qualification"
   },
   {
    "fieldname": "lo_load_weights",
@@ -904,12 +732,6 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "lo_lift_plan_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of lift plan / ground conditions"
-  },
-  {
    "fieldname": "lo_lift_area",
    "fieldtype": "Select",
    "label": "Is the entire lifting area controlled & protects people from suspended loads?",
@@ -931,18 +753,6 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "lo_exclusive_control_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of barricading"
-  },
-  {
-   "fieldname": "lo_swl_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of SWL"
-  },
-  {
    "fieldname": "lo_crane_cert",
    "fieldtype": "Select",
    "label": "Is the annual crane certification valid?",
@@ -957,23 +767,11 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "lo_pre_start_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of pre start"
-  },
-  {
    "fieldname": "lo_inspection_tag",
    "fieldtype": "Select",
    "label": "Doe the lifting equipment have a current inspection tag?",
    "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "lo_lifting_equip_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of lifting equipment"
   },
   {
    "fieldname": "lo_lift_equip_inspect",
@@ -997,23 +795,11 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "ure_energy_sources_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of JHA"
-  },
-  {
    "fieldname": "ure_qual",
    "fieldtype": "Select",
    "label": "Are the workers qualified & competent?",
    "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "ure_qual_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of qualifications"
   },
   {
    "fieldname": "ure_energy_iso",
@@ -1023,23 +809,11 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "ure_energy_iso_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of isolation"
-  },
-  {
    "fieldname": "ure_guarding",
    "fieldtype": "Select",
    "label": "Is guarding and/or barricading in place?",
    "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "ure_guarding_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Images of guarding / barricading"
   },
   {
    "fieldname": "ure_piping_clips",
@@ -1054,12 +828,6 @@
    "label": "Is all equipment in good condition with a pre start completed?",
    "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "ure_equipment_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of pre start of equipment"
   },
   {
    "fieldname": "ure_hydraulic_injection",
@@ -1090,12 +858,6 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "vme_qual_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of Qualification"
-  },
-  {
    "fieldname": "vme_parking",
    "fieldtype": "Select",
    "label": "Are vehicles & SME's parked fundamentally stable?",
@@ -1103,23 +865,11 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "vme_parking_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of parking"
-  },
-  {
    "fieldname": "vme_pre_start",
    "fieldtype": "Select",
    "label": "Has a vehicle or SME specific pre start been completed?",
    "mandatory_depends_on": "eval:doc.ccv_selected ==\"Vehicle & Mobile Equipment\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "vme_pre_start_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of pre start"
   },
   {
    "fieldname": "vme_driver_cond",
@@ -1143,12 +893,6 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "vme_segregation_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of segregation"
-  },
-  {
    "fieldname": "wnw_pfd",
    "fieldtype": "Select",
    "label": "Are PFD's available and in good condition?",
@@ -1156,23 +900,11 @@
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
   },
   {
-   "fieldname": "wnw_pfd_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of PFD's"
-  },
-  {
    "fieldname": "wnw_guarding",
    "fieldtype": "Select",
    "label": "Are all guarding & barricading installed & effective?",
    "mandatory_depends_on": "eval:doc.ccv_selected ==\"Working near Water\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "wnw_guarding_upload",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of guarding / barricading"
   },
   {
    "fieldname": "wnw_qual",
@@ -1194,12 +926,6 @@
    "label": "Is a rescue boat required & is a communication plan in place?",
    "mandatory_depends_on": "eval:doc.ccv_selected ==\"Working near Water\"",
    "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
-  },
-  {
-   "fieldname": "image_of_emergency_response_plan",
-   "fieldtype": "Attach",
-   "hidden": 1,
-   "label": "Image of emergency response plan"
   },
   {
    "description": "Select from the list. If missing, select \"MISSING\"",
@@ -1251,13 +977,97 @@
    "fieldname": "ccv_prompt",
    "fieldtype": "Heading",
    "label": "Please click the selected CCV tab at the top of the form to complete"
+  },
+  {
+   "fieldname": "hw_combustible",
+   "fieldtype": "Select",
+   "label": "Has the team removed or isolated all combustibles within the 15 m hot work zone (check behind walls; above/below)?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "hw_rest_plan",
+   "fieldtype": "Select",
+   "label": "Does the team have a heat-stress work/rest plan, including a cool recovery area and adequate water?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "hw_heat_stress",
+   "fieldtype": "Select",
+   "label": "Are personnel trained and aware of heat/cold stress signs and symptoms (e.g., dehydration)?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "hw_papr",
+   "fieldtype": "Select",
+   "label": "Are personnel wearing a PAPR (Positive Air Pressure Respirator e.g. ADFLO)?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "hw_fit_check",
+   "fieldtype": "Select",
+   "label": "Have workers completed positive/negative pressure seal checks each time they put on a respirator?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "hw_electric_shock_path",
+   "fieldtype": "Select",
+   "label": "Has the team set up to prevent shock paths and positioned the earth clamp near the welding point?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "hw_pre_start",
+   "fieldtype": "Select",
+   "label": "Has the team done a pre-start check on electrical gear? All items tagged, undamaged, and in good condition?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "hw_ppe",
+   "fieldtype": "Select",
+   "label": "Is PPE adequate for the task, dry and in good condition?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "hw_weather",
+   "fieldtype": "Select",
+   "label": "Is the work permitted to continue after checking local fire weather conditions and restrictions?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "hw_spotters",
+   "fieldtype": "Select",
+   "label": "Has the team positioned fire watch/es to see all areas/levels in the 15 m hot work zone and respond quickly if ignition occurs?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "hw_fire_equip",
+   "fieldtype": "Select",
+   "label": "Has the team got the required firefighting equipment available, and do they know how to use it if ignition occurs?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "hw_em_resp",
+   "fieldtype": "Select",
+   "label": "Has the team confirmed evacuation routes/muster point and verified tested emergency comms are available onsite (radio/phone)?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "fieldname": "hw_impact",
+   "fieldtype": "Select",
+   "label": "Has the team ensured suitable impact protection, with oxy/acetylene cylinders secured against falling and stored in a rack/cage?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval:doc.ccv_selected ==\"Hot Works\"",
+   "fieldname": "tab_hw",
+   "fieldtype": "Tab Break",
+   "label": "Hot Works"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2025-05-15 02:28:06.158731",
- "modified_by": "Administrator",
+ "modified": "2026-01-04 10:09:16.605821",
+ "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "Critical Control Verification",
  "naming_rule": "Expression",
@@ -1287,6 +1097,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "name",
  "sort_order": "DESC",
  "states": [],

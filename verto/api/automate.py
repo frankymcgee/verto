@@ -2,7 +2,7 @@ import frappe
 from frappe.utils import add_days, nowdate, getdate
 import datetime
 import time
-import re
+import re 
 
 def get_timesheet_date_range():
     today = getdate(nowdate())
@@ -133,7 +133,7 @@ def send_weekly_timesheets(timesheet_name=None):
                 """
             frappe.sendmail(
                 recipients=[email.strip() for email in email_list.split(",")],
-                bcc=["sean@minesitesupport.com.au", "jess@minesitesupport.com.au", "enquiries@minesitesupport.com.au"],
+                bcc=["enquiries@minesitesupport.com.au"],
                 reply_to="enquiries@minesitesupport.com.au",
                 subject=f"Timesheet for {employee_name} - {ts.project_name}",
                 message=build_email_body(content_html),
@@ -180,7 +180,7 @@ def send_weekly_timesheet_verification():
                 <p><strong>Total Hours:</strong> {ts.total_hours} Hours</p>
                 """
             frappe.sendmail(
-                recipients=["sean@minesitesupport.com.au", "jess@minesitesupport.com.au", "enquiries@minesitesupport.com.au"],
+                recipients=["enquiries@minesitesupport.com.au"],
                 reply_to="enquiries@minesitesupport.com.au",
                 subject=f"Timesheet for {employee_name} - {ts.project_name}",
                 message=build_email_body(content_html),
@@ -211,7 +211,7 @@ def send_timesheet_followup_reminders(timesheet_name=None):
             "custom_monday_date": ["=", start_date],
             "custom_sunday_date": ["=", end_date],
         }, fields=["name", "employee", "parent_project", "project_name", "total_hours", "role", "custom_monday_date", "custom_sunday_date", "customer_abbreviation"])
-        bcc_recipients = ["sean@minesitesupport.com.au", "jess@minesitesupport.com.au", "enquiries@minesitesupport.com.au"]    
+        bcc_recipients = ["enquiries@minesitesupport.com.au"]    
 
     for ts in timesheets:
         try:

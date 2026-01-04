@@ -177,7 +177,8 @@
    "fieldname": "other_hse_hazards",
    "fieldtype": "Table",
    "label": "Other HSE hazards?",
-   "options": "Take 5 Hazard Identification"
+   "options": "Take 5 Hazard Identification",
+   "width": "4"
   },
   {
    "fieldname": "3_assess_the_risks_section",
@@ -214,10 +215,11 @@
    "label": "You may now proceed with completing the task"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-06-03 13:43:02.411270",
- "modified_by": "Administrator",
+ "modified": "2026-01-04 12:20:58.324850",
+ "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "Take 5",
  "naming_rule": "Expression",
@@ -236,6 +238,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
