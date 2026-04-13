@@ -36,6 +36,7 @@
   {
    "fieldname": "asset",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Asset",
    "options": "Vehicle"
   },
@@ -184,7 +185,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-06-23 12:26:27.265303",
+ "modified": "2026-03-30 02:29:58.168256",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "LV Pre-Start",

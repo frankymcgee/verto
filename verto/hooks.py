@@ -139,13 +139,16 @@ app_include_js = [
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-#	"*": {
-#		"on_update": "method",
-#		"on_cancel": "method",
-#		"on_trash": "method"
-#	}
-# }
+doc_events = {
+	# "*": {
+	# 	"on_update": "method",
+	# 	"on_cancel": "method",
+	# 	"on_trash": "method"
+	# }
+    "Project": {
+        "after_insert": "verto.api.hooks.create_project_handover_records"
+    }
+}
 
 # Scheduled Tasks
 # ---------------
@@ -154,12 +157,12 @@ scheduler_events = {
 #	"all": [
 #		"verto.tasks.all"
 #	],
-    "daily": [
-        "verto.jobs.daily.populate_kpi_snapshots",
-    ],
-    "hourly": [
-        "verto.jobs.hourly.escalate_overdue_actions",
-    ],
+    # "daily": [
+    #     "verto.jobs.daily.populate_kpi_snapshots",
+    # ],
+    # "hourly": [
+    #     "verto.jobs.hourly.escalate_overdue_actions",
+    # ],
 #	"weekly": [
 #		"verto.tasks.weekly"
 #	],

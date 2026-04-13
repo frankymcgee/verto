@@ -238,9 +238,10 @@
   }
  ],
  "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2025-05-15 02:28:23.277806",
- "modified_by": "Administrator",
+ "modified": "2026-01-27 12:12:06.276083",
+ "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "Job Hazard Analysis Review",
  "naming_rule": "Expression",
@@ -270,6 +271,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

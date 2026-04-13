@@ -1,0 +1,433 @@
+{
+    "actions": [],
+    "allow_rename": 1,
+    "autoname": "naming_series:",
+    "creation": "2026-03-28 02:34:57.700410",
+    "default_view": "List",
+    "doctype": "DocType",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "sb_taskinfo",
+        "naming_series",
+        "link_project",
+        "project_name",
+        "column_break_6lioo",
+        "scope_or_wo",
+        "work_scope",
+        "column_break_mcwf",
+        "link_task",
+        "work_order_number",
+        "work_area",
+        "section_break_nfxsd",
+        "contractor",
+        "column_break_uh6eh",
+        "supervisor",
+        "section_break_wven",
+        "cwe_hv_permit",
+        "cwe_hv_permit_com",
+        "cwe_other_permits",
+        "cwe_other_permits_com",
+        "cwe_powerline_corridor",
+        "cwe_powerline_corridor_com",
+        "cwe_energy_iso",
+        "cwe_energy_iso_com",
+        "cwe_meter_check",
+        "cwe_meter_check_com",
+        "cwe_tfd_confirm",
+        "cwe_tfd_confirm_com",
+        "cwe_arc_ppe",
+        "cwe_arc_ppe_com",
+        "cwe_ppe",
+        "cwe_ppe_com",
+        "cwe_rubber_gloves",
+        "cwe_rubber_gloves_com",
+        "cwe_resp_equip",
+        "cwe_resp_equip_com",
+        "cwe_tools_rated",
+        "cwe_tools_rated_com",
+        "cwe_tool_condition",
+        "cwe_tool_condition_com",
+        "cwe_elec_safety_device",
+        "cwe_elec_safety_device_com",
+        "cwe_qual",
+        "cwe_qual_com",
+        "section_break_wkzc",
+        "safety_category",
+        "improvement_required",
+        "comments",
+        "signature",
+        "compliance_percentage"
+    ],
+    "fields": [{
+            "fieldname": "sb_taskinfo",
+            "fieldtype": "Section Break",
+            "label": "Task Information"
+        },
+        {
+            "fetch_from": "link_task.project",
+            "fetch_if_empty": 1,
+            "fieldname": "link_project",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Project",
+            "link_filters": "[[\"Project\",\"status\",\"=\",\"Open\"]]",
+            "options": "Project",
+            "reqd": 1
+        },
+        {
+            "depends_on": "eval:doc.link_project !== \"\"",
+            "fetch_from": "link_project.project_name",
+            "fetch_if_empty": 1,
+            "fieldname": "project_name",
+            "fieldtype": "Data",
+            "label": "Project Name"
+        },
+        {
+            "fieldname": "column_break_6lioo",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "scope_or_wo",
+            "fieldtype": "Select",
+            "label": "Work Scope or WO Number?",
+            "options": "Work Scope\nWork Order Number",
+            "reqd": 1
+        },
+        {
+            "depends_on": "eval:doc.link_task !== \"\"",
+            "fetch_from": "link_task.subject",
+            "fieldname": "work_scope",
+            "fieldtype": "Data",
+            "label": "Work Scope",
+            "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]"
+        },
+        {
+            "fieldname": "column_break_mcwf",
+            "fieldtype": "Column Break"
+        },
+        {
+            "depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+            "fieldname": "link_task",
+            "fieldtype": "Link",
+            "label": "Work Scope",
+            "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+            "options": "Task",
+            "search_index": 1
+        },
+        {
+            "depends_on": "eval:doc.scope_or_wo == \"Work Order Number\"",
+            "fetch_from": "link_steps.work_order_number",
+            "fetch_if_empty": 1,
+            "fieldname": "work_order_number",
+            "fieldtype": "Data",
+            "label": "Work Order Number"
+        },
+        {
+            "depends_on": "eval:doc.link_task !==\"\";",
+            "fetch_from": "link_task.parent_task_name",
+            "fieldname": "work_area",
+            "fieldtype": "Data",
+            "label": "Work Area"
+        },
+        {
+            "depends_on": "eval:doc.link_task !==\"\";",
+            "fieldname": "section_break_nfxsd",
+            "fieldtype": "Section Break",
+            "label": "Vendor Information"
+        },
+        {
+            "description": "Select from the list. If missing, select \"MISSING\"",
+            "fetch_if_empty": 1,
+            "fieldname": "contractor",
+            "fieldtype": "Link",
+            "label": "Contractor",
+            "options": "Contractor"
+        },
+        {
+            "depends_on": "eval:doc.link_task !==\"\";",
+            "fieldname": "column_break_uh6eh",
+            "fieldtype": "Column Break"
+        },
+        {
+            "description": "Please enter full name",
+            "fieldname": "supervisor",
+            "fieldtype": "Data",
+            "label": "Supervisor"
+        },
+        {
+            "fieldname": "cwe_hv_permit",
+            "fieldtype": "Select",
+            "label": "Have electrical permits been completed for HV switching?",
+            "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+            "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+        },
+        {
+            "depends_on": "eval: doc.cwe_hv_permit !== \"\" && doc.cwe_hv_permit !== \"N/A\"",
+            "fieldname": "cwe_hv_permit_com",
+            "fieldtype": "Small Text",
+            "label": "Comments"
+        },
+        {
+            "fieldname": "cwe_other_permits",
+            "fieldtype": "Select",
+            "label": "Are other Permits & Record book entries completed?",
+            "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+            "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+        },
+        {
+            "depends_on": "eval: doc.cwe_other_permits !== \"\" && doc.cwe_other_permits !== \"N/A\"",
+            "fieldname": "cwe_other_permits_com",
+            "fieldtype": "Small Text",
+            "label": "Comments"
+        },
+        {
+            "fieldname": "cwe_powerline_corridor",
+            "fieldtype": "Select",
+            "label": "Is Access Control implemented for the powerline corridor?",
+            "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+            "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+        },
+        {
+            "depends_on": "eval: doc.cwe_powerline_corridor !== \"\" && doc.cwe_powerline_corridor !== \"N/A\"",
+            "fieldname": "cwe_powerline_corridor_com",
+            "fieldtype": "Small Text",
+            "label": "Comments"
+        },
+        {
+            "fieldname": "cwe_energy_iso",
+            "fieldtype": "Select",
+            "label": "Are all energy sources isolated?",
+            "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+            "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+        },
+        {
+            "depends_on": "eval: doc.cwe_energy_iso !== \"\" && doc.cwe_energy_iso !== \"N/A\"",
+            "fieldname": "cwe_energy_iso_com",
+            "fieldtype": "Small Text",
+            "label": "Comments"
+        },
+        {
+            "fieldname": "cwe_meter_check",
+            "fieldtype": "Select",
+            "label": "Is the meter checked before & after the 'Test for Dead' check?",
+            "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+            "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+        },
+        {
+            "depends_on": "eval: doc.cwe_meter_check !== \"\" && doc.cwe_meter_check !== \"N/A\"",
+            "fieldname": "cwe_meter_check_com",
+            "fieldtype": "Small Text",
+            "label": "Comments"
+        },
+        {
+            "fieldname": "cwe_tfd_confirm",
+            "fieldtype": "Select",
+            "label": "Is the 'Test for Dead' procedure confirmed with the Isolation Officer?",
+            "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+            "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+        },
+        {
+            "depends_on": "eval: doc.cwe_tfd_confirm !== \"\" && doc.cwe_tfd_confirm !== \"N/A\"",
+            "fieldname": "cwe_tfd_confirm_com",
+            "fieldtype": "Small Text",
+            "label": "Comments"
+        },
+        {
+            "fieldname": "cwe_arc_ppe",
+            "fieldtype": "Select",
+            "label": "is the correct arc flash PPE worn?",
+            "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+            "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+        },
+        {
+            "depends_on": "eval: doc.cwe_arc_ppe !== \"\" && doc.cwe_arc_ppe !== \"N/A\"",
+            "fieldname": "cwe_arc_ppe_com",
+            "fieldtype": "Small Text",
+            "label": "Comments"
+        },
+        {
+            "fieldname": "cwe_ppe",
+            "fieldtype": "Select",
+            "label": "Is PPE in good order?",
+            "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+            "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+        },
+        {
+            "depends_on": "eval: doc.cwe_ppe !== \"\" && doc.cwe_ppe !== \"N/A\"",
+            "fieldname": "cwe_ppe_com",
+            "fieldtype": "Small Text",
+            "label": "Comments"
+        },
+        {
+            "fieldname": "cwe_rubber_gloves",
+            "fieldtype": "Select",
+            "label": "Are insulated rubber gloves suitable for the Voltage present?",
+            "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+            "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+        },
+        {
+            "depends_on": "eval: doc.cwe_rubber_gloves !== \"\" && doc.cwe_rubber_gloves !== \"N/A\"",
+            "fieldname": "cwe_rubber_gloves_com",
+            "fieldtype": "Small Text",
+            "label": "Comments"
+        },
+        {
+            "fieldname": "cwe_resp_equip",
+            "fieldtype": "Select",
+            "label": "Is the appropriate respiratory equipment being used?",
+            "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+            "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+        },
+        {
+            "depends_on": "eval: doc.cwe_resp_equip !== \"\" && doc.cwe_resp_equip !== \"N/A\"",
+            "fieldname": "cwe_resp_equip_com",
+            "fieldtype": "Small Text",
+            "label": "Comments"
+        },
+        {
+            "fieldname": "cwe_tools_rated",
+            "fieldtype": "Select",
+            "label": "Are the tools rated for the Voltage present?",
+            "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+            "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+        },
+        {
+            "depends_on": "eval: doc.cwe_tools_rated !== \"\" && doc.cwe_tools_rated !== \"N/A\"",
+            "fieldname": "cwe_tools_rated_com",
+            "fieldtype": "Small Text",
+            "label": "Comments"
+        },
+        {
+            "fieldname": "cwe_tool_condition",
+            "fieldtype": "Select",
+            "label": "Is the tooling in good condition?",
+            "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+            "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+        },
+        {
+            "depends_on": "eval: doc.cwe_tool_condition !== \"\" && doc.cwe_tool_condition !== \"N/A\"",
+            "fieldname": "cwe_tool_condition_com",
+            "fieldtype": "Small Text",
+            "label": "Comments"
+        },
+        {
+            "fieldname": "cwe_elec_safety_device",
+            "fieldtype": "Select",
+            "label": "Are electrical safety devices fitted or installed?",
+            "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+            "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+        },
+        {
+            "depends_on": "eval: doc.cwe_elec_safety_device !== \"\" && doc.cwe_elec_safety_device !== \"N/A\"",
+            "fieldname": "cwe_elec_safety_device_com",
+            "fieldtype": "Small Text",
+            "label": "Comments"
+        },
+        {
+            "fieldname": "cwe_qual",
+            "fieldtype": "Select",
+            "label": "Is the worker trained & competent?",
+            "mandatory_depends_on": "eval:doc.ccv_selected == \"Contact with Electricity\"",
+            "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+        },
+        {
+            "depends_on": "eval: doc.cwe_qual !== \"\" && doc.cwe_qual !== \"N/A\"",
+            "fieldname": "cwe_qual_com",
+            "fieldtype": "Small Text",
+            "label": "Comments"
+        },
+        {
+            "fieldname": "safety_category",
+            "fieldtype": "Select",
+            "label": "What would you deem is the Safety Category?",
+            "mandatory_depends_on": "eval:doc.ccv_selected != \"\"",
+            "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required"
+        },
+        {
+            "depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+            "fieldname": "improvement_required",
+            "fieldtype": "Select",
+            "label": "Select the area needed for improvement",
+            "mandatory_depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+            "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
+        },
+        {
+            "fieldname": "comments",
+            "fieldtype": "Small Text",
+            "label": "Comments"
+        },
+        {
+            "fieldname": "signature",
+            "fieldtype": "Signature",
+            "label": "Advisor Signature",
+            "reqd": 1
+        },
+        {
+            "fieldname": "compliance_percentage",
+            "fieldtype": "Percent",
+            "hidden": 1,
+            "in_list_view": 1,
+            "label": "Compliance Percentage",
+            "precision": "2"
+        },
+        {
+            "fieldname": "section_break_wven",
+            "fieldtype": "Section Break"
+        },
+        {
+            "fieldname": "section_break_wkzc",
+            "fieldtype": "Section Break"
+        },
+        {
+            "default": "CWE-.YY..MM..DD.-.##",
+            "fieldname": "naming_series",
+            "fieldtype": "Select",
+            "hidden": 1,
+            "label": "Naming Series",
+            "options": "CWE-.YY..MM..DD.-.##",
+            "print_hide": 1,
+            "reqd": 1
+        }
+    ],
+    "index_web_pages_for_search": 1,
+    "is_calendar_and_gantt": 1,
+    "links": [],
+    "modified": "2026-04-12 23:32:14.998250",
+    "modified_by": "sean@minesitesupport.com.au",
+    "module": "Safety",
+    "name": "CCV - Contact with Electricity",
+    "naming_rule": "By \"Naming Series\" field",
+    "owner": "Administrator",
+    "permissions": [{
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "write": 1
+        },
+        {
+            "create": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "Site Safety Advisor - External",
+            "share": 1,
+            "write": 1
+        }
+    ],
+    "row_format": "Dynamic",
+    "sort_field": "name",
+    "sort_order": "DESC",
+    "states": [],
+    "track_changes": 1,
+    "track_seen": 1,
+    "track_views": 1
+}

@@ -5,8 +5,25 @@ from frappe.utils.pdf import get_pdf
 @frappe.whitelist(allow_guest=True)
 def fetch_created_records():
     # Define the DocTypes to include in the list
-    doctypes = ["Commitment Interaction", "Critical Control Verification", "Field Interaction", 
-                "Job Hazard Analysis Review", "Supervisor BATB", "Workplace Inspection","Prohibited and Restricted Tooling Checklist"]
+    doctypes = [
+        "Commitment Interaction",
+        "Critical Control Verification",
+        "Field Interaction", 
+        "Job Hazard Analysis Review",
+        "Supervisor BATB",
+        "Workplace Inspection",
+        "Prohibited and Restricted Tooling Checklist",
+        "CCV - Confined Space",
+        "CCV - Contact with Electricity",
+        "CCV - Dropped Objects",
+        "CCV - Entanglement and Crushing",
+        "CCV - Fall From Height",
+        "CCV - Hot Works",
+        "CCV - Lifting Operations",
+        "CCV - Uncontrolled Release of Energy",
+        "CCV - Vehicles and Mobile Equipment",
+        "CCV - Working Near Water"
+    ]
     start_date = frappe.form_dict.get("start_date") or "2000-01-01"
     end_date = frappe.form_dict.get("end_date") or frappe.utils.nowdate()
 

@@ -1,0 +1,407 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-04-13 00:04:42.236702",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sb_taskinfo",
+  "naming_series",
+  "link_project",
+  "project_name",
+  "column_break_6lioo",
+  "scope_or_wo",
+  "work_scope",
+  "column_break_mcwf",
+  "link_task",
+  "work_order_number",
+  "work_area",
+  "section_break_nfxsd",
+  "contractor",
+  "column_break_uh6eh",
+  "supervisor",
+  "section_break_qjtf",
+  "hw_combustible",
+  "hw_combustible_com",
+  "hw_rest_plan",
+  "hw_rest_plan_com",
+  "hw_heat_stress",
+  "hw_heat_stress_com",
+  "hw_papr",
+  "hw_papr_com",
+  "hw_fit_check",
+  "hw_fit_check_com",
+  "hw_electric_shock_path",
+  "hw_electric_shock_path_com",
+  "hw_pre_start",
+  "hw_pre_start_com",
+  "hw_ppe",
+  "hw_ppe_com",
+  "hw_weather",
+  "hw_weather_com",
+  "hw_spotters",
+  "hw_spotters_com",
+  "hw_fire_equip",
+  "hw_fire_equip_com",
+  "hw_em_resp",
+  "hw_em_resp_com",
+  "hw_impact",
+  "hw_impact_com",
+  "section_break_tpmn",
+  "safety_category",
+  "improvement_required",
+  "comments",
+  "signature",
+  "compliance_percentage"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_taskinfo",
+   "fieldtype": "Section Break",
+   "label": "Task Information"
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"=\",\"Open\"]]",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_project !== \"\"",
+   "fetch_from": "link_project.project_name",
+   "fetch_if_empty": 1,
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "fieldname": "column_break_6lioo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scope_or_wo",
+   "fieldtype": "Select",
+   "label": "Work Scope or WO Number?",
+   "options": "Work Scope\nWork Order Number",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_task !== \"\"",
+   "fetch_from": "link_task.subject",
+   "fieldname": "work_scope",
+   "fieldtype": "Data",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]"
+  },
+  {
+   "fieldname": "column_break_mcwf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+   "options": "Task",
+   "search_index": 1
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Order Number\"",
+   "fetch_from": "link_steps.work_order_number",
+   "fetch_if_empty": 1,
+   "fieldname": "work_order_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fetch_from": "link_task.parent_task_name",
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "section_break_nfxsd",
+   "fieldtype": "Section Break",
+   "label": "Vendor Information"
+  },
+  {
+   "description": "Select from the list. If missing, select \"MISSING\"",
+   "fetch_if_empty": 1,
+   "fieldname": "contractor",
+   "fieldtype": "Link",
+   "label": "Contractor",
+   "options": "Contractor"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "column_break_uh6eh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Please enter full name",
+   "fieldname": "supervisor",
+   "fieldtype": "Data",
+   "label": "Supervisor"
+  },
+  {
+   "fieldname": "hw_combustible",
+   "fieldtype": "Select",
+   "label": "Has the team removed or isolated all combustibles within the 15 m hot work zone (check behind walls; above/below)?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.hw_combustible !== \"\" && doc.hw_combustible !== \"N/A\"",
+   "fieldname": "hw_combustible_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "hw_rest_plan",
+   "fieldtype": "Select",
+   "label": "Does the team have a heat-stress work/rest plan, including a cool recovery area and adequate water?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.hw_rest_plan !== \"\" && doc.hw_rest_plan !== \"N/A\"",
+   "fieldname": "hw_rest_plan_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "hw_heat_stress",
+   "fieldtype": "Select",
+   "label": "Are personnel trained and aware of heat/cold stress signs and symptoms (e.g., dehydration)?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.hw_heat_stress !== \"\" && doc.hw_heat_stress !== \"N/A\"",
+   "fieldname": "hw_heat_stress_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "hw_papr",
+   "fieldtype": "Select",
+   "label": "Are personnel wearing a PAPR (Positive Air Pressure Respirator e.g. ADFLO)?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.hw_papr !== \"\" && doc.hw_papr !== \"N/A\"",
+   "fieldname": "hw_papr_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "hw_fit_check",
+   "fieldtype": "Select",
+   "label": "Have workers completed positive/negative pressure seal checks each time they put on a respirator?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.hw_fit_check !== \"\" && doc.hw_fit_check !== \"N/A\"",
+   "fieldname": "hw_fit_check_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "hw_electric_shock_path",
+   "fieldtype": "Select",
+   "label": "Has the team set up to prevent shock paths and positioned the earth clamp near the welding point?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.hw_electric_shock_path !== \"\" && doc.hw_electric_shock_path !== \"N/A\"",
+   "fieldname": "hw_electric_shock_path_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "hw_pre_start",
+   "fieldtype": "Select",
+   "label": "Has the team done a pre-start check on electrical gear? All items tagged, undamaged, and in good condition?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.hw_pre_start !== \"\" && doc.hw_pre_start !== \"N/A\"",
+   "fieldname": "hw_pre_start_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "hw_ppe",
+   "fieldtype": "Select",
+   "label": "Is PPE adequate for the task, dry and in good condition?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.hw_ppe !== \"\" && doc.hw_ppe !== \"N/A\"",
+   "fieldname": "hw_ppe_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "hw_weather",
+   "fieldtype": "Select",
+   "label": "Is the work permitted to continue after checking local fire weather conditions and restrictions?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.hw_weather !== \"\" && doc.hw_weather !== \"N/A\"",
+   "fieldname": "hw_weather_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "hw_spotters",
+   "fieldtype": "Select",
+   "label": "Has the team positioned fire watch/es to see all areas/levels in the 15 m hot work zone and respond quickly if ignition occurs?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.hw_spotters !== \"\" && doc.hw_spotters !== \"N/A\"",
+   "fieldname": "hw_spotters_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "hw_fire_equip",
+   "fieldtype": "Select",
+   "label": "Has the team got the required firefighting equipment available, and do they know how to use it if ignition occurs?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.hw_fire_equip !== \"\" && doc.hw_fire_equip !== \"N/A\"",
+   "fieldname": "hw_fire_equip_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "hw_em_resp",
+   "fieldtype": "Select",
+   "label": "Has the team confirmed evacuation routes/muster point and verified tested emergency comms are available onsite (radio/phone)?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.hw_em_resp !== \"\" && doc.hw_em_resp !== \"N/A\"",
+   "fieldname": "hw_em_resp_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "hw_impact",
+   "fieldtype": "Select",
+   "label": "Has the team ensured suitable impact protection, with oxy/acetylene cylinders secured against falling and stored in a rack/cage?",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.hw_impact !== \"\" && doc.hw_impact !== \"N/A\"",
+   "fieldname": "hw_impact_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "safety_category",
+   "fieldtype": "Select",
+   "label": "What would you deem is the Safety Category?",
+   "mandatory_depends_on": "eval:doc.ccv_selected != \"\"",
+   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required"
+  },
+  {
+   "depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "fieldname": "improvement_required",
+   "fieldtype": "Select",
+   "label": "Select the area needed for improvement",
+   "mandatory_depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Advisor Signature",
+   "reqd": 1
+  },
+  {
+   "fieldname": "compliance_percentage",
+   "fieldtype": "Percent",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Compliance Percentage",
+   "precision": "2"
+  },
+  {
+   "fieldname": "section_break_qjtf",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_tpmn",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "HW-.YY..MM..DD.-.##",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "HW-.YY..MM..DD.-.##",
+   "print_hide": 1,
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
+ "links": [],
+ "modified": "2026-04-13 00:05:17.512745",
+ "modified_by": "sean@minesitesupport.com.au",
+ "module": "Safety",
+ "name": "CCV - Hot Works",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Site Safety Advisor - External",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "name",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

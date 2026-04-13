@@ -13,6 +13,12 @@ frappe.ui.form.on('Daily Timesheet', {
     end_time: function(frm) {
         calculate_duration(frm);
     },
+    date: function(frm) {
+        // When date changes, re-evaluate shift allocation
+        if (frm.doc.current_user) {
+            set_shift_allocation(frm, frm.doc.current_user);
+        }
+    },
     refresh: function(frm) {
         if (!frm.doc.current_user) {
             let currentUser = frappe.session.user;
@@ -136,31 +142,82 @@ function calculate_duration(frm) {
      }
 }
 
-// helper for shift allocation
-function set_shift_allocation(frm, fullName) {
-    if (!frm.doc.shift_allocation) {
-        frappe.call({
-            method: 'frappe.client.get_list',
-            args: {
-                doctype: 'Shift Assignment',
-                filters: [
-                    ["start_date", "<=", frm.doc.date],
-                    ["end_date", ">=", frm.doc.date],
-                    ["employee_name", "=", fullName],
-                    ["docstatus", "=", "1"]
-                ],
-                limit: 1,
-                fields: ['name']
-            },
-            callback: function(r) {
-                if (r.message && r.message.length > 0) {
-                    frm.set_value('shift_allocation', r.message[0].name);
-                } else {
-                    frappe.msgprint(__('No allocated shifts found. Please contact the office.'));
-                }
-            }
-        });
-    }
+// Fetch a single Shift Assignment record (or null)
+function fetch_one_shift_assignment({ fullName, filters, order_by }) {
+  return new Promise((resolve, reject) => {
+    frappe.call({
+      method: "frappe.client.get_list",
+      args: {
+        doctype: "Shift Assignment",
+        fields: ["name", "start_date", "end_date"],
+        filters: [
+          ["employee_name", "=", fullName],
+          ["docstatus", "=", 1],
+          ...filters,
+        ],
+        order_by: order_by || "",
+        limit_page_length: 1,
+      },
+      callback: (r) => resolve((r.message && r.message[0]) || null),
+      error: (e) => reject(e),
+    });
+  });
+}
+
+// helper for shift allocation (with nearest fallback)
+async function set_shift_allocation(frm, fullName) {
+  if (frm.doc.shift_allocation) return;
+
+  const d = frm.doc.date;
+  if (!d || !fullName) return;
+
+  // 1) Exact match: shift spans the selected date
+  const current = await fetch_one_shift_assignment({
+    fullName,
+    filters: [
+      ["start_date", "<=", d],
+      ["end_date", ">=", d],
+    ],
+    order_by: "start_date desc",
+  });
+
+  if (current) {
+    await frm.set_value("shift_allocation", current.name);
+    return;
+  }
+
+  // 2) Fallback: nearest previous and nearest next
+  const [prev, next] = await Promise.all([
+    // Nearest previous: ended before the date (latest end_date)
+    fetch_one_shift_assignment({
+      fullName,
+      filters: [["end_date", "<", d]],
+      order_by: "end_date desc",
+    }),
+    // Nearest next: starts after the date (earliest start_date)
+    fetch_one_shift_assignment({
+      fullName,
+      filters: [["start_date", ">", d]],
+      order_by: "start_date asc",
+    }),
+  ]);
+
+  // 3) Choose closest by day distance
+  let chosen = null;
+
+  if (prev && next) {
+    const prevDiffDays = Math.abs(frappe.datetime.get_diff(d, prev.end_date));   // days between d and prev.end_date
+    const nextDiffDays = Math.abs(frappe.datetime.get_diff(next.start_date, d)); // days between next.start_date and d
+    chosen = prevDiffDays <= nextDiffDays ? prev : next; // tie -> previous
+  } else {
+    chosen = prev || next;
+  }
+
+  if (chosen) {
+    await frm.set_value("shift_allocation", chosen.name);
+  } else {
+    frappe.msgprint(__("No allocated shifts found (including nearest). Please contact the office."));
+  }
 }
 
 // Function to get the Monday of the week for a given date

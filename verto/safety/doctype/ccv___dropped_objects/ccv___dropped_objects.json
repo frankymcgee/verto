@@ -1,0 +1,344 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-04-12 23:49:39.869286",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sb_taskinfo",
+  "naming_series",
+  "link_project",
+  "project_name",
+  "column_break_6lioo",
+  "scope_or_wo",
+  "work_scope",
+  "column_break_mcwf",
+  "link_task",
+  "work_order_number",
+  "work_area",
+  "section_break_nfxsd",
+  "contractor",
+  "column_break_uh6eh",
+  "supervisor",
+  "section_break_xivq",
+  "do_barricade",
+  "do_barricade_com",
+  "do_segregation",
+  "do_segregation_com",
+  "do_permanent_ec",
+  "do_permanent_ec_com",
+  "do_hang_ups",
+  "do_hang_ups_com",
+  "do_overheads",
+  "do_overheads_com",
+  "do_securing_devices",
+  "do_securing_devices_com",
+  "do_tooling",
+  "do_tooling_com",
+  "do_engineered_protection",
+  "do_engineered_protection_com",
+  "section_break_fapo",
+  "safety_category",
+  "improvement_required",
+  "comments",
+  "signature",
+  "compliance_percentage"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_taskinfo",
+   "fieldtype": "Section Break",
+   "label": "Task Information"
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"=\",\"Open\"]]",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_project !== \"\"",
+   "fetch_from": "link_project.project_name",
+   "fetch_if_empty": 1,
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "fieldname": "column_break_6lioo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scope_or_wo",
+   "fieldtype": "Select",
+   "label": "Work Scope or WO Number?",
+   "options": "Work Scope\nWork Order Number",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_task !== \"\"",
+   "fetch_from": "link_task.subject",
+   "fieldname": "work_scope",
+   "fieldtype": "Data",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]"
+  },
+  {
+   "fieldname": "column_break_mcwf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+   "options": "Task",
+   "search_index": 1
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Order Number\"",
+   "fetch_from": "link_steps.work_order_number",
+   "fetch_if_empty": 1,
+   "fieldname": "work_order_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fetch_from": "link_task.parent_task_name",
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "section_break_nfxsd",
+   "fieldtype": "Section Break",
+   "label": "Vendor Information"
+  },
+  {
+   "description": "Select from the list. If missing, select \"MISSING\"",
+   "fetch_if_empty": 1,
+   "fieldname": "contractor",
+   "fieldtype": "Link",
+   "label": "Contractor",
+   "options": "Contractor"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "column_break_uh6eh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Please enter full name",
+   "fieldname": "supervisor",
+   "fieldtype": "Data",
+   "label": "Supervisor"
+  },
+  {
+   "fieldname": "do_barricade",
+   "fieldtype": "Select",
+   "label": "Does barricading stop people from entering potential drop zones?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.do_barricade !== \"\" && doc.do_barricade !== \"N/A\"",
+   "fieldname": "do_barricade_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "do_segregation",
+   "fieldtype": "Select",
+   "label": "Is the barricading & segregation suitable for drop zones?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.do_segregation !== \"\" && doc.do_segregation !== \"N/A\"",
+   "fieldname": "do_segregation_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "do_permanent_ec",
+   "fieldtype": "Select",
+   "label": "Are permanent Exclusion Control in place?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.do_permanent_ec !== \"\" && doc.do_permanent_ec !== \"N/A\"",
+   "fieldname": "do_permanent_ec_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "do_hang_ups",
+   "fieldtype": "Select",
+   "label": "Has the are been inspected to identify and overhead hang ups?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.do_hang_ups !== \"\" && doc.do_hang_ups !== \"N/A\"",
+   "fieldname": "do_hang_ups_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "do_overheads",
+   "fieldtype": "Select",
+   "label": "Are overhead items & fixtures secure & safe?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.do_overheads !== \"\" && doc.do_overheads !== \"N/A\"",
+   "fieldname": "do_overheads_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "do_securing_devices",
+   "fieldtype": "Select",
+   "label": "Are adequate securing devices used to prevent falling objects?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.do_securing_devices !== \"\" && doc.do_securing_devices !== \"N/A\"",
+   "fieldname": "do_securing_devices_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "do_tooling",
+   "fieldtype": "Select",
+   "label": "Are all tools secured from falling?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.do_tooling !== \"\" && doc.do_tooling !== \"N/A\"",
+   "fieldname": "do_tooling_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "do_engineered_protection",
+   "fieldtype": "Select",
+   "label": "Is there engineering protection over walkways & roadways?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Dropped Objects\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.do_engineered_protection !== \"\" && doc.do_engineered_protection !== \"N/A\"",
+   "fieldname": "do_engineered_protection_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "safety_category",
+   "fieldtype": "Select",
+   "label": "What would you deem is the Safety Category?",
+   "mandatory_depends_on": "eval:doc.ccv_selected != \"\"",
+   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required"
+  },
+  {
+   "depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "fieldname": "improvement_required",
+   "fieldtype": "Select",
+   "label": "Select the area needed for improvement",
+   "mandatory_depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Advisor Signature",
+   "reqd": 1
+  },
+  {
+   "fieldname": "compliance_percentage",
+   "fieldtype": "Percent",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Compliance Percentage",
+   "precision": "2"
+  },
+  {
+   "fieldname": "section_break_xivq",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_fapo",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "DO-.YY..MM..DD.-.##",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "DO-.YY..MM..DD.-.##",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
+ "links": [],
+ "modified": "2026-04-12 23:51:12.832252",
+ "modified_by": "sean@minesitesupport.com.au",
+ "module": "Safety",
+ "name": "CCV - Dropped Objects",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Site Safety Advisor - External",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "name",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

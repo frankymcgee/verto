@@ -1,0 +1,15 @@
+{
+ "app_home": "page-4ed4c3e3",
+ "app_name": "mobile",
+ "app_title": "Mobile",
+ "creation": "2026-01-26 16:30:18.909270",
+ "doctype": "Studio App",
+ "frappe_app": "verto",
+ "idx": 168,
+ "is_standard": 1,
+ "modified": "2026-02-10 14:31:58.931321",
+ "modified_by": "sean@minesitesupport.com.au",
+ "name": "mobile",
+ "owner": "Administrator",
+ "route": "mobile"
+}

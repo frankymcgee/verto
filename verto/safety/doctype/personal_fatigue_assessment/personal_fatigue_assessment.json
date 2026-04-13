@@ -1,0 +1,206 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:PFAT-{employee_id}-{YY}{MM}{DD}-{##}",
+ "creation": "2026-02-25 18:25:31.096089",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "personnel_information_section",
+  "employee_id",
+  "full_name",
+  "column_break_ckti",
+  "date",
+  "column_break_obpg",
+  "shift",
+  "section_break_dxic",
+  "12_hr_sleep",
+  "48_hr_sleep",
+  "alertness",
+  "drinks",
+  "medication",
+  "stress",
+  "well_being",
+  "total_score",
+  "section_break_dqeq",
+  "safe_to_start_work",
+  "medium_risk_score",
+  "high_risk_score"
+ ],
+ "fields": [
+  {
+   "fieldname": "personnel_information_section",
+   "fieldtype": "Section Break",
+   "label": "Personnel Information"
+  },
+  {
+   "fieldname": "employee_id",
+   "fieldtype": "Link",
+   "label": "Employee ID",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "column_break_ckti",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Date"
+  },
+  {
+   "fieldname": "column_break_obpg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "shift",
+   "fieldtype": "Select",
+   "label": "Shift",
+   "options": "\nDay Shift\nNight Shift"
+  },
+  {
+   "fieldname": "section_break_dxic",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "12_hr_sleep",
+   "fieldtype": "Select",
+   "label": "How many hours of sleep have you had in the last 24 hours?",
+   "options": "\n7 or more\n5-7\nLess than 5"
+  },
+  {
+   "fieldname": "48_hr_sleep",
+   "fieldtype": "Select",
+   "label": "How many hours of sleep have you had in the last 48 hours?",
+   "options": "\n14 or more\n12-14\nLess than 12"
+  },
+  {
+   "description": "1 - Feeling active, alert, or wide awake <br>\n2 - Functioning at a good level, but not at peak, able to concentrate <br>\n3 - Not fully alert <br>\n4 - A bit groggy, hard to concentrate <br>\n5 - Sleepy, groggy, hard to concentrate <br>",
+   "fieldname": "alertness",
+   "fieldtype": "Select",
+   "label": "How do you feel? Are you alert?",
+   "options": "\n1-2\n3\n4-5"
+  },
+  {
+   "fieldname": "drinks",
+   "fieldtype": "Select",
+   "label": "How many alcoholic drinks did you have before your sleep?",
+   "options": "\n0-3\n4-6\nMore than 6"
+  },
+  {
+   "description": "If yes - please notify your line leader",
+   "fieldname": "medication",
+   "fieldtype": "Select",
+   "label": "Are you on any medication or other substances that could cause drowsiness or cause you to be unfit for work?",
+   "options": "\nNo\nYes"
+  },
+  {
+   "fieldname": "stress",
+   "fieldtype": "Select",
+   "label": "Do you have any stress or other personal problems that are significantly affecting your concentration or sleep?",
+   "options": "\nNo\nYes"
+  },
+  {
+   "fieldname": "well_being",
+   "fieldtype": "Select",
+   "label": "On a scale of 1 to 10 (10 being the most positive), how would you rate your overall well-being levels today?",
+   "options": "\n7 or more\n5-6\n0-4"
+  },
+  {
+   "fieldname": "total_score",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Score"
+  },
+  {
+   "fieldname": "section_break_dqeq",
+   "fieldtype": "Section Break"
+  },
+  {
+   "depends_on": "eval: doc.total_score <= 2;",
+   "fieldname": "safe_to_start_work",
+   "fieldtype": "Heading",
+   "label": "Safe to start work"
+  },
+  {
+   "depends_on": "eval:doc.total_score >= 3 && doc.total_score <= 4",
+   "fieldname": "medium_risk_score",
+   "fieldtype": "Heading",
+   "label": "Review work activities. Ongoing monitoring and report ANY further decline in Fatigue"
+  },
+  {
+   "depends_on": "eval:doc.total_score >= 5",
+   "fieldname": "high_risk_score",
+   "fieldtype": "Heading",
+   "label": "Report to Supervisor Immediately"
+  },
+  {
+   "fetch_from": "employee_id.employee_name",
+   "fetch_if_empty": 1,
+   "fieldname": "full_name",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Full Name"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-04-11 21:22:32.702563",
+ "modified_by": "sean@minesitesupport.com.au",
+ "module": "Safety",
+ "name": "Personal Fatigue Assessment",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "WHS Advisor - Internal",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Lead HSE Advisor",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -25,6 +25,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"!=\",\"Completed\"]]",
    "options": "Project",
    "reqd": 1
   },
@@ -96,7 +97,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-11-22 07:38:53.604661",
+ "modified": "2026-01-26 15:28:33.002890",
  "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "Lead Safety Handover",

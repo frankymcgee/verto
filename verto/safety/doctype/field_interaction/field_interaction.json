@@ -2,7 +2,7 @@
  "actions": [],
  "allow_import": 1,
  "allow_rename": 1,
- "autoname": "format:FLD-{YYYY}{MM}{DD}-{####}",
+ "autoname": "naming_series:",
  "creation": "2024-01-07 12:39:01.917094",
  "default_view": "List",
  "doctype": "DocType",
@@ -10,6 +10,7 @@
  "engine": "InnoDB",
  "field_order": [
   "sb_taskinfo",
+  "naming_series",
   "link_project",
   "project_name",
   "column_break_6lioo",
@@ -43,6 +44,7 @@
   "personnel_complying_with_environmental",
   "fall_from_height_controls_in_place",
   "positive_behaviours_section",
+  "column_break_unko",
   "positive_positions_of_people",
   "pos_11",
   "pos_12",
@@ -50,6 +52,8 @@
   "pos_14",
   "pos_15",
   "pos_16",
+  "pos_pop_com",
+  "section_break_jzdd",
   "column_break_lflv",
   "positive_ppe",
   "pos_21",
@@ -59,24 +63,32 @@
   "pos_25",
   "pos_26",
   "pos_27",
+  "pos_ppe_com",
+  "section_break_oaju",
   "column_break_gfso",
   "positive_tool_and_equipment",
   "pos_31",
   "pos_32",
   "pos_33",
+  "pos_tooling_com",
+  "section_break_qhlw",
   "column_break_fydx",
   "positive_procedures",
   "pos_41",
   "pos_42",
   "pos_43",
   "pos_44",
+  "pos_procedures_com",
+  "section_break_tulh",
   "column_break_duko",
   "positive_work_area",
   "pos_51",
   "pos_52",
   "pos_53",
   "pos_54",
+  "pos_work_com",
   "at_risk_behaviours_section",
+  "column_break_jfyn",
   "at_risk_positions_of_people",
   "neg_11",
   "neg_12",
@@ -84,6 +96,8 @@
   "neg_14",
   "neg_15",
   "neg_16",
+  "ar_pop_com",
+  "section_break_ykme",
   "column_break_vknl",
   "at_risk_ppe",
   "neg_21",
@@ -93,31 +107,39 @@
   "neg_25",
   "neg_26",
   "neg_27",
+  "ar_ppe_com",
+  "section_break_sihp",
   "column_break_amkp",
   "at_risk_tools_and_equipment",
   "neg_31",
   "neg_32",
   "neg_33",
+  "ar_tooling_com",
+  "section_break_twvh",
   "column_break_sccs",
   "at_risk_procedures",
   "neg_41",
   "neg_42",
   "neg_43",
   "neg_44",
+  "ar_procedures_com",
+  "section_break_wipm",
   "column_break_rmiv",
   "at_risk_work_area",
   "neg_51",
   "neg_52",
   "neg_53",
   "neg_54",
+  "ar_work_com",
+  "section_break_fmli",
+  "peri_used",
+  "ai_agent_accuracy",
+  "ai_agent_feedback",
   "section_break_705zw",
   "safety_category",
   "improvement_required",
-  "compliance_percentage",
-  "column_break_bokr",
-  "peri_used",
-  "ai_agent_accuracy",
-  "ai_agent_feedback"
+  "fl_comments",
+  "compliance_percentage"
  ],
  "fields": [
   {
@@ -133,6 +155,7 @@
    "in_list_view": 1,
    "label": "Project",
    "options": "Project",
+   "print_hide": 1,
    "reqd": 1
   },
   {
@@ -147,6 +170,7 @@
    "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
    "mandatory_depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
    "options": "Task",
+   "print_hide": 1,
    "search_index": 1
   },
   {
@@ -249,19 +273,23 @@
   },
   {
    "fieldname": "column_break_lflv",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "print_hide": 1
   },
   {
    "fieldname": "column_break_gfso",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "print_hide": 1
   },
   {
    "fieldname": "column_break_fydx",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "print_hide": 1
   },
   {
    "fieldname": "column_break_duko",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "print_hide": 1
   },
   {
    "description": "Select the relevant categories and sub-categories",
@@ -271,25 +299,30 @@
   },
   {
    "fieldname": "column_break_vknl",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "print_hide": 1
   },
   {
    "fieldname": "column_break_amkp",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "print_hide": 1
   },
   {
    "fieldname": "column_break_sccs",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "print_hide": 1
   },
   {
    "fieldname": "column_break_rmiv",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "print_hide": 1
   },
   {
    "fieldname": "scope_or_wo",
    "fieldtype": "Select",
    "label": "Work Scope or WO Number?",
    "options": "Work Scope\nWork Order Number",
+   "print_hide": 1,
    "reqd": 1
   },
   {
@@ -801,11 +834,6 @@
    "options": "\nCompleted\nNot Completed"
   },
   {
-   "fieldname": "column_break_bokr",
-   "fieldtype": "Column Break",
-   "print_hide": 1
-  },
-  {
    "depends_on": "eval: doc.peri_used == \"Yes\"",
    "fieldname": "ai_agent_accuracy",
    "fieldtype": "Rating",
@@ -826,17 +854,140 @@
    "fieldtype": "Select",
    "label": "Was P.E.R.I used?",
    "options": "\nYes\nNo",
+   "print_hide": 1,
    "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.safety_category !== \"\";",
+   "fieldname": "fl_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "section_break_fmli",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_unko",
+   "fieldtype": "Column Break",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "column_break_jfyn",
+   "fieldtype": "Column Break",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "section_break_jzdd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_oaju",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_qhlw",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_tulh",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_ykme",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_sihp",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_twvh",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_wipm",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "FLD-.YY..MM..DD.-.##",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "FLD-.YY..MM..DD.-.##",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.positive_positions_of_people == 1",
+   "fieldname": "pos_pop_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "depends_on": "eval:doc.positive_ppe == 1",
+   "fieldname": "pos_ppe_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "depends_on": "eval:doc.positive_tool_and_equipment == 1",
+   "fieldname": "pos_tooling_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "depends_on": "eval:doc.positive_procedures == 1",
+   "fieldname": "pos_procedures_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "depends_on": "eval:doc.positive_work_area == 1",
+   "fieldname": "pos_work_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "depends_on": "eval:doc.at_risk_positions_of_people == 1",
+   "fieldname": "ar_pop_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "depends_on": "eval:doc.at_risk_ppe == 1",
+   "fieldname": "ar_ppe_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "depends_on": "eval:doc.at_risk_tools_and_equipment == 1",
+   "fieldname": "ar_tooling_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "depends_on": "eval:doc.at_risk_procedures == 1",
+   "fieldname": "ar_procedures_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "depends_on": "eval:doc.at_risk_work_area == 1",
+   "fieldname": "ar_work_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2025-08-18 04:46:26.701366",
- "modified_by": "Administrator",
+ "modified": "2026-04-13 19:26:45.821944",
+ "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "Field Interaction",
- "naming_rule": "Expression",
+ "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
   {

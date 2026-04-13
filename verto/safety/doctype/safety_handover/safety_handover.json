@@ -26,6 +26,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"!=\",\"Completed\"]]",
    "options": "Project",
    "reqd": 1
   },
@@ -97,7 +98,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-03 10:34:27.185385",
+ "modified": "2026-01-26 15:27:45.516843",
  "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "Safety Handover",

@@ -1,0 +1,360 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-04-13 00:09:53.038974",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sb_taskinfo",
+  "naming_series",
+  "link_project",
+  "project_name",
+  "column_break_6lioo",
+  "scope_or_wo",
+  "work_scope",
+  "column_break_mcwf",
+  "link_task",
+  "work_order_number",
+  "work_area",
+  "section_break_nfxsd",
+  "contractor",
+  "column_break_uh6eh",
+  "supervisor",
+  "section_break_idrd",
+  "eac_energy_sources",
+  "eac_energy_sources_com",
+  "eac_mech_energy",
+  "eac_mech_energy_com",
+  "eac_mech_blocking",
+  "eac_mech_blocking_com",
+  "eac_zev",
+  "eac_zev_com",
+  "eac_stored_energy_restrained",
+  "eac_stored_energy_restrained_com",
+  "eac_guarding",
+  "eac_guarding_com",
+  "eac_estop_pull_wire",
+  "eac_estop_pull_wire_com",
+  "eac_unguarded_equip",
+  "eac_unguarded_equip_com",
+  "eac_exclusive_control",
+  "eac_exclusive_control_com",
+  "section_break_urzw",
+  "safety_category",
+  "improvement_required",
+  "comments",
+  "signature",
+  "compliance_percentage"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_taskinfo",
+   "fieldtype": "Section Break",
+   "label": "Task Information"
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"=\",\"Open\"]]",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_project !== \"\"",
+   "fetch_from": "link_project.project_name",
+   "fetch_if_empty": 1,
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "fieldname": "column_break_6lioo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scope_or_wo",
+   "fieldtype": "Select",
+   "label": "Work Scope or WO Number?",
+   "options": "Work Scope\nWork Order Number",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_task !== \"\"",
+   "fetch_from": "link_task.subject",
+   "fieldname": "work_scope",
+   "fieldtype": "Data",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]"
+  },
+  {
+   "fieldname": "column_break_mcwf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+   "options": "Task",
+   "search_index": 1
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Order Number\"",
+   "fetch_from": "link_steps.work_order_number",
+   "fetch_if_empty": 1,
+   "fieldname": "work_order_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fetch_from": "link_task.parent_task_name",
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "section_break_nfxsd",
+   "fieldtype": "Section Break",
+   "label": "Vendor Information"
+  },
+  {
+   "description": "Select from the list. If missing, select \"MISSING\"",
+   "fetch_if_empty": 1,
+   "fieldname": "contractor",
+   "fieldtype": "Link",
+   "label": "Contractor",
+   "options": "Contractor"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "column_break_uh6eh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Please enter full name",
+   "fieldname": "supervisor",
+   "fieldtype": "Data",
+   "label": "Supervisor"
+  },
+  {
+   "fieldname": "eac_energy_sources",
+   "fieldtype": "Select",
+   "label": "Are all electrical energy sources isolated & has a 'Test for Dead' been completed??",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.eac_energy_sources !== \"\" && doc.eac_energy_sources !== \"N/A\"",
+   "fieldname": "eac_energy_sources_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "eac_mech_energy",
+   "fieldtype": "Select",
+   "label": "Are all mechanical energy sources isolated?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.eac_mech_energy !== \"\" && doc.eac_mech_energy !== \"N/A\"",
+   "fieldname": "eac_mech_energy_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "eac_mech_blocking",
+   "fieldtype": "Select",
+   "label": "Are mechanical locking devices (belt clamps, chocks, chains etc.) used?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.eac_mech_blocking !== \"\" && doc.eac_mech_blocking !== \"N/A\"",
+   "fieldname": "eac_mech_blocking_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "eac_zev",
+   "fieldtype": "Select",
+   "label": "Has 'Zero Energy' verification been done?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.eac_zev !== \"\" && doc.eac_zev !== \"N/A\"",
+   "fieldname": "eac_zev_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "eac_stored_energy_restrained",
+   "fieldtype": "Select",
+   "label": "Are stored energy sources restrained?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.eac_stored_energy_restrained !== \"\" && doc.eac_stored_energy_restrained !== \"N/A\"",
+   "fieldname": "eac_stored_energy_restrained_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "eac_guarding",
+   "fieldtype": "Select",
+   "label": "Are all guarding on moving parts secure & suitable?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.eac_guarding !== \"\" && doc.eac_guarding !== \"N/A\"",
+   "fieldname": "eac_guarding_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "eac_estop_pull_wire",
+   "fieldtype": "Select",
+   "label": "Are all workers aware of the nearest E-Stop & the use of pull wires?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.eac_estop_pull_wire !== \"\" && doc.eac_estop_pull_wire !== \"N/A\"",
+   "fieldname": "eac_estop_pull_wire_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "eac_unguarded_equip",
+   "fieldtype": "Select",
+   "label": "Is all unguarded moving equipment appropriately barricaded?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.eac_unguarded_equip !== \"\" && doc.eac_unguarded_equip !== \"N/A\"",
+   "fieldname": "eac_unguarded_equip_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "eac_exclusive_control",
+   "fieldtype": "Select",
+   "label": "Is Exclusive Control in Place?",
+   "mandatory_depends_on": "eval:doc.ccv_selected == \"Entanglement & Crushing\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.eac_exclusive_control !== \"\" && doc.eac_exclusive_control !== \"N/A\"",
+   "fieldname": "eac_exclusive_control_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "safety_category",
+   "fieldtype": "Select",
+   "label": "What would you deem is the Safety Category?",
+   "mandatory_depends_on": "eval:doc.ccv_selected != \"\"",
+   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required"
+  },
+  {
+   "depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "fieldname": "improvement_required",
+   "fieldtype": "Select",
+   "label": "Select the area needed for improvement",
+   "mandatory_depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Advisor Signature",
+   "reqd": 1
+  },
+  {
+   "fieldname": "compliance_percentage",
+   "fieldtype": "Percent",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Compliance Percentage",
+   "precision": "2"
+  },
+  {
+   "fieldname": "section_break_idrd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_urzw",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "EAC-.YY..MM..DD.-.##",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "EAC-.YY..MM..DD.-.##",
+   "print_hide": 1,
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
+ "links": [],
+ "modified": "2026-04-13 00:10:28.267066",
+ "modified_by": "sean@minesitesupport.com.au",
+ "module": "Safety",
+ "name": "CCV - Entanglement and Crushing",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Site Safety Advisor - External",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "name",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

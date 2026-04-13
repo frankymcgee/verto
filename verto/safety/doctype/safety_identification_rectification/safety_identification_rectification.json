@@ -146,9 +146,10 @@
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2025-06-24 13:55:52.977056",
- "modified_by": "Administrator",
+ "modified": "2026-03-07 04:02:09.706079",
+ "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "Safety Identification Rectification",
  "naming_rule": "Expression",
@@ -163,6 +164,39 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "WHS Advisor - Internal",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Lead HSE Advisor",
    "share": 1,
    "write": 1
   }

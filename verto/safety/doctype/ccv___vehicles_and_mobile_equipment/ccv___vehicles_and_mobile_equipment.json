@@ -1,0 +1,315 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-04-12 23:56:47.307793",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sb_taskinfo",
+  "naming_series",
+  "link_project",
+  "project_name",
+  "column_break_6lioo",
+  "scope_or_wo",
+  "work_scope",
+  "column_break_mcwf",
+  "link_task",
+  "work_order_number",
+  "work_area",
+  "section_break_nfxsd",
+  "contractor",
+  "column_break_uh6eh",
+  "supervisor",
+  "section_break_gepp",
+  "vme_qual",
+  "vme_qual_com",
+  "vme_parking",
+  "vme_parking_com",
+  "vme_pre_start",
+  "vme_pre_start_com",
+  "vme_driver_cond",
+  "vme_driver_cond_com",
+  "vms_pos_comms",
+  "vms_pos_comms_com",
+  "vme_segregation",
+  "vme_segregation_com",
+  "section_break_hkus",
+  "safety_category",
+  "improvement_required",
+  "comments",
+  "signature",
+  "compliance_percentage"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_taskinfo",
+   "fieldtype": "Section Break",
+   "label": "Task Information"
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"=\",\"Open\"]]",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_project !== \"\"",
+   "fetch_from": "link_project.project_name",
+   "fetch_if_empty": 1,
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "fieldname": "column_break_6lioo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scope_or_wo",
+   "fieldtype": "Select",
+   "label": "Work Scope or WO Number?",
+   "options": "Work Scope\nWork Order Number",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_task !== \"\"",
+   "fetch_from": "link_task.subject",
+   "fieldname": "work_scope",
+   "fieldtype": "Data",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]"
+  },
+  {
+   "fieldname": "column_break_mcwf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+   "options": "Task",
+   "search_index": 1
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Order Number\"",
+   "fetch_from": "link_steps.work_order_number",
+   "fetch_if_empty": 1,
+   "fieldname": "work_order_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fetch_from": "link_task.parent_task_name",
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "section_break_nfxsd",
+   "fieldtype": "Section Break",
+   "label": "Vendor Information"
+  },
+  {
+   "description": "Select from the list. If missing, select \"MISSING\"",
+   "fetch_if_empty": 1,
+   "fieldname": "contractor",
+   "fieldtype": "Link",
+   "label": "Contractor",
+   "options": "Contractor"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "column_break_uh6eh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Please enter full name",
+   "fieldname": "supervisor",
+   "fieldtype": "Data",
+   "label": "Supervisor"
+  },
+  {
+   "fieldname": "vme_qual",
+   "fieldtype": "Select",
+   "label": "Is the worker qualified, VOC'd & authorised to work?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Vehicle & Mobile Equipment\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.vme_qual !== \"\" && doc.vme_qual !== \"N/A\"",
+   "fieldname": "vme_qual_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "vme_parking",
+   "fieldtype": "Select",
+   "label": "Are vehicles & SME's parked fundamentally stable?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Vehicle & Mobile Equipment\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.vme_parking !== \"\" && doc.vme_parking !== \"N/A\"",
+   "fieldname": "vme_parking_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "vme_pre_start",
+   "fieldtype": "Select",
+   "label": "Has a vehicle or SME specific pre start been completed?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Vehicle & Mobile Equipment\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.vme_pre_start !== \"\" && doc.vme_pre_start !== \"N/A\"",
+   "fieldname": "vme_pre_start_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "vme_driver_cond",
+   "fieldtype": "Select",
+   "label": "Are seat belts worn & driver is driving to conditions?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Vehicle & Mobile Equipment\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.vme_driver_cond !== \"\" && doc.vme_driver_cond !== \"N/A\"",
+   "fieldname": "vme_driver_cond_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "vms_pos_comms",
+   "fieldtype": "Select",
+   "label": "Is positive communication being used during operations?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Vehicle & Mobile Equipment\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.vms_pos_comms !== \"\" && doc.vms_pos_comms !== \"N/A\"",
+   "fieldname": "vms_pos_comms_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "vme_segregation",
+   "fieldtype": "Select",
+   "label": "Are segregation controls suitable for risk between LV vs person?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Vehicle & Mobile Equipment\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.vme_segregation !== \"\" && doc.vme_segregation !== \"N/A\"",
+   "fieldname": "vme_segregation_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "safety_category",
+   "fieldtype": "Select",
+   "label": "What would you deem is the Safety Category?",
+   "mandatory_depends_on": "eval:doc.ccv_selected != \"\"",
+   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required"
+  },
+  {
+   "depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "fieldname": "improvement_required",
+   "fieldtype": "Select",
+   "label": "Select the area needed for improvement",
+   "mandatory_depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Advisor Signature",
+   "reqd": 1
+  },
+  {
+   "fieldname": "compliance_percentage",
+   "fieldtype": "Percent",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Compliance Percentage",
+   "precision": "2"
+  },
+  {
+   "fieldname": "section_break_gepp",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_hkus",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "VME-.YY..MM..DD.-.##",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "VME-.YY..MM..DD.-.##",
+   "print_hide": 1,
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
+ "links": [],
+ "modified": "2026-04-13 00:00:30.250897",
+ "modified_by": "sean@minesitesupport.com.au",
+ "module": "Safety",
+ "name": "CCV - Vehicles and Mobile Equipment",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Site Safety Advisor - External",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "name",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

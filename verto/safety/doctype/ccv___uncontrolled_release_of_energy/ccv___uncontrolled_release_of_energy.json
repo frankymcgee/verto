@@ -1,0 +1,360 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-04-12 23:59:09.247456",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sb_taskinfo",
+  "naming_series",
+  "link_project",
+  "project_name",
+  "column_break_6lioo",
+  "scope_or_wo",
+  "work_scope",
+  "column_break_mcwf",
+  "link_task",
+  "work_order_number",
+  "work_area",
+  "section_break_nfxsd",
+  "contractor",
+  "column_break_uh6eh",
+  "supervisor",
+  "section_break_ryuv",
+  "ure_energy_sources",
+  "ure_energy_sources_com",
+  "ure_qual",
+  "ure_qual_com",
+  "ure_energy_iso",
+  "ure_energy_iso_com",
+  "ure_guarding",
+  "ure_guarding_com",
+  "ure_piping_clips",
+  "ure_piping_clips_com",
+  "ure_equipment",
+  "ure_equipment_com",
+  "ure_hydraulic_injection",
+  "ure_hydraulic_injection_com",
+  "ure_high_pressure_alternative",
+  "ure_high_pressure_alternative_com",
+  "ure_zef",
+  "ure_zef_com",
+  "section_break_zpbx",
+  "safety_category",
+  "improvement_required",
+  "comments",
+  "signature",
+  "compliance_percentage"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_taskinfo",
+   "fieldtype": "Section Break",
+   "label": "Task Information"
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"=\",\"Open\"]]",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_project !== \"\"",
+   "fetch_from": "link_project.project_name",
+   "fetch_if_empty": 1,
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "fieldname": "column_break_6lioo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scope_or_wo",
+   "fieldtype": "Select",
+   "label": "Work Scope or WO Number?",
+   "options": "Work Scope\nWork Order Number",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_task !== \"\"",
+   "fetch_from": "link_task.subject",
+   "fieldname": "work_scope",
+   "fieldtype": "Data",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]"
+  },
+  {
+   "fieldname": "column_break_mcwf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+   "options": "Task",
+   "search_index": 1
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Order Number\"",
+   "fetch_from": "link_steps.work_order_number",
+   "fetch_if_empty": 1,
+   "fieldname": "work_order_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fetch_from": "link_task.parent_task_name",
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "section_break_nfxsd",
+   "fieldtype": "Section Break",
+   "label": "Vendor Information"
+  },
+  {
+   "description": "Select from the list. If missing, select \"MISSING\"",
+   "fetch_if_empty": 1,
+   "fieldname": "contractor",
+   "fieldtype": "Link",
+   "label": "Contractor",
+   "options": "Contractor"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "column_break_uh6eh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Please enter full name",
+   "fieldname": "supervisor",
+   "fieldtype": "Data",
+   "label": "Supervisor"
+  },
+  {
+   "fieldname": "ure_energy_sources",
+   "fieldtype": "Select",
+   "label": "Have all energy sources been identified?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ure_energy_sources !== \"\" && doc.ure_energy_sources !== \"N/A\"",
+   "fieldname": "ure_energy_sources_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ure_qual",
+   "fieldtype": "Select",
+   "label": "Are the workers qualified & competent?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ure_qual !== \"\" && doc.ure_qual !== \"N/A\"",
+   "fieldname": "ure_qual_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ure_energy_iso",
+   "fieldtype": "Select",
+   "label": "Are all potential energy sources isolated?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ure_energy_iso !== \"\" && doc.ure_energy_iso !== \"N/A\"",
+   "fieldname": "ure_energy_iso_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ure_guarding",
+   "fieldtype": "Select",
+   "label": "Is guarding and/or barricading in place?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ure_guarding !== \"\" && doc.ure_guarding !== \"N/A\"",
+   "fieldname": "ure_guarding_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ure_piping_clips",
+   "fieldtype": "Select",
+   "label": "Are all piping / hoses secured with safety clips / whip checks?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ure_piping_clips !== \"\" && doc.ure_piping_clips !== \"N/A\"",
+   "fieldname": "ure_piping_clips_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ure_equipment",
+   "fieldtype": "Select",
+   "label": "Is all equipment in good condition with a pre start completed?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ure_equipment !== \"\" && doc.ure_equipment !== \"N/A\"",
+   "fieldname": "ure_equipment_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ure_hydraulic_injection",
+   "fieldtype": "Select",
+   "label": "Are all controls in place to prevent hydraulic injection?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ure_hydraulic_injection !== \"\" && doc.ure_hydraulic_injection !== \"N/A\"",
+   "fieldname": "ure_hydraulic_injection_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ure_high_pressure_alternative",
+   "fieldtype": "Select",
+   "label": "Have any alternatives to high pressure tooling been considered?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ure_high_pressure_alternative !== \"\" && doc.ure_high_pressure_alternative !== \"N/A\"",
+   "fieldname": "ure_high_pressure_alternative_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ure_zef",
+   "fieldtype": "Select",
+   "label": "Has the 'Zero Energy' verification been completed?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Uncontrolled Release of Energy\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ure_zef !== \"\" && doc.ure_zef !== \"N/A\"",
+   "fieldname": "ure_zef_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "safety_category",
+   "fieldtype": "Select",
+   "label": "What would you deem is the Safety Category?",
+   "mandatory_depends_on": "eval:doc.ccv_selected != \"\"",
+   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required"
+  },
+  {
+   "depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "fieldname": "improvement_required",
+   "fieldtype": "Select",
+   "label": "Select the area needed for improvement",
+   "mandatory_depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Advisor Signature",
+   "reqd": 1
+  },
+  {
+   "fieldname": "compliance_percentage",
+   "fieldtype": "Percent",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Compliance Percentage",
+   "precision": "2"
+  },
+  {
+   "fieldname": "section_break_ryuv",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_zpbx",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "URE-.YY..MM..DD.-.##",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "URE-.YY..MM..DD.-.##",
+   "print_hide": 1,
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
+ "links": [],
+ "modified": "2026-04-13 00:00:00.971857",
+ "modified_by": "sean@minesitesupport.com.au",
+ "module": "Safety",
+ "name": "CCV - Uncontrolled Release of Energy",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Site Safety Advisor - External",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "name",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

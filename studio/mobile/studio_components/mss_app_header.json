@@ -1,0 +1,30 @@
+{
+ "block": "{\"componentId\":\"AppHeader-kjxbwo8ll\",\"componentName\":\"AppHeader\",\"componentProps\":{\"hideBackButton\":true,\"hideLogo\":true,\"logoSVG\":\"\",\"title\":{\"$type\":\"variable\",\"name\":\"inputs.page_name\"}},\"componentSlots\":{},\"componentEvents\":{},\"attributes\":{},\"blockName\":\"AppHeader\",\"children\":[],\"baseStyles\":{\"alignItems\":\"center\",\"display\":\"grid\",\"flexDirection\":\"column\",\"flexGrow\":0,\"gridAutoColumns\":\"minmax(, 1fr)\",\"gridTemplateColumns\":\"repeat(2, minmax(0, 1fr))\",\"justifyContent\":\"flex-end\",\"position\":\"sticky\",\"gridTemplateRows\":\"repeat(1, minmax(0, 1fr))\",\"gridAutoRows\":\"minmax(0, 1fr)\",\"margin\":\"0px\",\"width\":\"100%\",\"boxShadow\":\"rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.1) 0px 10px 10px -5px\",\"flexWrap\":\"nowrap\",\"gap\":\"10px\"},\"rawStyles\":{},\"mobileStyles\":{\"flexWrap\":\"nowrap\",\"gap\":\"10px\",\"margin\":\"0px\",\"padding\":\"-10px\",\"paddingLeft\":\"30px\",\"width\":\"100%\"},\"tabletStyles\":{},\"classes\":[]}",
+ "component_id": "mss_app_header",
+ "component_name": "MSS App Header",
+ "creation": "2026-01-28 10:03:29.860100",
+ "docstatus": 0,
+ "doctype": "Studio Component",
+ "idx": 0,
+ "inputs": [
+  {
+   "default": "",
+   "description": "",
+   "input_name": "page_name",
+   "required": 0,
+   "type": "text"
+  },
+  {
+   "default": "",
+   "description": "",
+   "input_name": "user_image",
+   "required": 0,
+   "type": "text"
+  }
+ ],
+ "is_disabled": 0,
+ "modified": "2026-02-10 14:30:05.220104",
+ "modified_by": "sean@minesitesupport.com.au",
+ "name": "mss_app_header",
+ "owner": "sean@minesitesupport.com.au"
+}

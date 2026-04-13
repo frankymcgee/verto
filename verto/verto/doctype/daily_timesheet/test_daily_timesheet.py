@@ -1,4 +1,4 @@
-# Copyright (c) 2024, Webwire and Contributors
+# Copyright (c) 2026, Webwire and Contributors
 # See license.txt
 
 # import frappe

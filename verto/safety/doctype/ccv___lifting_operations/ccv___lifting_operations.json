@@ -1,0 +1,420 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-04-13 00:02:34.943136",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sb_taskinfo",
+  "naming_series",
+  "link_project",
+  "project_name",
+  "column_break_6lioo",
+  "scope_or_wo",
+  "work_scope",
+  "column_break_mcwf",
+  "link_task",
+  "work_order_number",
+  "work_area",
+  "section_break_nfxsd",
+  "contractor",
+  "column_break_uh6eh",
+  "supervisor",
+  "section_break_kley",
+  "lo_qual",
+  "lo_qual_com",
+  "lo_load_weights",
+  "lo_load_weights_com",
+  "lo_barricade_req",
+  "lo_barricade_req_com",
+  "lo_comm_plan",
+  "lo_comm_plan_com",
+  "lo_ground_condition",
+  "lo_ground_condition_com",
+  "lo_lift_area",
+  "lo_lift_area_com",
+  "lo_correct_signage",
+  "lo_correct_signage_com",
+  "lo_exclusive_control",
+  "lo_exclusive_control_com",
+  "lo_swl",
+  "lo_swl_com",
+  "lo_crane_cert",
+  "lo_crane_cert_com",
+  "lo_pre_start",
+  "lo_pre_start_com",
+  "lo_inspection_tag",
+  "lo_inspection_tag_com",
+  "lo_lift_equip_inspect",
+  "lo_lift_equip_inspect_com",
+  "section_break_qycq",
+  "safety_category",
+  "improvement_required",
+  "comments",
+  "signature",
+  "compliance_percentage"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_taskinfo",
+   "fieldtype": "Section Break",
+   "label": "Task Information"
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"=\",\"Open\"]]",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_project !== \"\"",
+   "fetch_from": "link_project.project_name",
+   "fetch_if_empty": 1,
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "fieldname": "column_break_6lioo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scope_or_wo",
+   "fieldtype": "Select",
+   "label": "Work Scope or WO Number?",
+   "options": "Work Scope\nWork Order Number",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_task !== \"\"",
+   "fetch_from": "link_task.subject",
+   "fieldname": "work_scope",
+   "fieldtype": "Data",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]"
+  },
+  {
+   "fieldname": "column_break_mcwf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+   "options": "Task",
+   "search_index": 1
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Order Number\"",
+   "fetch_from": "link_steps.work_order_number",
+   "fetch_if_empty": 1,
+   "fieldname": "work_order_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fetch_from": "link_task.parent_task_name",
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "section_break_nfxsd",
+   "fieldtype": "Section Break",
+   "label": "Vendor Information"
+  },
+  {
+   "description": "Select from the list. If missing, select \"MISSING\"",
+   "fetch_if_empty": 1,
+   "fieldname": "contractor",
+   "fieldtype": "Link",
+   "label": "Contractor",
+   "options": "Contractor"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "column_break_uh6eh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Please enter full name",
+   "fieldname": "supervisor",
+   "fieldtype": "Data",
+   "label": "Supervisor"
+  },
+  {
+   "fieldname": "lo_qual",
+   "fieldtype": "Select",
+   "label": "Are workers qualified, VOC'd & authorised to work?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.lo_qual !== \"\" && doc.lo_qual !== \"N/A\"",
+   "fieldname": "lo_qual_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "lo_load_weights",
+   "fieldtype": "Select",
+   "label": "Does the lift plan include actual or estimate load weights?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.lo_load_weights !== \"\" && doc.lo_load_weights !== \"N/A\"",
+   "fieldname": "lo_load_weights_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "lo_barricade_req",
+   "fieldtype": "Select",
+   "label": "Does the lift plan include barricading requirements?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.lo_barricade_req !== \"\" && doc.lo_barricade_req !== \"N/A\"",
+   "fieldname": "lo_barricade_req_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "lo_comm_plan",
+   "fieldtype": "Select",
+   "label": "Does the team have a communication plan?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.lo_comm_plan !== \"\" && doc.lo_comm_plan !== \"N/A\"",
+   "fieldname": "lo_comm_plan_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "lo_ground_condition",
+   "fieldtype": "Select",
+   "label": "have the ground conditions been assessed & managed?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.lo_ground_condition !== \"\" && doc.lo_ground_condition !== \"N/A\"",
+   "fieldname": "lo_ground_condition_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "lo_lift_area",
+   "fieldtype": "Select",
+   "label": "Is the entire lifting area controlled & protects people from suspended loads?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.lo_lift_area !== \"\" && doc.lo_lift_area !== \"N/A\"",
+   "fieldname": "lo_lift_area_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "lo_correct_signage",
+   "fieldtype": "Select",
+   "label": "Do the barricaded areas have correct signage & tags?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.lo_correct_signage !== \"\" && doc.lo_correct_signage !== \"N/A\"",
+   "fieldname": "lo_correct_signage_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "lo_exclusive_control",
+   "fieldtype": "Select",
+   "label": "Is exclusive control in place?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.lo_exclusive_control !== \"\" && doc.lo_exclusive_control !== \"N/A\"",
+   "fieldname": "lo_exclusive_control_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "lo_swl",
+   "fieldtype": "Select",
+   "label": "Is the safe working limit indicated on the crane?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.lo_swl !== \"\" && doc.lo_swl !== \"N/A\"",
+   "fieldname": "lo_swl_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "lo_crane_cert",
+   "fieldtype": "Select",
+   "label": "Is the annual crane certification valid?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.lo_crane_cert !== \"\" && doc.lo_crane_cert !== \"N/A\"",
+   "fieldname": "lo_crane_cert_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "lo_pre_start",
+   "fieldtype": "Select",
+   "label": "Has a pre start been completed?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.lo_pre_start !== \"\" && doc.lo_pre_start !== \"N/A\"",
+   "fieldname": "lo_pre_start_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "lo_inspection_tag",
+   "fieldtype": "Select",
+   "label": "Doe the lifting equipment have a current inspection tag?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.lo_inspection_tag !== \"\" && doc.lo_inspection_tag !== \"N/A\"",
+   "fieldname": "lo_inspection_tag_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "lo_lift_equip_inspect",
+   "fieldtype": "Select",
+   "label": "Is lifting equipment inspected prior to use?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Lifting Operations\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.lo_lift_equip_inspect !== \"\" && doc.lo_lift_equip_inspect !== \"N/A\"",
+   "fieldname": "lo_lift_equip_inspect_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "safety_category",
+   "fieldtype": "Select",
+   "label": "What would you deem is the Safety Category?",
+   "mandatory_depends_on": "eval:doc.ccv_selected != \"\"",
+   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required"
+  },
+  {
+   "depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "fieldname": "improvement_required",
+   "fieldtype": "Select",
+   "label": "Select the area needed for improvement",
+   "mandatory_depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Advisor Signature",
+   "reqd": 1
+  },
+  {
+   "fieldname": "compliance_percentage",
+   "fieldtype": "Percent",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Compliance Percentage",
+   "precision": "2"
+  },
+  {
+   "fieldname": "section_break_kley",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_qycq",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "LO-.YY..MM..DD.-.##",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "LO-.YY..MM..DD.-.##",
+   "print_hide": 1,
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
+ "links": [],
+ "modified": "2026-04-13 00:03:07.837520",
+ "modified_by": "sean@minesitesupport.com.au",
+ "module": "Safety",
+ "name": "CCV - Lifting Operations",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Site Safety Advisor - External",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "name",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

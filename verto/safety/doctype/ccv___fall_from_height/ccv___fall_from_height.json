@@ -1,0 +1,405 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-04-13 00:07:34.372495",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sb_taskinfo",
+  "naming_series",
+  "link_project",
+  "project_name",
+  "column_break_6lioo",
+  "scope_or_wo",
+  "work_scope",
+  "column_break_mcwf",
+  "link_task",
+  "work_order_number",
+  "work_area",
+  "section_break_nfxsd",
+  "contractor",
+  "column_break_uh6eh",
+  "supervisor",
+  "section_break_upjk",
+  "ffh_qual",
+  "ffh_qual_com",
+  "ffh_anchor_points",
+  "ffh_anchor_points_com",
+  "ffh_harness_lanyards",
+  "ffh_harness_lanyards_com",
+  "ffh_arrest_restrain",
+  "ffh_arrest_restrain_com",
+  "ffh_fixed_platform",
+  "ffh_fixed_platform_com",
+  "ffh_ladder_mobile",
+  "ffh_ladder_mobile_com",
+  "ffh_motor_platform",
+  "ffh_motor_platform_com",
+  "ffh_worker_protection",
+  "ffh_worker_protection_com",
+  "ffh_edge_prot",
+  "ffh_edge_prot_com",
+  "ffh_scaff_complete",
+  "ffh_scaff_complete_com",
+  "ffh_scaff_vehicle",
+  "ffh_scaff_vehicle_com",
+  "ffh_emergency_resp",
+  "ffh_emergency_resp_com",
+  "section_break_mxpd",
+  "safety_category",
+  "improvement_required",
+  "comments",
+  "signature",
+  "compliance_percentage"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_taskinfo",
+   "fieldtype": "Section Break",
+   "label": "Task Information"
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "link_filters": "[[\"Project\",\"status\",\"=\",\"Open\"]]",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_project !== \"\"",
+   "fetch_from": "link_project.project_name",
+   "fetch_if_empty": 1,
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "fieldname": "column_break_6lioo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scope_or_wo",
+   "fieldtype": "Select",
+   "label": "Work Scope or WO Number?",
+   "options": "Work Scope\nWork Order Number",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_task !== \"\"",
+   "fetch_from": "link_task.subject",
+   "fieldname": "work_scope",
+   "fieldtype": "Data",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]"
+  },
+  {
+   "fieldname": "column_break_mcwf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+   "options": "Task",
+   "search_index": 1
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Order Number\"",
+   "fetch_from": "link_steps.work_order_number",
+   "fetch_if_empty": 1,
+   "fieldname": "work_order_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fetch_from": "link_task.parent_task_name",
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "section_break_nfxsd",
+   "fieldtype": "Section Break",
+   "label": "Vendor Information"
+  },
+  {
+   "description": "Select from the list. If missing, select \"MISSING\"",
+   "fetch_if_empty": 1,
+   "fieldname": "contractor",
+   "fieldtype": "Link",
+   "label": "Contractor",
+   "options": "Contractor"
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fieldname": "column_break_uh6eh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Please enter full name",
+   "fieldname": "supervisor",
+   "fieldtype": "Data",
+   "label": "Supervisor"
+  },
+  {
+   "fieldname": "ffh_qual",
+   "fieldtype": "Select",
+   "label": "Does the worker have the required qualification?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ffh_qual !== \"\" && doc.ffh_qual !== \"N/A\"",
+   "fieldname": "ffh_qual_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ffh_anchor_points",
+   "fieldtype": "Select",
+   "label": "Have all anchor point been inspected & are appropriate?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ffh_anchor_points !== \"\" && doc.ffh_anchor_points !== \"N/A\"",
+   "fieldname": "ffh_anchor_points_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ffh_harness_lanyards",
+   "fieldtype": "Select",
+   "label": "Are all harnesses & lanyards inspected prior to use?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ffh_harness_lanyards !== \"\" && doc.ffh_harness_lanyards !== \"N/A\"",
+   "fieldname": "ffh_harness_lanyards_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ffh_arrest_restrain",
+   "fieldtype": "Select",
+   "label": "Is the equipment appropriate to arrest or restrain the fall?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ffh_arrest_restrain !== \"\" && doc.ffh_arrest_restrain !== \"N/A\"",
+   "fieldname": "ffh_arrest_restrain_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ffh_fixed_platform",
+   "fieldtype": "Select",
+   "label": "Is the fixed work platform suitable for the Task?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ffh_fixed_platform !== \"\" && doc.ffh_fixed_platform !== \"N/A\"",
+   "fieldname": "ffh_fixed_platform_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ffh_ladder_mobile",
+   "fieldtype": "Select",
+   "label": "Is the appropriate ladder or mobile platform selected for the Task?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ffh_ladder_mobile !== \"\" && doc.ffh_ladder_mobile !== \"N/A\"",
+   "fieldname": "ffh_ladder_mobile_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ffh_motor_platform",
+   "fieldtype": "Select",
+   "label": "Is the motorised platform (EWP, Scissor lift etc.) suiteable for the Task?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ffh_motor_platform !== \"\" && doc.ffh_motor_platform !== \"N/A\"",
+   "fieldname": "ffh_motor_platform_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ffh_worker_protection",
+   "fieldtype": "Select",
+   "label": "Is the worker correctly secured within protection equipment?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ffh_worker_protection !== \"\" && doc.ffh_worker_protection !== \"N/A\"",
+   "fieldname": "ffh_worker_protection_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ffh_edge_prot",
+   "fieldtype": "Select",
+   "label": "Is installed edge protection adequate for prevent falls?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ffh_edge_prot !== \"\" && doc.ffh_edge_prot !== \"N/A\"",
+   "fieldname": "ffh_edge_prot_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ffh_scaff_complete",
+   "fieldtype": "Select",
+   "label": "Does the scaffold have complete floors, kick boards, mid & top hand rails and completed scaffold tag?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ffh_scaff_complete !== \"\" && doc.ffh_scaff_complete !== \"N/A\"",
+   "fieldname": "ffh_scaff_complete_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ffh_scaff_vehicle",
+   "fieldtype": "Select",
+   "label": "Is the scaffold protected from vehicle movement?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ffh_scaff_vehicle !== \"\" && doc.ffh_scaff_vehicle !== \"N/A\"",
+   "fieldname": "ffh_scaff_vehicle_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "ffh_emergency_resp",
+   "fieldtype": "Select",
+   "label": "is the Emergency response plan in place and is it understood by the team?",
+   "mandatory_depends_on": "eval:doc.ccv_selected ==\"Fall from Height\"",
+   "options": "\nYes\nYes (Fixed on the spot)\nNo\nN/A"
+  },
+  {
+   "depends_on": "eval: doc.ffh_emergency_resp !== \"\" && doc.ffh_emergency_resp !== \"N/A\"",
+   "fieldname": "ffh_emergency_resp_com",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "safety_category",
+   "fieldtype": "Select",
+   "label": "What would you deem is the Safety Category?",
+   "mandatory_depends_on": "eval:doc.ccv_selected != \"\"",
+   "options": "\nGood Controls\nImprovement Required\nStop Work - Reset Required"
+  },
+  {
+   "depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "fieldname": "improvement_required",
+   "fieldtype": "Select",
+   "label": "Select the area needed for improvement",
+   "mandatory_depends_on": "eval: doc.safety_category !== \"\" && doc.safety_category !== \"Good Controls\"",
+   "options": "\nBarricading & Demarcation\nDocumentation Quality\nPositions of People\nPPE\nProcedures\nTools & Equipment\nWork Area"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Advisor Signature",
+   "reqd": 1
+  },
+  {
+   "fieldname": "compliance_percentage",
+   "fieldtype": "Percent",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Compliance Percentage",
+   "precision": "2"
+  },
+  {
+   "fieldname": "section_break_upjk",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_mxpd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "FFH-.YY..MM..DD.-.##",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "FFH-.YY..MM..DD.-.##",
+   "print_hide": 1,
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
+ "links": [],
+ "modified": "2026-04-13 00:08:10.006968",
+ "modified_by": "sean@minesitesupport.com.au",
+ "module": "Safety",
+ "name": "CCV - Fall From Height",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Site Safety Advisor - External",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "name",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}
