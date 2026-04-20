@@ -1,0 +1,658 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-04-16 11:11:25.952782",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sb_taskinfo",
+  "naming_series",
+  "link_project",
+  "project_name",
+  "column_break_6lioo",
+  "scope_or_wo",
+  "work_scope",
+  "column_break_mcwf",
+  "link_task",
+  "work_order_number",
+  "work_area",
+  "contractor_details_section",
+  "audit_date",
+  "contractor",
+  "contractor_rep",
+  "column_break_klcf",
+  "pm_srp_name",
+  "po_contract_number",
+  "column_break_xhge",
+  "site__department",
+  "location",
+  "desktop_audit",
+  "sow_developed",
+  "sow_developed_findings",
+  "sow_dra_completed",
+  "sow_dra_completed_findings",
+  "sow_risk_assessment_reviewed",
+  "sow_risk_assessment_reviewed_findings",
+  "contractor_required_category_approved",
+  "contractor_required_category_approved_findings",
+  "subcontractors_use_approved",
+  "subcontractors_use_approved_findings",
+  "supervision_and_statutory_positions_verified",
+  "supervision_and_statutory_positions_verified_findings",
+  "srp_assigned",
+  "srp_assigned_findings",
+  "pm_srp_training_completed",
+  "pm_srp_training_completed_findings",
+  "hsmp_approved",
+  "hsmp_approved_findings",
+  "supplier_training_competency_process",
+  "supplier_training_competency_process_findings",
+  "site_access_request_approved",
+  "site_access_request_approved_findings",
+  "incidents_non_conformances_investigated",
+  "incidents_non_conformances_investigated_findings",
+  "field_audit",
+  "contractor_can_name_srp",
+  "contractor_can_name_srp_findings",
+  "permits_isolations_clearances_in_place",
+  "permits_isolations_clearances_in_place_findings",
+  "emergency_response_understood",
+  "emergency_response_understood_findings",
+  "task_based_risk_assessment_authorised",
+  "task_based_risk_assessment_authorised_findings",
+  "high_risk_work_licences_verified",
+  "high_risk_work_licences_verified_findings",
+  "subcontractors_inducted_and_approved",
+  "subcontractors_inducted_and_approved_findings",
+  "plant_equipment_authorised_tested_tagged",
+  "plant_equipment_authorised_tested_tagged_findings",
+  "plant_equipment_prestart_maintenance_process",
+  "plant_equipment_prestart_maintenance_process_findings",
+  "journey_management_understood",
+  "journey_management_understood_findings",
+  "critical_risks_controls_understood",
+  "critical_risks_controls_understood_findings",
+  "additional_scope_indigenous_business",
+  "swms_swi_available",
+  "swms_swi_available_findings",
+  "supplier_mobilisation_site_access_understood",
+  "supplier_mobilisation_site_access_understood_findings",
+  "prestart_risk_comms_process",
+  "prestart_risk_comms_process_findings",
+  "journey_injury_fatigue_processes",
+  "journey_injury_fatigue_processes_findings",
+  "registers_in_place",
+  "registers_in_place_findings",
+  "vehicles_plant_equipment_processes",
+  "vehicles_plant_equipment_processes_findings",
+  "section_break_705zw",
+  "fl_comments",
+  "signature"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_taskinfo",
+   "fieldtype": "Section Break",
+   "label": "Task Information"
+  },
+  {
+   "default": "CMA-.YY..MM..DD.-.##",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "CMA-.YY..MM..DD.-.##",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "options": "Project",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_project !== \"\"",
+   "fetch_from": "link_project.project_name",
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "fieldname": "column_break_6lioo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scope_or_wo",
+   "fieldtype": "Select",
+   "label": "Work Scope or WO Number?",
+   "options": "Work Scope\nWork Order Number",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\"",
+   "fetch_from": "link_task.subject",
+   "fieldname": "work_scope",
+   "fieldtype": "Data",
+   "label": "Work Summary"
+  },
+  {
+   "fieldname": "column_break_mcwf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+   "mandatory_depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+   "options": "Task",
+   "print_hide": 1,
+   "search_index": 1
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Order Number\"",
+   "fetch_from": "link_task.work_order_number",
+   "fetch_if_empty": 1,
+   "fieldname": "work_order_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number",
+   "mandatory_depends_on": "eval:doc.scope_or_wo == \"Work Order Number\""
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fetch_from": "link_task.parent_task_name",
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "fieldname": "contractor",
+   "fieldtype": "Data",
+   "label": "Contractor",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_705zw",
+   "fieldtype": "Section Break",
+   "label": "Closeout"
+  },
+  {
+   "depends_on": "eval:doc.safety_category !== \"\";",
+   "fieldname": "fl_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "contractor_details_section",
+   "fieldtype": "Section Break",
+   "label": "Contractor Details"
+  },
+  {
+   "description": "Please enter full name",
+   "fieldname": "contractor_rep",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Contractor Rep Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "site__department",
+   "fieldtype": "Data",
+   "label": "Site / Department"
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Data",
+   "label": "Location"
+  },
+  {
+   "default": "Today",
+   "fieldname": "audit_date",
+   "fieldtype": "Date",
+   "label": "Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "pm_srp_name",
+   "fieldtype": "Data",
+   "label": "PM/SRP Name"
+  },
+  {
+   "fieldname": "po_contract_number",
+   "fieldtype": "Data",
+   "label": "PO# / Contract#"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Signature",
+   "reqd": 1
+  },
+  {
+   "fieldname": "desktop_audit",
+   "fieldtype": "Section Break",
+   "label": "Part A: Desktop Audit"
+  },
+  {
+   "fieldname": "sow_developed",
+   "fieldtype": "Select",
+   "label": "The Package Manager (PM) has developed a Scope of Work (SOW) and formally communicated it to the Contractor.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.sow_developed !== \"\";",
+   "fieldname": "sow_developed_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "sow_dra_completed",
+   "fieldtype": "Select",
+   "label": "The PM has completed a Desktop Risk Assessment (DRA) for the SOW.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.sow_dra_completed !== \"\";",
+   "fieldname": "sow_dra_completed_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "sow_risk_assessment_reviewed",
+   "fieldtype": "Select",
+   "label": "A risk assessment was completed, specific to the SOW and has been reviewed and approved by the PM prior to mobilisation.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.sow_risk_assessment_reviewed !== \"\";",
+   "fieldname": "sow_risk_assessment_reviewed_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "contractor_required_category_approved",
+   "fieldtype": "Select",
+   "label": "The Package Manager (PM) can confirm that the Contractor has been approved to work under the required category (monitored/managed).",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.contractor_required_category_approved !== \"\";",
+   "fieldname": "contractor_required_category_approved_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "subcontractors_use_approved",
+   "fieldtype": "Select",
+   "label": "The PM is aware and has approved the use of subcontractors for the work (if applicable).",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.subcontractors_use_approved !== \"\";",
+   "fieldname": "subcontractors_use_approved_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "supervision_and_statutory_positions_verified",
+   "fieldtype": "Select",
+   "label": "Supervision of the work has been agreed, and statutory appointed positions have been verified.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.supervision_and_statutory_positions_verified !== \"\";",
+   "fieldname": "supervision_and_statutory_positions_verified_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "description": "Full question: A Site Responsible Person (SRP) has been assigned, who is responsible for the day-to-day engagement and supervision of the contractor and works in the same area as the contract works. SRP name and knowledge test to be completed in the field.",
+   "fieldname": "srp_assigned",
+   "fieldtype": "Select",
+   "label": "SRP assigned and responsible for day-to-day contractor supervision",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.srp_assigned !== \"\";",
+   "fieldname": "srp_assigned_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "pm_srp_training_completed",
+   "fieldtype": "Select",
+   "label": "Assigned PM and SRP/s have completed the Owner Operated Sites contractor management training.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.pm_srp_training_completed !== \"\";",
+   "fieldname": "pm_srp_training_completed_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "description": "Full question: Suppliers using their own safety system or a combination of their own safety system and Owner Operated Sites have an approved Health and Safety Management Plan (HSMP).",
+   "fieldname": "hsmp_approved",
+   "fieldtype": "Select",
+   "label": "Approved Health and Safety Management Plan (HSMP) is in place",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.hsmp_approved !== \"\";",
+   "fieldname": "hsmp_approved_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "description": "Full question: The Supplier has a process to track position-based training, qualifications, and competencies (including site inductions, area orientations, and permit-to-work training if applicable) specific to the SOW and that the SRP has verified this.",
+   "fieldname": "supplier_training_competency_process",
+   "fieldtype": "Select",
+   "label": "Supplier has a process to track training, qualifications and competencies",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.supplier_training_competency_process !== \"\";",
+   "fieldname": "supplier_training_competency_process_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "description": "Full question: The Supplier can demonstrate that they have an approved Site Access Request relevant to the work area, task being conducted and Purchase Order/Contract associated with the work.",
+   "fieldname": "site_access_request_approved",
+   "fieldtype": "Select",
+   "label": "Approved Site Access Request is in place for the work",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.site_access_request_approved !== \"\";",
+   "fieldname": "site_access_request_approved_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "description": "Tip \u2013 view incident records in Owner Operated Site System.",
+   "fieldname": "incidents_non_conformances_investigated",
+   "fieldtype": "Select",
+   "label": "Recent incidents and non-conformances have been reported and investigated, this has been verified.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.incidents_non_conformances_investigated !== \"\";",
+   "fieldname": "incidents_non_conformances_investigated_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "field_audit",
+   "fieldtype": "Section Break",
+   "label": "Part B: Field Audit"
+  },
+  {
+   "fieldname": "contractor_can_name_srp",
+   "fieldtype": "Select",
+   "label": "The contractor at the work front can name their SRP.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.contractor_can_name_srp !== \"\";",
+   "fieldname": "contractor_can_name_srp_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "permits_isolations_clearances_in_place",
+   "fieldtype": "Select",
+   "label": "Where applicable, permits to work are issued, with isolations in place and high-risk work clearances.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.permits_isolations_clearances_in_place !== \"\";",
+   "fieldname": "permits_isolations_clearances_in_place_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "emergency_response_understood",
+   "fieldtype": "Select",
+   "label": "Contractors can demonstrate an understanding of the site emergency response procedure.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.emergency_response_understood !== \"\";",
+   "fieldname": "emergency_response_understood_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "task_based_risk_assessment_authorised",
+   "fieldtype": "Select",
+   "label": "The contractor has a current and authorised task-based risk assessment (e.g., JHA, WIN, SWMS, Take 5s, etc.).",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.task_based_risk_assessment_authorised !== \"\";",
+   "fieldname": "task_based_risk_assessment_authorised_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "high_risk_work_licences_verified",
+   "fieldtype": "Select",
+   "label": "For high-risk work, the contractors have the applicable licences to conduct the work safely.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.high_risk_work_licences_verified !== \"\";",
+   "fieldname": "high_risk_work_licences_verified_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "subcontractors_inducted_and_approved",
+   "fieldtype": "Select",
+   "label": "If subcontractors are engaged, they are inducted, can name SRP, and have an approved site access request specific to the SOW.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.subcontractors_inducted_and_approved !== \"\";",
+   "fieldname": "subcontractors_inducted_and_approved_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "plant_equipment_authorised_tested_tagged",
+   "fieldtype": "Select",
+   "label": "Plant and/or equipment mobilised to site is authorised, tested and tagged in accordance with the relevant operating procedure(s).",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.plant_equipment_authorised_tested_tagged !== \"\";",
+   "fieldname": "plant_equipment_authorised_tested_tagged_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "description": "Full question: Plant and/or equipment mobilised to site have pre-start inspection and maintenance procedures in place \u2013 contractor can show the process for their company.",
+   "fieldname": "plant_equipment_prestart_maintenance_process",
+   "fieldtype": "Select",
+   "label": "Plant/equipment pre-start inspection and maintenance process is in place",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.plant_equipment_prestart_maintenance_process !== \"\";",
+   "fieldname": "plant_equipment_prestart_maintenance_process_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "journey_management_understood",
+   "fieldtype": "Select",
+   "label": "Contractors understand their Journey Management process for their company.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.journey_management_understood !== \"\";",
+   "fieldname": "journey_management_understood_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "description": "Full question: Contractors understand the Critical Risks involved with the Task/Scope of Work and Critical Controls are in place. Note \u2013 Conduct a CCV to support this question.",
+   "fieldname": "critical_risks_controls_understood",
+   "fieldtype": "Select",
+   "label": "Contractors understand critical risks and controls are in place",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.critical_risks_controls_understood !== \"\";",
+   "fieldname": "critical_risks_controls_understood_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "additional_scope_indigenous_business",
+   "fieldtype": "Section Break",
+   "label": "Additional Scope: Indigenous Business HS Capability \u2013 Mine Site Support"
+  },
+  {
+   "fieldname": "swms_swi_available",
+   "fieldtype": "Select",
+   "label": "All relevant SWMS / SWI\u2019s for all high-risk activities, plant and equipment are in place and available for team member to use.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.swms_swi_available !== \"\";",
+   "fieldname": "swms_swi_available_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "description": "Full question: The Supplier can demonstrate understanding of how to mobilise to site and that they have an approved Site Access Request relevant to the work area, task being conducted and Purchase Order/Contract associated with the work.",
+   "fieldname": "supplier_mobilisation_site_access_understood",
+   "fieldtype": "Select",
+   "label": "Supplier understands mobilisation and site access requirements",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.supplier_mobilisation_site_access_understood !== \"\";",
+   "fieldname": "supplier_mobilisation_site_access_understood_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "prestart_risk_comms_process",
+   "fieldtype": "Select",
+   "label": "Supplier has process for Pre-Start meetings and communicating risk, lessons learned and relevant safety information.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.prestart_risk_comms_process !== \"\";",
+   "fieldname": "prestart_risk_comms_process_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "journey_injury_fatigue_processes",
+   "fieldtype": "Select",
+   "label": "Processes are in place for Journey Management, Injury Management & Fatigue Management.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.journey_injury_fatigue_processes !== \"\";",
+   "fieldname": "journey_injury_fatigue_processes_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "registers_in_place",
+   "fieldtype": "Select",
+   "label": "Registers are in place for Hazardous Substances, Restricted Tooling, Lifting equipment, W@H equipment, and electrical equipment.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.registers_in_place !== \"\";",
+   "fieldname": "registers_in_place_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "vehicles_plant_equipment_processes",
+   "fieldtype": "Select",
+   "label": "Processes are in place for Vehicles, Plant and Equipment and Itinerant Plant, where applicable.",
+   "options": "\nChecked\nIssue"
+  },
+  {
+   "depends_on": "eval:doc.vehicles_plant_equipment_processes !== \"\";",
+   "fieldname": "vehicles_plant_equipment_processes_findings",
+   "fieldtype": "Small Text",
+   "label": "Findings"
+  },
+  {
+   "fieldname": "section_break_705zw",
+   "fieldtype": "Section Break",
+   "label": "Closeout"
+  },
+  {
+   "depends_on": "eval:doc.safety_category !== \"\";",
+   "fieldname": "fl_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Signature",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_klcf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_xhge",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
+ "links": [],
+ "modified": "2026-04-16 11:16:50.695676",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Contractor Management Audit Checklist",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

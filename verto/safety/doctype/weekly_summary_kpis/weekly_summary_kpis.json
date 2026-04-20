@@ -1,0 +1,50 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-16 10:20:20.194173",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "kpi",
+  "number_completed",
+  "comments__notes"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "fieldname": "kpi",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "KPI"
+  },
+  {
+   "columns": 1,
+   "fieldname": "number_completed",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Number Completed"
+  },
+  {
+   "columns": 8,
+   "fieldname": "comments__notes",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Comments / Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-16 10:25:06.732804",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Weekly Summary KPIs",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

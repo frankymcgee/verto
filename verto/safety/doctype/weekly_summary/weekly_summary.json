@@ -1,0 +1,196 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-04-16 09:53:59.492715",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sb_taskinfo",
+  "naming_series",
+  "link_project",
+  "project_name",
+  "column_break_6lioo",
+  "scope_or_wo",
+  "work_scope",
+  "column_break_mcwf",
+  "link_task",
+  "work_order_number",
+  "work_area",
+  "section_break_ximn",
+  "weekly_summary",
+  "key_deliverables_for_the_week",
+  "documentation_updates",
+  "critital_risks_observations",
+  "weekly_kpis",
+  "section_break_705zw",
+  "fl_comments",
+  "signature"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_taskinfo",
+   "fieldtype": "Section Break",
+   "label": "Task Information"
+  },
+  {
+   "default": "WS-.YY..MM..DD.-.##",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "WS-.YY..MM..DD.-.##",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "options": "Project",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_project !== \"\"",
+   "fetch_from": "link_project.project_name",
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "fieldname": "column_break_6lioo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scope_or_wo",
+   "fieldtype": "Select",
+   "label": "Work Scope or WO Number?",
+   "options": "Work Scope\nWork Order Number",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\"",
+   "fetch_from": "link_task.subject",
+   "fieldname": "work_scope",
+   "fieldtype": "Data",
+   "label": "Work Summary"
+  },
+  {
+   "fieldname": "column_break_mcwf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+   "mandatory_depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+   "options": "Task",
+   "print_hide": 1,
+   "search_index": 1
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Order Number\"",
+   "fetch_from": "link_task.work_order_number",
+   "fetch_if_empty": 1,
+   "fieldname": "work_order_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number",
+   "mandatory_depends_on": "eval:doc.scope_or_wo == \"Work Order Number\""
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fetch_from": "link_task.parent_task_name",
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "fieldname": "section_break_705zw",
+   "fieldtype": "Section Break",
+   "label": "Closeout"
+  },
+  {
+   "depends_on": "eval:doc.safety_category !== \"\";",
+   "fieldname": "fl_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "section_break_ximn",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "A high-level summary of the week that was:<br><br>\n\n- Duration: Start and end dates of the engagement.<br>\n- Key Achievements: 3\u20135 bullet points highlighting the biggest wins during the engagement.<br>\n- Current Safety Status: A brief statement on the safety culture or safety compliance<br>\n\n",
+   "fieldname": "weekly_summary",
+   "fieldtype": "Text Editor",
+   "label": "Weekly Summary"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Signature",
+   "reqd": 1
+  },
+  {
+   "fieldname": "key_deliverables_for_the_week",
+   "fieldtype": "Text Editor",
+   "label": "Key Deliverables for the week"
+  },
+  {
+   "fieldname": "documentation_updates",
+   "fieldtype": "Text Editor",
+   "label": "Documentation Updates"
+  },
+  {
+   "fieldname": "critital_risks_observations",
+   "fieldtype": "Text Editor",
+   "label": "Critical Risks & Observations"
+  },
+  {
+   "fieldname": "weekly_kpis",
+   "fieldtype": "Table",
+   "label": "Performance Metrics & KPI's",
+   "options": "Weekly Summary KPIs"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
+ "links": [],
+ "modified": "2026-04-16 10:24:09.880150",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Weekly Summary",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}
