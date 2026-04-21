@@ -81,6 +81,7 @@
   {
    "fieldname": "current_user",
    "fieldtype": "Data",
+   "in_standard_filter": 1,
    "label": "User ID"
   },
   {
@@ -138,11 +139,11 @@
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-02-03 15:18:12.921758",
- "modified_by": "Administrator",
+ "modified": "2026-04-21 14:07:08.432300",
+ "modified_by": "sean@minesitesupport.com.au",
  "module": "Verto",
  "name": "Daily Timesheet",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
