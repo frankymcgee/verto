@@ -1,5 +1,116 @@
 {
- "block": "{\"componentId\":\"container-2y2bos80p\",\"componentName\":\"container\",\"componentProps\":{},\"componentSlots\":{},\"componentEvents\":{},\"attributes\":{},\"blockName\":\"container\",\"children\":[{\"componentId\":\"container-dsd1ueqq4\",\"componentName\":\"container\",\"componentProps\":{},\"componentSlots\":{},\"componentEvents\":{},\"attributes\":{},\"blockName\":\"container\",\"children\":[{\"componentId\":\"mss_app_header-sckxqt84m\",\"componentName\":\"mss_app_header\",\"componentProps\":{\"user_image\":\"{{ inputs.avatar }}\",\"page_name\":\"{{ inputs.page }}\"},\"componentSlots\":{},\"componentEvents\":{},\"attributes\":{},\"blockName\":\"mss_app_header\",\"children\":[],\"baseStyles\":{},\"rawStyles\":{},\"mobileStyles\":{},\"tabletStyles\":{},\"classes\":[],\"isStudioComponent\":true}],\"baseStyles\":{\"display\":\"flex\",\"flexDirection\":\"column\",\"flexShrink\":0,\"height\":\"fit-content\",\"width\":\"80%\"},\"rawStyles\":{},\"mobileStyles\":{},\"tabletStyles\":{},\"originalElement\":\"div\",\"classes\":[]},{\"componentId\":\"container-op9nt1996\",\"componentName\":\"container\",\"componentProps\":{},\"componentSlots\":{},\"componentEvents\":{},\"attributes\":{},\"blockName\":\"container\",\"children\":[{\"componentId\":\"Avatar-tk2vafkm1\",\"componentName\":\"Avatar\",\"componentProps\":{\"shape\":\"circle\",\"size\":\"3xl\",\"image\":\"https://dashboard.minesitesupport.com.au{{ inputs.avatar }}\",\"label\":\"\"},\"componentSlots\":{},\"componentEvents\":{},\"attributes\":{},\"blockName\":\"Avatar\",\"children\":[],\"baseStyles\":{},\"rawStyles\":{},\"mobileStyles\":{},\"tabletStyles\":{},\"classes\":[]}],\"baseStyles\":{\"display\":\"flex\",\"flexDirection\":\"column\",\"flexShrink\":0,\"height\":\"fit-content\",\"width\":\"20%\",\"justifyContent\":\"center\",\"alignItems\":\"center\"},\"rawStyles\":{},\"mobileStyles\":{},\"tabletStyles\":{},\"originalElement\":\"div\",\"classes\":[]}],\"baseStyles\":{\"display\":\"flex\",\"flexDirection\":\"row\",\"flexShrink\":0,\"height\":\"fit-content\",\"justifyContent\":\"space-between\",\"width\":\"100%\",\"alignItems\":\"center\"},\"rawStyles\":{},\"mobileStyles\":{},\"tabletStyles\":{},\"originalElement\":\"div\",\"classes\":[]}",
+ "block": {
+  "attributes": {},
+  "baseStyles": {
+   "alignItems": "center",
+   "display": "flex",
+   "flexDirection": "row",
+   "flexShrink": 0,
+   "height": "fit-content",
+   "justifyContent": "space-between",
+   "width": "100%"
+  },
+  "blockName": "container",
+  "children": [
+   {
+    "attributes": {},
+    "baseStyles": {
+     "display": "flex",
+     "flexDirection": "column",
+     "flexShrink": 0,
+     "height": "fit-content",
+     "width": "80%"
+    },
+    "blockName": "container",
+    "children": [
+     {
+      "attributes": {},
+      "baseStyles": {},
+      "blockName": "mss_app_header",
+      "children": [],
+      "classes": [],
+      "componentEvents": {},
+      "componentId": "mss_app_header-sckxqt84m",
+      "componentName": "mss_app_header",
+      "componentProps": {
+       "page_name": "{{ inputs.page }}",
+       "user_image": "{{ inputs.avatar }}"
+      },
+      "componentSlots": {},
+      "isStudioComponent": true,
+      "mobileStyles": {},
+      "rawStyles": {},
+      "tabletStyles": {}
+     }
+    ],
+    "classes": [],
+    "componentEvents": {},
+    "componentId": "container-dsd1ueqq4",
+    "componentName": "container",
+    "componentProps": {},
+    "componentSlots": {},
+    "mobileStyles": {},
+    "originalElement": "div",
+    "rawStyles": {},
+    "tabletStyles": {}
+   },
+   {
+    "attributes": {},
+    "baseStyles": {
+     "alignItems": "center",
+     "display": "flex",
+     "flexDirection": "column",
+     "flexShrink": 0,
+     "height": "fit-content",
+     "justifyContent": "center",
+     "width": "20%"
+    },
+    "blockName": "container",
+    "children": [
+     {
+      "attributes": {},
+      "baseStyles": {},
+      "blockName": "Avatar",
+      "children": [],
+      "classes": [],
+      "componentEvents": {},
+      "componentId": "Avatar-tk2vafkm1",
+      "componentName": "Avatar",
+      "componentProps": {
+       "image": "https://dashboard.minesitesupport.com.au{{ inputs.avatar }}",
+       "label": "",
+       "shape": "circle",
+       "size": "3xl"
+      },
+      "componentSlots": {},
+      "mobileStyles": {},
+      "rawStyles": {},
+      "tabletStyles": {}
+     }
+    ],
+    "classes": [],
+    "componentEvents": {},
+    "componentId": "container-op9nt1996",
+    "componentName": "container",
+    "componentProps": {},
+    "componentSlots": {},
+    "mobileStyles": {},
+    "originalElement": "div",
+    "rawStyles": {},
+    "tabletStyles": {}
+   }
+  ],
+  "classes": [],
+  "componentEvents": {},
+  "componentId": "container-2y2bos80p",
+  "componentName": "container",
+  "componentProps": {},
+  "componentSlots": {},
+  "mobileStyles": {},
+  "originalElement": "div",
+  "rawStyles": {},
+  "tabletStyles": {}
+ },
  "component_id": "custom_header",
  "component_name": "Custom Header",
  "creation": "2026-02-10 14:26:47.808253",

@@ -1,4 +1,5 @@
 {
+ "__unsaved": 1,
  "blocks": [
   {
    "baseStyles": {
@@ -52,7 +53,6 @@
           "gap": "10px",
           "height": "fit-content",
           "justifyContent": "space-around",
-          "paddingRight": "11px",
           "width": "90%"
          },
          "blockName": "container",
@@ -94,23 +94,6 @@
        "slotId": "AppHeader-kjxbwo8ll:default",
        "slotName": "default"
       }
-     },
-     "mobileStyles": {
-      "flexWrap": "nowrap",
-      "gap": "10px",
-      "margin": "0px",
-      "padding": "-10px",
-      "paddingLeft": "30px",
-      "width": "100%"
-     }
-    },
-    {
-     "children": [],
-     "classes": [],
-     "componentId": "BottomTabs-b30r9vrvc",
-     "componentName": "BottomTabs",
-     "componentProps": {
-      "tabs": "{{ Page_List.data }}"
      }
     },
     {
@@ -507,27 +490,20 @@
                        "baseStyles": {
                         "width": "100%"
                        },
-                       "blockName": "Dropdown",
+                       "blockName": "Button",
                        "children": [],
                        "classes": [],
-                       "componentEvents": {
-                        "click": {
-                         "action": "Run Script",
-                         "event": "click",
-                         "oldEvent": "click",
-                         "script": "selected_task_name = dataItem.name;\nsafety_docs.reload({\n  link_task: selected_task_name\n});"
-                        }
-                       },
-                       "componentId": "Dropdown-fjen24hyc",
-                       "componentName": "Dropdown",
+                       "componentEvents": {},
+                       "componentId": "Button-d144vz7ij",
+                       "componentName": "Button",
                        "componentProps": {
-                        "button": {
-                         "label": "+ Form >"
-                        },
-                        "offset": 4,
-                        "options": "{{ safety_docs.data }}",
-                        "placement": "left",
-                        "side": "bottom"
+                        "disabled": false,
+                        "label": "Submit",
+                        "loading": false,
+                        "size": "sm",
+                        "theme": "gray",
+                        "type": "button",
+                        "variant": "solid"
                        },
                        "componentSlots": {},
                        "mobileStyles": {},
@@ -547,21 +523,14 @@
                        "componentName": "Button",
                        "componentProps": {
                         "disabled": false,
-                        "label": "Gantt",
+                        "label": "Submit",
                         "loading": false,
                         "size": "sm",
                         "theme": "gray",
                         "type": "button",
                         "variant": "solid"
                        },
-                       "componentSlots": {
-                        "suffix": {
-                         "parentBlockId": "Button-5sf984l0h",
-                         "slotContent": ">",
-                         "slotId": "Button-5sf984l0h:suffix",
-                         "slotName": "suffix"
-                        }
-                       },
+                       "componentSlots": {},
                        "mobileStyles": {},
                        "rawStyles": {},
                        "tabletStyles": {}
@@ -640,23 +609,23 @@
   }
  ],
  "client_scripts": [],
- "creation": "2026-01-26 16:30:19.464134",
+ "creation": "2026-01-27 09:55:10.868676",
  "doctype": "Studio Page",
+ "dynamic_page": 1,
  "frappe_app": "verto",
  "is_standard": 1,
- "modified": "2026-04-22 08:02:49.271932",
- "modified_by": "sean@minesitesupport.com.au",
- "name": "home",
- "owner": "Administrator",
- "page_name": "page-4ed4c3e3",
- "page_title": "Home",
+ "modified": "2026-04-22 08:03:34.636961",
+ "modified_by": "Administrator",
+ "name": "peri",
+ "owner": "sean@minesitesupport.com.au",
+ "page_name": "page-96de44fa",
+ "page_title": "PERI",
  "published": 1,
  "resources": [
   {
-   "auto": 1,
    "document_type": "Studio Page",
    "fields": "[\"page_name\",\"page_title\",\"route\"]",
-   "filters": "{\"studio_app\":[\"=\",\"mobile\"],\"dynamic_page\":[\"=\",\"No\"]}",
+   "filters": "{\"studio_app\":[\"=\",\"mobile\"]}",
    "method": "GET",
    "params": "{}",
    "resource_name": "Page_List",
@@ -677,7 +646,6 @@
    "whitelisted_methods": "[]"
   },
   {
-   "auto": 1,
    "fields": "[]",
    "filters": "{}",
    "method": "GET",
@@ -688,7 +656,6 @@
    "whitelisted_methods": "[]"
   },
   {
-   "auto": 1,
    "fields": "[]",
    "filters": "{}",
    "method": "GET",
@@ -700,7 +667,6 @@
    "whitelisted_methods": "[]"
   },
   {
-   "auto": 1,
    "fields": "[]",
    "filters": "{}",
    "method": "GET",
@@ -710,20 +676,9 @@
    "transform": "function transform(data) { \n\treturn data; \n}",
    "url": "hrms.api.get_current_user_info",
    "whitelisted_methods": "[]"
-  },
-  {
-   "fields": "[]",
-   "filters": "{}",
-   "method": "GET",
-   "params": "{\"link_task\":\"{{ dataItem.name }}\"}",
-   "resource_name": "safety_docs",
-   "resource_type": "API Resource",
-   "transform": "function transform(data) {\n  const list = data?.message ?? data?.data ?? data;\n  if (!Array.isArray(list)) return [];\n\n  return list.map((x) => ({\n    label: x.label,\n    icon: x.icon || \"edit-2\",\n    onClick: () => {\n      const url = x.route_link;\n      const target = x.target || \"_self\";\n\n      // If it's meant to open a new tab (or it's an external link), use window.open\n      if (target === \"_blank\") {\n        window.open(url, \"_blank\", \"noopener,noreferrer\");\n      } else {\n        // Same tab navigation\n        studio.navigate(url); // or studio.navigate({ path: url }) if your build requires object form\n      }\n\n      console.log(url);\n    },\n  }));\n}\n",
-   "url": "verto.api.mobile.list_safety_doctypes",
-   "whitelisted_methods": "[]"
   }
  ],
- "route": "/home",
+ "route": "/peri",
  "studio_app": "mobile",
  "variables": [
   {
@@ -740,20 +695,7 @@
    "initial_value": "\"/files/Mine-Site-Support_Symbol_Colour.svg\"",
    "variable_name": "app_logo",
    "variable_type": "String"
-  },
-  {
-   "initial_value": "\"\"",
-   "variable_name": "selected_task_name",
-   "variable_type": "String"
   }
  ],
- "watchers": [
-  {
-   "debounce": 20,
-   "deep": 1,
-   "immediate": 1,
-   "script": "safety_docs.fetch()",
-   "source": "selected_task_name"
-  }
- ]
+ "watchers": []
 }

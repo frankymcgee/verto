@@ -1,12 +1,619 @@
 {
- "blocks": "[\n  {\n    \"componentId\": \"root\",\n    \"componentName\": \"div\",\n    \"componentProps\": {},\n    \"componentSlots\": {},\n    \"componentEvents\": {},\n    \"attributes\": {},\n    \"blockName\": \"div\",\n    \"children\": [\n      {\n        \"componentId\": \"AppHeader-kjxbwo8ll\",\n        \"componentName\": \"AppHeader\",\n        \"componentProps\": {\n          \"title\": \"Home\",\n          \"hideBackButton\": true,\n          \"logoSVG\": \"\",\n          \"hideLogo\": false\n        },\n        \"componentSlots\": {\n          \"default\": {\n            \"slotName\": \"default\",\n            \"slotId\": \"AppHeader-kjxbwo8ll:default\",\n            \"slotContent\": [\n              {\n                \"componentId\": \"container-64490dj6k\",\n                \"componentName\": \"container\",\n                \"componentProps\": {},\n                \"componentSlots\": {},\n                \"componentEvents\": {},\n                \"attributes\": {},\n                \"blockName\": \"container\",\n                \"children\": [\n                  {\n                    \"componentId\": \"Avatar-35vg781dp\",\n                    \"componentName\": \"Avatar\",\n                    \"componentProps\": {\n                      \"shape\": \"circle\",\n                      \"size\": \"3xl\",\n                      \"image\": \"https://dashboard.minesitesupport.com.au{{ current_user.data.user_image }}\",\n                      \"label\": \"\"\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {},\n                    \"attributes\": {},\n                    \"blockName\": \"Avatar\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"classes\": []\n                  }\n                ],\n                \"baseStyles\": {\n                  \"display\": \"flex\",\n                  \"flexDirection\": \"column\",\n                  \"flexShrink\": 0,\n                  \"height\": \"fit-content\",\n                  \"width\": \"90%\",\n                  \"justifyContent\": \"space-around\",\n                  \"alignItems\": \"flex-end\",\n                  \"gap\": \"10px\"\n                },\n                \"rawStyles\": {},\n                \"mobileStyles\": {},\n                \"tabletStyles\": {},\n                \"originalElement\": \"div\",\n                \"classes\": [],\n                \"parentSlotName\": \"default\"\n              }\n            ],\n            \"parentBlockId\": \"AppHeader-kjxbwo8ll\"\n          }\n        },\n        \"componentEvents\": {},\n        \"attributes\": {},\n        \"blockName\": \"AppHeader\",\n        \"children\": [],\n        \"baseStyles\": {\n          \"display\": \"flex\",\n          \"gridTemplateColumns\": \"repeat(auto-fill, minmax(stretch, 1fr))\",\n          \"gap\": \"100px\",\n          \"flexDirection\": \"row\",\n          \"justifyContent\": \"flex-start\",\n          \"position\": \"sticky\",\n          \"gridAutoColumns\": \"minmax(stretch, 1fr)\",\n          \"flexGrow\": 0,\n          \"alignItems\": \"flex-start\",\n          \"width\": \"100%\"\n        },\n        \"rawStyles\": {},\n        \"mobileStyles\": {},\n        \"tabletStyles\": {},\n        \"classes\": []\n      },\n      {\n        \"componentId\": \"BottomTabs-t4ansro70\",\n        \"componentName\": \"BottomTabs\",\n        \"componentProps\": {\n          \"tabs\": \"{{ Page_List.data }}\"\n        },\n        \"componentSlots\": {},\n        \"componentEvents\": {},\n        \"attributes\": {},\n        \"blockName\": \"BottomTabs\",\n        \"children\": [],\n        \"baseStyles\": {},\n        \"rawStyles\": {},\n        \"mobileStyles\": {},\n        \"tabletStyles\": {},\n        \"classes\": []\n      },\n      {\n        \"componentId\": \"Header-vkag10nir\",\n        \"componentName\": \"Header\",\n        \"componentProps\": {\n          \"title\": \"Assigned Tasks\",\n          \"menuItems\": [\n            {\n              \"label\": \"Home\",\n              \"url\": \"#\"\n            },\n            {\n              \"label\": \"Settings\",\n              \"url\": \"#\"\n            }\n          ],\n          \"hideLogo\": true,\n          \"hideMenu\": true\n        },\n        \"componentSlots\": {},\n        \"componentEvents\": {},\n        \"attributes\": {},\n        \"blockName\": \"Header\",\n        \"children\": [],\n        \"baseStyles\": {},\n        \"rawStyles\": {},\n        \"mobileStyles\": {},\n        \"tabletStyles\": {},\n        \"classes\": []\n      },\n      {\n        \"componentId\": \"Repeater-c6ss74isg\",\n        \"componentName\": \"Repeater\",\n        \"componentProps\": {\n          \"data\": \"{{ mobile_work_summaries.data.scopes || [] }}\",\n          \"dataKey\": \"label\",\n          \"emptyStateMessage\": \"No Data\"\n        },\n        \"componentSlots\": {\n          \"default\": {\n            \"slotName\": \"default\",\n            \"slotId\": \"Repeater-c6ss74isg:default\",\n            \"slotContent\": [\n              {\n                \"componentId\": \"Button-dxmeyvah7\",\n                \"componentName\": \"Button\",\n                \"componentProps\": {\n                  \"label\": \"{{ dataItem.label }}\",\n                  \"variant\": \"solid\",\n                  \"theme\": \"gray\",\n                  \"size\": \"sm\",\n                  \"loading\": false,\n                  \"disabled\": false,\n                  \"type\": \"button\"\n                },\n                \"componentSlots\": {},\n                \"componentEvents\": {\n                  \"click\": {\n                    \"event\": \"click\",\n                    \"action\": \"Run Script\",\n                    \"script\": \"open_scope.value = (open_scope.value === dataItem.label) ? \\\"\\\" : dataItem.label;\"\n                  }\n                },\n                \"attributes\": {},\n                \"blockName\": \"Button\",\n                \"children\": [],\n                \"baseStyles\": {},\n                \"rawStyles\": {},\n                \"mobileStyles\": {},\n                \"tabletStyles\": {},\n                \"classes\": [],\n                \"parentSlotName\": \"default\"\n              },\n              {\n                \"componentId\": \"Repeater-p4vknih1a\",\n                \"componentName\": \"Repeater\",\n                \"componentProps\": {\n                  \"data\": \"{{ dataItem.parent_groups || [] }}\",\n                  \"dataKey\": \"parent_task\"\n                },\n                \"componentSlots\": {\n                  \"default\": {\n                    \"slotName\": \"default\",\n                    \"slotId\": \"Repeater-p4vknih1a:default\",\n                    \"slotContent\": [\n                      {\n                        \"componentId\": \"Button-xfm77lrkm\",\n                        \"componentName\": \"Button\",\n                        \"componentProps\": {\n                          \"label\": \"{{ dataItem.label }}\",\n                          \"variant\": \"subtle\",\n                          \"theme\": \"gray\",\n                          \"size\": \"sm\",\n                          \"loading\": false,\n                          \"disabled\": false,\n                          \"type\": \"button\"\n                        },\n                        \"componentSlots\": {},\n                        \"componentEvents\": {\n                          \"click\": {\n                            \"event\": \"click\",\n                            \"action\": \"Run Script\",\n                            \"script\": \"open_summary.value = (open_summary.value === dataItem.label) ? \\\"\\\" : dataItem.label;\"\n                          }\n                        },\n                        \"attributes\": {},\n                        \"blockName\": \"Button\",\n                        \"children\": [],\n                        \"baseStyles\": {},\n                        \"rawStyles\": {},\n                        \"mobileStyles\": {},\n                        \"tabletStyles\": {},\n                        \"visibilityCondition\": \"\",\n                        \"classes\": [],\n                        \"parentSlotName\": \"default\"\n                      },\n                      {\n                        \"componentId\": \"Repeater-dj1relwwo\",\n                        \"componentName\": \"Repeater\",\n                        \"componentProps\": {\n                          \"data\": \"{{ dataItem.tasks || [] }}\",\n                          \"dataKey\": \"name\"\n                        },\n                        \"componentSlots\": {\n                          \"default\": {\n                            \"slotName\": \"default\",\n                            \"slotId\": \"Repeater-dj1relwwo:default\",\n                            \"slotContent\": [\n                              {\n                                \"componentId\": \"container-os2mkct1d\",\n                                \"componentName\": \"container\",\n                                \"componentProps\": {},\n                                \"componentSlots\": {},\n                                \"componentEvents\": {},\n                                \"attributes\": {},\n                                \"blockName\": \"container\",\n                                \"children\": [\n                                  {\n                                    \"componentId\": \"container-zli2c8l3u\",\n                                    \"componentName\": \"container\",\n                                    \"componentProps\": {},\n                                    \"componentSlots\": {},\n                                    \"componentEvents\": {},\n                                    \"attributes\": {},\n                                    \"blockName\": \"container\",\n                                    \"children\": [\n                                      {\n                                        \"componentId\": \"TextBlock-dljch23ua\",\n                                        \"componentName\": \"TextBlock\",\n                                        \"componentProps\": {\n                                          \"fontSize\": \"text-2xl\",\n                                          \"fontWeight\": \"font-semibold\",\n                                          \"tag\": \"span\",\n                                          \"lineHeight\": \"leading-normal\",\n                                          \"textColor\": \"text-gray-900\",\n                                          \"text\": \"{{ dataItem.subject }}\"\n                                        },\n                                        \"componentSlots\": {},\n                                        \"componentEvents\": {},\n                                        \"attributes\": {},\n                                        \"blockName\": \"TextBlock\",\n                                        \"children\": [],\n                                        \"baseStyles\": {},\n                                        \"rawStyles\": {},\n                                        \"mobileStyles\": {},\n                                        \"tabletStyles\": {},\n                                        \"classes\": [],\n                                        \"parentSlotName\": \"default\"\n                                      },\n                                      {\n                                        \"componentId\": \"Divider-x2a543rr2\",\n                                        \"componentName\": \"Divider\",\n                                        \"componentProps\": {\n                                          \"orientation\": \"horizontal\",\n                                          \"position\": \"center\",\n                                          \"flexItem\": false\n                                        },\n                                        \"componentSlots\": {},\n                                        \"componentEvents\": {},\n                                        \"attributes\": {},\n                                        \"blockName\": \"Divider\",\n                                        \"children\": [],\n                                        \"baseStyles\": {\n                                          \"display\": \"flex\"\n                                        },\n                                        \"rawStyles\": {},\n                                        \"mobileStyles\": {},\n                                        \"tabletStyles\": {},\n                                        \"classes\": [],\n                                        \"parentSlotName\": \"default\"\n                                      },\n                                      {\n                                        \"componentId\": \"TextBlock-yk79j1eyu\",\n                                        \"componentName\": \"TextBlock\",\n                                        \"componentProps\": {\n                                          \"fontSize\": \"text-lg\",\n                                          \"fontWeight\": \"font-normal\",\n                                          \"tag\": \"span\",\n                                          \"lineHeight\": \"leading-normal\",\n                                          \"textColor\": \"text-gray-600\",\n                                          \"text\": \"{{ dataItem.date_range }}\"\n                                        },\n                                        \"componentSlots\": {},\n                                        \"componentEvents\": {},\n                                        \"attributes\": {},\n                                        \"blockName\": \"TextBlock\",\n                                        \"children\": [],\n                                        \"baseStyles\": {},\n                                        \"rawStyles\": {},\n                                        \"mobileStyles\": {},\n                                        \"tabletStyles\": {},\n                                        \"classes\": [],\n                                        \"parentSlotName\": \"default\"\n                                      },\n                                      {\n                                        \"componentId\": \"Progress-mqr3ynzj6\",\n                                        \"componentName\": \"Progress\",\n                                        \"componentProps\": {\n                                          \"value\": \"100\",\n                                          \"size\": \"xl\",\n                                          \"label\": \"\",\n                                          \"hint\": false,\n                                          \"intervals\": false,\n                                          \"intervalCount\": 6\n                                        },\n                                        \"componentSlots\": {},\n                                        \"componentEvents\": {},\n                                        \"attributes\": {},\n                                        \"blockName\": \"Progress\",\n                                        \"children\": [],\n                                        \"baseStyles\": {},\n                                        \"rawStyles\": {},\n                                        \"mobileStyles\": {},\n                                        \"tabletStyles\": {},\n                                        \"classes\": [],\n                                        \"parentSlotName\": \"default\"\n                                      }\n                                    ],\n                                    \"baseStyles\": {\n                                      \"display\": \"flex\",\n                                      \"flexDirection\": \"column\",\n                                      \"flexShrink\": 0,\n                                      \"height\": \"fit-content\",\n                                      \"width\": \"100%\"\n                                    },\n                                    \"rawStyles\": {},\n                                    \"mobileStyles\": {},\n                                    \"tabletStyles\": {},\n                                    \"originalElement\": \"div\",\n                                    \"classes\": []\n                                  },\n                                  {\n                                    \"componentId\": \"container-p4kps2ixk\",\n                                    \"componentName\": \"container\",\n                                    \"componentProps\": {},\n                                    \"componentSlots\": {},\n                                    \"componentEvents\": {},\n                                    \"attributes\": {},\n                                    \"blockName\": \"container\",\n                                    \"children\": [\n                                      {\n                                        \"componentId\": \"container-uv96bxwyl\",\n                                        \"componentName\": \"container\",\n                                        \"componentProps\": {},\n                                        \"componentSlots\": {},\n                                        \"componentEvents\": {},\n                                        \"attributes\": {},\n                                        \"blockName\": \"container\",\n                                        \"children\": [\n                                          {\n                                            \"componentId\": \"TextBlock-35mnsldzc\",\n                                            \"componentName\": \"TextBlock\",\n                                            \"componentProps\": {\n                                              \"fontSize\": \"text-lg\",\n                                              \"fontWeight\": \"font-normal\",\n                                              \"tag\": \"span\",\n                                              \"lineHeight\": \"leading-normal\",\n                                              \"textColor\": \"text-gray-600\",\n                                              \"text\": \"Vendor: {{ dataItem.responsible_contractor }}\"\n                                            },\n                                            \"componentSlots\": {},\n                                            \"componentEvents\": {},\n                                            \"attributes\": {},\n                                            \"blockName\": \"TextBlock\",\n                                            \"children\": [],\n                                            \"baseStyles\": {},\n                                            \"rawStyles\": {},\n                                            \"mobileStyles\": {},\n                                            \"tabletStyles\": {},\n                                            \"classes\": [],\n                                            \"parentSlotName\": \"default\"\n                                          },\n                                          {\n                                            \"componentId\": \"TextBlock-8x1kzanxl\",\n                                            \"componentName\": \"TextBlock\",\n                                            \"componentProps\": {\n                                              \"fontSize\": \"text-lg\",\n                                              \"fontWeight\": \"font-normal\",\n                                              \"tag\": \"span\",\n                                              \"lineHeight\": \"leading-normal\",\n                                              \"textColor\": \"text-gray-600\",\n                                              \"text\": \"WO: {{ dataItem.work_order_number }}\"\n                                            },\n                                            \"componentSlots\": {},\n                                            \"componentEvents\": {},\n                                            \"attributes\": {},\n                                            \"blockName\": \"TextBlock\",\n                                            \"children\": [],\n                                            \"baseStyles\": {},\n                                            \"rawStyles\": {},\n                                            \"mobileStyles\": {},\n                                            \"tabletStyles\": {},\n                                            \"classes\": [],\n                                            \"parentSlotName\": \"default\"\n                                          }\n                                        ],\n                                        \"baseStyles\": {\n                                          \"display\": \"flex\",\n                                          \"flexDirection\": \"column\",\n                                          \"flexShrink\": 0,\n                                          \"height\": \"fit-content\",\n                                          \"width\": \"70%\"\n                                        },\n                                        \"rawStyles\": {},\n                                        \"mobileStyles\": {},\n                                        \"tabletStyles\": {},\n                                        \"originalElement\": \"div\",\n                                        \"classes\": []\n                                      },\n                                      {\n                                        \"componentId\": \"container-gi3q52iwi\",\n                                        \"componentName\": \"container\",\n                                        \"componentProps\": {},\n                                        \"componentSlots\": {},\n                                        \"componentEvents\": {},\n                                        \"attributes\": {},\n                                        \"blockName\": \"container\",\n                                        \"children\": [\n                                          {\n                                            \"componentId\": \"Button-d144vz7ij\",\n                                            \"componentName\": \"Button\",\n                                            \"componentProps\": {\n                                              \"label\": \"Submit\",\n                                              \"variant\": \"solid\",\n                                              \"theme\": \"gray\",\n                                              \"size\": \"sm\",\n                                              \"loading\": false,\n                                              \"disabled\": false,\n                                              \"type\": \"button\"\n                                            },\n                                            \"componentSlots\": {},\n                                            \"componentEvents\": {},\n                                            \"attributes\": {},\n                                            \"blockName\": \"Button\",\n                                            \"children\": [],\n                                            \"baseStyles\": {\n                                              \"width\": \"100%\"\n                                            },\n                                            \"rawStyles\": {},\n                                            \"mobileStyles\": {},\n                                            \"tabletStyles\": {},\n                                            \"classes\": []\n                                          },\n                                          {\n                                            \"componentId\": \"Button-5sf984l0h\",\n                                            \"componentName\": \"Button\",\n                                            \"componentProps\": {\n                                              \"label\": \"Submit\",\n                                              \"variant\": \"solid\",\n                                              \"theme\": \"gray\",\n                                              \"size\": \"sm\",\n                                              \"loading\": false,\n                                              \"disabled\": false,\n                                              \"type\": \"button\"\n                                            },\n                                            \"componentSlots\": {},\n                                            \"componentEvents\": {},\n                                            \"attributes\": {},\n                                            \"blockName\": \"Button\",\n                                            \"children\": [],\n                                            \"baseStyles\": {\n                                              \"width\": \"100%\"\n                                            },\n                                            \"rawStyles\": {},\n                                            \"mobileStyles\": {},\n                                            \"tabletStyles\": {},\n                                            \"classes\": []\n                                          }\n                                        ],\n                                        \"baseStyles\": {\n                                          \"display\": \"flex\",\n                                          \"flexDirection\": \"column\",\n                                          \"flexShrink\": 0,\n                                          \"position\": \"static\",\n                                          \"width\": \"30%\",\n                                          \"height\": \"auto\",\n                                          \"gap\": \"10px\",\n                                          \"justifyContent\": \"flex-end\",\n                                          \"alignItems\": \"center\"\n                                        },\n                                        \"rawStyles\": {},\n                                        \"mobileStyles\": {},\n                                        \"tabletStyles\": {},\n                                        \"originalElement\": \"div\",\n                                        \"classes\": []\n                                      }\n                                    ],\n                                    \"baseStyles\": {\n                                      \"display\": \"flex\",\n                                      \"flexDirection\": \"row\",\n                                      \"flexShrink\": 0,\n                                      \"height\": \"fit-content\",\n                                      \"width\": \"100%\",\n                                      \"position\": \"static\"\n                                    },\n                                    \"rawStyles\": {},\n                                    \"mobileStyles\": {},\n                                    \"tabletStyles\": {},\n                                    \"originalElement\": \"div\",\n                                    \"classes\": [],\n                                    \"parentSlotName\": \"default\"\n                                  }\n                                ],\n                                \"baseStyles\": {\n                                  \"display\": \"flex\",\n                                  \"flexDirection\": \"column\",\n                                  \"flexShrink\": 0,\n                                  \"height\": \"fit-content\",\n                                  \"width\": \"100%\",\n                                  \"gap\": \"10px\",\n                                  \"borderColor\": \"#000000\",\n                                  \"borderWidth\": \"1px\",\n                                  \"borderStyle\": \"solid\",\n                                  \"padding\": \"10px\",\n                                  \"borderRadius\": \"20px\"\n                                },\n                                \"rawStyles\": {},\n                                \"mobileStyles\": {},\n                                \"tabletStyles\": {},\n                                \"originalElement\": \"div\",\n                                \"classes\": [],\n                                \"parentSlotName\": \"default\"\n                              }\n                            ],\n                            \"parentBlockId\": \"Repeater-dj1relwwo\"\n                          }\n                        },\n                        \"componentEvents\": {},\n                        \"attributes\": {},\n                        \"blockName\": \"Repeater\",\n                        \"children\": [],\n                        \"baseStyles\": {},\n                        \"rawStyles\": {},\n                        \"mobileStyles\": {},\n                        \"tabletStyles\": {},\n                        \"visibilityCondition\": \"{{ open_summary === dataItem.label }}\",\n                        \"classes\": [],\n                        \"parentSlotName\": \"default\"\n                      }\n                    ],\n                    \"parentBlockId\": \"Repeater-p4vknih1a\"\n                  }\n                },\n                \"componentEvents\": {},\n                \"attributes\": {},\n                \"blockName\": \"Repeater\",\n                \"children\": [],\n                \"baseStyles\": {\n                  \"display\": \"flex\",\n                  \"flexDirection\": \"column\",\n                  \"gap\": \"10px\",\n                  \"width\": \"100%\",\n                  \"maxWidth\": \"100%\"\n                },\n                \"rawStyles\": {},\n                \"mobileStyles\": {},\n                \"tabletStyles\": {},\n                \"visibilityCondition\": \"{{ open_scope === dataItem.label }}\",\n                \"classes\": [],\n                \"parentSlotName\": \"default\"\n              }\n            ],\n            \"parentBlockId\": \"Repeater-c6ss74isg\"\n          }\n        },\n        \"componentEvents\": {},\n        \"attributes\": {},\n        \"blockName\": \"Repeater\",\n        \"children\": [],\n        \"baseStyles\": {\n          \"flexGrow\": 0,\n          \"flexShrink\": 0,\n          \"maxWidth\": \"100%\",\n          \"display\": \"flex\",\n          \"gridTemplateColumns\": \"repeat(2, minmax(0, 1fr))\",\n          \"gap\": \"10px\",\n          \"flexDirection\": \"column\",\n          \"gridAutoColumns\": \"minmax(0, 1fr)\",\n          \"gridTemplateRows\": \"repeat(, minmax(0, 1fr))\",\n          \"gridAutoRows\": \"minmax(0, 1fr)\",\n          \"width\": \"100%\",\n          \"padding\": \"20px\"\n        },\n        \"rawStyles\": {},\n        \"mobileStyles\": {},\n        \"tabletStyles\": {},\n        \"classes\": []\n      }\n    ],\n    \"baseStyles\": {\n      \"alignItems\": \"center\",\n      \"display\": \"flex\",\n      \"flexDirection\": \"column\",\n      \"flexShrink\": 0,\n      \"flexWrap\": \"wrap\",\n      \"height\": \"100%\",\n      \"overflowX\": \"hidden\",\n      \"width\": \"inherit\",\n      \"position\": \"relative\"\n    },\n    \"rawStyles\": {},\n    \"mobileStyles\": {},\n    \"tabletStyles\": {},\n    \"originalElement\": \"body\",\n    \"classes\": []\n  }\n]",
+ "blocks": [
+  {
+   "baseStyles": {
+    "alignItems": "center",
+    "display": "flex",
+    "flexDirection": "column",
+    "flexShrink": 0,
+    "flexWrap": "wrap",
+    "height": "100%",
+    "overflowX": "hidden",
+    "position": "relative",
+    "width": "inherit"
+   },
+   "blockName": "div",
+   "children": [
+    {
+     "baseStyles": {
+      "alignItems": "flex-start",
+      "display": "flex",
+      "flexDirection": "row",
+      "flexGrow": 0,
+      "gap": "100px",
+      "gridAutoColumns": "minmax(stretch, 1fr)",
+      "gridTemplateColumns": "repeat(auto-fill, minmax(stretch, 1fr))",
+      "justifyContent": "flex-start",
+      "position": "sticky",
+      "width": "100%"
+     },
+     "blockName": "AppHeader",
+     "children": [],
+     "classes": [],
+     "componentId": "AppHeader-kjxbwo8ll",
+     "componentName": "AppHeader",
+     "componentProps": {
+      "hideBackButton": true,
+      "hideLogo": false,
+      "logoSVG": "",
+      "title": "Home"
+     },
+     "componentSlots": {
+      "default": {
+       "parentBlockId": "AppHeader-kjxbwo8ll",
+       "slotContent": [
+        {
+         "attributes": {},
+         "baseStyles": {
+          "alignItems": "flex-end",
+          "display": "flex",
+          "flexDirection": "column",
+          "flexShrink": 0,
+          "gap": "10px",
+          "height": "fit-content",
+          "justifyContent": "space-around",
+          "width": "90%"
+         },
+         "blockName": "container",
+         "children": [
+          {
+           "attributes": {},
+           "baseStyles": {},
+           "blockName": "Avatar",
+           "children": [],
+           "classes": [],
+           "componentEvents": {},
+           "componentId": "Avatar-35vg781dp",
+           "componentName": "Avatar",
+           "componentProps": {
+            "image": "https://dashboard.minesitesupport.com.au{{ current_user.data.user_image }}",
+            "label": "",
+            "shape": "circle",
+            "size": "3xl"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "rawStyles": {},
+           "tabletStyles": {}
+          }
+         ],
+         "classes": [],
+         "componentEvents": {},
+         "componentId": "container-64490dj6k",
+         "componentName": "container",
+         "componentProps": {},
+         "componentSlots": {},
+         "mobileStyles": {},
+         "originalElement": "div",
+         "parentSlotName": "default",
+         "rawStyles": {},
+         "tabletStyles": {}
+        }
+       ],
+       "slotId": "AppHeader-kjxbwo8ll:default",
+       "slotName": "default"
+      }
+     }
+    },
+    {
+     "blockName": "BottomTabs",
+     "children": [],
+     "classes": [],
+     "componentId": "BottomTabs-t4ansro70",
+     "componentName": "BottomTabs",
+     "componentProps": {
+      "tabs": "{{ Page_List.data }}"
+     }
+    },
+    {
+     "blockName": "Header",
+     "children": [],
+     "classes": [],
+     "componentId": "Header-vkag10nir",
+     "componentName": "Header",
+     "componentProps": {
+      "hideLogo": true,
+      "hideMenu": true,
+      "menuItems": [
+       {
+        "label": "Home",
+        "url": "#"
+       },
+       {
+        "label": "Settings",
+        "url": "#"
+       }
+      ],
+      "title": "Assigned Tasks"
+     }
+    },
+    {
+     "baseStyles": {
+      "display": "flex",
+      "flexDirection": "column",
+      "flexGrow": 0,
+      "flexShrink": 0,
+      "gap": "10px",
+      "gridAutoColumns": "minmax(0, 1fr)",
+      "gridAutoRows": "minmax(0, 1fr)",
+      "gridTemplateColumns": "repeat(2, minmax(0, 1fr))",
+      "gridTemplateRows": "repeat(, minmax(0, 1fr))",
+      "maxWidth": "100%",
+      "padding": "20px",
+      "width": "100%"
+     },
+     "blockName": "Repeater",
+     "children": [],
+     "classes": [],
+     "componentId": "Repeater-c6ss74isg",
+     "componentName": "Repeater",
+     "componentProps": {
+      "data": "{{ mobile_work_summaries.data.scopes || [] }}",
+      "dataKey": "label",
+      "emptyStateMessage": "No Data"
+     },
+     "componentSlots": {
+      "default": {
+       "parentBlockId": "Repeater-c6ss74isg",
+       "slotContent": [
+        {
+         "attributes": {},
+         "baseStyles": {},
+         "blockName": "Button",
+         "children": [],
+         "classes": [],
+         "componentEvents": {
+          "click": {
+           "action": "Run Script",
+           "event": "click",
+           "script": "open_scope.value = (open_scope.value === dataItem.label) ? \"\" : dataItem.label;"
+          }
+         },
+         "componentId": "Button-dxmeyvah7",
+         "componentName": "Button",
+         "componentProps": {
+          "disabled": false,
+          "label": "{{ dataItem.label }}",
+          "loading": false,
+          "size": "sm",
+          "theme": "gray",
+          "type": "button",
+          "variant": "solid"
+         },
+         "componentSlots": {},
+         "mobileStyles": {},
+         "parentSlotName": "default",
+         "rawStyles": {},
+         "tabletStyles": {}
+        },
+        {
+         "attributes": {},
+         "baseStyles": {
+          "display": "flex",
+          "flexDirection": "column",
+          "gap": "10px",
+          "maxWidth": "100%",
+          "width": "100%"
+         },
+         "blockName": "Repeater",
+         "children": [],
+         "classes": [],
+         "componentEvents": {},
+         "componentId": "Repeater-p4vknih1a",
+         "componentName": "Repeater",
+         "componentProps": {
+          "data": "{{ dataItem.parent_groups || [] }}",
+          "dataKey": "parent_task"
+         },
+         "componentSlots": {
+          "default": {
+           "parentBlockId": "Repeater-p4vknih1a",
+           "slotContent": [
+            {
+             "attributes": {},
+             "baseStyles": {},
+             "blockName": "Button",
+             "children": [],
+             "classes": [],
+             "componentEvents": {
+              "click": {
+               "action": "Run Script",
+               "event": "click",
+               "script": "open_summary.value = (open_summary.value === dataItem.label) ? \"\" : dataItem.label;"
+              }
+             },
+             "componentId": "Button-xfm77lrkm",
+             "componentName": "Button",
+             "componentProps": {
+              "disabled": false,
+              "label": "{{ dataItem.label }}",
+              "loading": false,
+              "size": "sm",
+              "theme": "gray",
+              "type": "button",
+              "variant": "subtle"
+             },
+             "componentSlots": {},
+             "mobileStyles": {},
+             "parentSlotName": "default",
+             "rawStyles": {},
+             "tabletStyles": {},
+             "visibilityCondition": ""
+            },
+            {
+             "attributes": {},
+             "baseStyles": {},
+             "blockName": "Repeater",
+             "children": [],
+             "classes": [],
+             "componentEvents": {},
+             "componentId": "Repeater-dj1relwwo",
+             "componentName": "Repeater",
+             "componentProps": {
+              "data": "{{ dataItem.tasks || [] }}",
+              "dataKey": "name"
+             },
+             "componentSlots": {
+              "default": {
+               "parentBlockId": "Repeater-dj1relwwo",
+               "slotContent": [
+                {
+                 "attributes": {},
+                 "baseStyles": {
+                  "borderColor": "#000000",
+                  "borderRadius": "20px",
+                  "borderStyle": "solid",
+                  "borderWidth": "1px",
+                  "display": "flex",
+                  "flexDirection": "column",
+                  "flexShrink": 0,
+                  "gap": "10px",
+                  "height": "fit-content",
+                  "padding": "10px",
+                  "width": "100%"
+                 },
+                 "blockName": "container",
+                 "children": [
+                  {
+                   "attributes": {},
+                   "baseStyles": {
+                    "display": "flex",
+                    "flexDirection": "column",
+                    "flexShrink": 0,
+                    "height": "fit-content",
+                    "width": "100%"
+                   },
+                   "blockName": "container",
+                   "children": [
+                    {
+                     "attributes": {},
+                     "baseStyles": {},
+                     "blockName": "TextBlock",
+                     "children": [],
+                     "classes": [],
+                     "componentEvents": {},
+                     "componentId": "TextBlock-dljch23ua",
+                     "componentName": "TextBlock",
+                     "componentProps": {
+                      "fontSize": "text-2xl",
+                      "fontWeight": "font-semibold",
+                      "lineHeight": "leading-normal",
+                      "tag": "span",
+                      "text": "{{ dataItem.subject }}",
+                      "textColor": "text-gray-900"
+                     },
+                     "componentSlots": {},
+                     "mobileStyles": {},
+                     "parentSlotName": "default",
+                     "rawStyles": {},
+                     "tabletStyles": {}
+                    },
+                    {
+                     "attributes": {},
+                     "baseStyles": {
+                      "display": "flex"
+                     },
+                     "blockName": "Divider",
+                     "children": [],
+                     "classes": [],
+                     "componentEvents": {},
+                     "componentId": "Divider-x2a543rr2",
+                     "componentName": "Divider",
+                     "componentProps": {
+                      "flexItem": false,
+                      "orientation": "horizontal",
+                      "position": "center"
+                     },
+                     "componentSlots": {},
+                     "mobileStyles": {},
+                     "parentSlotName": "default",
+                     "rawStyles": {},
+                     "tabletStyles": {}
+                    },
+                    {
+                     "attributes": {},
+                     "baseStyles": {},
+                     "blockName": "TextBlock",
+                     "children": [],
+                     "classes": [],
+                     "componentEvents": {},
+                     "componentId": "TextBlock-yk79j1eyu",
+                     "componentName": "TextBlock",
+                     "componentProps": {
+                      "fontSize": "text-lg",
+                      "fontWeight": "font-normal",
+                      "lineHeight": "leading-normal",
+                      "tag": "span",
+                      "text": "{{ dataItem.date_range }}",
+                      "textColor": "text-gray-600"
+                     },
+                     "componentSlots": {},
+                     "mobileStyles": {},
+                     "parentSlotName": "default",
+                     "rawStyles": {},
+                     "tabletStyles": {}
+                    },
+                    {
+                     "attributes": {},
+                     "baseStyles": {},
+                     "blockName": "Progress",
+                     "children": [],
+                     "classes": [],
+                     "componentEvents": {},
+                     "componentId": "Progress-mqr3ynzj6",
+                     "componentName": "Progress",
+                     "componentProps": {
+                      "hint": false,
+                      "intervalCount": 6,
+                      "intervals": false,
+                      "label": "",
+                      "size": "xl",
+                      "value": "100"
+                     },
+                     "componentSlots": {},
+                     "mobileStyles": {},
+                     "parentSlotName": "default",
+                     "rawStyles": {},
+                     "tabletStyles": {}
+                    }
+                   ],
+                   "classes": [],
+                   "componentEvents": {},
+                   "componentId": "container-zli2c8l3u",
+                   "componentName": "container",
+                   "componentProps": {},
+                   "componentSlots": {},
+                   "mobileStyles": {},
+                   "originalElement": "div",
+                   "rawStyles": {},
+                   "tabletStyles": {}
+                  },
+                  {
+                   "attributes": {},
+                   "baseStyles": {
+                    "display": "flex",
+                    "flexDirection": "row",
+                    "flexShrink": 0,
+                    "height": "fit-content",
+                    "position": "static",
+                    "width": "100%"
+                   },
+                   "blockName": "container",
+                   "children": [
+                    {
+                     "attributes": {},
+                     "baseStyles": {
+                      "display": "flex",
+                      "flexDirection": "column",
+                      "flexShrink": 0,
+                      "height": "fit-content",
+                      "width": "70%"
+                     },
+                     "blockName": "container",
+                     "children": [
+                      {
+                       "attributes": {},
+                       "baseStyles": {},
+                       "blockName": "TextBlock",
+                       "children": [],
+                       "classes": [],
+                       "componentEvents": {},
+                       "componentId": "TextBlock-35mnsldzc",
+                       "componentName": "TextBlock",
+                       "componentProps": {
+                        "fontSize": "text-lg",
+                        "fontWeight": "font-normal",
+                        "lineHeight": "leading-normal",
+                        "tag": "span",
+                        "text": "Vendor: {{ dataItem.responsible_contractor }}",
+                        "textColor": "text-gray-600"
+                       },
+                       "componentSlots": {},
+                       "mobileStyles": {},
+                       "parentSlotName": "default",
+                       "rawStyles": {},
+                       "tabletStyles": {}
+                      },
+                      {
+                       "attributes": {},
+                       "baseStyles": {},
+                       "blockName": "TextBlock",
+                       "children": [],
+                       "classes": [],
+                       "componentEvents": {},
+                       "componentId": "TextBlock-8x1kzanxl",
+                       "componentName": "TextBlock",
+                       "componentProps": {
+                        "fontSize": "text-lg",
+                        "fontWeight": "font-normal",
+                        "lineHeight": "leading-normal",
+                        "tag": "span",
+                        "text": "WO: {{ dataItem.work_order_number }}",
+                        "textColor": "text-gray-600"
+                       },
+                       "componentSlots": {},
+                       "mobileStyles": {},
+                       "parentSlotName": "default",
+                       "rawStyles": {},
+                       "tabletStyles": {}
+                      }
+                     ],
+                     "classes": [],
+                     "componentEvents": {},
+                     "componentId": "container-uv96bxwyl",
+                     "componentName": "container",
+                     "componentProps": {},
+                     "componentSlots": {},
+                     "mobileStyles": {},
+                     "originalElement": "div",
+                     "rawStyles": {},
+                     "tabletStyles": {}
+                    },
+                    {
+                     "attributes": {},
+                     "baseStyles": {
+                      "alignItems": "center",
+                      "display": "flex",
+                      "flexDirection": "column",
+                      "flexShrink": 0,
+                      "gap": "10px",
+                      "height": "auto",
+                      "justifyContent": "flex-end",
+                      "position": "static",
+                      "width": "30%"
+                     },
+                     "blockName": "container",
+                     "children": [
+                      {
+                       "attributes": {},
+                       "baseStyles": {
+                        "width": "100%"
+                       },
+                       "blockName": "Button",
+                       "children": [],
+                       "classes": [],
+                       "componentEvents": {},
+                       "componentId": "Button-d144vz7ij",
+                       "componentName": "Button",
+                       "componentProps": {
+                        "disabled": false,
+                        "label": "Submit",
+                        "loading": false,
+                        "size": "sm",
+                        "theme": "gray",
+                        "type": "button",
+                        "variant": "solid"
+                       },
+                       "componentSlots": {},
+                       "mobileStyles": {},
+                       "rawStyles": {},
+                       "tabletStyles": {}
+                      },
+                      {
+                       "attributes": {},
+                       "baseStyles": {
+                        "width": "100%"
+                       },
+                       "blockName": "Button",
+                       "children": [],
+                       "classes": [],
+                       "componentEvents": {},
+                       "componentId": "Button-5sf984l0h",
+                       "componentName": "Button",
+                       "componentProps": {
+                        "disabled": false,
+                        "label": "Submit",
+                        "loading": false,
+                        "size": "sm",
+                        "theme": "gray",
+                        "type": "button",
+                        "variant": "solid"
+                       },
+                       "componentSlots": {},
+                       "mobileStyles": {},
+                       "rawStyles": {},
+                       "tabletStyles": {}
+                      }
+                     ],
+                     "classes": [],
+                     "componentEvents": {},
+                     "componentId": "container-gi3q52iwi",
+                     "componentName": "container",
+                     "componentProps": {},
+                     "componentSlots": {},
+                     "mobileStyles": {},
+                     "originalElement": "div",
+                     "rawStyles": {},
+                     "tabletStyles": {}
+                    }
+                   ],
+                   "classes": [],
+                   "componentEvents": {},
+                   "componentId": "container-p4kps2ixk",
+                   "componentName": "container",
+                   "componentProps": {},
+                   "componentSlots": {},
+                   "mobileStyles": {},
+                   "originalElement": "div",
+                   "parentSlotName": "default",
+                   "rawStyles": {},
+                   "tabletStyles": {}
+                  }
+                 ],
+                 "classes": [],
+                 "componentEvents": {},
+                 "componentId": "container-os2mkct1d",
+                 "componentName": "container",
+                 "componentProps": {},
+                 "componentSlots": {},
+                 "mobileStyles": {},
+                 "originalElement": "div",
+                 "parentSlotName": "default",
+                 "rawStyles": {},
+                 "tabletStyles": {}
+                }
+               ],
+               "slotId": "Repeater-dj1relwwo:default",
+               "slotName": "default"
+              }
+             },
+             "mobileStyles": {},
+             "parentSlotName": "default",
+             "rawStyles": {},
+             "tabletStyles": {},
+             "visibilityCondition": "{{ open_summary === dataItem.label }}"
+            }
+           ],
+           "slotId": "Repeater-p4vknih1a:default",
+           "slotName": "default"
+          }
+         },
+         "mobileStyles": {},
+         "parentSlotName": "default",
+         "rawStyles": {},
+         "tabletStyles": {},
+         "visibilityCondition": "{{ open_scope === dataItem.label }}"
+        }
+       ],
+       "slotId": "Repeater-c6ss74isg:default",
+       "slotName": "default"
+      }
+     }
+    }
+   ],
+   "classes": [],
+   "componentId": "root",
+   "componentName": "div",
+   "originalElement": "body"
+  }
+ ],
  "client_scripts": [],
  "creation": "2026-01-27 09:54:54.840375",
  "doctype": "Studio Page",
  "frappe_app": "verto",
  "is_standard": 1,
- "modified": "2026-02-10 14:31:58.928824",
- "modified_by": "sean@minesitesupport.com.au",
+ "modified": "2026-04-22 07:53:31.232557",
+ "modified_by": "Administrator",
  "name": "shifts",
  "owner": "sean@minesitesupport.com.au",
  "page_name": "page-8c9a2b28",

@@ -1,15 +1,603 @@
 {
- "blocks": "[\n  {\n    \"componentId\": \"root\",\n    \"componentName\": \"div\",\n    \"componentProps\": {},\n    \"componentSlots\": {},\n    \"componentEvents\": {},\n    \"attributes\": {},\n    \"blockName\": \"div\",\n    \"children\": [\n      {\n        \"componentId\": \"custom_header-x3eh538yn\",\n        \"componentName\": \"custom_header\",\n        \"componentProps\": {\n          \"page\": \"{{sessionStorage.getItem(\\\"doctype\\\") }}\",\n          \"avatar\": \"{{ current_user.data.user_image }}\"\n        },\n        \"componentSlots\": {},\n        \"componentEvents\": {},\n        \"attributes\": {},\n        \"blockName\": \"custom_header\",\n        \"children\": [],\n        \"baseStyles\": {},\n        \"rawStyles\": {},\n        \"mobileStyles\": {},\n        \"tabletStyles\": {},\n        \"classes\": [],\n        \"isStudioComponent\": true\n      },\n      {\n        \"componentId\": \"BottomTabs-t4ansro70\",\n        \"componentName\": \"BottomTabs\",\n        \"componentProps\": {\n          \"tabs\": \"{{ JSON.parse(sessionStorage.getItem(\\\"nav_links_v1\\\") || \\\"[]\\\") }}\"\n        },\n        \"componentSlots\": {},\n        \"componentEvents\": {},\n        \"attributes\": {},\n        \"blockName\": \"BottomTabs\",\n        \"children\": [],\n        \"baseStyles\": {},\n        \"rawStyles\": {},\n        \"mobileStyles\": {},\n        \"tabletStyles\": {},\n        \"classes\": []\n      },\n      {\n        \"componentId\": \"container-428vcvijg\",\n        \"componentName\": \"container\",\n        \"componentProps\": {},\n        \"componentSlots\": {},\n        \"componentEvents\": {},\n        \"attributes\": {},\n        \"blockName\": \"container\",\n        \"children\": [\n          {\n            \"componentId\": \"Repeater-jdzpzj8db\",\n            \"componentName\": \"Repeater\",\n            \"componentProps\": {\n              \"data\": \"{{ form_schema.data.docs[0].fields }}\",\n              \"dataKey\": \"fieldname\",\n              \"emptyStateMessage\": \"\"\n            },\n            \"componentSlots\": {\n              \"default\": {\n                \"slotName\": \"default\",\n                \"slotId\": \"Repeater-jdzpzj8db:default\",\n                \"slotContent\": [\n                  {\n                    \"componentId\": \"Textarea-9l8cmcsmb\",\n                    \"componentName\": \"Textarea\",\n                    \"componentProps\": {\n                      \"placeholder\": \"Enter your message\",\n                      \"size\": \"sm\",\n                      \"variant\": \"subtle\",\n                      \"rows\": \"5\",\n                      \"id\": \"{{ dataItem.name }}\",\n                      \"label\": \"{{ dataItem.label }}\"\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {},\n                    \"attributes\": {},\n                    \"blockName\": \"Textarea\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"visibilityCondition\": \"{{ dataItem.fieldtype == \\\"Small Text\\\" }}\",\n                    \"classes\": [],\n                    \"parentSlotName\": \"default\"\n                  },\n                  {\n                    \"componentId\": \"Switch-b0t59ra3l\",\n                    \"componentName\": \"Switch\",\n                    \"componentProps\": {\n                      \"label\": \"{{dataItem.label }}\",\n                      \"description\": \"\",\n                      \"modelValue\": \"{{ dataItem.default}}\",\n                      \"size\": \"sm\",\n                      \"disabled\": false,\n                      \"labelClasses\": \"\"\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {\n                      \"click\": {\n                        \"event\": \"click\",\n                        \"action\": \"Run Script\",\n                        \"script\": \"const toInt = (v) =>\\n  (v === true || v === 1 || v === \\\"1\\\" || String(v).toLowerCase() === \\\"true\\\") ? 1 : 0;\\n\\n// current -> next\\nconst current = toInt(dataItem.modelValue ?? dataItem.default);\\nconst next = current ? 0 : 1;\\n\\n// keep field value in sync\\ndataItem.modelValue = next === 1;\\ndataItem.default = next;\\n\\n// ensure switchState wrapper store exists\\nif (!switchState || !switchState._object || !switchState._key) {\\n  console.log(\\\"switchState wrapper missing:\\\", switchState);\\n} else {\\n  const store = switchState._object[switchState._key] || {};\\n\\n  // IMPORTANT: immutable update so Studio reactivity triggers\\n  const nextStore = {\\n    ...store,\\n    [dataItem.fieldname]: next,\\n  };\\n\\n  switchState._object[switchState._key] = nextStore;\\n  // force visibility re-eval\\n  visibilityTick = (visibilityTick || 0) + 1;\\n  console.log(\\\"[parent toggled]\\\", dataItem.fieldname, \\\"=>\\\", next);\\n  console.log(\\\"[switch store]\\\", switchState._object[switchState._key]);\\n  console.log(\\\"parent value in store:\\\", switchState._object[switchState._key][dataItem.fieldname]);\\n\\n}\",\n                        \"oldEvent\": \"click\"\n                      }\n                    },\n                    \"attributes\": {},\n                    \"blockName\": \"Switch\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"visibilityCondition\": \"{{  dataItem.fieldtype == \\\"Check\\\" && dataItem.parent_link == null }}\",\n                    \"classes\": [],\n                    \"parentSlotName\": \"default\"\n                  },\n                  {\n                    \"componentId\": \"Switch-sdzr5tahe\",\n                    \"componentName\": \"Switch\",\n                    \"componentProps\": {\n                      \"label\": \"{{ dataItem.label }}\",\n                      \"description\": \"\",\n                      \"modelValue\": \"{{ dataItem.default }}\",\n                      \"size\": \"sm\",\n                      \"disabled\": false,\n                      \"labelClasses\": \"\"\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {\n                      \"click\": {\n                        \"event\": \"click\",\n                        \"action\": \"Run Script\",\n                        \"script\": \"console.log(\\n  \\\"child field:\\\", dataItem.fieldname,\\n  \\\"parent_link:\\\", dataItem.parent_link,\\n  \\\"parent value in store:\\\",\\n  switchState?._object?.[switchState?._key]?.[dataItem.parent_link]\\n);\\n\"\n                      }\n                    },\n                    \"attributes\": {},\n                    \"blockName\": \"Switch\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"visibilityCondition\": \"{{ dataItem.fieldtype === 'Check' &&  (switchState._object[switchState._key][dataItem.parent_link] == 1) ? true : false }}\",\n                    \"classes\": [],\n                    \"parentSlotName\": \"default\"\n                  },\n                  {\n                    \"componentId\": \"Header-uy6yheho8\",\n                    \"componentName\": \"Header\",\n                    \"componentProps\": {\n                      \"title\": \"{{ dataItem.label }}\",\n                      \"menuItems\": \"\",\n                      \"hideLogo\": true,\n                      \"hideMenu\": true\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {},\n                    \"attributes\": {},\n                    \"blockName\": \"Header\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"visibilityCondition\": \"{{ dataItem.fieldtype == \\\"Section Break\\\" }}\",\n                    \"classes\": [],\n                    \"parentSlotName\": \"default\"\n                  },\n                  {\n                    \"componentId\": \"TextInput-wlwyl16uv\",\n                    \"componentName\": \"TextInput\",\n                    \"componentProps\": {\n                      \"placeholder\": \"{{ dataItem.label }}\",\n                      \"type\": \"text\",\n                      \"size\": \"sm\",\n                      \"variant\": \"subtle\",\n                      \"id\": \"{{ dataItem.name}}\",\n                      \"required\": \"{{ dataItem.reqd }}\"\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {},\n                    \"attributes\": {},\n                    \"blockName\": \"TextInput\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"visibilityCondition\": \"{{ dataItem.fieldtype == \\\"Data\\\"  }}\",\n                    \"classes\": [],\n                    \"parentSlotName\": \"default\"\n                  },\n                  {\n                    \"componentId\": \"Divider-wjon7gfej\",\n                    \"componentName\": \"Divider\",\n                    \"componentProps\": {\n                      \"orientation\": \"horizontal\",\n                      \"position\": \"center\",\n                      \"action\": \"\",\n                      \"flexItem\": true\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {},\n                    \"attributes\": {},\n                    \"blockName\": \"Divider\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"visibilityCondition\": \"{{ dataItem.fieldtype == \\\"Column Break\\\" }}\",\n                    \"classes\": [],\n                    \"parentSlotName\": \"default\"\n                  },\n                  {\n                    \"componentId\": \"Select-cp3cmgude\",\n                    \"componentName\": \"Select\",\n                    \"componentProps\": {\n                      \"placeholder\": \"{{ dataItem.label }}\",\n                      \"options\": \"{{dataItem.options }}\",\n                      \"size\": \"sm\",\n                      \"variant\": \"subtle\",\n                      \"id\": \"{{ dataItem.name }}\"\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {},\n                    \"attributes\": {},\n                    \"blockName\": \"Select\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"visibilityCondition\": \"{{ dataItem.fieldtype == \\\"Select\\\" }}\",\n                    \"classes\": [],\n                    \"parentSlotName\": \"default\"\n                  },\n                  {\n                    \"componentId\": \"Link-s1rf9c6wy\",\n                    \"componentName\": \"Link\",\n                    \"componentProps\": {\n                      \"doctype\": \"{{ dataItem.options }}\",\n                      \"filters\": \"{{ dataItem.link_filters }}\",\n                      \"variant\": \"subtle\",\n                      \"label\": \"{{ dataItem.label }}\",\n                      \"modelValue\": \"\",\n                      \"required\": \"{{ dataItem.reqd }}\",\n                      \"allowCreate\": false\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {},\n                    \"attributes\": {\n                      \"link_id\": \"{{ dataItem.fieldname }}\"\n                    },\n                    \"blockName\": \"Link\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"visibilityCondition\": \"{{ dataItem.fieldtype == \\\"Link\\\" }}\",\n                    \"classes\": [],\n                    \"parentSlotName\": \"default\"\n                  }\n                ],\n                \"parentBlockId\": \"Repeater-jdzpzj8db\"\n              }\n            },\n            \"componentEvents\": {},\n            \"attributes\": {},\n            \"blockName\": \"Repeater\",\n            \"children\": [],\n            \"baseStyles\": {\n              \"width\": \"100%\",\n              \"display\": \"flex\",\n              \"gridTemplateColumns\": \"repeat(auto-fill, minmax(200px, 1fr))\",\n              \"gap\": \"10px\",\n              \"flexDirection\": \"column\",\n              \"padding\": \"20px\",\n              \"overflowY\": \"visible\",\n              \"overflowX\": \"visible\"\n            },\n            \"rawStyles\": {},\n            \"mobileStyles\": {},\n            \"tabletStyles\": {},\n            \"visibilityCondition\": \"\",\n            \"classes\": []\n          }\n        ],\n        \"baseStyles\": {\n          \"display\": \"flex\",\n          \"flexDirection\": \"column\",\n          \"flexShrink\": 0,\n          \"height\": \"80%\",\n          \"width\": \"100%\",\n          \"overflowY\": \"scroll\"\n        },\n        \"rawStyles\": {},\n        \"mobileStyles\": {},\n        \"tabletStyles\": {},\n        \"originalElement\": \"div\",\n        \"classes\": []\n      }\n    ],\n    \"baseStyles\": {\n      \"alignItems\": \"center\",\n      \"display\": \"flex\",\n      \"flexDirection\": \"column\",\n      \"flexShrink\": 0,\n      \"flexWrap\": \"wrap\",\n      \"height\": \"100%\",\n      \"overflowX\": \"hidden\",\n      \"width\": \"inherit\",\n      \"position\": \"relative\"\n    },\n    \"rawStyles\": {},\n    \"mobileStyles\": {},\n    \"tabletStyles\": {},\n    \"originalElement\": \"body\",\n    \"classes\": []\n  }\n]",
+ "blocks": [
+  {
+   "baseStyles": {
+    "alignItems": "center",
+    "display": "flex",
+    "flexDirection": "column",
+    "flexShrink": 0,
+    "flexWrap": "wrap",
+    "height": "100%",
+    "overflowX": "hidden",
+    "position": "relative",
+    "width": "inherit"
+   },
+   "blockName": "div",
+   "children": [
+    {
+     "blockName": "custom_header",
+     "children": [],
+     "classes": [],
+     "componentId": "custom_header-x3eh538yn",
+     "componentName": "custom_header",
+     "componentProps": {
+      "avatar": "{{ current_user.data.user_image }}",
+      "page": "{{sessionStorage.getItem(\"doctype\") }}"
+     },
+     "isStudioComponent": true
+    },
+    {
+     "blockName": "BottomTabs",
+     "children": [],
+     "classes": [],
+     "componentId": "BottomTabs-t4ansro70",
+     "componentName": "BottomTabs",
+     "componentProps": {
+      "tabs": "{{ JSON.parse(sessionStorage.getItem(\"nav_links_v1\") || \"[]\") }}"
+     }
+    },
+    {
+     "baseStyles": {
+      "display": "flex",
+      "flexDirection": "column",
+      "flexShrink": 0,
+      "height": "80%",
+      "overflowY": "scroll",
+      "width": "100%"
+     },
+     "blockName": "container",
+     "children": [
+      {
+       "baseStyles": {
+        "display": "flex",
+        "flexDirection": "column",
+        "gap": "10px",
+        "gridTemplateColumns": "repeat(auto-fill, minmax(200px, 1fr))",
+        "overflowX": "visible",
+        "overflowY": "visible",
+        "padding": "20px",
+        "width": "100%"
+       },
+       "blockName": "Repeater",
+       "children": [],
+       "classes": [],
+       "componentId": "Repeater-jdzpzj8db",
+       "componentName": "Repeater",
+       "componentProps": {
+        "data": "{{ form_schema.data.docs[0].fields }}",
+        "dataKey": "fieldname",
+        "emptyStateMessage": ""
+       },
+       "componentSlots": {
+        "default": {
+         "parentBlockId": "Repeater-jdzpzj8db",
+         "slotContent": [
+          {
+           "attributes": {},
+           "baseStyles": {},
+           "blockName": "Textarea",
+           "children": [],
+           "classes": [],
+           "componentEvents": {},
+           "componentId": "Textarea-9l8cmcsmb",
+           "componentName": "Textarea",
+           "componentProps": {
+            "id": "{{ dataItem.name }}",
+            "label": "{{ dataItem.label }}",
+            "placeholder": "Enter your message",
+            "rows": "5",
+            "size": "sm",
+            "variant": "subtle"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "parentSlotName": "default",
+           "rawStyles": {},
+           "tabletStyles": {},
+           "visibilityCondition": "{{ dataItem.fieldtype == \"Small Text\" }}"
+          },
+          {
+           "attributes": {},
+           "baseStyles": {},
+           "blockName": "Switch",
+           "children": [],
+           "classes": [],
+           "componentEvents": {
+            "click": {
+             "action": "Run Script",
+             "event": "click",
+             "oldEvent": "click",
+             "script": "const toInt = (v) =>\n  (v === true || v === 1 || v === \"1\" || String(v).toLowerCase() === \"true\") ? 1 : 0;\n\n// current -> next\nconst current = toInt(dataItem.modelValue ?? dataItem.default);\nconst next = current ? 0 : 1;\n\n// keep field value in sync\ndataItem.modelValue = next === 1;\ndataItem.default = next;\n\n// ensure switchState wrapper store exists\nif (!switchState || !switchState._object || !switchState._key) {\n  console.log(\"switchState wrapper missing:\", switchState);\n} else {\n  const store = switchState._object[switchState._key] || {};\n\n  // IMPORTANT: immutable update so Studio reactivity triggers\n  const nextStore = {\n    ...store,\n    [dataItem.fieldname]: next,\n  };\n\n  switchState._object[switchState._key] = nextStore;\n  // force visibility re-eval\n  visibilityTick = (visibilityTick || 0) + 1;\n  console.log(\"[parent toggled]\", dataItem.fieldname, \"=>\", next);\n  console.log(\"[switch store]\", switchState._object[switchState._key]);\n  console.log(\"parent value in store:\", switchState._object[switchState._key][dataItem.fieldname]);\n\n}"
+            }
+           },
+           "componentId": "Switch-b0t59ra3l",
+           "componentName": "Switch",
+           "componentProps": {
+            "description": "",
+            "disabled": false,
+            "label": "{{dataItem.label }}",
+            "labelClasses": "",
+            "modelValue": "{{ dataItem.default}}",
+            "size": "sm"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "parentSlotName": "default",
+           "rawStyles": {},
+           "tabletStyles": {},
+           "visibilityCondition": "{{  dataItem.fieldtype == \"Check\" && dataItem.parent_link == null }}"
+          },
+          {
+           "attributes": {},
+           "baseStyles": {},
+           "blockName": "Switch",
+           "children": [],
+           "classes": [],
+           "componentEvents": {
+            "click": {
+             "action": "Run Script",
+             "event": "click",
+             "script": "console.log(\n  \"child field:\", dataItem.fieldname,\n  \"parent_link:\", dataItem.parent_link,\n  \"parent value in store:\",\n  switchState?._object?.[switchState?._key]?.[dataItem.parent_link]\n);\n"
+            }
+           },
+           "componentId": "Switch-sdzr5tahe",
+           "componentName": "Switch",
+           "componentProps": {
+            "description": "",
+            "disabled": false,
+            "label": "{{ dataItem.label }}",
+            "labelClasses": "",
+            "modelValue": "{{ dataItem.default }}",
+            "size": "sm"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "parentSlotName": "default",
+           "rawStyles": {},
+           "tabletStyles": {},
+           "visibilityCondition": "{{ dataItem.fieldtype === 'Check' &&  (switchState._object[switchState._key][dataItem.parent_link] == 1) ? true : false }}"
+          },
+          {
+           "attributes": {},
+           "baseStyles": {},
+           "blockName": "Header",
+           "children": [],
+           "classes": [],
+           "componentEvents": {},
+           "componentId": "Header-uy6yheho8",
+           "componentName": "Header",
+           "componentProps": {
+            "hideLogo": true,
+            "hideMenu": true,
+            "menuItems": "",
+            "title": "{{ dataItem.label }}"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "parentSlotName": "default",
+           "rawStyles": {},
+           "tabletStyles": {},
+           "visibilityCondition": "{{ dataItem.fieldtype == \"Section Break\" }}"
+          },
+          {
+           "attributes": {},
+           "baseStyles": {},
+           "blockName": "TextInput",
+           "children": [],
+           "classes": [],
+           "componentEvents": {},
+           "componentId": "TextInput-wlwyl16uv",
+           "componentName": "TextInput",
+           "componentProps": {
+            "id": "{{ dataItem.name}}",
+            "placeholder": "{{ dataItem.label }}",
+            "required": "{{ dataItem.reqd }}",
+            "size": "sm",
+            "type": "text",
+            "variant": "subtle"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "parentSlotName": "default",
+           "rawStyles": {},
+           "tabletStyles": {},
+           "visibilityCondition": "{{ dataItem.fieldtype == \"Data\"  }}"
+          },
+          {
+           "attributes": {},
+           "baseStyles": {},
+           "blockName": "Divider",
+           "children": [],
+           "classes": [],
+           "componentEvents": {},
+           "componentId": "Divider-wjon7gfej",
+           "componentName": "Divider",
+           "componentProps": {
+            "action": "",
+            "flexItem": true,
+            "orientation": "horizontal",
+            "position": "center"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "parentSlotName": "default",
+           "rawStyles": {},
+           "tabletStyles": {},
+           "visibilityCondition": "{{ dataItem.fieldtype == \"Column Break\" }}"
+          },
+          {
+           "attributes": {},
+           "baseStyles": {},
+           "blockName": "Select",
+           "children": [],
+           "classes": [],
+           "componentEvents": {},
+           "componentId": "Select-cp3cmgude",
+           "componentName": "Select",
+           "componentProps": {
+            "id": "{{ dataItem.name }}",
+            "options": "{{dataItem.options }}",
+            "placeholder": "{{ dataItem.label }}",
+            "size": "sm",
+            "variant": "subtle"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "parentSlotName": "default",
+           "rawStyles": {},
+           "tabletStyles": {},
+           "visibilityCondition": "{{ dataItem.fieldtype == \"Select\" }}"
+          },
+          {
+           "attributes": {
+            "link_id": "{{ dataItem.fieldname }}"
+           },
+           "baseStyles": {},
+           "blockName": "Link",
+           "children": [],
+           "classes": [],
+           "componentEvents": {},
+           "componentId": "Link-s1rf9c6wy",
+           "componentName": "Link",
+           "componentProps": {
+            "allowCreate": false,
+            "doctype": "{{ dataItem.options }}",
+            "filters": "{{ dataItem.link_filters }}",
+            "label": "{{ dataItem.label }}",
+            "modelValue": "",
+            "required": "{{ dataItem.reqd }}",
+            "variant": "subtle"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "parentSlotName": "default",
+           "rawStyles": {},
+           "tabletStyles": {},
+           "visibilityCondition": "{{ dataItem.fieldtype == \"Link\" }}"
+          }
+         ],
+         "slotId": "Repeater-jdzpzj8db:default",
+         "slotName": "default"
+        }
+       }
+      }
+     ],
+     "classes": [],
+     "componentId": "container-428vcvijg",
+     "componentName": "container",
+     "originalElement": "div"
+    }
+   ],
+   "classes": [],
+   "componentId": "root",
+   "componentName": "div",
+   "originalElement": "body"
+  }
+ ],
  "client_scripts": [],
  "creation": "2026-01-28 06:12:48.945621",
  "doctype": "Studio Page",
- "draft_blocks": "[\n  {\n    \"componentId\": \"root\",\n    \"componentName\": \"div\",\n    \"componentProps\": {},\n    \"componentSlots\": {},\n    \"componentEvents\": {},\n    \"attributes\": {},\n    \"blockName\": \"div\",\n    \"children\": [\n      {\n        \"componentId\": \"custom_header-x3eh538yn\",\n        \"componentName\": \"custom_header\",\n        \"componentProps\": {\n          \"page\": \"{{sessionStorage.getItem(\\\"doctype\\\") }}\",\n          \"avatar\": \"{{ current_user.data.user_image }}\"\n        },\n        \"componentSlots\": {},\n        \"componentEvents\": {},\n        \"attributes\": {},\n        \"blockName\": \"custom_header\",\n        \"children\": [],\n        \"baseStyles\": {},\n        \"rawStyles\": {},\n        \"mobileStyles\": {},\n        \"tabletStyles\": {},\n        \"classes\": [],\n        \"isStudioComponent\": true\n      },\n      {\n        \"componentId\": \"BottomTabs-t4ansro70\",\n        \"componentName\": \"BottomTabs\",\n        \"componentProps\": {\n          \"tabs\": \"{{ JSON.parse(sessionStorage.getItem(\\\"nav_links_v1\\\") || \\\"[]\\\") }}\"\n        },\n        \"componentSlots\": {},\n        \"componentEvents\": {},\n        \"attributes\": {},\n        \"blockName\": \"BottomTabs\",\n        \"children\": [],\n        \"baseStyles\": {},\n        \"rawStyles\": {},\n        \"mobileStyles\": {},\n        \"tabletStyles\": {},\n        \"classes\": []\n      },\n      {\n        \"componentId\": \"container-428vcvijg\",\n        \"componentName\": \"container\",\n        \"componentProps\": {},\n        \"componentSlots\": {},\n        \"componentEvents\": {},\n        \"attributes\": {},\n        \"blockName\": \"container\",\n        \"children\": [\n          {\n            \"componentId\": \"Repeater-jdzpzj8db\",\n            \"componentName\": \"Repeater\",\n            \"componentProps\": {\n              \"data\": \"{{ form_schema.data.docs[0].fields }}\",\n              \"dataKey\": \"fieldname\",\n              \"emptyStateMessage\": \"\"\n            },\n            \"componentSlots\": {\n              \"default\": {\n                \"slotName\": \"default\",\n                \"slotId\": \"Repeater-jdzpzj8db:default\",\n                \"slotContent\": [\n                  {\n                    \"componentId\": \"Textarea-9l8cmcsmb\",\n                    \"componentName\": \"Textarea\",\n                    \"componentProps\": {\n                      \"placeholder\": \"Enter your message\",\n                      \"size\": \"sm\",\n                      \"variant\": \"subtle\",\n                      \"rows\": \"5\",\n                      \"id\": \"{{ dataItem.name }}\",\n                      \"label\": \"{{ dataItem.label }}\"\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {},\n                    \"attributes\": {},\n                    \"blockName\": \"Textarea\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"visibilityCondition\": \"{{ dataItem.fieldtype == \\\"Small Text\\\" }}\",\n                    \"classes\": [],\n                    \"parentSlotName\": \"default\"\n                  },\n                  {\n                    \"componentId\": \"Switch-b0t59ra3l\",\n                    \"componentName\": \"Switch\",\n                    \"componentProps\": {\n                      \"label\": \"{{dataItem.label }}\",\n                      \"description\": \"\",\n                      \"modelValue\": \"{{ dataItem.default}}\",\n                      \"size\": \"sm\",\n                      \"disabled\": false,\n                      \"labelClasses\": \"\"\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {\n                      \"click\": {\n                        \"event\": \"click\",\n                        \"action\": \"Run Script\",\n                        \"script\": \"const toInt = (v) =>\\n  (v === true || v === 1 || v === \\\"1\\\" || String(v).toLowerCase() === \\\"true\\\") ? 1 : 0;\\n\\n// current -> next\\nconst current = toInt(dataItem.modelValue ?? dataItem.default);\\nconst next = current ? 0 : 1;\\n\\n// keep field value in sync\\ndataItem.modelValue = next === 1;\\ndataItem.default = next;\\n\\n// ensure switchState wrapper store exists\\nif (!switchState || !switchState._object || !switchState._key) {\\n  console.log(\\\"switchState wrapper missing:\\\", switchState);\\n} else {\\n  const store = switchState._object[switchState._key] || {};\\n\\n  // IMPORTANT: immutable update so Studio reactivity triggers\\n  const nextStore = {\\n    ...store,\\n    [dataItem.fieldname]: next,\\n  };\\n\\n  switchState._object[switchState._key] = nextStore;\\n  // force visibility re-eval\\n  visibilityTick = (visibilityTick || 0) + 1;\\n  console.log(\\\"[parent toggled]\\\", dataItem.fieldname, \\\"=>\\\", next);\\n  console.log(\\\"[switch store]\\\", switchState._object[switchState._key]);\\n  console.log(\\\"parent value in store:\\\", switchState._object[switchState._key][dataItem.fieldname]);\\n\\n}\",\n                        \"oldEvent\": \"click\"\n                      }\n                    },\n                    \"attributes\": {},\n                    \"blockName\": \"Switch\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"visibilityCondition\": \"{{  dataItem.fieldtype == \\\"Check\\\" && dataItem.parent_link == null }}\",\n                    \"classes\": [],\n                    \"parentSlotName\": \"default\"\n                  },\n                  {\n                    \"componentId\": \"Switch-sdzr5tahe\",\n                    \"componentName\": \"Switch\",\n                    \"componentProps\": {\n                      \"label\": \"{{ dataItem.label }}\",\n                      \"description\": \"\",\n                      \"modelValue\": \"{{ dataItem.default }}\",\n                      \"size\": \"sm\",\n                      \"disabled\": false,\n                      \"labelClasses\": \"\"\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {\n                      \"click\": {\n                        \"event\": \"click\",\n                        \"action\": \"Run Script\",\n                        \"script\": \"console.log(\\n  \\\"child field:\\\", dataItem.fieldname,\\n  \\\"parent_link:\\\", dataItem.parent_link,\\n  \\\"parent value in store:\\\",\\n  switchState?._object?.[switchState?._key]?.[dataItem.parent_link]\\n);\\n\"\n                      }\n                    },\n                    \"attributes\": {},\n                    \"blockName\": \"Switch\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"visibilityCondition\": \"{{ dataItem.fieldtype === 'Check' &&  (switchState._object[switchState._key][dataItem.parent_link] == 1) ? true : false }}\",\n                    \"classes\": [],\n                    \"parentSlotName\": \"default\"\n                  },\n                  {\n                    \"componentId\": \"Header-uy6yheho8\",\n                    \"componentName\": \"Header\",\n                    \"componentProps\": {\n                      \"title\": \"{{ dataItem.label }}\",\n                      \"menuItems\": \"\",\n                      \"hideLogo\": true,\n                      \"hideMenu\": true\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {},\n                    \"attributes\": {},\n                    \"blockName\": \"Header\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"visibilityCondition\": \"{{ dataItem.fieldtype == \\\"Section Break\\\" }}\",\n                    \"classes\": [],\n                    \"parentSlotName\": \"default\"\n                  },\n                  {\n                    \"componentId\": \"TextInput-wlwyl16uv\",\n                    \"componentName\": \"TextInput\",\n                    \"componentProps\": {\n                      \"placeholder\": \"{{ dataItem.label }}\",\n                      \"type\": \"text\",\n                      \"size\": \"sm\",\n                      \"variant\": \"subtle\",\n                      \"id\": \"{{ dataItem.name}}\",\n                      \"required\": \"{{ dataItem.reqd }}\"\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {},\n                    \"attributes\": {},\n                    \"blockName\": \"TextInput\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"visibilityCondition\": \"{{ dataItem.fieldtype == \\\"Data\\\"  }}\",\n                    \"classes\": [],\n                    \"parentSlotName\": \"default\"\n                  },\n                  {\n                    \"componentId\": \"Divider-wjon7gfej\",\n                    \"componentName\": \"Divider\",\n                    \"componentProps\": {\n                      \"orientation\": \"horizontal\",\n                      \"position\": \"center\",\n                      \"action\": \"\",\n                      \"flexItem\": true\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {},\n                    \"attributes\": {},\n                    \"blockName\": \"Divider\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"visibilityCondition\": \"{{ dataItem.fieldtype == \\\"Column Break\\\" }}\",\n                    \"classes\": [],\n                    \"parentSlotName\": \"default\"\n                  },\n                  {\n                    \"componentId\": \"Select-cp3cmgude\",\n                    \"componentName\": \"Select\",\n                    \"componentProps\": {\n                      \"placeholder\": \"{{ dataItem.label }}\",\n                      \"options\": \"{{dataItem.options }}\",\n                      \"size\": \"sm\",\n                      \"variant\": \"subtle\",\n                      \"id\": \"{{ dataItem.name }}\"\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {},\n                    \"attributes\": {},\n                    \"blockName\": \"Select\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"visibilityCondition\": \"{{ dataItem.fieldtype == \\\"Select\\\" }}\",\n                    \"classes\": [],\n                    \"parentSlotName\": \"default\"\n                  },\n                  {\n                    \"componentId\": \"Link-s1rf9c6wy\",\n                    \"componentName\": \"Link\",\n                    \"componentProps\": {\n                      \"doctype\": \"{{ dataItem.options }}\",\n                      \"filters\": \"{{ dataItem.link_filters }}\",\n                      \"variant\": \"subtle\",\n                      \"label\": \"{{ dataItem.label }}\",\n                      \"modelValue\": \"\",\n                      \"required\": \"{{ dataItem.reqd }}\",\n                      \"allowCreate\": false\n                    },\n                    \"componentSlots\": {},\n                    \"componentEvents\": {},\n                    \"attributes\": {\n                      \"link_id\": \"{{ dataItem.fieldname }}\"\n                    },\n                    \"blockName\": \"Link\",\n                    \"children\": [],\n                    \"baseStyles\": {},\n                    \"rawStyles\": {},\n                    \"mobileStyles\": {},\n                    \"tabletStyles\": {},\n                    \"visibilityCondition\": \"{{ dataItem.fieldtype == \\\"Link\\\" }}\",\n                    \"classes\": [],\n                    \"parentSlotName\": \"default\"\n                  }\n                ],\n                \"parentBlockId\": \"Repeater-jdzpzj8db\"\n              }\n            },\n            \"componentEvents\": {},\n            \"attributes\": {},\n            \"blockName\": \"Repeater\",\n            \"children\": [],\n            \"baseStyles\": {\n              \"width\": \"100%\",\n              \"display\": \"flex\",\n              \"gridTemplateColumns\": \"repeat(auto-fill, minmax(200px, 1fr))\",\n              \"gap\": \"10px\",\n              \"flexDirection\": \"column\",\n              \"padding\": \"20px\",\n              \"overflowY\": \"visible\",\n              \"overflowX\": \"visible\"\n            },\n            \"rawStyles\": {},\n            \"mobileStyles\": {},\n            \"tabletStyles\": {},\n            \"visibilityCondition\": \"\",\n            \"classes\": []\n          }\n        ],\n        \"baseStyles\": {\n          \"display\": \"flex\",\n          \"flexDirection\": \"column\",\n          \"flexShrink\": 0,\n          \"height\": \"80%\",\n          \"width\": \"100%\",\n          \"overflowY\": \"scroll\"\n        },\n        \"rawStyles\": {},\n        \"mobileStyles\": {},\n        \"tabletStyles\": {},\n        \"originalElement\": \"div\",\n        \"classes\": []\n      }\n    ],\n    \"baseStyles\": {\n      \"alignItems\": \"center\",\n      \"display\": \"flex\",\n      \"flexDirection\": \"column\",\n      \"flexShrink\": 0,\n      \"flexWrap\": \"wrap\",\n      \"height\": \"100%\",\n      \"overflowX\": \"hidden\",\n      \"width\": \"inherit\",\n      \"position\": \"relative\"\n    },\n    \"rawStyles\": {},\n    \"mobileStyles\": {},\n    \"tabletStyles\": {},\n    \"originalElement\": \"body\",\n    \"classes\": []\n  }\n]",
+ "draft_blocks": [
+  {
+   "baseStyles": {
+    "alignItems": "center",
+    "display": "flex",
+    "flexDirection": "column",
+    "flexShrink": 0,
+    "flexWrap": "wrap",
+    "height": "100%",
+    "overflowX": "hidden",
+    "position": "relative",
+    "width": "inherit"
+   },
+   "blockName": "div",
+   "children": [
+    {
+     "blockName": "custom_header",
+     "children": [],
+     "classes": [],
+     "componentId": "custom_header-x3eh538yn",
+     "componentName": "custom_header",
+     "componentProps": {
+      "avatar": "{{ current_user.data.user_image }}",
+      "page": "{{sessionStorage.getItem(\"doctype\") }}"
+     },
+     "isStudioComponent": true
+    },
+    {
+     "blockName": "BottomTabs",
+     "children": [],
+     "classes": [],
+     "componentId": "BottomTabs-t4ansro70",
+     "componentName": "BottomTabs",
+     "componentProps": {
+      "tabs": "{{ JSON.parse(sessionStorage.getItem(\"nav_links_v1\") || \"[]\") }}"
+     }
+    },
+    {
+     "baseStyles": {
+      "display": "flex",
+      "flexDirection": "column",
+      "flexShrink": 0,
+      "height": "80%",
+      "overflowY": "scroll",
+      "width": "100%"
+     },
+     "blockName": "container",
+     "children": [
+      {
+       "baseStyles": {
+        "display": "flex",
+        "flexDirection": "column",
+        "gap": "10px",
+        "gridTemplateColumns": "repeat(auto-fill, minmax(200px, 1fr))",
+        "overflowX": "visible",
+        "overflowY": "visible",
+        "padding": "20px",
+        "width": "100%"
+       },
+       "blockName": "Repeater",
+       "children": [],
+       "classes": [],
+       "componentId": "Repeater-jdzpzj8db",
+       "componentName": "Repeater",
+       "componentProps": {
+        "data": "{{ form_schema.data.docs[0].fields }}",
+        "dataKey": "fieldname",
+        "emptyStateMessage": ""
+       },
+       "componentSlots": {
+        "default": {
+         "parentBlockId": "Repeater-jdzpzj8db",
+         "slotContent": [
+          {
+           "attributes": {},
+           "baseStyles": {},
+           "blockName": "Textarea",
+           "children": [],
+           "classes": [],
+           "componentEvents": {},
+           "componentId": "Textarea-9l8cmcsmb",
+           "componentName": "Textarea",
+           "componentProps": {
+            "id": "{{ dataItem.name }}",
+            "label": "{{ dataItem.label }}",
+            "placeholder": "Enter your message",
+            "rows": "5",
+            "size": "sm",
+            "variant": "subtle"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "parentSlotName": "default",
+           "rawStyles": {},
+           "tabletStyles": {},
+           "visibilityCondition": "{{ dataItem.fieldtype == \"Small Text\" }}"
+          },
+          {
+           "attributes": {},
+           "baseStyles": {},
+           "blockName": "Switch",
+           "children": [],
+           "classes": [],
+           "componentEvents": {
+            "click": {
+             "action": "Run Script",
+             "event": "click",
+             "oldEvent": "click",
+             "script": "const toInt = (v) =>\n  (v === true || v === 1 || v === \"1\" || String(v).toLowerCase() === \"true\") ? 1 : 0;\n\n// current -> next\nconst current = toInt(dataItem.modelValue ?? dataItem.default);\nconst next = current ? 0 : 1;\n\n// keep field value in sync\ndataItem.modelValue = next === 1;\ndataItem.default = next;\n\n// ensure switchState wrapper store exists\nif (!switchState || !switchState._object || !switchState._key) {\n  console.log(\"switchState wrapper missing:\", switchState);\n} else {\n  const store = switchState._object[switchState._key] || {};\n\n  // IMPORTANT: immutable update so Studio reactivity triggers\n  const nextStore = {\n    ...store,\n    [dataItem.fieldname]: next,\n  };\n\n  switchState._object[switchState._key] = nextStore;\n  // force visibility re-eval\n  visibilityTick = (visibilityTick || 0) + 1;\n  console.log(\"[parent toggled]\", dataItem.fieldname, \"=>\", next);\n  console.log(\"[switch store]\", switchState._object[switchState._key]);\n  console.log(\"parent value in store:\", switchState._object[switchState._key][dataItem.fieldname]);\n\n}"
+            }
+           },
+           "componentId": "Switch-b0t59ra3l",
+           "componentName": "Switch",
+           "componentProps": {
+            "description": "",
+            "disabled": false,
+            "label": "{{dataItem.label }}",
+            "labelClasses": "",
+            "modelValue": "{{ dataItem.default}}",
+            "size": "sm"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "parentSlotName": "default",
+           "rawStyles": {},
+           "tabletStyles": {},
+           "visibilityCondition": "{{  dataItem.fieldtype == \"Check\" && dataItem.parent_link == null }}"
+          },
+          {
+           "attributes": {},
+           "baseStyles": {},
+           "blockName": "Switch",
+           "children": [],
+           "classes": [],
+           "componentEvents": {
+            "click": {
+             "action": "Run Script",
+             "event": "click",
+             "script": "console.log(\n  \"child field:\", dataItem.fieldname,\n  \"parent_link:\", dataItem.parent_link,\n  \"parent value in store:\",\n  switchState?._object?.[switchState?._key]?.[dataItem.parent_link]\n);\n"
+            }
+           },
+           "componentId": "Switch-sdzr5tahe",
+           "componentName": "Switch",
+           "componentProps": {
+            "description": "",
+            "disabled": false,
+            "label": "{{ dataItem.label }}",
+            "labelClasses": "",
+            "modelValue": "{{ dataItem.default }}",
+            "size": "sm"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "parentSlotName": "default",
+           "rawStyles": {},
+           "tabletStyles": {},
+           "visibilityCondition": "{{ dataItem.fieldtype === 'Check' &&  (switchState._object[switchState._key][dataItem.parent_link] == 1) ? true : false }}"
+          },
+          {
+           "attributes": {},
+           "baseStyles": {},
+           "blockName": "Header",
+           "children": [],
+           "classes": [],
+           "componentEvents": {},
+           "componentId": "Header-uy6yheho8",
+           "componentName": "Header",
+           "componentProps": {
+            "hideLogo": true,
+            "hideMenu": true,
+            "menuItems": "",
+            "title": "{{ dataItem.label }}"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "parentSlotName": "default",
+           "rawStyles": {},
+           "tabletStyles": {},
+           "visibilityCondition": "{{ dataItem.fieldtype == \"Section Break\" }}"
+          },
+          {
+           "attributes": {},
+           "baseStyles": {},
+           "blockName": "TextInput",
+           "children": [],
+           "classes": [],
+           "componentEvents": {},
+           "componentId": "TextInput-wlwyl16uv",
+           "componentName": "TextInput",
+           "componentProps": {
+            "id": "{{ dataItem.name}}",
+            "placeholder": "{{ dataItem.label }}",
+            "required": "{{ dataItem.reqd }}",
+            "size": "sm",
+            "type": "text",
+            "variant": "subtle"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "parentSlotName": "default",
+           "rawStyles": {},
+           "tabletStyles": {},
+           "visibilityCondition": "{{ dataItem.fieldtype == \"Data\"  }}"
+          },
+          {
+           "attributes": {},
+           "baseStyles": {},
+           "blockName": "Divider",
+           "children": [],
+           "classes": [],
+           "componentEvents": {},
+           "componentId": "Divider-wjon7gfej",
+           "componentName": "Divider",
+           "componentProps": {
+            "action": "",
+            "flexItem": true,
+            "orientation": "horizontal",
+            "position": "center"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "parentSlotName": "default",
+           "rawStyles": {},
+           "tabletStyles": {},
+           "visibilityCondition": "{{ dataItem.fieldtype == \"Column Break\" }}"
+          },
+          {
+           "attributes": {},
+           "baseStyles": {},
+           "blockName": "Select",
+           "children": [],
+           "classes": [],
+           "componentEvents": {},
+           "componentId": "Select-cp3cmgude",
+           "componentName": "Select",
+           "componentProps": {
+            "id": "{{ dataItem.name }}",
+            "options": "{{dataItem.options }}",
+            "placeholder": "{{ dataItem.label }}",
+            "size": "sm",
+            "variant": "subtle"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "parentSlotName": "default",
+           "rawStyles": {},
+           "tabletStyles": {},
+           "visibilityCondition": "{{ dataItem.fieldtype == \"Select\" }}"
+          },
+          {
+           "attributes": {
+            "link_id": "{{ dataItem.fieldname }}"
+           },
+           "baseStyles": {},
+           "blockName": "Link",
+           "children": [],
+           "classes": [],
+           "componentEvents": {},
+           "componentId": "Link-s1rf9c6wy",
+           "componentName": "Link",
+           "componentProps": {
+            "allowCreate": false,
+            "doctype": "{{ dataItem.options }}",
+            "filters": "{{ dataItem.link_filters }}",
+            "label": "{{ dataItem.label }}",
+            "modelValue": "",
+            "required": "{{ dataItem.reqd }}",
+            "variant": "subtle"
+           },
+           "componentSlots": {},
+           "mobileStyles": {},
+           "parentSlotName": "default",
+           "rawStyles": {},
+           "tabletStyles": {},
+           "visibilityCondition": "{{ dataItem.fieldtype == \"Link\" }}"
+          }
+         ],
+         "slotId": "Repeater-jdzpzj8db:default",
+         "slotName": "default"
+        }
+       }
+      }
+     ],
+     "classes": [],
+     "componentId": "container-428vcvijg",
+     "componentName": "container",
+     "originalElement": "div"
+    }
+   ],
+   "classes": [],
+   "componentId": "root",
+   "componentName": "div",
+   "originalElement": "body"
+  }
+ ],
  "dynamic_page": 1,
  "frappe_app": "verto",
  "idx": 1,
  "is_standard": 1,
- "modified": "2026-02-10 14:45:24.426647",
- "modified_by": "sean@minesitesupport.com.au",
+ "modified": "2026-04-22 07:58:53.248452",
+ "modified_by": "Administrator",
  "name": "new_record",
  "owner": "sean@minesitesupport.com.au",
  "page_name": "page-6e063d99",
@@ -28,6 +616,7 @@
    "whitelisted_methods": "[]"
   },
   {
+   "auto": 1,
    "fields": "[]",
    "filters": "{}",
    "method": "GET",
@@ -39,6 +628,7 @@
    "whitelisted_methods": "[]"
   },
   {
+   "auto": 1,
    "fields": "[]",
    "filters": "{}",
    "method": "GET",

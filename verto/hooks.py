@@ -4,7 +4,28 @@ app_publisher = "Webwire"
 app_description = "Fully customised instance for ERPNext Version-15"
 app_email = "support@webwire.com.au"
 app_license = "apache-2.0"
+# Apps
+# ------------------
+
 # required_apps = []
+
+# Each item in the list will be shown as an app in the apps page
+add_to_apps_screen = [
+	{
+		"name": "Roster",
+ 		"logo": "/assets/mss_erp/images/calendar-96.png",
+ 		"title": "Roster",
+ 		"route": "/hr/roster",
+ 		"has_permission": "hrms.hr.utils.check_app_permission"
+ 	},
+    {
+		"name": "SMS Center",
+ 		"logo": "/assets/mss_erp/images/sms-96.png",
+ 		"title": "SMS Center",
+ 		"route": "/app/sms-center",
+ 		"has_permission": "hrms.hr.utils.check_app_permission"
+ 	}
+ ]
 
 # Includes in <head>
 # ------------------

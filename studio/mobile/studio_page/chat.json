@@ -1,4 +1,5 @@
 {
+ "__unsaved": 1,
  "blocks": [
   {
    "baseStyles": {
@@ -52,7 +53,6 @@
           "gap": "10px",
           "height": "fit-content",
           "justifyContent": "space-around",
-          "paddingRight": "11px",
           "width": "90%"
          },
          "blockName": "container",
@@ -94,23 +94,6 @@
        "slotId": "AppHeader-kjxbwo8ll:default",
        "slotName": "default"
       }
-     },
-     "mobileStyles": {
-      "flexWrap": "nowrap",
-      "gap": "10px",
-      "margin": "0px",
-      "padding": "-10px",
-      "paddingLeft": "30px",
-      "width": "100%"
-     }
-    },
-    {
-     "children": [],
-     "classes": [],
-     "componentId": "BottomTabs-b30r9vrvc",
-     "componentName": "BottomTabs",
-     "componentProps": {
-      "tabs": "{{ Page_List.data }}"
      }
     },
     {
@@ -510,22 +493,31 @@
                        "blockName": "Dropdown",
                        "children": [],
                        "classes": [],
-                       "componentEvents": {
-                        "click": {
-                         "action": "Run Script",
-                         "event": "click",
-                         "oldEvent": "click",
-                         "script": "selected_task_name = dataItem.name;\nsafety_docs.reload({\n  link_task: selected_task_name\n});"
-                        }
-                       },
-                       "componentId": "Dropdown-fjen24hyc",
+                       "componentEvents": {},
+                       "componentId": "Dropdown-fpd2i8lcr",
                        "componentName": "Dropdown",
                        "componentProps": {
                         "button": {
-                         "label": "+ Form >"
+                         "label": "+ Forms >"
                         },
                         "offset": 4,
-                        "options": "{{ safety_docs.data }}",
+                        "options": [
+                         {
+                          "icon": "edit-2",
+                          "label": "Edit Title",
+                          "onClick": "()=>{}"
+                         },
+                         {
+                          "icon": "users",
+                          "label": "Manage Members",
+                          "onClick": "()=>{}"
+                         },
+                         {
+                          "icon": "trash",
+                          "label": "Delete this project",
+                          "onClick": "()=>{}"
+                         }
+                        ],
                         "placement": "left",
                         "side": "bottom"
                        },
@@ -640,28 +632,28 @@
   }
  ],
  "client_scripts": [],
- "creation": "2026-01-26 16:30:19.464134",
+ "creation": "2026-01-27 09:55:44.469097",
  "doctype": "Studio Page",
+ "dynamic_page": 1,
  "frappe_app": "verto",
  "is_standard": 1,
- "modified": "2026-04-22 08:02:49.271932",
- "modified_by": "sean@minesitesupport.com.au",
- "name": "home",
- "owner": "Administrator",
- "page_name": "page-4ed4c3e3",
- "page_title": "Home",
+ "modified": "2026-04-22 08:03:42.313940",
+ "modified_by": "Administrator",
+ "name": "chat",
+ "owner": "sean@minesitesupport.com.au",
+ "page_name": "page-65c3dd99",
+ "page_title": "Chat",
  "published": 1,
  "resources": [
   {
-   "auto": 1,
    "document_type": "Studio Page",
    "fields": "[\"page_name\",\"page_title\",\"route\"]",
-   "filters": "{\"studio_app\":[\"=\",\"mobile\"],\"dynamic_page\":[\"=\",\"No\"]}",
+   "filters": "{\"studio_app\":[\"=\",\"mobile\"]}",
    "method": "GET",
    "params": "{}",
    "resource_name": "Page_List",
    "resource_type": "Document List",
-   "transform": "function transform(data) {\n  const rows = Array.isArray(data) ? [...data] : [];\n\n  const iconFor = (title) => {\n    const t = (title || \"\").toLowerCase();\n    if (t.includes(\"home\")) return \"home\";\n    if (t.includes(\"shift\")) return \"calendar\";\n    return \"circle\";\n  };\n\n  // Your desired order (after Home)\n  const ORDER = [\n    \"Shifts\",\n    // \"Timesheets\",\n    // \"Messages\",\n    // \"Settings\",\n  ];\n\n  const rank = (title) => {\n    if (title === \"Home\") return -1000;              // always first\n    const i = ORDER.indexOf(title);\n    if (i !== -1) return i;                          // custom order next\n    return 1000;                                     // everything else after\n  };\n\n  rows.sort((a, b) => {\n    const at = a.page_title || \"\";\n    const bt = b.page_title || \"\";\n\n    const ra = rank(at);\n    const rb = rank(bt);\n    if (ra !== rb) return ra - rb;\n\n    // tie-break: alphabetic\n    return at.localeCompare(bt);\n  });\n\n  return rows.map(r => ({\n    label: r.page_title,\n    route: r.route,\n    icon: iconFor(r.page_title)\n  }));\n}",
+   "transform": "function transform(data) {\n  const rows = Array.isArray(data) ? [...data] : [];\n\n  const iconFor = (title) => {\n    const t = (title || \"\").toLowerCase();\n    if (t.includes(\"home\")) return \"home\";\n    if (t.includes(\"shift\")) return \"calendar\";\n    return \"circle\";\n  };\n\n  // Your desired order (after Home)\n  const ORDER = [\n    \"Shifts\",\n    \"PERI\",\n    \"Forms\",\n    \"Chat\",\n    // \"Timesheets\",\n    // \"Messages\",\n    // \"Settings\",\n  ];\n\n  const rank = (title) => {\n    if (title === \"Home\") return -1000;              // always first\n    const i = ORDER.indexOf(title);\n    if (i !== -1) return i;                          // custom order next\n    return 1000;                                     // everything else after\n  };\n\n  rows.sort((a, b) => {\n    const at = a.page_title || \"\";\n    const bt = b.page_title || \"\";\n\n    const ra = rank(at);\n    const rb = rank(bt);\n    if (ra !== rb) return ra - rb;\n\n    // tie-break: alphabetic\n    return at.localeCompare(bt);\n  });\n\n  return rows.map(r => ({\n    label: r.page_title,\n    route: r.route,\n    icon: iconFor(r.page_title)\n  }));\n}",
    "whitelisted_methods": "[]"
   },
   {
@@ -677,7 +669,6 @@
    "whitelisted_methods": "[]"
   },
   {
-   "auto": 1,
    "fields": "[]",
    "filters": "{}",
    "method": "GET",
@@ -688,7 +679,6 @@
    "whitelisted_methods": "[]"
   },
   {
-   "auto": 1,
    "fields": "[]",
    "filters": "{}",
    "method": "GET",
@@ -700,7 +690,6 @@
    "whitelisted_methods": "[]"
   },
   {
-   "auto": 1,
    "fields": "[]",
    "filters": "{}",
    "method": "GET",
@@ -710,20 +699,9 @@
    "transform": "function transform(data) { \n\treturn data; \n}",
    "url": "hrms.api.get_current_user_info",
    "whitelisted_methods": "[]"
-  },
-  {
-   "fields": "[]",
-   "filters": "{}",
-   "method": "GET",
-   "params": "{\"link_task\":\"{{ dataItem.name }}\"}",
-   "resource_name": "safety_docs",
-   "resource_type": "API Resource",
-   "transform": "function transform(data) {\n  const list = data?.message ?? data?.data ?? data;\n  if (!Array.isArray(list)) return [];\n\n  return list.map((x) => ({\n    label: x.label,\n    icon: x.icon || \"edit-2\",\n    onClick: () => {\n      const url = x.route_link;\n      const target = x.target || \"_self\";\n\n      // If it's meant to open a new tab (or it's an external link), use window.open\n      if (target === \"_blank\") {\n        window.open(url, \"_blank\", \"noopener,noreferrer\");\n      } else {\n        // Same tab navigation\n        studio.navigate(url); // or studio.navigate({ path: url }) if your build requires object form\n      }\n\n      console.log(url);\n    },\n  }));\n}\n",
-   "url": "verto.api.mobile.list_safety_doctypes",
-   "whitelisted_methods": "[]"
   }
  ],
- "route": "/home",
+ "route": "/chat",
  "studio_app": "mobile",
  "variables": [
   {
@@ -740,20 +718,7 @@
    "initial_value": "\"/files/Mine-Site-Support_Symbol_Colour.svg\"",
    "variable_name": "app_logo",
    "variable_type": "String"
-  },
-  {
-   "initial_value": "\"\"",
-   "variable_name": "selected_task_name",
-   "variable_type": "String"
   }
  ],
- "watchers": [
-  {
-   "debounce": 20,
-   "deep": 1,
-   "immediate": 1,
-   "script": "safety_docs.fetch()",
-   "source": "selected_task_name"
-  }
- ]
+ "watchers": []
 }
