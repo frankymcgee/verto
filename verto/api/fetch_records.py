@@ -27,9 +27,13 @@ def fetch_created_records():
     start_date = frappe.form_dict.get("start_date") or "2000-01-01"
     end_date = frappe.form_dict.get("end_date") or frappe.utils.nowdate()
 
-    # Check if the logged-in user is Administrator
+    # Check if the logged-in user is Administrator or Lead HSE Advisor
     current_user = frappe.session.user
-    is_admin = current_user == "Administrator"
+
+    is_admin = (
+        current_user == "Administrator"
+        or "Lead HSE Advisor" in frappe.get_roles(current_user)
+    )
 
     # List to store all records across DocTypes
     all_records = []

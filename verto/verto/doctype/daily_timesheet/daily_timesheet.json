@@ -108,7 +108,6 @@
   },
   {
    "fetch_from": "shift_allocation.shift_type",
-   "fetch_if_empty": 1,
    "fieldname": "shift",
    "fieldtype": "Link",
    "label": "Shift",
@@ -116,21 +115,18 @@
   },
   {
    "fetch_from": "shift_allocation.custom_project_name",
-   "fetch_if_empty": 1,
    "fieldname": "project",
    "fieldtype": "Data",
    "label": "Project"
   },
   {
    "fetch_from": "shift_allocation.custom_client",
-   "fetch_if_empty": 1,
    "fieldname": "customer",
    "fieldtype": "Data",
    "label": "Customer"
   },
   {
    "fetch_from": "shift_allocation.custom_project",
-   "fetch_if_empty": 1,
    "fieldname": "project_id",
    "fieldtype": "Data",
    "label": "Project ID"
@@ -139,8 +135,8 @@
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-04-21 14:07:08.432300",
- "modified_by": "sean@minesitesupport.com.au",
+ "modified": "2026-04-22 15:04:07.772453",
+ "modified_by": "Administrator",
  "module": "Verto",
  "name": "Daily Timesheet",
  "naming_rule": "Expression (old style)",
