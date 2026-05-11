@@ -1,0 +1,48 @@
+.mobile-install-prompt {
+    margin-bottom: 16px;
+    width: 100%;
+}
+
+.mobile-install-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 12px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.mobile-install-icon {
+    font-size: 24px;
+    line-height: 1;
+}
+
+.mobile-install-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.mobile-install-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 2px;
+}
+
+.mobile-install-text {
+    font-size: 12px;
+    color: #6b7280;
+    line-height: 1.35;
+}
+
+#mobile-install-button {
+    white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+    .mobile-install-prompt {
+        display: none !important;
+    }
+}
