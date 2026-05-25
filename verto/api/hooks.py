@@ -35,8 +35,8 @@ def create_project_handover_records(doc, method=None):
 
         gp_project_name = gp_project.name
 
-    if gp_project_name and getattr(doc, "gameplan_team", None) != gp_project_name:
-        doc.db_set("gameplan_team", gp_project_name, update_modified=False)
+    if gp_project_name and getattr(doc, "gameplan_team_name", None) != gp_project_name:
+        doc.db_set("gameplan_team_name", gp_project_name, update_modified=False)
 
     # Raven Channel
     raven_channel_name = frappe.db.get_value(

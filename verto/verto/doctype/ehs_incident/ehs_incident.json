@@ -22,9 +22,9 @@
   "section_break_9",
   "persons_involved",
   "root_causes",
+  "icam_factors",
   "section_break_a",
   "related_risk",
-  "amended_from",
   "amended_from"
  ],
  "fields": [
@@ -150,16 +150,23 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "icam_factors",
+   "fieldtype": "Table",
+   "label": "ICAM Factors",
+   "options": "EHS ICAM Factors"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-16 15:27:27.922350",
- "modified_by": "Administrator",
+ "modified": "2026-05-20 11:32:27.112610",
+ "modified_by": "sean@minesitesupport.com.au",
  "module": "Verto",
  "name": "EHS Incident",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
