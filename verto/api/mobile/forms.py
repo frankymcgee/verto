@@ -14,7 +14,7 @@ def get_mobile_forms():
             "doctype": "Field Interaction",
             "description": "Capture field observations, conversations and safety interactions.",
             "icon": "clipboard-list",
-            "route": "/app/field-interaction/new",
+            "route": "/verto-mobile/new/field-interaction",
             "category": "Safety"
         },
         {
@@ -22,7 +22,7 @@ def get_mobile_forms():
             "doctype": "Commitment Interaction",
             "description": "Record commitments, engagement and follow-up actions.",
             "icon": "handshake",
-            "route": "/app/commitment-interaction/new",
+            "route": "/verto-mobile/new/commitment-interaction",
             "category": "Safety"
         },
         {
@@ -30,7 +30,7 @@ def get_mobile_forms():
             "doctype": "Workplace Inspection",
             "description": "Complete workplace inspections from the field.",
             "icon": "search-check",
-            "route": "/app/workplace-inspection/new",
+            "route": "/verto-mobile/new/workplace-inspection",
             "category": "Inspection"
         },
         {
@@ -38,7 +38,7 @@ def get_mobile_forms():
             "doctype": "Job Hazard Analysis Review",
             "description": "Review JHAs and capture controls or improvement items.",
             "icon": "file-check",
-            "route": "/app/job-hazard-analysis-review/new",
+            "route": "/verto-mobile/new/job-hazard-analysis-review",
             "category": "Review"
         },
         {
@@ -46,7 +46,7 @@ def get_mobile_forms():
             "doctype": "Contractor Management Audit Checklist",
             "description": "Complete contractor management checks and audit questions.",
             "icon": "shield-check",
-            "route": "/app/contractor-management-audit-checklist/new",
+            "route": "/verto-mobile/new/contractor-management-audit-checklist",
             "category": "Audit"
         }
     ]

@@ -1,6 +1,12 @@
+@import 'frappe-ui/style.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --mobile-bottom-tabs-height: calc(68px + env(safe-area-inset-bottom));
+}
 
 html,
 body,
