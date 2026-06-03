@@ -180,6 +180,19 @@
                 :disabled="isChildFieldReadOnly(childField, row)"
               />
 
+              <div
+                v-else-if="childField.fieldtype === 'Signature'"
+                class="space-y-1"
+              >
+                <SignatureField
+                  v-model="row[childField.fieldname]"
+                  :label="childField.label"
+                  :description="childField.description"
+                  :required="isChildFieldMandatory(childField, row)"
+                  :disabled="isChildFieldReadOnly(childField, row)"
+                />
+              </div>
+
               <FormControl
                 v-else
                 v-model="row[childField.fieldname]"
@@ -216,6 +229,7 @@ import {
   evaluateMandatoryDependsOn,
   evaluateReadOnlyDependsOn,
 } from '../../lib/dependencies'
+import SignatureField from './SignatureField.vue'
 
 type ChildRow = Record<string, any>
 
@@ -297,6 +311,10 @@ function getDefaultValue(field: MobileField) {
 
   if (field.fieldtype === 'Table') {
     return []
+  }
+
+  if (field.fieldtype === 'Signature') {
+    return field.default ? String(field.default) : ''
   }
 
   return field.default ?? ''

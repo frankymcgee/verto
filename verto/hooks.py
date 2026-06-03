@@ -49,16 +49,24 @@ app_include_js = [
     "/assets/verto/js/leaflet.draw.js",
     "/assets/verto/js/easy-button.js",
     "/assets/verto/js/L.Control.Locate.js"
+    "/assets/verto/js/raven_peri_auto_command.js",
 ]	
 
 # include js, css files in header of web template
 web_include_js = [
     "/assets/verto/js/mobile_install_prompt.js"
+    "/assets/verto/js/raven_peri_auto_command.js",
 ]
 
 web_include_css = [
     "/assets/verto/css/mobile_install_prompt.css"
 ]
+
+website_context = {
+    "include_js": [
+        "/assets/verto/js/raven_peri_auto_command.js",
+    ]
+}
 
 # include custom scss in every website theme (without file extension ".scss")
 # website_theme_scss = "verto/public/scss/website"

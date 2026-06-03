@@ -7,53 +7,29 @@ import Shifts from '../pages/Shifts.vue'
 import Chat from '../pages/Chat.vue'
 import More from '../pages/More.vue'
 import NewDocument from '../pages/NewDocument.vue'
+import EditDocument from '../pages/EditDocument.vue'
 
 const routes = [
   {
     path: '/',
     component: MobileShell,
     children: [
-      {
-        path: '',
-        component: Home,
-        meta: {
-          title: 'My Site Work',
-        },
-      },
-      {
-        path: 'forms',
-        component: Forms,
-        meta: {
-          title: 'Completed Forms',
-        },
-      },
-      {
-        path: 'shifts',
-        component: Shifts,
-        meta: {
-          title: 'Shifts',
-        },
-      },
-      {
-        path: 'chat',
-        component: Chat,
-        meta: {
-          title: 'Chat',
-        },
-      },
-      {
-        path: 'more',
-        component: More,
-        meta: {
-          title: 'More',
-        },
-      },
+      { path: '', component: Home },
+      { path: 'forms', component: Forms },
+      { path: 'shifts', component: Shifts },
+      { path: 'chat', component: Chat },
+      { path: 'more', component: More },
+
+      // Create a new mobile document
       {
         path: 'new/:mobileDoctype',
         component: NewDocument,
-        meta: {
-          title: 'New Form',
-        },
+      },
+
+      // Edit an existing mobile document
+      {
+        path: 'edit/:mobileDoctype/:docname',
+        component: EditDocument,
       },
     ],
   },

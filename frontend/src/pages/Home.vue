@@ -65,7 +65,7 @@
         <Card
           v-for="scope in groupedTasks"
           :key="scope.scope_name"
-          class="overflow-hidden border border-outline-gray-1 bg-surface-white"
+          class="overflow-hidden border border-outline-gray-1 bg-surface-white !py-1 !px-1 !mt-1"
         >
           <!-- Scope Header -->
           <button
@@ -77,12 +77,31 @@
               <p class="truncate text-base font-semibold text-ink-gray-9">
                 {{ scope.scope_name }}
               </p>
+
+              <p class="mt-1 truncate text-xs text-ink-gray-5">
+                {{ getProjectCustomer(scope) }}
+              </p>
             </div>
 
             <div class="flex shrink-0 items-center gap-2">
-              <Badge variant="subtle">
-                {{ getScopeAverageProgress(scope) }}%
-              </Badge>
+              <div
+                class="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-outline-gray-1 bg-surface-gray-2"
+              >
+                <img
+                  v-if="getCustomerImage(scope)"
+                  :src="getCustomerImage(scope)"
+                  :alt="getProjectCustomer(scope) || 'Customer'"
+                  class="h-full w-full object-cover"
+                  @error="hideBrokenImage"
+                >
+
+                <span
+                  v-else
+                  class="text-sm font-semibold text-ink-gray-6"
+                >
+                  {{ getCustomerInitials(scope) }}
+                </span>
+              </div>
 
               <span class="text-xl font-medium text-ink-gray-5">
                 {{ openScopes[scope.scope_name] ? '−' : '+' }}
@@ -99,7 +118,7 @@
             <Card
               v-for="parent in scope.parent_groups"
               :key="parent.parent_task_name"
-              class="overflow-hidden border border-outline-gray-1 bg-surface-gray-1"
+              class="overflow-hidden border border-outline-gray-1 bg-surface-gray-1 !py-1 !px-1 !mt-1"
             >
               <button
                 type="button"
@@ -110,6 +129,9 @@
                   <div class="min-w-0">
                     <p class="truncate text-sm font-semibold text-ink-gray-9">
                       {{ parent.parent_task_name }}
+                    </p>
+                    <p class="mt-1 text-xs text-ink-gray-5">
+                      Area Location
                     </p>
                   </div>
 
@@ -144,7 +166,7 @@
                 <Card
                   v-for="task in parent.tasks"
                   :key="task.name"
-                  class="overflow-hidden border border-outline-gray-1 bg-surface-white"
+                  class="overflow-hidden border border-outline-gray-1 bg-surface-white !py-1 !px-1 !mt-1"
                 >
                   <div class="space-y-3 p-3">
                     <div class="flex items-start justify-between gap-3">
@@ -288,13 +310,10 @@
               </Button>
 
               <Button
-                as="a"
                 variant="subtle"
                 theme="gray"
                 class="justify-center"
-                :href="getRavenUrl(scope)"
-                target="_blank"
-                rel="noopener noreferrer"
+                @click="openProjectChat(scope)"
               >
                 Chat
               </Button>
@@ -382,6 +401,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   Badge,
   Button,
@@ -397,20 +417,42 @@ type HomeButton = {
 
 type TaskItem = Record<string, any>
 
+type ProjectDetails = {
+  name?: string
+  project_name?: string
+  title?: string
+  status?: string
+  gameplan_team_name?: string
+  gameplan_project?: string
+  raven_channel?: string
+  raven_channel_id?: string
+  channel_id?: string
+  raven_workspace?: string
+  roster_or_shutdown?: string
+  customer?: string
+  customer_name?: string
+  client?: string
+  client_name?: string
+  customer_image?: string
+  image?: string
+  [key: string]: any
+}
+
 type ParentGroup = {
   parent_task_name: string
   parent_task: string
   progress: number
   project: string
-  project_details: Record<string, any>
+  project_details: ProjectDetails
   tasks: TaskItem[]
 }
 
 type ScopeGroup = {
   scope_name: string
   project: string
-  project_details: Record<string, any>
+  project_details: ProjectDetails
   parent_groups: ParentGroup[]
+  customer?: string
 }
 
 type HomePayload = {
@@ -431,6 +473,8 @@ type HomePayload = {
 type FrappeResponse<T> = {
   message: T
 }
+
+const router = useRouter()
 
 const loading = ref(true)
 const error = ref('')
@@ -590,6 +634,102 @@ function getPriorityColor(priority?: string) {
   return map[priority || ''] || '#f3f4f6'
 }
 
+function slugifyRavenChannelName(value?: string) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function getProjectDisplayName(scope: ScopeGroup) {
+  const project = scope.project_details || {}
+
+  return (
+    project.project_name ||
+    project.title ||
+    project.name ||
+    scope.project ||
+    scope.scope_name ||
+    ''
+  )
+}
+
+function getProjectCustomer(scope: ScopeGroup) {
+  const project = scope.project_details || {}
+
+  return (
+    project.customer ||
+    project.customer_name ||
+    project.client ||
+    project.client_name ||
+    scope.customer ||
+    ''
+  )
+}
+
+function getCustomerImage(scope: ScopeGroup) {
+  const project = scope.project_details || {}
+
+  return (
+    project.customer_image ||
+    project.image ||
+    ''
+  )
+}
+
+function getCustomerInitials(scope: ScopeGroup) {
+  const customer = getProjectCustomer(scope) || getProjectDisplayName(scope)
+
+  const words = String(customer)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  if (!words.length) {
+    return '?'
+  }
+
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase()
+  }
+
+  return `${words[0][0]}${words[1][0]}`.toUpperCase()
+}
+
+function hideBrokenImage(event: Event) {
+  const image = event.target as HTMLImageElement
+  image.style.display = 'none'
+}
+
+function getProjectChatChannel(scope: ScopeGroup) {
+  const project = scope.project_details || {}
+
+  return (
+    project.raven_channel ||
+    project.raven_channel_id ||
+    project.channel_id ||
+    slugifyRavenChannelName(getProjectDisplayName(scope))
+  )
+}
+
+async function openProjectChat(scope: ScopeGroup) {
+  const channel = getProjectChatChannel(scope)
+
+  if (!channel) {
+    error.value = 'Could not determine the Raven channel for this project.'
+    return
+  }
+
+  await router.push({
+    path: '/chat',
+    query: {
+      channel,
+    },
+  })
+}
+
 function getProjectGanttUrl(scope: ScopeGroup) {
   return `/app/task/view/gantt?status=%5B%22not%20in%22%2C%5B%22Completed%22%2C%22Cancelled%22%5D%5D&type=%5B%22not%20in%22%2C%5B%22Task%20Step%22%2C%22Outline%22%5D%5D&project=${encodeURIComponent(scope.project || '')}`
 }
@@ -618,14 +758,6 @@ function getGameplanUrl(scope: ScopeGroup) {
   const gameplanProject = project.gameplan_project || ''
 
   return `/g/${team}/projects/${gameplanProject}`
-}
-
-function getRavenUrl(scope: ScopeGroup) {
-  const project = scope.project_details || {}
-  const workspace = project.raven_workspace || ''
-  const channel = project.raven_channel || ''
-
-  return `${home.value?.raven_base || '/raven'}/${encodeURIComponent(workspace)}/${encodeURIComponent(channel)}`
 }
 
 async function loadHome() {

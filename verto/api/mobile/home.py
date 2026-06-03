@@ -137,6 +137,25 @@ def get_project_fields():
         "raven_channel",
         "raven_workspace",
         "roster_or_shutdown",
+        "customer",
+    ]
+
+    for fieldname in optional_fields:
+        if fieldname in fieldnames:
+            fields.append(fieldname)
+
+    return fields
+
+
+def get_customer_fields():
+    fields = ["name"]
+
+    meta = frappe.get_meta("Customer")
+    fieldnames = {df.fieldname for df in meta.fields}
+
+    optional_fields = [
+        "image",
+        "customer_name",
     ]
 
     for fieldname in optional_fields:
@@ -165,6 +184,30 @@ def fetch_assigned_work_summary_tasks():
     )
 
 
+def fetch_customer_details_for_projects(projects):
+    customer_names = list({
+        project.get("customer")
+        for project in projects
+        if project.get("customer")
+    })
+
+    if not customer_names:
+        return {}
+
+    customers = frappe.get_all(
+        "Customer",
+        filters={
+            "name": ["in", customer_names],
+        },
+        fields=get_customer_fields(),
+        limit_start=0,
+        limit_page_length=500,
+        order_by="name asc",
+    )
+
+    return {customer.name: customer for customer in customers}
+
+
 def fetch_projects_for_tasks(tasks):
     project_names = list({
         task.get("project")
@@ -186,7 +229,20 @@ def fetch_projects_for_tasks(tasks):
         order_by="name asc",
     )
 
-    return {project.name: project for project in projects}
+    customer_map = fetch_customer_details_for_projects(projects)
+
+    project_map = {}
+
+    for project in projects:
+        customer = project.get("customer")
+        customer_details = customer_map.get(customer, {})
+
+        project["customer_name"] = customer_details.get("customer_name") or customer
+        project["customer_image"] = customer_details.get("image")
+
+        project_map[project.name] = project
+
+    return project_map
 
 
 def fetch_parent_progress(grouped):

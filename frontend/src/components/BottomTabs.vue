@@ -46,11 +46,12 @@
       <button
         type="button"
         class="navbar-item peri-item"
-        :class="{ loading: periLoading }"
+        :class="{ active: isPeriActive, loading: periLoading }"
         :disabled="periLoading"
+        :aria-current="isPeriActive ? 'page' : undefined"
         :aria-busy="periLoading ? 'true' : 'false'"
-        aria-label="Open PERI chat"
-        @click="openPeri"
+        aria-label="Open PERI AI chat"
+        @click="openPeriChat"
       >
         <span class="peri-avatar">
           <span
@@ -83,11 +84,11 @@
         <span class="navbar-label">Forms</span>
       </RouterLink>
 
-      <a
-        href="/raven"
+      <RouterLink
+        :to="generalChatRoute"
         class="navbar-item"
-        target="_self"
-        rel="noopener noreferrer"
+        :class="{ active: isGeneralChatActive }"
+        :aria-current="isGeneralChatActive ? 'page' : undefined"
       >
         <svg
           class="navbar-icon"
@@ -101,29 +102,57 @@
         </svg>
 
         <span class="navbar-label">Chat</span>
-      </a>
+      </RouterLink>
     </div>
   </nav>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { apiRequest } from '../lib/api'
 
 type FrappeResponse<T> = {
   message: T
 }
 
-type PeriResponse = {
-  channel: string
-  url: string
+type PeriChannelResponse = {
+  channel?: string
+  channel_id?: string
+  channel_name?: string
+  name?: string
+  url?: string
 }
 
 const route = useRoute()
+const router = useRouter()
+
 const periLoading = ref(false)
 
+const generalChannelName = 'general'
 const periAvatarUrl = '/private/files/ChatGPT Image Jun 23, 2025, 10_20_03 AM.png'
+
+const generalChatRoute = {
+  path: '/chat',
+  query: {
+    channel: generalChannelName,
+  },
+}
+
+const isPeriActive = computed(() => {
+  return route.path === '/chat' && String(route.query.mode || '').toLowerCase() === 'ai'
+})
+
+const isGeneralChatActive = computed(() => {
+  const requestedChannel = String(route.query.channel || '').toLowerCase()
+  const requestedMode = String(route.query.mode || '').toLowerCase()
+
+  return (
+    route.path.startsWith('/chat') &&
+    requestedChannel === generalChannelName &&
+    requestedMode !== 'ai'
+  )
+})
 
 function isActive(path: string) {
   if (path === '/') {
@@ -133,7 +162,17 @@ function isActive(path: string) {
   return route.path.startsWith(path)
 }
 
-async function openPeri() {
+function getPeriChannelName(message: PeriChannelResponse) {
+  return (
+    message.channel ||
+    message.channel_id ||
+    message.channel_name ||
+    message.name ||
+    ''
+  )
+}
+
+async function openPeriChat() {
   if (periLoading.value) {
     return
   }
@@ -141,17 +180,29 @@ async function openPeri() {
   periLoading.value = true
 
   try {
-    const data = await apiRequest<FrappeResponse<PeriResponse>>(
+    const data = await apiRequest<FrappeResponse<PeriChannelResponse>>(
       '/api/method/verto.api.mobile.raven.get_or_create_peri_channel'
     )
 
-    window.location.href = data.message.url
+    const channel = getPeriChannelName(data.message || {})
+
+    if (!channel) {
+      throw new Error('Could not resolve the PERI channel.')
+    }
+
+    await router.push({
+      path: '/chat',
+      query: {
+        channel,
+        mode: 'ai',
+      },
+    })
   } catch (err) {
     if (err instanceof Error && err.message === 'Login required') {
       return
     }
 
-    alert(err instanceof Error ? err.message : 'PERI chat is still loading, please try again.')
+    alert(err instanceof Error ? err.message : 'Could not open PERI chat.')
   } finally {
     periLoading.value = false
   }
@@ -209,6 +260,7 @@ async function openPeri() {
   border: 0;
   background: transparent;
   padding: 0;
+  position: relative;
 }
 
 .peri-avatar {
@@ -242,8 +294,16 @@ async function openPeri() {
   transform: translateY(-8px);
 }
 
+.peri-item.active .peri-avatar-frame {
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.42);
+}
+
 .peri-item.loading .peri-avatar-frame {
   opacity: 0.65;
+}
+
+.peri-item.active .navbar-label {
+  color: #2563eb;
 }
 
 @keyframes peri-pulse {

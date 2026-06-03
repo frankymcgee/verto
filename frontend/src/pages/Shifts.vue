@@ -14,7 +14,7 @@
       </div>
 
       <!-- Calendar -->
-      <Card class="overflow-hidden border border-outline-gray-1 bg-surface-white">
+      <Card class=" px-1 py-1 overflow-hidden border border-outline-gray-1 bg-surface-white !py-1 !px-1 !mt-1">
         <!-- Month Controls -->
         <div class="flex items-center justify-between border-b border-outline-gray-1 px-3 py-3">
           <Button
@@ -92,7 +92,7 @@
             v-for="day in daysInMonth"
             :key="day.date"
             type="button"
-            class="relative flex min-h-14 flex-col items-center justify-start rounded-xl px-1 py-2 text-sm font-medium transition active:scale-95"
+            class="relative flex flex-col items-center justify-start rounded-xl px-1 py-2 text-sm font-medium transition active:scale-95"
             :class="getDayButtonClass(day.date)"
             @click="selectDate(day.date)"
           >
@@ -123,13 +123,9 @@
       <!-- Selected Day Details -->
       <Card
         v-if="selectedDate && !loading && !error"
-        class="overflow-hidden border border-outline-gray-1 bg-surface-white"
+        class="overflow-hidden border border-outline-gray-1 bg-surface-white !py-1 !px-1 !mt-1"
       >
         <div class="border-b border-outline-gray-1 px-3 py-3">
-          <p class="text-xs font-medium uppercase tracking-wide text-ink-gray-5">
-            Selected date
-          </p>
-
           <h2 class="mt-1 text-lg font-semibold text-ink-gray-9">
             {{ formatFullDate(selectedDate) }}
           </h2>
@@ -214,6 +210,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   Button,
   Card,
@@ -258,6 +255,8 @@ type ShiftPayload = {
 type FrappeResponse<T> = {
   message: T
 }
+
+const router = useRouter()
 
 const loading = ref(true)
 const error = ref('')
@@ -486,11 +485,18 @@ function goToToday() {
 }
 
 function createDailyTimesheet(date: string) {
-  window.location.href = `/verto-mobile/new/daily-timesheet?date=${encodeURIComponent(date)}`
+  router.push({
+    path: '/new/daily-timesheet',
+    query: {
+      date,
+    },
+  })
 }
 
 function modifyDailyTimesheet(name: string) {
-  window.location.href = `/app/daily-timesheet/${name}`
+  router.push({
+    path: `/edit/daily-timesheet/${encodeURIComponent(name)}`,
+  })
 }
 
 async function loadCalendar() {

@@ -2,7 +2,7 @@
   <section class="min-h-screen bg-surface-gray-1">
     <main class="space-y-3 px-3 py-3 pb-[calc(var(--mobile-bottom-tabs-height,4rem)+2rem)]">
       <!-- Filters -->
-      <Card class="p-3">
+      <Card class="p-3 !py-1 !px-1">
         <div class="space-y-4">
           <div>
             <h2 class="text-sm font-semibold text-ink-gray-9">
@@ -14,7 +14,7 @@
             </p>
           </div>
 
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-2">
             <FormControl
               v-model="startDate"
               type="date"
@@ -259,6 +259,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   Button,
   Card,
@@ -273,6 +274,9 @@ type FrappeResponse<T> = {
 type CompletedFormRecord = {
   doctype: string
   name: string
+  mobile_doctype?: string
+  mobile_doctype_name?: string
+  mobile_form?: string
   project?: string
   creation?: string
   compliance_percentage?: string | number | null
@@ -282,6 +286,8 @@ type CompletedFormRecord = {
   owner?: string
   link?: string
 }
+
+const router = useRouter()
 
 const pageSize = 5
 
@@ -403,13 +409,26 @@ function nextPage() {
   currentPage.value += 1
 }
 
+function getMobileDoctypeForRecord(record: CompletedFormRecord) {
+  return (
+    record.mobile_doctype ||
+    record.mobile_doctype_name ||
+    record.mobile_form ||
+    record.doctype
+  )
+}
+
 function editRecord(record: CompletedFormRecord) {
-  if (record.link) {
-    window.location.href = record.link
+  const mobileDoctype = getMobileDoctypeForRecord(record)
+
+  if (!mobileDoctype || !record.name) {
+    error.value = 'Could not determine which form to edit.'
     return
   }
 
-  window.location.href = `/app/${encodeURIComponent(record.doctype)}/${encodeURIComponent(record.name)}`
+  router.push({
+    path: `/edit/${encodeURIComponent(mobileDoctype)}/${encodeURIComponent(record.name)}`,
+  })
 }
 
 async function fetchRecords() {

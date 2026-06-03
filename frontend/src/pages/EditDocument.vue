@@ -5,12 +5,19 @@
       <div class="flex items-center justify-between gap-3">
         <div class="min-w-0">
           <p class="truncate text-sm text-ink-gray-5">
-            New document
+            Editing
           </p>
 
           <h1 class="truncate text-base font-semibold text-ink-gray-9">
-            {{ schema?.title || 'New Form' }}
+            {{ schema?.title || docname || 'Edit Form' }}
           </h1>
+
+          <p
+            v-if="docname"
+            class="mt-0.5 truncate text-xs text-ink-gray-5"
+          >
+            {{ docname }}
+          </p>
         </div>
 
         <Button
@@ -56,8 +63,22 @@
       <form
         v-else
         class="space-y-3"
-        @submit.prevent="submitForm"
+        @submit.prevent="saveForm"
       >
+        <!-- Permission Warning -->
+        <Card
+          v-if="!canWrite"
+          class="border border-yellow-200 bg-yellow-50 p-3"
+        >
+          <p class="text-sm font-medium text-yellow-900">
+            Read only
+          </p>
+
+          <p class="mt-1 text-sm text-yellow-800">
+            You can view this document, but you do not have permission to save changes.
+          </p>
+        </Card>
+
         <!-- Warnings -->
         <div
           v-if="warnings.length"
@@ -89,6 +110,16 @@
             </div>
           </Card>
         </div>
+
+        <!-- Saved Message -->
+        <Card
+          v-if="saved"
+          class="border border-green-200 bg-green-50 p-3"
+        >
+          <p class="text-sm text-green-800">
+            Saved successfully.
+          </p>
+        </Card>
 
         <!-- Main Form Card -->
         <Card class="overflow-hidden border border-outline-gray-1 bg-surface-white">
@@ -157,7 +188,7 @@
                     :description="field.description"
                     :placeholder="field.label"
                     :required="isFieldMandatory(field)"
-                    :disabled="isFieldReadOnly(field)"
+                    :disabled="isFieldReadOnly(field) || !canWrite"
                     @update:model-value="handleFieldChange(field)"
                   />
 
@@ -169,7 +200,7 @@
                     :description="field.description"
                     :placeholder="field.label"
                     :required="isFieldMandatory(field)"
-                    :disabled="isFieldReadOnly(field)"
+                    :disabled="isFieldReadOnly(field) || !canWrite"
                     :rows="4"
                     @update:model-value="handleFieldChange(field)"
                   />
@@ -185,7 +216,7 @@
                     :placeholder="field.label || 'Select option'"
                     :options="getSelectOptions(field.options)"
                     :required="isFieldMandatory(field)"
-                    :disabled="isFieldReadOnly(field)"
+                    :disabled="isFieldReadOnly(field) || !canWrite"
                     @update:model-value="(value) => updateSelectValue(field, value)"
                   >
                     <template #item-label="{ item }">
@@ -201,7 +232,7 @@
                     :label="field.label"
                     :description="field.description"
                     :required="isFieldMandatory(field)"
-                    :disabled="isFieldReadOnly(field)"
+                    :disabled="isFieldReadOnly(field) || !canWrite"
                     @update:model-value="handleFieldChange(field)"
                   />
 
@@ -210,7 +241,7 @@
                     v-model="values[field.fieldname]"
                     :field="field"
                     :required="isFieldMandatory(field)"
-                    :disabled="isFieldReadOnly(field)"
+                    :disabled="isFieldReadOnly(field) || !canWrite"
                     @change="handleFieldChange(field)"
                   />
 
@@ -220,7 +251,7 @@
                     :label="field.label"
                     :description="field.description"
                     :required="isFieldMandatory(field)"
-                    :disabled="isFieldReadOnly(field)"
+                    :disabled="isFieldReadOnly(field) || !canWrite"
                     @change="handleFieldChange(field)"
                   />
 
@@ -233,7 +264,7 @@
                     :description="field.description"
                     :placeholder="`${field.label} (${field.fieldtype})`"
                     :required="isFieldMandatory(field)"
-                    :disabled="isFieldReadOnly(field)"
+                    :disabled="isFieldReadOnly(field) || !canWrite"
                     @update:model-value="handleFieldChange(field)"
                   />
                 </div>
@@ -249,16 +280,56 @@
           </div>
         </Card>
 
-        <!-- Attachments -->
-        <Card class="border border-outline-gray-1 bg-surface-white p-3">
+        <!-- Existing Attachments -->
+        <Card
+          v-if="existingFiles.length"
+          class="border border-outline-gray-1 bg-surface-white p-3"
+        >
           <div class="space-y-3">
             <div>
               <label class="block text-sm font-medium text-ink-gray-8">
-                Attachments / Photos
+                Existing Attachments
               </label>
 
               <p class="mt-1 text-sm text-ink-gray-5">
-                Add photos, documents, or supporting files.
+                Files already attached to this document.
+              </p>
+            </div>
+
+            <div class="space-y-2">
+              <a
+                v-for="file in existingFiles"
+                :key="file.name || file.file_url"
+                :href="file.file_url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="flex items-center justify-between gap-3 rounded-xl border border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-sm"
+              >
+                <span class="min-w-0 truncate text-ink-gray-8">
+                  {{ file.file_name || file.file_url }}
+                </span>
+
+                <span class="shrink-0 text-xs text-ink-gray-5">
+                  Open
+                </span>
+              </a>
+            </div>
+          </div>
+        </Card>
+
+        <!-- New Attachments -->
+        <Card
+          v-if="canWrite"
+          class="border border-outline-gray-1 bg-surface-white p-3"
+        >
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-ink-gray-8">
+                Add Attachments / Photos
+              </label>
+
+              <p class="mt-1 text-sm text-ink-gray-5">
+                Add new photos, documents, or supporting files.
               </p>
             </div>
 
@@ -285,18 +356,21 @@
           </div>
         </Card>
 
-        <!-- Submit Button -->
-        <div class="pt-1">
+        <!-- Save Button -->
+        <div
+          v-if="canWrite"
+          class="pt-1"
+        >
           <Button
             type="submit"
             variant="solid"
             theme="gray"
             size="lg"
             class="w-full"
-            :loading="submitting"
-            :disabled="submitting"
+            :loading="saving"
+            :disabled="saving"
           >
-            Submit
+            Save Changes
           </Button>
         </div>
       </form>
@@ -325,26 +399,7 @@ import {
 import LinkField from '../components/mobile-fields/LinkField.vue'
 import ChildTableField from '../components/mobile-fields/ChildTableField.vue'
 import SignatureField from '../components/mobile-fields/SignatureField.vue'
-
-export type MobileField = {
-  fieldname: string
-  label: string
-  fieldtype: string
-  options?: string
-  required?: boolean
-  default?: any
-  description?: string
-  depends_on?: string
-  mandatory_depends_on?: string
-  read_only_depends_on?: string
-  fetch_from?: string
-  fetch_if_empty?: boolean
-  precision?: string | number
-  length?: string | number
-  idx?: number
-  child_doctype?: string
-  child_fields?: MobileField[]
-}
+import type { MobileField } from './NewDocument.vue'
 
 type FormSchema = {
   mobile_doctype: string
@@ -356,6 +411,24 @@ type FormSchema = {
 
 type FrappeResponse<T> = {
   message: T
+}
+
+type EditDocumentPayload = {
+  schema: FormSchema
+  doctype: string
+  name: string
+  docstatus?: number
+  values: Record<string, any>
+  files?: ExistingFile[]
+  can_write?: boolean
+}
+
+type UpdateDocumentPayload = {
+  doctype: string
+  name: string
+  docstatus?: number
+  values?: Record<string, any>
+  files?: ExistingFile[]
 }
 
 type FormTab = {
@@ -371,26 +444,33 @@ type SelectOption = {
 
 type SelectValue = string | number | bigint | Record<string, any> | undefined
 
-type CreateDocumentPayload = {
-  doctype: string
-  name: string
-  route?: string
+type ExistingFile = {
+  name?: string
+  file_name?: string
+  file_url: string
+  is_private?: boolean
+  file_size?: number
 }
 
 const route = useRoute()
 const router = useRouter()
 
 const loading = ref(true)
-const submitting = ref(false)
+const saving = ref(false)
+const saved = ref(false)
 const error = ref('')
 const schema = ref<FormSchema | null>(null)
 const values = ref<Record<string, any>>({})
 const files = ref<File[]>([])
+const existingFiles = ref<ExistingFile[]>([])
 const messages = ref<string[]>([])
 const warnings = ref<string[]>([])
 const activeTab = ref('')
+const canWrite = ref(false)
+const docstatus = ref(0)
 
 const mobileDoctype = String(route.params.mobileDoctype || '')
+const docname = String(route.params.docname || '')
 
 let fieldChangeTimer: number | undefined
 
@@ -534,29 +614,25 @@ function normaliseTimeForSave(value: any) {
   return `${timeValue}:00`
 }
 
-function getDefaultValue(field: MobileField) {
-  if (field.fieldtype === 'Check') {
-    return field.default === 1 || field.default === '1' || field.default === true
-  }
-
-  if (field.fieldtype === 'Table') {
-    return []
-  }
-
-  if (field.fieldtype === 'Signature') {
-    return field.default ? String(field.default) : ''
-  }
-
-  if (field.fieldtype === 'Time') {
-    return normaliseTimeValue(field.default)
-  }
-
-  return field.default ?? ''
-}
-
-function normaliseValueForField(field: MobileField, value: any) {
+function normaliseLoadedValue(field: MobileField, value: any) {
   if (value === undefined || value === null) {
-    return getDefaultValue(field)
+    if (field.fieldtype === 'Check') {
+      return false
+    }
+
+    if (field.fieldtype === 'Table') {
+      return []
+    }
+
+    if (field.fieldtype === 'Signature') {
+      return ''
+    }
+
+    if (field.fieldtype === 'Time') {
+      return ''
+    }
+
+    return ''
   }
 
   if (field.fieldtype === 'Check') {
@@ -593,6 +669,10 @@ function getSelectValue(fieldname: string) {
 }
 
 function updateSelectValue(field: MobileField, selected: SelectValue) {
+  if (!canWrite.value) {
+    return
+  }
+
   if (selected === undefined) {
     values.value[field.fieldname] = ''
     handleFieldChange(field)
@@ -656,7 +736,7 @@ function mergeUpdatedValues(updatedValues: Record<string, any>) {
       const field = schema.value?.fields.find((item) => item.fieldname === fieldname)
 
       values.value[fieldname] = field
-        ? normaliseValueForField(field, value)
+        ? normaliseLoadedValue(field, value)
         : value
     }
   }
@@ -722,9 +802,14 @@ function getVisibleValues() {
 }
 
 async function applyFetchFrom(changedFieldname: string) {
+  if (!canWrite.value) {
+    return
+  }
+
   const payload = new FormData()
 
   payload.append('mobile_doctype', mobileDoctype)
+  payload.append('docname', docname)
   payload.append('changed_fieldname', changedFieldname)
   payload.append('values', JSON.stringify(getVisibleValues()))
 
@@ -742,9 +827,14 @@ async function applyFetchFrom(changedFieldname: string) {
 }
 
 async function runFieldChange(changedFieldname: string) {
+  if (!canWrite.value) {
+    return
+  }
+
   const payload = new FormData()
 
   payload.append('mobile_doctype', mobileDoctype)
+  payload.append('docname', docname)
   payload.append('changed_fieldname', changedFieldname)
   payload.append('values', JSON.stringify(getVisibleValues()))
 
@@ -773,10 +863,15 @@ async function runFieldChange(changedFieldname: string) {
 }
 
 function handleFieldChange(field: MobileField) {
+  if (!canWrite.value) {
+    return
+  }
+
   if (field.fieldtype === 'Time') {
     values.value[field.fieldname] = normaliseTimeValue(values.value[field.fieldname])
   }
 
+  saved.value = false
   error.value = ''
   window.clearTimeout(fieldChangeTimer)
 
@@ -796,78 +891,67 @@ function handleFieldChange(field: MobileField) {
   }, 300)
 }
 
-async function loadSchema() {
-  const params = new URLSearchParams({
-    mobile_doctype: mobileDoctype,
-  })
+function setLoadedValues(loadedValues: Record<string, any>) {
+  values.value = {}
 
-  const data = await apiRequest<FrappeResponse<FormSchema>>(
-    `/api/method/verto.api.mobile.documents.get_form_schema?${params.toString()}`
-  )
-
-  schema.value = data.message
-
-  for (const field of data.message.fields) {
+  for (const field of schema.value?.fields || []) {
     if (isLayoutField(field)) {
       continue
     }
 
-    values.value[field.fieldname] = getDefaultValue(field)
+    values.value[field.fieldname] = normaliseLoadedValue(
+      field,
+      loadedValues?.[field.fieldname]
+    )
   }
-
-  activeTab.value = formTabs.value[0]?.id || 'main'
 }
 
-async function loadPrefillValues() {
-  const params = new URLSearchParams({
-    mobile_doctype: mobileDoctype,
-  })
-
-  const allowedQueryKeys = [
-    'date',
-    'project',
-    'link_task',
-    'work_order_number',
-    'project_scope_name',
-    'parent_task_name',
-  ]
-
-  for (const key of allowedQueryKeys) {
-    const value = route.query[key]
-
-    if (typeof value === 'string' && value) {
-      params.append(key, value)
-    }
-  }
-
-  const data = await apiRequest<FrappeResponse<{ values: Record<string, any> }>>(
-    `/api/method/verto.api.mobile.documents.get_prefill_values?${params.toString()}`
-  )
-
-  mergeUpdatedValues(data.message.values || {})
-}
-
-async function loadNewDocument() {
+async function loadEditDocument() {
   loading.value = true
   error.value = ''
   messages.value = []
   warnings.value = []
   values.value = {}
   files.value = []
+  existingFiles.value = []
+  saved.value = false
+  canWrite.value = false
+  docstatus.value = 0
 
   try {
-    if (!mobileDoctype) {
-      throw new Error('Missing mobile DocType.')
+    if (!mobileDoctype || !docname) {
+      throw new Error('Missing document details.')
     }
 
-    await loadSchema()
-    await loadPrefillValues()
+    const payload = new FormData()
+
+    payload.append('mobile_doctype', mobileDoctype)
+    payload.append('docname', docname)
+
+    const data = await apiRequest<FrappeResponse<EditDocumentPayload>>(
+      '/api/method/verto.api.mobile.documents.get_mobile_doc_for_edit',
+      {
+        method: 'POST',
+        body: payload,
+      }
+    )
+
+    const message = data.message
+
+    schema.value = message.schema
+    canWrite.value = Boolean(message.can_write)
+    docstatus.value = Number(message.docstatus || 0)
+    existingFiles.value = message.files || []
+
+    setLoadedValues(message.values || {})
+
+    activeTab.value = formTabs.value[0]?.id || 'main'
   } catch (err) {
     if (err instanceof Error && err.message === 'Login required') {
       return
     }
 
-    error.value = err instanceof Error ? err.message : 'Could not load form.'
+    error.value = err instanceof Error ? err.message : 'Could not load document.'
   } finally {
     loading.value = false
   }
@@ -899,26 +983,40 @@ async function uploadFiles(doctype: string, targetDocname: string) {
   }
 }
 
-async function createDocument() {
+async function saveDocument() {
   const payload = new FormData()
 
   payload.append('mobile_doctype', mobileDoctype)
+  payload.append('docname', docname)
   payload.append('values', JSON.stringify(getVisibleValues()))
 
-  const data = await apiRequest<FrappeResponse<CreateDocumentPayload>>(
-    '/api/method/verto.api.mobile.documents.create_mobile_doc',
+  const data = await apiRequest<FrappeResponse<UpdateDocumentPayload>>(
+    '/api/method/verto.api.mobile.documents.update_mobile_doc',
     {
       method: 'POST',
       body: payload,
     }
   )
 
-  return data.message
+  const message = data.message
+
+  if (message.values) {
+    setLoadedValues(message.values)
+  }
+
+  existingFiles.value = message.files || existingFiles.value
+  docstatus.value = Number(message.docstatus || docstatus.value || 0)
 }
 
-async function submitForm() {
-  submitting.value = true
+async function saveForm() {
+  if (!canWrite.value) {
+    error.value = 'You do not have permission to save this document.'
+    return
+  }
+
+  saving.value = true
   error.value = ''
+  saved.value = false
 
   try {
     if (schema.value?.doctype === 'Daily Timesheet' && values.value.duration) {
@@ -926,35 +1024,35 @@ async function submitForm() {
       const confirmed = window.confirm(`Your current hours for this shift is ${hours} hours. Is this correct?`)
 
       if (!confirmed) {
-        submitting.value = false
+        saving.value = false
         return
       }
     }
 
-    const created = await createDocument()
+    await saveDocument()
 
-    if (schema.value?.doctype && created.name && files.value.length) {
-      await uploadFiles(schema.value.doctype, created.name)
+    if (schema.value?.doctype && files.value.length) {
+      await uploadFiles(schema.value.doctype, docname)
     }
 
-    if (created.route) {
-      router.push(created.route)
-      return
-    }
+    files.value = []
+    saved.value = true
 
-    goBack()
+    window.setTimeout(() => {
+      goBack()
+    }, 500)
   } catch (err) {
     if (err instanceof Error && err.message === 'Login required') {
       return
     }
 
-    error.value = err instanceof Error ? err.message : 'Could not submit form.'
+    error.value = err instanceof Error ? err.message : 'Could not save document.'
   } finally {
-    submitting.value = false
+    saving.value = false
   }
 }
 
 onMounted(() => {
-  loadNewDocument()
+  loadEditDocument()
 })
 </script>
