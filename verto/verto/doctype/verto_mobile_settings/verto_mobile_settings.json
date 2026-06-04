@@ -1,0 +1,130 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-04 10:25:56.514209",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "app_settings_section",
+  "app_name",
+  "favicon",
+  "fallback_home_route",
+  "column_break_odql",
+  "app_icon",
+  "app_logo",
+  "peri_settings_section",
+  "default_workspace",
+  "default_chat_channel",
+  "column_break_dlnx",
+  "peri_bot_name",
+  "peri_bot_user",
+  "peri_bot_image"
+ ],
+ "fields": [
+  {
+   "description": "Example: Mine Site Support",
+   "fieldname": "app_name",
+   "fieldtype": "Data",
+   "label": "App Name"
+  },
+  {
+   "description": "Header / app icon",
+   "fieldname": "app_icon",
+   "fieldtype": "Attach Image",
+   "label": "App Icon"
+  },
+  {
+   "description": "Optional larger logo",
+   "fieldname": "app_logo",
+   "fieldtype": "Attach Image",
+   "label": "App Logo"
+  },
+  {
+   "description": "Example: Mine Site Support",
+   "fieldname": "default_workspace",
+   "fieldtype": "Data",
+   "label": "Default Workspace"
+  },
+  {
+   "description": "Example: general",
+   "fieldname": "default_chat_channel",
+   "fieldtype": "Link",
+   "label": "Default Chat Channel",
+   "options": "Raven Channel"
+  },
+  {
+   "description": "Example: P.E.R.I.",
+   "fieldname": "peri_bot_name",
+   "fieldtype": "Data",
+   "label": "PERI Bot Name"
+  },
+  {
+   "description": "Optional Raven user/bot value",
+   "fieldname": "peri_bot_user",
+   "fieldtype": "Link",
+   "label": "PERI Bot User",
+   "options": "Raven User"
+  },
+  {
+   "default": "/",
+   "description": "Example: /",
+   "fieldname": "fallback_home_route",
+   "fieldtype": "Data",
+   "label": "Fallback Home Route"
+  },
+  {
+   "fieldname": "peri_bot_image",
+   "fieldtype": "Attach Image",
+   "label": "PERI Bot Image"
+  },
+  {
+   "fieldname": "app_settings_section",
+   "fieldtype": "Section Break",
+   "label": "App Settings"
+  },
+  {
+   "fieldname": "favicon",
+   "fieldtype": "Attach Image",
+   "label": "Favicon"
+  },
+  {
+   "fieldname": "column_break_odql",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "peri_settings_section",
+   "fieldtype": "Section Break",
+   "label": "PERI Settings"
+  },
+  {
+   "fieldname": "column_break_dlnx",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-06-04 11:21:50.085537",
+ "modified_by": "Administrator",
+ "module": "Verto",
+ "name": "Verto Mobile Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

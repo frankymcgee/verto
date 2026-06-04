@@ -50,18 +50,30 @@
         :disabled="periLoading"
         :aria-current="isPeriActive ? 'page' : undefined"
         :aria-busy="periLoading ? 'true' : 'false'"
-        aria-label="Open PERI AI chat"
+        :aria-label="`Open ${periBotName} AI chat`"
         @click="openPeriChat"
       >
         <span class="peri-avatar">
-          <span
-            class="peri-avatar-frame"
-            :style="{ backgroundImage: `url('${periAvatarUrl}')` }"
-          />
+          <span class="peri-avatar-frame">
+            <img
+              v-if="resolvedPeriAvatarUrl"
+              :src="resolvedPeriAvatarUrl"
+              :alt="`${periBotName} avatar`"
+              class="peri-avatar-image"
+              @error="periAvatarFailed = true"
+            />
+
+            <span
+              v-else
+              class="peri-avatar-fallback"
+            >
+              {{ periInitials }}
+            </span>
+          </span>
         </span>
 
         <span class="navbar-label">
-          {{ periLoading ? 'Loading' : 'Ask PERI' }}
+          {{ periLoading ? 'Loading' : askPeriLabel }}
         </span>
       </button>
 
@@ -108,9 +120,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiRequest } from '../lib/api'
+import { useMobileBoot } from '../lib/mobileBoot'
 
 type FrappeResponse<T> = {
   message: T
@@ -122,36 +135,89 @@ type PeriChannelResponse = {
   channel_name?: string
   name?: string
   url?: string
+  peri_bot_name?: string
+  peri_bot_user?: string
+  peri_bot_image?: string
+  peri_bot_image_url?: string
 }
 
 const route = useRoute()
 const router = useRouter()
 
+const {
+  loadMobileBoot,
+  defaultChatChannel,
+  periBotName,
+  periBotImageUrl,
+} = useMobileBoot()
+
 const periLoading = ref(false)
+const periAvatarFailed = ref(false)
 
-const generalChannelName = 'general'
-const periAvatarUrl = '/private/files/ChatGPT Image Jun 23, 2025, 10_20_03 AM.png'
+const generalChannelName = computed(() => {
+  return defaultChatChannel.value || 'general'
+})
 
-const generalChatRoute = {
-  path: '/chat',
-  query: {
-    channel: generalChannelName,
-  },
-}
+const generalChatRoute = computed(() => {
+  return {
+    path: '/chat',
+    query: {
+      channel: generalChannelName.value,
+    },
+  }
+})
+
+const askPeriLabel = computed(() => {
+  const name = periBotName.value || 'PERI'
+
+  return `Ask ${name}`
+})
+
+const resolvedPeriAvatarUrl = computed(() => {
+  if (periAvatarFailed.value) {
+    return ''
+  }
+
+  return periBotImageUrl.value || ''
+})
+
+const periInitials = computed(() => {
+  return getInitials(periBotName.value || 'PERI')
+})
 
 const isPeriActive = computed(() => {
-  return route.path === '/chat' && String(route.query.mode || '').toLowerCase() === 'ai'
+  const requestedMode = String(route.query.mode || '').toLowerCase()
+
+  return (
+    route.path === '/chat/peri' ||
+    (
+      route.path.startsWith('/chat') &&
+      requestedMode === 'ai'
+    )
+  )
 })
 
 const isGeneralChatActive = computed(() => {
   const requestedChannel = String(route.query.channel || '').toLowerCase()
   const requestedMode = String(route.query.mode || '').toLowerCase()
+  const generalChannel = generalChannelName.value.toLowerCase()
 
   return (
     route.path.startsWith('/chat') &&
-    requestedChannel === generalChannelName &&
+    requestedChannel === generalChannel &&
     requestedMode !== 'ai'
   )
+})
+
+watch(
+  () => periBotImageUrl.value,
+  () => {
+    periAvatarFailed.value = false
+  }
+)
+
+onMounted(() => {
+  loadMobileBoot()
 })
 
 function isActive(path: string) {
@@ -160,6 +226,23 @@ function isActive(path: string) {
   }
 
   return route.path.startsWith(path)
+}
+
+function getInitials(value: string) {
+  const words = String(value || '')
+    .trim()
+    .split(/[ ._-]+/)
+    .filter(Boolean)
+
+  if (!words.length) {
+    return 'AI'
+  }
+
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase()
+  }
+
+  return `${words[0][0]}${words[1][0]}`.toUpperCase()
 }
 
 function getPeriChannelName(message: PeriChannelResponse) {
@@ -180,6 +263,8 @@ async function openPeriChat() {
   periLoading.value = true
 
   try {
+    await loadMobileBoot()
+
     const data = await apiRequest<FrappeResponse<PeriChannelResponse>>(
       '/api/method/verto.api.mobile.raven.get_or_create_peri_channel'
     )
@@ -187,11 +272,11 @@ async function openPeriChat() {
     const channel = getPeriChannelName(data.message || {})
 
     if (!channel) {
-      throw new Error('Could not resolve the PERI channel.')
+      throw new Error(`Could not resolve the ${periBotName.value || 'PERI'} channel.`)
     }
 
     await router.push({
-      path: '/chat',
+      path: '/chat/peri',
       query: {
         channel,
         mode: 'ai',
@@ -202,7 +287,7 @@ async function openPeriChat() {
       return
     }
 
-    alert(err instanceof Error ? err.message : 'Could not open PERI chat.')
+    alert(err instanceof Error ? err.message : `Could not open ${periBotName.value || 'PERI'} chat.`)
   } finally {
     periLoading.value = false
   }
@@ -274,14 +359,29 @@ async function openPeriChat() {
 }
 
 .peri-avatar-frame {
-  display: block;
+  display: flex;
   height: 36px;
   width: 36px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
   border-radius: 9999px;
-  background-position: center;
-  background-size: cover;
+  background: linear-gradient(135deg, #dbeafe, #eff6ff);
   box-shadow: 0 8px 18px rgba(37, 99, 235, 0.28);
   transform: translateY(-8px);
+}
+
+.peri-avatar-image {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.peri-avatar-fallback {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .peri-avatar::after {

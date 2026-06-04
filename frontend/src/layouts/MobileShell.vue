@@ -6,7 +6,7 @@
       ref="mainEl"
       class="mx-auto min-h-[calc(100vh-3.5rem)] max-w-md pb-[calc(var(--mobile-bottom-tabs-height,4rem)+1rem)]"
     >
-      <RouterView />
+      <router-view />
     </main>
 
     <BottomTabs />

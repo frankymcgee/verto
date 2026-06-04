@@ -3,10 +3,17 @@ import frappe
 from frappe import _
 
 
-DEFAULT_WORKSPACE = "Mine Site Support"
-DEFAULT_GENERAL_CHANNEL = "general"
-PERI_CHANNEL_SUFFIX = " _ P.E.R.I."
+SETTINGS_DOCTYPE = "Verto Mobile Settings"
 
+DEFAULT_WORKSPACE = ""
+DEFAULT_GENERAL_CHANNEL = "general"
+DEFAULT_PERI_BOT_NAME = "P.E.R.I."
+DEFAULT_PERI_CHANNEL_SUFFIX = " _ P.E.R.I."
+
+
+# ---------------------------------------------------------------------
+# Tenant / settings helpers
+# ---------------------------------------------------------------------
 
 def _doctype_exists(doctype):
     return bool(frappe.db.exists("DocType", doctype))
@@ -17,6 +24,50 @@ def _field_exists(doctype, fieldname):
         return frappe.get_meta(doctype).has_field(fieldname)
     except Exception:
         return False
+
+
+def _settings_doctype_exists():
+    return _doctype_exists(SETTINGS_DOCTYPE)
+
+
+def _get_mobile_setting(fieldname, default=None):
+    if not _settings_doctype_exists():
+        return default
+
+    try:
+        value = frappe.db.get_single_value(SETTINGS_DOCTYPE, fieldname)
+    except Exception:
+        return default
+
+    if value in (None, ""):
+        return default
+
+    return value
+
+
+def _get_default_workspace():
+    return _get_mobile_setting("default_workspace", DEFAULT_WORKSPACE) or ""
+
+
+def _get_default_general_channel():
+    return _get_mobile_setting("default_chat_channel", DEFAULT_GENERAL_CHANNEL) or DEFAULT_GENERAL_CHANNEL
+
+
+def _get_peri_bot_name():
+    return _get_mobile_setting("peri_bot_name", DEFAULT_PERI_BOT_NAME) or DEFAULT_PERI_BOT_NAME
+
+
+def _get_peri_bot_user():
+    return _get_mobile_setting("peri_bot_user", "") or ""
+
+
+def _get_peri_channel_suffix():
+    bot_name = _get_peri_bot_name()
+    return f" _ {bot_name}" if bot_name else DEFAULT_PERI_CHANNEL_SUFFIX
+
+
+def _normalise_channel_label(value):
+    return str(value or "").strip()
 
 
 def _safe_json(value, fallback=None):
@@ -51,7 +102,7 @@ def _get_user_image(user):
 
 def _get_peri_channel_name(user=None):
     user = user or frappe.session.user
-    return f"{user}{PERI_CHANNEL_SUFFIX}"
+    return f"{user}{_get_peri_channel_suffix()}"
 
 
 def _get_channel_fields():
@@ -75,11 +126,13 @@ def _get_channel_fields():
         "creation",
         "modified",
         "owner",
+        "peer_user_id",
+        "full_name",
     ]:
         if _field_exists("Raven Channel", fieldname):
             fields.append(fieldname)
 
-    return fields
+    return list(dict.fromkeys(fields))
 
 
 def _normalise_channel(channel):
@@ -93,7 +146,7 @@ def _normalise_channel(channel):
         "name": channel.get("name"),
         "channel_name": channel_name,
         "channel_id": channel.get("name"),
-        "workspace": channel.get("workspace") or DEFAULT_WORKSPACE,
+        "workspace": channel.get("workspace") or _get_default_workspace(),
         "type": channel.get("type") or "",
         "description": channel.get("channel_description")
         or channel.get("description")
@@ -162,9 +215,9 @@ def _resolve_channel_name(channel_value):
 
 
 def _resolve_workspace_name(workspace=None):
-    workspace = workspace or DEFAULT_WORKSPACE
+    workspace = workspace or _get_default_workspace()
 
-    if _doctype_exists("Raven Workspace") and frappe.db.exists("Raven Workspace", workspace):
+    if _doctype_exists("Raven Workspace") and workspace and frappe.db.exists("Raven Workspace", workspace):
         return workspace
 
     return workspace
@@ -172,7 +225,7 @@ def _resolve_workspace_name(workspace=None):
 
 def _get_or_create_named_channel(
     channel_label,
-    workspace=DEFAULT_WORKSPACE,
+    workspace=None,
     channel_type="Open",
     is_direct_message=0,
     use_workspace=True,
@@ -180,10 +233,12 @@ def _get_or_create_named_channel(
     if not _doctype_exists("Raven Channel"):
         frappe.throw("Raven Channel DocType was not found. Please confirm Raven is installed.")
 
-    channel_label = str(channel_label or "").strip()
+    channel_label = _normalise_channel_label(channel_label)
 
     if not channel_label:
         frappe.throw("Channel name is required.")
+
+    workspace = _resolve_workspace_name(workspace) if use_workspace else None
 
     filters_to_try = []
 
@@ -227,8 +282,8 @@ def _get_or_create_named_channel(
 
 def _get_or_create_general_channel():
     return _get_or_create_named_channel(
-        channel_label=DEFAULT_GENERAL_CHANNEL,
-        workspace=DEFAULT_WORKSPACE,
+        channel_label=_get_default_general_channel(),
+        workspace=_get_default_workspace(),
         channel_type="Open",
         is_direct_message=0,
         use_workspace=True,
@@ -246,6 +301,10 @@ def _get_or_create_peri_channel(user=None):
         use_workspace=False,
     )
 
+
+# ---------------------------------------------------------------------
+# Message / preview helpers
+# ---------------------------------------------------------------------
 
 def _get_message_file_attachments(message):
     attachments = []
@@ -334,7 +393,6 @@ def _get_linked_document_preview(link_doctype, link_document):
         }
 
 
-
 def _get_raven_bot_image_fields():
     if not _doctype_exists("Raven Bot"):
         return []
@@ -385,7 +443,6 @@ def _get_raven_bot_image(bot):
     if frappe.db.exists("Raven Bot", bot):
         bot_name = bot
     else:
-        # Try common display-name fields if message.bot is a label, not the docname.
         filters_to_try = []
 
         for fieldname in ["bot_name", "title", "full_name", "name"]:
@@ -415,6 +472,7 @@ def _get_raven_bot_image(bot):
     cache[bot] = image_value or ""
     return cache[bot]
 
+
 def _normalise_message(message):
     if not isinstance(message, dict):
         message = message.as_dict()
@@ -436,6 +494,9 @@ def _normalise_message(message):
         })
 
     document_preview = _get_linked_document_preview(link_doctype, link_document)
+
+    bot = message.get("bot") or ""
+    bot_image = _get_raven_bot_image(bot)
 
     return {
         "name": message.get("name"),
@@ -459,8 +520,8 @@ def _normalise_message(message):
         "is_edited": bool(message.get("is_edited") or 0),
         "is_forwarded": bool(message.get("is_forwarded") or 0),
         "is_bot_message": bool(message.get("is_bot_message") or 0),
-        "bot": message.get("bot"),
-        "bot_image": _get_raven_bot_image(message.get("bot")),
+        "bot": bot,
+        "bot_image": bot_image,
         "hide_link_preview": bool(message.get("hide_link_preview") or 0),
         "poll_id": message.get("poll_id"),
         "file": message.get("file"),
@@ -498,6 +559,10 @@ def get_number_of_replies_safe(message_id):
     except Exception:
         return 0
 
+
+# ---------------------------------------------------------------------
+# Raven API wrappers
+# ---------------------------------------------------------------------
 
 def _get_channel_members_safe(channel_id):
     try:
@@ -593,11 +658,14 @@ def _get_or_create_thread_for_message(message_id):
                 "thread_id": message_id,
             }
 
-        existing_thread = frappe.db.get_value(
-            "Raven Channel",
-            {"channel_name": message_id, "is_thread": 1},
-            "name",
-        )
+        existing_thread = None
+
+        if _field_exists("Raven Channel", "channel_name"):
+            existing_thread = frappe.db.get_value(
+                "Raven Channel",
+                {"channel_name": message_id, "is_thread": 1},
+                "name",
+            )
 
         if existing_thread:
             return {
@@ -628,6 +696,18 @@ def _ensure_channel_member(channel_id, user_id):
     }).insert(ignore_permissions=True)
 
 
+def _ensure_peri_bot_member(channel_id):
+    bot_user = _get_peri_bot_user()
+
+    if not bot_user:
+        return
+
+    try:
+        _ensure_channel_member(channel_id, bot_user)
+    except Exception:
+        pass
+
+
 def _insert_text_message(channel_id, text, is_reply=0, linked_message=None):
     text = (text or "").strip()
 
@@ -652,12 +732,22 @@ def _insert_text_message(channel_id, text, is_reply=0, linked_message=None):
     return _normalise_message(doc.as_dict())
 
 
+# ---------------------------------------------------------------------
+# Whitelisted endpoints
+# ---------------------------------------------------------------------
+
 @frappe.whitelist()
 def get_mobile_chat_bootstrap():
     user = frappe.session.user
 
     general_channel = _get_or_create_general_channel()
     peri_channel = _get_or_create_peri_channel(user)
+
+    try:
+        _ensure_channel_member(peri_channel.name, user)
+        _ensure_peri_bot_member(peri_channel.name)
+    except Exception:
+        pass
 
     raw_channels = _get_all_channels_safe()
 
@@ -695,6 +785,12 @@ def get_mobile_chat_bootstrap():
         "channels": channels,
         "active_channel": active_channel,
         "messages": messages,
+        "settings": {
+            "default_workspace": _get_default_workspace(),
+            "default_chat_channel": _get_default_general_channel(),
+            "peri_bot_name": _get_peri_bot_name(),
+            "peri_bot_user": _get_peri_bot_user(),
+        },
     }
 
 
@@ -784,6 +880,7 @@ def get_or_create_peri_channel():
 
     try:
         _ensure_channel_member(channel.name, user)
+        _ensure_peri_bot_member(channel.name)
     except Exception:
         pass
 
@@ -794,10 +891,12 @@ def get_or_create_peri_channel():
         "name": normalised_channel.get("name"),
         "channel_id": normalised_channel.get("name"),
         "channel_name": normalised_channel.get("channel_name"),
-        "workspace": normalised_channel.get("workspace") or DEFAULT_WORKSPACE,
+        "workspace": normalised_channel.get("workspace") or _get_default_workspace(),
         "type": normalised_channel.get("type"),
         "is_direct_message": normalised_channel.get("is_direct_message"),
-        "url": f"/verto-mobile/chat?channel={normalised_channel.get('name')}&mode=ai",
+        "peri_bot_name": _get_peri_bot_name(),
+        "peri_bot_user": _get_peri_bot_user(),
+        "url": f"/verto-mobile/chat/peri?channel={normalised_channel.get('name')}&mode=ai",
     }
 
 
@@ -985,7 +1084,7 @@ def get_all_threads(
     from raven.api.threads import get_all_threads
 
     threads = get_all_threads(
-        workspace=workspace,
+        workspace=workspace or _get_default_workspace(),
         content=content,
         channel_id=channel_id,
         is_ai_thread=is_ai_thread,
@@ -1011,7 +1110,7 @@ def get_other_threads(
     from raven.api.threads import get_other_threads
 
     threads = get_other_threads(
-        workspace=workspace,
+        workspace=workspace or _get_default_workspace(),
         content=content,
         channel_id=channel_id,
         is_ai_thread=is_ai_thread,
@@ -1030,7 +1129,7 @@ def get_unread_threads(workspace=None, thread_id=None):
 
     return {
         "threads": get_unread_threads(
-            workspace=workspace,
+            workspace=workspace or _get_default_workspace(),
             thread_id=thread_id,
         ),
     }
@@ -1047,14 +1146,17 @@ def mark_all_messages_as_read(channel_ids):
         "message": mark_all_messages_as_read(channel_ids=channel_ids),
     }
 
+
 @frappe.whitelist()
-def debug_raven_bot_image(bot):
-    bot = str(bot or "").strip()
+def debug_raven_bot_image(bot=None):
+    bot = str(bot or _get_peri_bot_name() or "").strip()
 
     fields = _get_raven_bot_image_fields()
 
     result = {
         "bot_input": bot,
+        "configured_peri_bot_name": _get_peri_bot_name(),
+        "configured_peri_bot_user": _get_peri_bot_user(),
         "image_fields_found": fields,
         "bot_exists_by_name": bool(frappe.db.exists("Raven Bot", bot)) if bot else False,
         "resolved_image": _get_raven_bot_image(bot),

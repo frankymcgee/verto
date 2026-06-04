@@ -1,263 +1,266 @@
 <template>
   <header class="sticky top-0 z-40 border-b border-outline-gray-1 bg-surface-white/95 backdrop-blur">
-    <div class="mx-auto flex h-14 max-w-md items-center justify-between gap-3 px-3">
-      <!-- Left: App icon + page title -->
-      <div class="flex min-w-0 items-center gap-3">
+    <div class="mx-auto flex max-w-md items-center justify-between gap-3 px-3 py-2">
+      <!-- Left: App icon + current page -->
+      <div class="flex min-w-0 items-center gap-2">
         <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-gray-2">
           <img
-            v-if="appIcon"
-            :src="appIcon"
-            alt="App icon"
+            v-if="resolvedAppIcon"
+            :src="resolvedAppIcon"
+            :alt="appName"
             class="h-full w-full object-cover"
+            @error="iconFailed = true"
           />
 
           <span
             v-else
-            class="text-sm font-semibold text-ink-gray-8"
+            class="text-sm font-semibold text-ink-gray-7"
           >
             {{ appInitials }}
           </span>
         </div>
 
         <div class="min-w-0">
-          <p class="truncate text-base font-semibold text-ink-gray-9">
-            {{ pageTitle }}
+          <p class="truncate text-xs text-ink-gray-5">
+            {{ appName }}
           </p>
 
-          <p
-            v-if="pageSubtitle"
-            class="truncate text-xs text-ink-gray-5"
-          >
-            {{ pageSubtitle }}
-          </p>
+          <h1 class="truncate text-base font-semibold text-ink-gray-9">
+            {{ pageTitle }}
+          </h1>
         </div>
       </div>
 
-      <!-- Right: user avatar menu -->
-      <Dropdown :options="menuOptions">
-        <template #default="{ open }">
+      <!-- Right: User menu -->
+      <div class="relative shrink-0">
+        <button
+          type="button"
+          class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-outline-gray-2 bg-surface-gray-1 text-sm font-semibold text-ink-gray-8 active:scale-95"
+          @click="toggleMenu"
+        >
+          <img
+            v-if="resolvedUserImage"
+            :src="resolvedUserImage"
+            :alt="userFullname || user || 'User avatar'"
+            class="h-full w-full object-cover"
+            @error="userImageFailed = true"
+          />
+
+          <span v-else>
+            {{ userInitials }}
+          </span>
+        </button>
+
+        <div
+          v-if="menuOpen"
+          class="absolute right-0 mt-2 w-56 overflow-hidden rounded-xl border border-outline-gray-1 bg-surface-white shadow-lg"
+        >
+          <div class="border-b border-outline-gray-1 px-3 py-2">
+            <div class="flex items-center gap-2">
+              <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-gray-2 text-sm font-semibold text-ink-gray-8">
+                <img
+                  v-if="resolvedUserImage"
+                  :src="resolvedUserImage"
+                  :alt="userFullname || user || 'User avatar'"
+                  class="h-full w-full object-cover"
+                  @error="userImageFailed = true"
+                />
+
+                <span v-else>
+                  {{ userInitials }}
+                </span>
+              </div>
+
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium text-ink-gray-9">
+                  {{ userFullname }}
+                </p>
+
+                <p
+                  v-if="user"
+                  class="truncate text-xs text-ink-gray-5"
+                >
+                  {{ user }}
+                </p>
+              </div>
+            </div>
+          </div>
+
           <button
             type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-surface-gray-1 active:scale-95"
-            :class="{ 'bg-surface-gray-1': open }"
-            aria-label="Open user menu"
+            class="block w-full px-3 py-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1"
+            @click="reloadApp"
           >
-            <Avatar
-              :image="userImage"
-              :label="avatarLabel"
-              size="md"
-            />
+            Reload app
           </button>
-        </template>
-      </Dropdown>
+
+          <button
+            type="button"
+            class="block w-full px-3 py-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1"
+            @click="openProfile"
+          >
+            My profile
+          </button>
+
+          <button
+            type="button"
+            class="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+            @click="logout"
+          >
+            Log out
+          </button>
+        </div>
+      </div>
     </div>
   </header>
+
+  <button
+    v-if="menuOpen"
+    type="button"
+    class="fixed inset-0 z-30 cursor-default bg-transparent"
+    aria-label="Close menu"
+    @click="menuOpen = false"
+  />
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import {
-  Avatar,
-  Dropdown,
-} from 'frappe-ui'
-import { apiRequest } from '../lib/api'
-
-type FrappeResponse<T> = {
-  message: T
-}
-
-type LoggedUserResponse = string
-
-type UserProfileResponse = {
-  full_name?: string
-  user_image?: string
-}
+import { useMobileBoot } from '../lib/mobileBoot'
 
 const route = useRoute()
 
-const appName = 'Verto'
-const appIcon = '/assets/verto/frontend/app-icon.png'
+const {
+  appName,
+  appIconUrl,
+  user,
+  userFullname,
+  userImageUrl,
+  reloadMobileBoot,
+} = useMobileBoot()
 
-const loggedUser = ref('')
-const fullName = ref('')
-const userImage = ref('')
+const menuOpen = ref(false)
+const iconFailed = ref(false)
+const userImageFailed = ref(false)
+
+const routeTitles: Record<string, string> = {
+  '/': 'Home',
+  '/forms': 'Forms',
+  '/shifts': 'Shifts',
+  '/chat': 'Chat',
+  '/chat/peri': 'Ask PERI',
+}
 
 const pageTitle = computed(() => {
-  const metaTitle = route.meta?.title
-
-  if (typeof metaTitle === 'string' && metaTitle.trim()) {
-    return metaTitle
+  if (typeof route.meta?.title === 'string') {
+    return route.meta.title
   }
 
-  return getTitleFromPath(route.path)
+  if (route.path.startsWith('/new/')) {
+    return 'New Form'
+  }
+
+  if (route.path.startsWith('/edit/')) {
+    return 'Edit Form'
+  }
+
+  return routeTitles[route.path] || 'Verto'
 })
 
-const pageSubtitle = computed(() => {
-  const metaSubtitle = route.meta?.subtitle
-
-  if (typeof metaSubtitle === 'string' && metaSubtitle.trim()) {
-    return metaSubtitle
+const resolvedAppIcon = computed(() => {
+  if (iconFailed.value) {
+    return ''
   }
 
-  return ''
+  return appIconUrl.value || ''
+})
+
+const resolvedUserImage = computed(() => {
+  if (userImageFailed.value) {
+    return ''
+  }
+
+  return userImageUrl.value || ''
 })
 
 const appInitials = computed(() => {
-  return getInitials(appName)
+  return getInitials(appName.value || 'Verto')
 })
 
-const avatarLabel = computed(() => {
-  return getInitials(fullName.value || loggedUser.value || 'User')
-})
-
-const menuOptions = computed(() => {
-  return [
-    {
-      label: fullName.value || formatFallbackUserName(loggedUser.value) || 'My Account',
-      group: 'User',
-      disabled: true,
-    },
-    {
-      label: 'My Profile',
-      icon: 'user',
-      onClick: openProfile,
-    },
-    {
-      label: 'Reload App',
-      icon: 'refresh-cw',
-      onClick: reloadApp,
-    },
-    {
-      label: 'Log Out',
-      icon: 'log-out',
-      onClick: logout,
-    },
-  ]
+const userInitials = computed(() => {
+  return getInitials(userFullname.value || user.value || 'User')
 })
 
 watch(
-  () => route.path,
+  () => appIconUrl.value,
   () => {
-    document.title = `${pageTitle.value} - ${appName}`
-  },
-  { immediate: true }
+    iconFailed.value = false
+  }
 )
 
-function getTitleFromPath(path: string) {
-  if (path === '/') return 'My Site Work'
-  if (path.startsWith('/forms')) return 'Completed Forms'
-  if (path.startsWith('/shifts')) return 'Shifts'
-  if (path.startsWith('/chat')) return 'Chat'
-  if (path.startsWith('/more')) return 'More'
-  if (path.startsWith('/new')) return 'New Form'
+watch(
+  () => userImageUrl.value,
+  () => {
+    userImageFailed.value = false
+  }
+)
 
-  return appName
-}
+watch(
+  () => route.fullPath,
+  () => {
+    menuOpen.value = false
+  }
+)
 
 function getInitials(value: string) {
-  return value
-    .split(/[ ._-]/)
+  const words = String(value || '')
+    .trim()
+    .split(/\s+/)
     .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join('')
-}
 
-function formatFallbackUserName(user?: string) {
-  if (!user) return ''
-
-  if (!user.includes('@')) {
-    return user
+  if (!words.length) {
+    return 'U'
   }
 
-  return user
-    .split('@')[0]
-    .split(/[._-]/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase()
+  }
+
+  return `${words[0][0]}${words[1][0]}`.toUpperCase()
 }
 
-async function loadCurrentUser() {
-  try {
-    const data = await apiRequest<FrappeResponse<LoggedUserResponse>>(
-      '/api/method/frappe.auth.get_logged_user'
+function toggleMenu() {
+  menuOpen.value = !menuOpen.value
+}
+
+async function clearBrowserCaches() {
+  if ('caches' in window) {
+    const cacheNames = await caches.keys()
+
+    await Promise.all(
+      cacheNames.map((cacheName) => caches.delete(cacheName))
     )
-
-    loggedUser.value = data.message || ''
-
-    await loadUserProfile()
-  } catch (err) {
-    if (err instanceof Error && err.message === 'Login required') {
-      return
-    }
-
-    loggedUser.value = ''
-    fullName.value = ''
-    userImage.value = ''
   }
-}
-
-async function loadUserProfile() {
-  if (!loggedUser.value) {
-    return
-  }
-
-  try {
-    const filters = encodeURIComponent(JSON.stringify({ name: loggedUser.value }))
-    const fieldname = encodeURIComponent(JSON.stringify(['full_name', 'user_image']))
-
-    const data = await apiRequest<FrappeResponse<UserProfileResponse>>(
-      `/api/method/frappe.client.get_value?doctype=User&filters=${filters}&fieldname=${fieldname}`
-    )
-
-    fullName.value = data.message?.full_name || ''
-    userImage.value = data.message?.user_image || ''
-  } catch {
-    fullName.value = ''
-    userImage.value = ''
-  }
-}
-
-function openProfile() {
-  window.location.href = '/app/user-profile'
 }
 
 async function reloadApp() {
+  menuOpen.value = false
+
   try {
-    if ('caches' in window) {
-      const cacheNames = await caches.keys()
-
-      await Promise.all(
-        cacheNames.map((cacheName) => caches.delete(cacheName))
-      )
-    }
-
-    if ('serviceWorker' in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations()
-
-      await Promise.all(
-        registrations.map((registration) => registration.update())
-      )
-    }
+    await reloadMobileBoot()
+    await clearBrowserCaches()
   } finally {
     window.location.reload()
   }
 }
 
-async function logout() {
-  try {
-    await fetch('/api/method/logout', {
-      method: 'POST',
-      credentials: 'include',
-    })
-  } finally {
-    window.location.href = '/login'
-  }
+function openProfile() {
+  menuOpen.value = false
+  window.location.href = '/app/user-profile'
 }
 
-onMounted(() => {
-  loadCurrentUser()
-})
+function logout() {
+  menuOpen.value = false
+  window.location.href = '/logout'
+}
 </script>

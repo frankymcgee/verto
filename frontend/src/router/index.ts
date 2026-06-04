@@ -5,7 +5,6 @@ import Home from '../pages/Home.vue'
 import Forms from '../pages/Forms.vue'
 import Shifts from '../pages/Shifts.vue'
 import Chat from '../pages/Chat.vue'
-import More from '../pages/More.vue'
 import NewDocument from '../pages/NewDocument.vue'
 import EditDocument from '../pages/EditDocument.vue'
 
@@ -14,22 +13,55 @@ const routes = [
     path: '/',
     component: MobileShell,
     children: [
-      { path: '', component: Home },
-      { path: 'forms', component: Forms },
-      { path: 'shifts', component: Shifts },
-      { path: 'chat', component: Chat },
-      { path: 'more', component: More },
-
-      // Create a new mobile document
+      {
+        path: '',
+        component: Home,
+        meta: {
+          title: 'Home',
+        },
+      },
+      {
+        path: 'forms',
+        component: Forms,
+        meta: {
+          title: 'Forms',
+        },
+      },
+      {
+        path: 'shifts',
+        component: Shifts,
+        meta: {
+          title: 'Shifts',
+        },
+      },
+      {
+        path: 'chat',
+        component: Chat,
+        meta: {
+          title: 'Chat',
+        },
+      },
+      {
+        path: 'chat/peri',
+        component: Chat,
+        meta: {
+          title: 'Ask PERI',
+          mode: 'peri',
+        },
+      },
       {
         path: 'new/:mobileDoctype',
         component: NewDocument,
+        meta: {
+          title: 'New Form',
+        },
       },
-
-      // Edit an existing mobile document
       {
         path: 'edit/:mobileDoctype/:docname',
         component: EditDocument,
+        meta: {
+          title: 'Edit Form',
+        },
       },
     ],
   },

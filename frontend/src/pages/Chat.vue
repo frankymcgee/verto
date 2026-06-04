@@ -40,7 +40,6 @@
       </div>
 
       <template v-else>
-
         <div class="border-b border-outline-gray-1 bg-surface-white px-3 py-2">
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
@@ -52,7 +51,7 @@
                 v-if="isAiMode"
                 class="truncate text-xs text-blue-600"
               >
-                PERI AI assistant
+                {{ periAssistantLabel }}
               </p>
 
               <p
@@ -325,14 +324,13 @@
               </div>
             </div>
 
-              <Avatar
-                v-if="isOwnMessage(message)"
-                :image="getMessageAvatarImage(message)"
-                :label="getMessageInitials(message)"
-                size="sm"
-                class="mt-1 shrink-0"
-              />
-
+            <Avatar
+              v-if="isOwnMessage(message)"
+              :image="getMessageAvatarImage(message)"
+              :label="getMessageInitials(message)"
+              size="sm"
+              class="mt-1 shrink-0"
+            />
           </div>
         </div>
 
@@ -472,7 +470,7 @@
         <div class="flex items-center justify-between border-b border-outline-gray-1 px-4 py-3">
           <div class="min-w-0">
             <p class="truncate text-base font-semibold text-ink-gray-9">
-              PERI Thread
+              {{ periBotName }} Thread
             </p>
 
             <p class="truncate text-xs text-ink-gray-5">
@@ -585,7 +583,6 @@
                   size="sm"
                   class="mt-1 shrink-0"
                 />
-
               </div>
             </div>
 
@@ -623,7 +620,7 @@
             <Textarea
               v-model="threadDraft"
               class="min-w-0 flex-1"
-              placeholder="Reply to PERI thread"
+              :placeholder="`Reply to ${periBotName} thread`"
               :rows="1"
               :disabled="threadSending || !threadParent"
               @keydown.enter.exact.prevent="sendThreadReply"
@@ -655,6 +652,7 @@ import {
   Textarea,
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
+import { useMobileBoot } from '../lib/mobileBoot'
 
 type FrappeResponse<T> = {
   message: T
@@ -765,6 +763,16 @@ type SendThreadReplyPayload = {
 
 const route = useRoute()
 
+const {
+  loadMobileBoot,
+  defaultChatChannel,
+  defaultWorkspace,
+  periBotName,
+  periBotUser,
+  user,
+  userFullname,
+} = useMobileBoot()
+
 const loading = ref(true)
 const refreshing = ref(false)
 const sending = ref(false)
@@ -802,7 +810,16 @@ const activeChannelName = computed(() => {
 })
 
 const isAiMode = computed(() => {
-  return String(route.query.mode || '').toLowerCase() === 'ai'
+  const queryMode = String(route.query.mode || '').toLowerCase()
+  const metaMode = String(route.meta?.mode || '').toLowerCase()
+
+  return queryMode === 'ai' || metaMode === 'peri' || route.path === '/chat/peri'
+})
+
+const periAssistantLabel = computed(() => {
+  const name = periBotName.value || 'PERI'
+
+  return `${name} AI assistant`
 })
 
 const shouldShowThreadButton = computed(() => {
@@ -864,14 +881,14 @@ function getInitials(value: string) {
     .join('')
 }
 
-function formatFallbackUserName(user?: string) {
-  if (!user) return ''
+function formatFallbackUserName(userValue?: string) {
+  if (!userValue) return ''
 
-  if (!user.includes('@')) {
-    return user
+  if (!userValue.includes('@')) {
+    return userValue
   }
 
-  return user
+  return userValue
     .split('@')[0]
     .split(/[._-]/)
     .filter(Boolean)
@@ -1034,13 +1051,14 @@ function isOwnMessage(message: RavenMessage) {
 
 function getMessageDisplayName(message: RavenMessage) {
   if (isBotMessage(message)) {
-    return message.bot || message.sender_full_name || 'PERI AI'
+    return message.bot || message.sender_full_name || periBotName.value || 'AI Assistant'
   }
 
   return (
     message.sender_full_name ||
     currentUserFullName.value ||
-    formatFallbackUserName(message.sender || message.owner || currentUser.value) ||
+    userFullname.value ||
+    formatFallbackUserName(message.sender || message.owner || currentUser.value || user.value) ||
     'You'
   )
 }
@@ -1214,7 +1232,17 @@ function findChannelByRequestedValue(requestedChannel: string) {
 }
 
 function getRequestedRouteChannel() {
-  return String(route.query.channel || '').trim()
+  const queryChannel = String(route.query.channel || '').trim()
+
+  if (queryChannel) {
+    return queryChannel
+  }
+
+  if (!isAiMode.value && defaultChatChannel.value) {
+    return defaultChatChannel.value
+  }
+
+  return ''
 }
 
 async function selectRequestedRouteChannel() {
@@ -1231,6 +1259,7 @@ async function selectRequestedRouteChannel() {
       name: requestedChannel,
       channel_name: requestedChannel,
       channel_id: requestedChannel,
+      workspace: defaultWorkspace.value,
     }
 
     messages.value = []
@@ -1333,12 +1362,14 @@ async function loadChat() {
   composerError.value = ''
 
   try {
+    await loadMobileBoot()
+
     const data = await apiRequest<FrappeResponse<ChatBootstrap>>(
       '/api/method/verto.api.mobile.raven.get_mobile_chat_bootstrap'
     )
 
-    currentUser.value = data.message.current_user || ''
-    currentUserFullName.value = data.message.current_user_full_name || ''
+    currentUser.value = data.message.current_user || user.value || ''
+    currentUserFullName.value = data.message.current_user_full_name || userFullname.value || ''
     channels.value = data.message.channels || []
 
     const requestedChannel = getRequestedRouteChannel()
@@ -1356,6 +1387,7 @@ async function loadChat() {
         name: requestedChannel,
         channel_name: requestedChannel,
         channel_id: requestedChannel,
+        workspace: defaultWorkspace.value,
       }
     }
 
@@ -1804,7 +1836,7 @@ function handleVertoThreadReply(data: any) {
 watch(
   () => route.fullPath,
   async () => {
-    if (!loading.value && route.path === '/chat') {
+    if (!loading.value && route.path.startsWith('/chat')) {
       await selectRequestedRouteChannel()
     }
   }
