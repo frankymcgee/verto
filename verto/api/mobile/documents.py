@@ -199,9 +199,9 @@ def is_usable_field(df):
     if getattr(df, "hidden", 0):
         return False
 
-    if getattr(df, "read_only", 0):
-        return False
-
+    # Do not skip read-only fields.
+    # They may be used by depends_on / mandatory_depends_on / read_only_depends_on.
+    # The frontend will render them disabled instead.
     if df.fieldtype in READ_ONLY_FIELD_TYPES:
         return False
 
@@ -235,15 +235,22 @@ def serialize_field(df, include_child_fields=True):
         "precision": getattr(df, "precision", None),
         "length": getattr(df, "length", None),
         "idx": getattr(df, "idx", 0),
+        "read_only": bool(getattr(df, "read_only", 0)),
     }
 
     if df.fieldtype == "Table" and df.options and include_child_fields:
         child_meta = frappe.get_meta(df.options)
 
         child_fields = []
+
         for child_df in child_meta.fields:
             if is_usable_field(child_df):
-                child_fields.append(serialize_field(child_df, include_child_fields=False))
+                child_fields.append(
+                    serialize_field(
+                        child_df,
+                        include_child_fields=False,
+                    )
+                )
 
         field["child_doctype"] = df.options
         field["child_fields"] = child_fields
@@ -785,6 +792,18 @@ def get_mobile_doc_for_edit(mobile_doctype, docname):
         "can_write": has_desk_write_permission(doc),
     }
 
+def build_mobile_doc_for_rules(doctype, values=None, docname=None):
+    values = values or {}
+
+    if docname and frappe.db.exists(doctype, docname):
+        doc = frappe.get_doc(doctype, docname)
+    else:
+        doc = frappe.new_doc(doctype)
+
+    set_doc_values_from_mobile(doc, values)
+
+    return doc
+
 
 @frappe.whitelist()
 def update_mobile_doc(mobile_doctype, docname, values=None):
@@ -866,10 +885,10 @@ def create_mobile_doc(mobile_doctype, values=None):
     if doctype == "Daily Timesheet":
         mark_attendance_from_daily_timesheet(doc)
 
-    route = f"/app/{frappe.scrub(doc.doctype).replace('_', '-')}/{doc.name}"
+    route = "/forms"
 
     if doctype == "Daily Timesheet":
-        route = "/verto-mobile/shifts"
+        route = "/shifts"
 
     return {
         "doctype": doc.doctype,
@@ -1182,6 +1201,21 @@ def run_field_change(mobile_doctype, changed_fieldname, values=None, docname=Non
                 "messages": [],
                 "warnings": warnings,
             }
+
+    doc = build_mobile_doc_for_rules(
+        doctype=doctype,
+        values=values,
+        docname=docname,
+    )
+
+    if hasattr(doc, "mobile_field_change"):
+        result = doc.mobile_field_change(changed_fieldname=changed_fieldname) or {}
+
+        return {
+            "values": result.get("values", {}),
+            "messages": result.get("messages", []),
+            "warnings": result.get("warnings", []),
+        }
 
     from verto.api.mobile.field_change_handlers import handle_mobile_field_change
 

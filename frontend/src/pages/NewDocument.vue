@@ -337,6 +337,7 @@ export type MobileField = {
   depends_on?: string
   mandatory_depends_on?: string
   read_only_depends_on?: string
+  read_only?: boolean
   fetch_from?: string
   fetch_if_empty?: boolean
   precision?: string | number
@@ -636,7 +637,8 @@ function isFieldMandatory(field: MobileField) {
 }
 
 function isFieldReadOnly(field: MobileField) {
-  return evaluateReadOnlyDependsOn(field.read_only_depends_on, values.value)
+  return Boolean(field.read_only) ||
+    evaluateReadOnlyDependsOn(field.read_only_depends_on, values.value)
 }
 
 function handleFiles(event: Event) {

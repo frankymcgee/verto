@@ -1,169 +1,157 @@
-export type FormValues = Record<string, any>
+type Values = Record<string, any>
 
-function normaliseValue(value: any) {
-  if (value === undefined || value === null) return ''
-  return value
+function normaliseExpression(expression?: string) {
+  return String(expression || '').trim()
+}
+
+function isEmpty(value: any) {
+  return value === undefined ||
+    value === null ||
+    value === '' ||
+    value === false ||
+    value === 0
 }
 
 function isTruthy(value: any) {
-  if (value === true) return true
-  if (value === 1) return true
-  if (value === '1') return true
-  if (value === 'true') return true
-  if (value === 'Yes') return true
-  if (value === 'yes') return true
+  if (Array.isArray(value)) {
+    return value.length > 0
+  }
+
+  if (typeof value === 'string') {
+    return value.trim() !== ''
+  }
 
   return Boolean(value)
 }
 
-function getDocValue(fieldname: string, values: FormValues) {
-  return normaliseValue(values[fieldname])
+function normaliseValue(value: any) {
+  if (value === undefined || value === null) {
+    return ''
+  }
+
+  return value
 }
 
-function parseLiteral(value: string) {
-  const trimmed = value.trim()
+function getDocProxy(values: Values) {
+  return new Proxy(values, {
+    get(target, property) {
+      if (typeof property !== 'string') {
+        return undefined
+      }
 
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    return trimmed.slice(1, -1)
-  }
+      return normaliseValue(target[property])
+    },
 
-  if (trimmed === 'true') return true
-  if (trimmed === 'false') return false
-  if (trimmed === 'null') return null
-  if (trimmed === 'undefined') return undefined
-
-  const numberValue = Number(trimmed)
-
-  if (!Number.isNaN(numberValue) && trimmed !== '') {
-    return numberValue
-  }
-
-  return trimmed
+    has() {
+      return true
+    },
+  })
 }
 
-function compareValues(left: any, operator: string, right: any) {
-  const normalisedLeft = normaliseValue(left)
-  const normalisedRight = normaliseValue(right)
+function evaluateSimpleFieldExpression(expression: string, values: Values) {
+  const fieldname = expression
+    .replace(/^doc\./, '')
+    .trim()
 
-  switch (operator) {
-    case '==':
-      // eslint-disable-next-line eqeqeq
-      return normalisedLeft == normalisedRight
+  if (!fieldname) {
+    return true
+  }
 
-    case '!=':
-      // eslint-disable-next-line eqeqeq
-      return normalisedLeft != normalisedRight
+  return isTruthy(values[fieldname])
+}
 
-    case '===':
-      return normalisedLeft === normalisedRight
+function evaluateEvalExpression(expression: string, values: Values) {
+  const rawExpression = expression.replace(/^eval:/, '').trim()
 
-    case '!==':
-      return normalisedLeft !== normalisedRight
+  if (!rawExpression) {
+    return true
+  }
 
-    case '>':
-      return Number(normalisedLeft) > Number(normalisedRight)
+  try {
+    const doc = getDocProxy(values)
 
-    case '>=':
-      return Number(normalisedLeft) >= Number(normalisedRight)
+    const evaluator = new Function(
+      'doc',
+      'values',
+      'is_empty',
+      'is_not_empty',
+      'in_list',
+      `
+        try {
+          return Boolean(${rawExpression})
+        } catch (error) {
+          return false
+        }
+      `
+    )
 
-    case '<':
-      return Number(normalisedLeft) < Number(normalisedRight)
-
-    case '<=':
-      return Number(normalisedLeft) <= Number(normalisedRight)
-
-    default:
-      return false
+    return Boolean(
+      evaluator(
+        doc,
+        values,
+        isEmpty,
+        (value: any) => !isEmpty(value),
+        (items: any[], value: any) => Array.isArray(items) && items.includes(value)
+      )
+    )
+  } catch {
+    return false
   }
 }
 
-function evaluateSimpleExpression(expression: string, values: FormValues) {
-  const cleaned = expression.trim()
+function evaluateNonEvalExpression(expression: string, values: Values) {
+  const trimmed = expression.trim()
 
-  // Supports: doc.fieldname
-  const docFieldOnlyMatch = cleaned.match(/^doc\.([a-zA-Z0-9_]+)$/)
-
-  if (docFieldOnlyMatch) {
-    return isTruthy(getDocValue(docFieldOnlyMatch[1], values))
+  if (!trimmed) {
+    return true
   }
 
-  // Supports: !doc.fieldname
-  const notDocFieldOnlyMatch = cleaned.match(/^!doc\.([a-zA-Z0-9_]+)$/)
-
-  if (notDocFieldOnlyMatch) {
-    return !isTruthy(getDocValue(notDocFieldOnlyMatch[1], values))
+  if (/^[a-zA-Z0-9_]+$/.test(trimmed)) {
+    return evaluateSimpleFieldExpression(trimmed, values)
   }
 
-  // Supports:
-  // doc.fieldname == "Yes"
-  // doc.fieldname != "No"
-  // doc.score >= 5
-  const comparisonMatch = cleaned.match(
-    /^doc\.([a-zA-Z0-9_]+)\s*(===|!==|==|!=|>=|<=|>|<)\s*(.+)$/
-  )
-
-  if (comparisonMatch) {
-    const fieldname = comparisonMatch[1]
-    const operator = comparisonMatch[2]
-    const rightValue = parseLiteral(comparisonMatch[3])
-
-    return compareValues(getDocValue(fieldname, values), operator, rightValue)
+  if (/^doc\.[a-zA-Z0-9_]+$/.test(trimmed)) {
+    return evaluateSimpleFieldExpression(trimmed, values)
   }
 
-  // Supports: fieldname
-  const bareFieldMatch = cleaned.match(/^([a-zA-Z0-9_]+)$/)
+  const docComparison = trimmed.match(/^doc\.([a-zA-Z0-9_]+)\s*(===|==|!==|!=)\s*["'](.*)["']$/)
+  const plainComparison = trimmed.match(/^([a-zA-Z0-9_]+)\s*(===|==|!==|!=)\s*["'](.*)["']$/)
 
-  if (bareFieldMatch) {
-    return isTruthy(getDocValue(bareFieldMatch[1], values))
+  const match = docComparison || plainComparison
+
+  if (match) {
+    const fieldname = match[1]
+    const operator = match[2]
+    const expected = match[3]
+    const actual = String(values[fieldname] ?? '')
+
+    if (operator === '!=' || operator === '!==') {
+      return actual !== expected
+    }
+
+    return actual === expected
   }
 
   return false
 }
 
-export function evaluateDependsOn(dependsOn: string | undefined | null, values: FormValues) {
+export function evaluateDependsOn(expression?: string, values: Values = {}) {
+  const dependsOn = normaliseExpression(expression)
+
   if (!dependsOn) {
     return true
   }
 
-  const expression = dependsOn.trim()
-
-  if (!expression) {
-    return true
+  if (dependsOn.startsWith('eval:')) {
+    return evaluateEvalExpression(dependsOn, values)
   }
 
-  if (expression.startsWith('eval:')) {
-    const evalExpression = expression.replace(/^eval:/, '').trim()
-
-    // Basic AND support:
-    // eval:doc.a == "Yes" && doc.b == "No"
-    if (evalExpression.includes('&&')) {
-      return evalExpression
-        .split('&&')
-        .map((part) => part.trim())
-        .every((part) => evaluateSimpleExpression(part, values))
-    }
-
-    // Basic OR support:
-    // eval:doc.a == "Yes" || doc.b == "Yes"
-    if (evalExpression.includes('||')) {
-      return evalExpression
-        .split('||')
-        .map((part) => part.trim())
-        .some((part) => evaluateSimpleExpression(part, values))
-    }
-
-    return evaluateSimpleExpression(evalExpression, values)
-  }
-
-  // Supports non-eval depends_on value like:
-  // fieldname
-  return evaluateSimpleExpression(expression, values)
+  return evaluateNonEvalExpression(dependsOn, values)
 }
 
-export function evaluateMandatoryDependsOn(dependsOn: string | undefined | null, values: FormValues) {
+export function evaluateMandatoryDependsOn(expression?: string, values: Values = {}) {
+  const dependsOn = normaliseExpression(expression)
+
   if (!dependsOn) {
     return false
   }
@@ -171,10 +159,36 @@ export function evaluateMandatoryDependsOn(dependsOn: string | undefined | null,
   return evaluateDependsOn(dependsOn, values)
 }
 
-export function evaluateReadOnlyDependsOn(dependsOn: string | undefined | null, values: FormValues) {
+export function evaluateReadOnlyDependsOn(expression?: string, values: Values = {}) {
+  const dependsOn = normaliseExpression(expression)
+
   if (!dependsOn) {
     return false
   }
 
   return evaluateDependsOn(dependsOn, values)
+}
+
+export function getDependencyFieldnames(expression?: string) {
+  const dependsOn = normaliseExpression(expression)
+
+  if (!dependsOn) {
+    return []
+  }
+
+  const fieldnames = new Set<string>()
+
+  const docFieldRegex = /doc\.([a-zA-Z0-9_]+)/g
+  let match = docFieldRegex.exec(dependsOn)
+
+  while (match) {
+    fieldnames.add(match[1])
+    match = docFieldRegex.exec(dependsOn)
+  }
+
+  if (!fieldnames.size && /^[a-zA-Z0-9_]+$/.test(dependsOn)) {
+    fieldnames.add(dependsOn)
+  }
+
+  return Array.from(fieldnames)
 }

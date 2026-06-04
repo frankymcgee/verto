@@ -716,7 +716,8 @@ function isFieldMandatory(field: MobileField) {
 }
 
 function isFieldReadOnly(field: MobileField) {
-  return evaluateReadOnlyDependsOn(field.read_only_depends_on, values.value)
+  return Boolean(field.read_only) ||
+    evaluateReadOnlyDependsOn(field.read_only_depends_on, values.value)
 }
 
 function handleFiles(event: Event) {
