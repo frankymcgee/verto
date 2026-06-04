@@ -1,4 +1,4 @@
-// Copyright (c) 2026, Webwire and contributors
+// Copyright (c) 2026, Webwire Pty Ltd and contributors
 // For license information, please see license.txt
 
 frappe.ui.form.on("Personal Fatigue Assessment", {
