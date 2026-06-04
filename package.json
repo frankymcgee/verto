@@ -4,8 +4,8 @@
   "private": true,
   "description": "Webwire Verto custom app for ERPNext",
   "scripts": {
-    "build": "cd frontend && yarn install --frozen-lockfile --non-interactive && yarn build",
+    "build": "git submodule update --init --recursive && cd frontend && yarn install --frozen-lockfile --non-interactive && yarn build",
     "build:frontend": "cd frontend && yarn build",
-    "install:frontend": "cd frontend && yarn install --frozen-lockfile --non-interactive"
+    "install:frontend": "git submodule update --init --recursive && cd frontend && yarn install --frozen-lockfile --non-interactive"
   }
 }
