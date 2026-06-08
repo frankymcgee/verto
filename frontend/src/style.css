@@ -6,15 +6,21 @@
 
 :root {
   --mobile-bottom-tabs-height: calc(68px + env(safe-area-inset-bottom));
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
 }
 
 html,
 body,
 #app {
   min-height: 100%;
+  background: #f9fafb;
 }
 
 body {
   margin: 0;
+  padding: 0;
   background: #f9fafb;
 }

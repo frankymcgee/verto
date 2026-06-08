@@ -1,10 +1,10 @@
 <template>
-  <div class="min-h-screen bg-surface-gray-1 text-ink-gray-9 antialiased">
+  <div class="mobile-shell min-h-screen bg-gray-50 text-gray-900">
     <AppHeader />
 
     <main
       ref="mainEl"
-      class="mx-auto min-h-[calc(100vh-3.5rem)] max-w-md pb-[calc(var(--mobile-bottom-tabs-height,4rem)+1rem)]"
+      class="mx-auto min-h-[calc(100vh-3.5rem)] max-w-md pb-28"
     >
       <router-view />
     </main>
@@ -41,3 +41,10 @@ watch(
   }
 )
 </script>
+
+<style scoped>
+.mobile-shell {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+</style>

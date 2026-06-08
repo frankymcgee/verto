@@ -1,5 +1,5 @@
 <template>
-  <header class="sticky top-0 z-40 border-b border-outline-gray-1 bg-surface-white/95 backdrop-blur">
+  <header class="app-header-safe sticky top-0 z-40 border-b border-outline-gray-1 bg-surface-white/95 backdrop-blur">
     <div class="mx-auto flex max-w-md items-center justify-between gap-3 px-3 py-2">
       <!-- Left: App icon + current page -->
       <div class="flex min-w-0 items-center gap-2">
@@ -264,3 +264,9 @@ function logout() {
   window.location.href = '/logout'
 }
 </script>
+
+<style scoped>
+.app-header-safe {
+  padding-top: max(env(safe-area-inset-top, 0px), 20px);
+}
+</style>
