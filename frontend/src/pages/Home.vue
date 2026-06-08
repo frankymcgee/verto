@@ -153,11 +153,10 @@
                 class="space-y-3 border-t border-outline-gray-1 bg-surface-white p-2"
               >
                 <Button
-                  as="a"
                   variant="subtle"
                   theme="gray"
                   class="w-full justify-center"
-                  :href="getAreaGanttUrl(parent)"
+                  @click.stop="openInternalUrl(getAreaGanttUrl(parent), 'Area Gantt')"
                 >
                   Area Gantt
                 </Button>
@@ -252,33 +251,28 @@
             <!-- Project Links -->
             <div class="grid grid-cols-3 gap-2">
               <Button
-                as="a"
                 variant="subtle"
                 theme="gray"
                 class="justify-center"
-                :href="getProjectGanttUrl(scope)"
+                @click="openInternalUrl(getProjectGanttUrl(scope), 'Gantt')"
               >
                 Gantt
               </Button>
 
               <Button
-                as="a"
                 variant="subtle"
                 theme="gray"
                 class="justify-center"
-                :href="getProjectMapUrl(scope)"
+                @click="openInternalUrl(getProjectMapUrl(scope), 'Map')"
               >
                 Map
               </Button>
 
               <Button
-                as="a"
                 variant="subtle"
                 theme="gray"
                 class="justify-center"
-                :href="getShareFolder(scope)"
-                target="_blank"
-                rel="noopener noreferrer"
+                @click="openExternalUrl(getShareFolder(scope), 'Folder')"
               >
                 Folder
               </Button>
@@ -286,25 +280,19 @@
 
             <div class="grid grid-cols-3 gap-2">
               <Button
-                as="a"
                 variant="subtle"
                 theme="gray"
                 class="justify-center"
-                :href="getHandoverUrl(scope)"
-                target="_blank"
-                rel="noopener noreferrer"
+                @click="openExternalUrl(getHandoverUrl(scope), 'Handover')"
               >
                 Handover
               </Button>
 
               <Button
-                as="a"
                 variant="subtle"
                 theme="gray"
                 class="justify-center"
-                :href="getGameplanUrl(scope)"
-                target="_blank"
-                rel="noopener noreferrer"
+                @click="openExternalUrl(getGameplanUrl(scope), 'Gameplan')"
               >
                 Gameplan
               </Button>
@@ -400,6 +388,7 @@
 </template>
 
 <script setup lang="ts">
+// VERTO_HOME_ACTION_BUTTONS_V1
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
@@ -701,6 +690,39 @@ function getCustomerInitials(scope: ScopeGroup) {
 function hideBrokenImage(event: Event) {
   const image = event.target as HTMLImageElement
   image.style.display = 'none'
+}
+
+
+function isUsableUrl(url?: string) {
+  const value = String(url || '').trim()
+
+  return Boolean(value) && value !== '#'
+}
+
+function openInternalUrl(url?: string, label = 'link') {
+  const value = String(url || '').trim()
+
+  if (!isUsableUrl(value)) {
+    error.value = `Could not open ${label}. The URL is not configured for this project.`
+    return
+  }
+
+  window.location.href = value
+}
+
+function openExternalUrl(url?: string, label = 'link') {
+  const value = String(url || '').trim()
+
+  if (!isUsableUrl(value)) {
+    error.value = `Could not open ${label}. The URL is not configured for this project.`
+    return
+  }
+
+  const openedWindow = window.open(value, '_blank', 'noopener,noreferrer')
+
+  if (!openedWindow) {
+    window.location.href = value
+  }
 }
 
 function getProjectChatChannel(scope: ScopeGroup) {
