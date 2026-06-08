@@ -1,3 +1,4 @@
+<!-- VERTO_CHAT_STREAM_NATIVE_V4: pending AI thread discovery + sticky thread header/footer + Raven native stream refresh -->
 <template>
   <section class="min-h-screen bg-surface-gray-1">
     <main class="flex h-[calc(100vh-3.5rem-var(--mobile-bottom-tabs-height,4rem))] flex-col">
@@ -141,12 +142,11 @@
               </div>
 
               <div
-                v-if="getVisibleMessageText(message)"
-                class="whitespace-pre-wrap break-words text-sm leading-relaxed"
+                v-if="getVisibleMessageHtml(message)"
+                class="rich-message-html break-words text-sm leading-relaxed"
                 :class="isOwnMessage(message) ? 'text-white' : 'text-ink-gray-8'"
-              >
-                {{ getVisibleMessageText(message) }}
-              </div>
+                v-html="getVisibleMessageHtml(message)"
+              />
 
               <!-- Raven Document Previews -->
               <div
@@ -339,12 +339,34 @@
           @submit.prevent="sendMessage"
         >
           <div class="flex items-end gap-2">
+            <input
+              ref="imageInputEl"
+              type="file"
+              accept="image/*"
+              class="hidden"
+              @change="handleImageSelected"
+            />
+
+            <Button
+              v-if="isAiMode"
+              type="button"
+              variant="subtle"
+              theme="gray"
+              class="h-10 w-10 shrink-0 justify-center rounded-full text-lg font-semibold"
+              :loading="uploadingImage"
+              :disabled="uploadingImage || sending || !activeChannel"
+              aria-label="Upload image for PERI analysis"
+              @click="openImagePicker"
+            >
+              +
+            </Button>
+
             <Textarea
               v-model="draft"
               class="min-w-0 flex-1"
-              placeholder="Message"
+              :placeholder="isAiMode ? 'Message or add an image for PERI' : 'Message'"
               :rows="1"
-              :disabled="sending || !activeChannel"
+              :disabled="sending || uploadingImage || !activeChannel"
               @keydown.enter.exact.prevent="sendMessage"
             />
 
@@ -353,11 +375,18 @@
               variant="solid"
               theme="gray"
               :loading="sending"
-              :disabled="sending || !activeChannel || !draft.trim()"
+              :disabled="sending || uploadingImage || !activeChannel || !draft.trim()"
             >
               Send
             </Button>
           </div>
+
+          <p
+            v-if="uploadingImage"
+            class="mt-2 text-xs text-ink-gray-5"
+          >
+            Uploading image and waiting for {{ periBotName }}...
+          </p>
 
           <p
             v-if="composerError"
@@ -376,7 +405,7 @@
       @click.self="closePreview"
     >
       <Card class="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
-        <div class="flex items-center justify-between border-b border-outline-gray-1 px-4 py-3">
+        <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
           <div class="min-w-0">
             <p class="truncate text-sm font-semibold text-ink-gray-9">
               {{ previewAttachment.file_name || 'Attachment' }}
@@ -467,7 +496,7 @@
       @click.self="closeThread"
     >
       <Card class="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
-        <div class="flex items-center justify-between border-b border-outline-gray-1 px-4 py-3">
+        <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
           <div class="min-w-0">
             <p class="truncate text-base font-semibold text-ink-gray-9">
               {{ periBotName }} Thread
@@ -519,12 +548,34 @@
                     {{ threadParent.sender_full_name || formatFallbackUserName(threadParent.owner) }}
                   </p>
 
-                  <p
-                    v-if="getVisibleMessageText(threadParent)"
-                    class="mt-1 whitespace-pre-wrap break-words text-sm text-ink-gray-8"
+                  <div
+                    v-if="getVisibleMessageHtml(threadParent)"
+                    class="rich-message-html mt-1 break-words text-sm text-ink-gray-8"
+                    v-html="getVisibleMessageHtml(threadParent)"
+                  />
+
+                  <div
+                    v-if="threadParent.attachments?.length"
+                    class="mt-2 space-y-2"
                   >
-                    {{ getVisibleMessageText(threadParent) }}
-                  </p>
+                    <template
+                      v-for="attachment in threadParent.attachments"
+                      :key="attachment.name || attachment.file_url"
+                    >
+                      <button
+                        v-if="isImageAttachment(attachment)"
+                        type="button"
+                        class="block w-full overflow-hidden rounded-xl text-left"
+                        @click="openPreview(attachment)"
+                      >
+                        <img
+                          :src="attachment.file_thumbnail || attachment.file_url"
+                          :alt="attachment.file_name || 'Image attachment'"
+                          class="max-h-56 w-full object-cover"
+                        />
+                      </button>
+                    </template>
+                  </div>
                 </div>
               </div>
             </Card>
@@ -560,13 +611,12 @@
                     {{ getMessageDisplayName(reply) }}
                   </div>
 
-                  <p
-                    v-if="getVisibleMessageText(reply)"
-                    class="whitespace-pre-wrap break-words text-sm leading-relaxed"
+                  <div
+                    v-if="getVisibleMessageHtml(reply)"
+                    class="rich-message-html break-words text-sm leading-relaxed"
                     :class="isOwnMessage(reply) ? 'text-white' : 'text-ink-gray-8'"
-                  >
-                    {{ getVisibleMessageText(reply) }}
-                  </p>
+                    v-html="getVisibleMessageHtml(reply)"
+                  />
 
                   <div
                     class="mt-1 text-[11px]"
@@ -586,17 +636,48 @@
               </div>
             </div>
 
+            <div
+              v-if="aiThinking"
+              class="flex justify-start gap-2"
+            >
+              <Avatar
+                :image="getAiThinkingAvatar()"
+                :label="getInitials(periBotName || 'PERI')"
+                size="sm"
+                class="mt-1 shrink-0"
+              />
+
+              <div class="max-w-[82%] rounded-2xl border border-outline-gray-1 bg-surface-white px-3 py-2 text-ink-gray-9 shadow-sm">
+                <div class="mb-1 text-xs font-semibold text-ink-gray-6">
+                  {{ periBotName }}
+                </div>
+
+                <div class="flex items-center gap-2 text-sm text-ink-gray-7">
+                  <span>{{ aiThinkingLabel }}</span>
+
+                  <span
+                    class="thinking-dots"
+                    aria-hidden="true"
+                  >
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <Card
-              v-else
+              v-else-if="!orderedThreadReplies.length"
               class="p-3"
             >
               <div class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-5 text-center">
                 <p class="text-sm font-medium text-ink-gray-7">
-                  No replies yet.
+                  {{ activeThreadId ? 'No replies yet.' : `Waiting for ${periBotName} to create the thread.` }}
                 </p>
 
                 <p class="mt-1 text-sm text-ink-gray-5">
-                  Start the thread with a reply.
+                  {{ activeThreadId ? 'Start the thread with a reply.' : 'The uploaded image has been sent to Raven.' }}
                 </p>
               </div>
             </Card>
@@ -613,7 +694,7 @@
         </div>
 
         <form
-          class="border-t border-outline-gray-1 bg-surface-white p-3"
+          class="sticky bottom-0 z-10 border-t border-outline-gray-1 bg-surface-white p-3"
           @submit.prevent="sendThreadReply"
         >
           <div class="flex items-end gap-2">
@@ -622,7 +703,7 @@
               class="min-w-0 flex-1"
               :placeholder="`Reply to ${periBotName} thread`"
               :rows="1"
-              :disabled="threadSending || !threadParent"
+              :disabled="threadSending || !threadParent || !activeThreadId"
               @keydown.enter.exact.prevent="sendThreadReply"
             />
 
@@ -631,7 +712,7 @@
               variant="solid"
               theme="gray"
               :loading="threadSending"
-              :disabled="threadSending || !threadParent || !threadDraft.trim()"
+              :disabled="threadSending || !threadParent || !activeThreadId || !threadDraft.trim()"
             >
               Reply
             </Button>
@@ -749,6 +830,13 @@ type SendMessagePayload = {
   message: RavenMessage
 }
 
+type ImageUploadPayload = {
+  message: RavenMessage
+  channel_id?: string
+  thread_id?: string
+  thread_pending?: boolean
+}
+
 type ThreadPayload = {
   parent: RavenMessage
   replies: RavenMessage[]
@@ -756,9 +844,25 @@ type ThreadPayload = {
   thread_id?: string
 }
 
+type ExistingThreadPayload = ThreadPayload & {
+  thread_pending?: boolean
+}
+
 type SendThreadReplyPayload = {
   reply: RavenMessage
   thread_id?: string
+}
+
+type AiThreadCreatedPayload = {
+  thread_id?: string
+  channel_id?: string
+  is_ai_thread?: boolean
+}
+
+type AiEventPayload = {
+  text?: string
+  channel_id?: string
+  bot?: string
 }
 
 const route = useRoute()
@@ -768,7 +872,6 @@ const {
   defaultChatChannel,
   defaultWorkspace,
   periBotName,
-  periBotUser,
   user,
   userFullname,
 } = useMobileBoot()
@@ -776,6 +879,7 @@ const {
 const loading = ref(true)
 const refreshing = ref(false)
 const sending = ref(false)
+const uploadingImage = ref(false)
 const error = ref('')
 const composerError = ref('')
 
@@ -788,6 +892,7 @@ const draft = ref('')
 
 const messagesEl = ref<HTMLElement | null>(null)
 const threadMessagesEl = ref<HTMLElement | null>(null)
+const imageInputEl = ref<HTMLInputElement | null>(null)
 const previewAttachment = ref<RavenAttachment | null>(null)
 
 const realtimeReady = ref(false)
@@ -804,6 +909,19 @@ const activeThreadId = ref('')
 
 const fetchingNewer = ref(false)
 const fetchingThread = ref(false)
+const pendingThreadRefresh = ref(false)
+
+let threadLiveRefreshTimer: number | undefined
+let threadLiveRefreshInFlight = false
+let pendingThreadDiscoveryTimer: number | undefined
+let pendingThreadDiscoveryInFlight = false
+
+const realtimeSubscribedRavenChannelDocs = new Set<string>()
+let realtimeSubscribedRavenChannelDoctype = false
+
+const aiThinking = ref(false)
+const aiThinkingText = ref('')
+const pendingImageMessageName = ref('')
 
 const activeChannelName = computed(() => {
   return activeChannel.value?.name || activeChannel.value?.channel_id || ''
@@ -820,6 +938,10 @@ const periAssistantLabel = computed(() => {
   const name = periBotName.value || 'PERI'
 
   return `${name} AI assistant`
+})
+
+const aiThinkingLabel = computed(() => {
+  return aiThinkingText.value || `${periBotName.value || 'PERI'} is analysing...`
 })
 
 const shouldShowThreadButton = computed(() => {
@@ -913,23 +1035,102 @@ function stripHtml(value: string) {
     .trim()
 }
 
+
+function buildAttachmentFromRavenFile(message: RavenMessage): RavenAttachment[] {
+  const fileUrl = String((message as any).file || '').trim()
+
+  if (!fileUrl) {
+    return []
+  }
+
+  const fileName = fileUrl.includes('/')
+    ? fileUrl.split('/').pop() || fileUrl
+    : fileUrl
+
+  const extension = fileName.includes('.')
+    ? fileName.split('.').pop()?.toLowerCase() || ''
+    : ''
+
+  const isImage =
+    String((message as any).message_type || '').toLowerCase() === 'image' ||
+    ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(extension)
+
+  return [
+    {
+      name: message.name,
+      file_name: fileName,
+      file_url: fileUrl,
+      file_thumbnail: (message as any).file_thumbnail || '',
+      is_private: fileUrl.startsWith('/private/'),
+      file_size: 0,
+      extension,
+      is_image: isImage,
+      is_pdf: extension === 'pdf',
+      is_document: ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'csv', 'txt', 'pdf'].includes(extension),
+    },
+  ]
+}
+
+function normaliseRavenStreamMessage(message: RavenMessage): RavenMessage {
+  const normalised: RavenMessage = {
+    ...message,
+    owner: message.owner || message.sender || '',
+    sender: message.sender || message.owner || '',
+    message: message.message || message.text || message.content || '',
+    content: message.content || message.text || message.message || '',
+    text: message.text || message.content || message.message || '',
+    channel_id: message.channel_id || message.channel || '',
+    channel: message.channel || message.channel_id || '',
+  }
+
+  if (!normalised.attachments?.length) {
+    normalised.attachments = buildAttachmentFromRavenFile(normalised)
+  }
+
+  return normalised
+}
+
+function normaliseRavenStreamMessages(items: RavenMessage[]) {
+  return (items || []).map((message) => normaliseRavenStreamMessage(message))
+}
+
+async function getRavenStreamMessages(channelId: string, limit = 50) {
+  const payload = new FormData()
+
+  payload.append('channel_id', channelId)
+  payload.append('limit', String(limit))
+
+  const data = await apiRequest<FrappeResponse<MessagesPayload>>(
+    '/api/method/raven.api.chat_stream.get_messages',
+    {
+      method: 'POST',
+      body: payload,
+    }
+  )
+
+  return sortMessagesOldestFirst(normaliseRavenStreamMessages(data.message.messages || []))
+}
+
 function getRawMessageText(message: RavenMessage) {
-  const text = message.content || message.text || ''
+  // Raven's chat_stream.get_messages returns the formatted response in `text`.
+  // Prefer that field so AI replies keep their HTML formatting, then fall back to content/message.
+  const text = message.text || ''
+  const content = message.content || ''
   const alternate = message.message || ''
 
-  if (text && alternate && stripHtml(text) === stripHtml(alternate)) {
+  if (text) {
     return text
   }
 
-  if (text && alternate) {
-    return `${text}\n${alternate}`
+  if (content) {
+    return content
   }
 
-  return text || alternate || ''
+  return alternate || ''
 }
 
-function getVisibleMessageText(message: RavenMessage) {
-  let text = stripHtml(getRawMessageText(message))
+function removeDocumentPreviewLinksFromText(value: string, message: RavenMessage) {
+  let text = value
 
   for (const link of extractDocumentLinks(message)) {
     const encodedDoctypePlus = encodeURIComponent(link.doctype).replace(/%20/g, '+')
@@ -944,8 +1145,122 @@ function getVisibleMessageText(message: RavenMessage) {
   }
 
   return text
+}
+
+function getVisibleMessageText(message: RavenMessage) {
+  return stripHtml(removeDocumentPreviewLinksFromText(getRawMessageText(message), message))
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+}
+
+function containsHtml(value: string) {
+  return /<([a-z][\w:-]*)(?:\s[^>]*)?>/i.test(value)
+}
+
+function escapeHtml(value: string) {
+  const div = document.createElement('div')
+  div.textContent = value
+  return div.innerHTML
+}
+
+function textToHtml(value: string) {
+  return escapeHtml(value)
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\n/g, '<br>')
+}
+
+function sanitiseMessageHtml(value: string) {
+  if (!value) {
+    return ''
+  }
+
+  const template = document.createElement('template')
+  template.innerHTML = value
+
+  const allowedTags = new Set([
+    'A',
+    'B',
+    'BLOCKQUOTE',
+    'BR',
+    'CODE',
+    'DIV',
+    'EM',
+    'I',
+    'LI',
+    'OL',
+    'P',
+    'PRE',
+    'S',
+    'SPAN',
+    'STRONG',
+    'U',
+    'UL',
+  ])
+
+  const allowedAttributes: Record<string, Set<string>> = {
+    A: new Set(['href', 'target', 'rel']),
+  }
+
+  function cleanNode(node: Node) {
+    const children = Array.from(node.childNodes)
+
+    for (const child of children) {
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        const element = child as HTMLElement
+        const tagName = element.tagName.toUpperCase()
+
+        if (!allowedTags.has(tagName)) {
+          element.replaceWith(...Array.from(element.childNodes))
+          continue
+        }
+
+        for (const attribute of Array.from(element.attributes)) {
+          const attrName = attribute.name.toLowerCase()
+          const allowedForTag = allowedAttributes[tagName]
+          const isAllowed = allowedForTag?.has(attrName) || false
+
+          if (!isAllowed) {
+            element.removeAttribute(attribute.name)
+            continue
+          }
+
+          if (tagName === 'A' && attrName === 'href') {
+            const href = attribute.value.trim()
+            const isSafeHref = href.startsWith('/') || href.startsWith('#') || /^https?:\/\//i.test(href) || /^mailto:/i.test(href)
+
+            if (!isSafeHref) {
+              element.removeAttribute('href')
+            }
+          }
+        }
+
+        if (tagName === 'A') {
+          element.setAttribute('target', '_blank')
+          element.setAttribute('rel', 'noopener noreferrer')
+        }
+
+        cleanNode(element)
+      } else if (child.nodeType === Node.COMMENT_NODE) {
+        child.remove()
+      }
+    }
+  }
+
+  cleanNode(template.content)
+
+  return template.innerHTML.trim()
+}
+
+function getVisibleMessageHtml(message: RavenMessage) {
+  const raw = removeDocumentPreviewLinksFromText(getRawMessageText(message), message).trim()
+
+  if (!raw) {
+    return ''
+  }
+
+  const html = containsHtml(raw) ? raw : textToHtml(raw)
+
+  return sanitiseMessageHtml(html)
 }
 
 function escapeRegExp(value: string) {
@@ -1073,6 +1388,11 @@ function getMessageAvatarImage(message: RavenMessage) {
 
 function getMessageInitials(message: RavenMessage) {
   return getInitials(getMessageDisplayName(message) || 'User')
+}
+
+function getAiThinkingAvatar() {
+  const botReply = orderedThreadReplies.value.find((reply) => isBotMessage(reply))
+  return botReply?.bot_image || ''
 }
 
 function doctypeToSlug(value: string) {
@@ -1395,7 +1715,9 @@ async function loadChat() {
       if (requestedChannel || activeChannel.value.name !== data.message.active_channel?.name) {
         await loadMessages()
       } else {
-        messages.value = sortMessagesOldestFirst(data.message.messages || [])
+        // Even when bootstrap returned messages, immediately hydrate from Raven's native
+        // chat stream so we get the formatted `text` field used by AI replies.
+        await loadMessages()
       }
     } else {
       messages.value = []
@@ -1423,19 +1745,9 @@ async function loadMessages() {
   composerError.value = ''
 
   try {
-    const payload = new FormData()
-
-    payload.append('channel', activeChannelName.value)
-
-    const data = await apiRequest<FrappeResponse<MessagesPayload>>(
-      '/api/method/verto.api.mobile.raven.get_channel_messages',
-      {
-        method: 'POST',
-        body: payload,
-      }
-    )
-
-    messages.value = sortMessagesOldestFirst(data.message.messages || [])
+    // Use Raven's native chat stream for the main timeline as well.
+    // This preserves the formatted `text` field exactly like Raven's own UI.
+    messages.value = await getRavenStreamMessages(activeChannelName.value, 50)
 
     await scrollToBottom()
   } catch (err) {
@@ -1454,30 +1766,13 @@ async function fetchNewerMessages() {
     return
   }
 
-  const fromMessage = getNewestMessageName(messages.value)
-
-  if (!fromMessage) {
-    await loadMessages()
-    return
-  }
-
   fetchingNewer.value = true
 
   try {
-    const payload = new FormData()
-
-    payload.append('channel', activeChannelName.value)
-    payload.append('from_message', fromMessage)
-
-    const data = await apiRequest<FrappeResponse<MessagesPayload>>(
-      '/api/method/verto.api.mobile.raven.get_newer_messages',
-      {
-        method: 'POST',
-        body: payload,
-      }
-    )
-
-    mergeMessages(data.message.messages || [])
+    // Refresh from Raven's native stream instead of using the wrapper/newer endpoint.
+    // Raven's response includes the rich HTML `text` field used by AI replies.
+    const incoming = await getRavenStreamMessages(activeChannelName.value, 50)
+    messages.value = incoming
     await scrollToBottom()
   } catch {
     await loadMessages()
@@ -1486,39 +1781,179 @@ async function fetchNewerMessages() {
   }
 }
 
-async function fetchThreadMessages() {
-  if (!activeThreadId.value || fetchingThread.value) {
+async function fetchThreadMessages(options: { force?: boolean } = {}) {
+  if (!activeThreadId.value) {
+    return
+  }
+
+  if (fetchingThread.value) {
+    pendingThreadRefresh.value = true
     return
   }
 
   fetchingThread.value = true
+  pendingThreadRefresh.value = false
+
+  try {
+    // Always treat Raven's chat stream as the source of truth for thread replies.
+    // This is what preserves PERI/Raven AI HTML formatting from the `text` field.
+    const incoming = await getRavenStreamMessages(activeThreadId.value, 50)
+
+    if (options.force) {
+      threadReplies.value = incoming
+    } else {
+      mergeThreadReplies(incoming)
+    }
+
+    if (incoming.length) {
+      aiThinking.value = false
+      aiThinkingText.value = ''
+    }
+
+    await scrollThreadToBottom()
+  } catch (err) {
+    threadError.value = err instanceof Error
+      ? err.message
+      : 'Could not refresh thread messages.'
+  } finally {
+    fetchingThread.value = false
+
+    if (pendingThreadRefresh.value) {
+      pendingThreadRefresh.value = false
+      await fetchThreadMessages({ force: true })
+    }
+  }
+}
+
+function scheduleThreadMessagesRefresh(delay = 0) {
+  window.setTimeout(() => {
+    fetchThreadMessages({ force: true })
+  }, delay)
+}
+
+function getThreadLiveRefreshInterval() {
+  return aiThinking.value ? 900 : 2500
+}
+
+function stopThreadLiveRefresh() {
+  if (threadLiveRefreshTimer !== undefined) {
+    window.clearInterval(threadLiveRefreshTimer)
+    threadLiveRefreshTimer = undefined
+  }
+}
+
+async function tickThreadLiveRefresh() {
+  if (!threadOpen.value || !activeThreadId.value || threadLiveRefreshInFlight) {
+    return
+  }
+
+  threadLiveRefreshInFlight = true
+
+  try {
+    await fetchThreadMessages({ force: true })
+  } finally {
+    threadLiveRefreshInFlight = false
+  }
+}
+
+function startThreadLiveRefresh(immediate = false) {
+  if (!threadOpen.value || !activeThreadId.value) {
+    stopThreadLiveRefresh()
+    return
+  }
+
+  stopThreadLiveRefresh()
+
+  if (immediate) {
+    tickThreadLiveRefresh()
+  }
+
+  threadLiveRefreshTimer = window.setInterval(() => {
+    tickThreadLiveRefresh()
+  }, getThreadLiveRefreshInterval())
+}
+
+function restartThreadLiveRefresh(immediate = false) {
+  startThreadLiveRefresh(immediate)
+}
+
+function stopPendingThreadDiscovery() {
+  if (pendingThreadDiscoveryTimer !== undefined) {
+    window.clearInterval(pendingThreadDiscoveryTimer)
+    pendingThreadDiscoveryTimer = undefined
+  }
+}
+
+async function tickPendingThreadDiscovery() {
+  if (
+    !threadOpen.value ||
+    !pendingImageMessageName.value ||
+    activeThreadId.value ||
+    pendingThreadDiscoveryInFlight
+  ) {
+    return
+  }
+
+  pendingThreadDiscoveryInFlight = true
 
   try {
     const payload = new FormData()
 
-    payload.append('thread_id', activeThreadId.value)
+    payload.append('message', pendingImageMessageName.value)
 
-    const data = await apiRequest<FrappeResponse<MessagesPayload>>(
-      '/api/method/verto.api.mobile.raven.get_thread_messages',
+    const data = await apiRequest<FrappeResponse<ExistingThreadPayload>>(
+      '/api/method/verto.api.mobile.raven.get_existing_message_thread',
       {
         method: 'POST',
         body: payload,
       }
     )
 
-    threadReplies.value = sortMessagesOldestFirst(data.message.messages || [])
-    await scrollThreadToBottom()
-  } catch {
-    // Keep the current thread view as-is if live fetch fails.
+    threadParent.value = data.message.parent || threadParent.value
+
+    if (data.message.thread_id && !data.message.thread_pending) {
+      activeThreadId.value = data.message.thread_id
+      threadReplies.value = sortMessagesOldestFirst(data.message.replies || [])
+      pendingImageMessageName.value = ''
+      threadError.value = ''
+
+      subscribeRavenChannelRoom(activeThreadId.value)
+      stopPendingThreadDiscovery()
+      startThreadLiveRefresh(true)
+
+      await fetchThreadMessages({ force: true })
+      await scrollThreadToBottom()
+    }
+  } catch (err) {
+    threadError.value = err instanceof Error
+      ? err.message
+      : 'Could not check for the Raven AI thread.'
   } finally {
-    fetchingThread.value = false
+    pendingThreadDiscoveryInFlight = false
   }
+}
+
+function startPendingThreadDiscovery(immediate = false) {
+  if (!threadOpen.value || !pendingImageMessageName.value || activeThreadId.value) {
+    stopPendingThreadDiscovery()
+    return
+  }
+
+  stopPendingThreadDiscovery()
+
+  if (immediate) {
+    tickPendingThreadDiscovery()
+  }
+
+  pendingThreadDiscoveryTimer = window.setInterval(() => {
+    tickPendingThreadDiscovery()
+  }, 1000)
 }
 
 async function sendMessage() {
   const text = draft.value.trim()
 
-  if (!text || !activeChannelName.value || sending.value) {
+  if (!text || !activeChannelName.value || sending.value || uploadingImage.value) {
     return
   }
 
@@ -1559,12 +1994,142 @@ async function sendMessage() {
   }
 }
 
+function openImagePicker() {
+  if (!isAiMode.value) {
+    composerError.value = `Image analysis is only available in Ask ${periBotName.value || 'PERI'}.`
+    return
+  }
+
+  if (!activeChannelName.value || uploadingImage.value) {
+    return
+  }
+
+  imageInputEl.value?.click()
+}
+
+async function handleImageSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+
+  if (!file) {
+    return
+  }
+
+  await uploadImageForAnalysis(file)
+
+  input.value = ''
+}
+
+async function uploadImageForAnalysis(file: File) {
+  if (!activeChannelName.value || uploadingImage.value) {
+    return
+  }
+
+  if (!file.type.startsWith('image/')) {
+    composerError.value = 'Please select an image file.'
+    return
+  }
+
+  uploadingImage.value = true
+  composerError.value = ''
+
+  try {
+    const payload = new FormData()
+
+    payload.append('channel', activeChannelName.value)
+    payload.append('file', file)
+    payload.append('caption', draft.value.trim())
+    payload.append('compress_images', '1')
+
+    const data = await apiRequest<FrappeResponse<ImageUploadPayload>>(
+      '/api/method/verto.api.mobile.raven.upload_image_for_analysis',
+      {
+        method: 'POST',
+        body: payload,
+      }
+    )
+
+    draft.value = ''
+
+    if (data.message.message) {
+      mergeMessages([data.message.message])
+      await scrollToBottom()
+
+      pendingImageMessageName.value = data.message.message.name
+
+      threadOpen.value = true
+      threadLoading.value = false
+      threadError.value = ''
+      threadParent.value = data.message.message
+      threadReplies.value = []
+      threadDraft.value = ''
+      activeThreadId.value = ''
+
+      aiThinking.value = true
+      aiThinkingText.value = `${periBotName.value || 'PERI'} is analysing...`
+
+      startPendingThreadDiscovery(true)
+      await scrollThreadToBottom()
+    } else {
+      await fetchNewerMessages()
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message === 'Login required') {
+      return
+    }
+
+    composerError.value = err instanceof Error ? err.message : 'Could not upload image.'
+  } finally {
+    uploadingImage.value = false
+  }
+}
+
 function openPreview(attachment: RavenAttachment) {
   previewAttachment.value = attachment
 }
 
 function closePreview() {
   previewAttachment.value = null
+}
+
+async function openExistingAiThread(messageName: string, threadId?: string) {
+  if (!messageName) {
+    return
+  }
+
+  threadOpen.value = true
+  threadLoading.value = true
+  threadError.value = ''
+
+  try {
+    const payload = new FormData()
+
+    payload.append('message', messageName)
+
+    const data = await apiRequest<FrappeResponse<ExistingThreadPayload>>(
+      '/api/method/verto.api.mobile.raven.get_existing_message_thread',
+      {
+        method: 'POST',
+        body: payload,
+      }
+    )
+
+    threadParent.value = data.message.parent || threadParent.value
+    activeThreadId.value = data.message.thread_id || threadId || messageName
+
+    subscribeRavenChannelRoom(activeThreadId.value)
+    pendingImageMessageName.value = ''
+    startThreadLiveRefresh(true)
+
+    await fetchThreadMessages({ force: true })
+    await scrollThreadToBottom()
+  } catch (err) {
+    threadError.value = err instanceof Error
+      ? err.message
+      : 'Could not open AI thread.'
+  } finally {
+    threadLoading.value = false
+  }
 }
 
 async function openThread(message: RavenMessage) {
@@ -1579,6 +2144,8 @@ async function openThread(message: RavenMessage) {
   threadReplies.value = []
   threadDraft.value = ''
   activeThreadId.value = ''
+  aiThinking.value = false
+  aiThinkingText.value = ''
 
   try {
     const payload = new FormData()
@@ -1594,8 +2161,15 @@ async function openThread(message: RavenMessage) {
     )
 
     threadParent.value = data.message.parent || message
-    threadReplies.value = sortMessagesOldestFirst(data.message.replies || [])
     activeThreadId.value = data.message.thread_id || ''
+    subscribeRavenChannelRoom(activeThreadId.value)
+
+    if (activeThreadId.value) {
+      startThreadLiveRefresh(true)
+      await fetchThreadMessages({ force: true })
+    } else {
+      threadReplies.value = sortMessagesOldestFirst(data.message.replies || [])
+    }
 
     if (data.message.thread_supported === false) {
       threadError.value = 'Threads are not supported by this Raven message schema yet.'
@@ -1613,6 +2187,8 @@ async function openThread(message: RavenMessage) {
 }
 
 function closeThread() {
+  stopThreadLiveRefresh()
+  stopPendingThreadDiscovery()
   threadOpen.value = false
   threadLoading.value = false
   threadSending.value = false
@@ -1621,6 +2197,9 @@ function closeThread() {
   threadReplies.value = []
   threadDraft.value = ''
   activeThreadId.value = ''
+  pendingImageMessageName.value = ''
+  aiThinking.value = false
+  aiThinkingText.value = ''
 }
 
 async function sendThreadReply() {
@@ -1656,7 +2235,7 @@ async function sendThreadReply() {
     if (data.message.reply) {
       mergeThreadReplies([data.message.reply])
     } else {
-      await fetchThreadMessages()
+      await fetchThreadMessages({ force: true })
     }
 
     messages.value = messages.value.map((message) => {
@@ -1702,6 +2281,9 @@ function setupRealtimeListeners() {
   window.frappe.realtime.on('thread_reply', handleRavenThreadReply)
   window.frappe.realtime.on('verto_mobile_raven_message', handleVertoMessageUpdate)
   window.frappe.realtime.on('verto_mobile_raven_thread_reply', handleVertoThreadReply)
+  window.frappe.realtime.on('ai_thread_created', handleAiThreadCreated)
+  window.frappe.realtime.on('ai_event', handleAiEvent)
+  window.frappe.realtime.on('ai_event_clear', handleAiEventClear)
 
   const socket = window.frappe.realtime.socket
 
@@ -1721,6 +2303,8 @@ function setupRealtimeListeners() {
     realtimeReady.value = true
     realtimeStatus.value = 'Live'
   }
+
+  subscribeRealtimeRoomsForActiveContext()
 }
 
 function cleanupRealtimeListeners() {
@@ -1732,17 +2316,130 @@ function cleanupRealtimeListeners() {
   window.frappe.realtime.off('thread_reply', handleRavenThreadReply)
   window.frappe.realtime.off('verto_mobile_raven_message', handleVertoMessageUpdate)
   window.frappe.realtime.off('verto_mobile_raven_thread_reply', handleVertoThreadReply)
+  window.frappe.realtime.off('ai_thread_created', handleAiThreadCreated)
+  window.frappe.realtime.off('ai_event', handleAiEvent)
+  window.frappe.realtime.off('ai_event_clear', handleAiEventClear)
 
   const socket = window.frappe.realtime.socket
 
   socket?.off('connect', handleRealtimeConnect)
   socket?.off('disconnect', handleRealtimeDisconnect)
   socket?.off('connect_error', handleRealtimeError)
+
+  stopThreadLiveRefresh()
+  stopPendingThreadDiscovery()
+  unsubscribeAllRealtimeRooms()
+}
+
+
+function getRealtimeClient() {
+  return window.frappe?.realtime as any
+}
+
+function emitRealtime(event: string, ...args: any[]) {
+  const realtime = getRealtimeClient()
+
+  if (!realtime) {
+    return
+  }
+
+  if (typeof realtime.emit === 'function') {
+    realtime.emit(event, ...args)
+    return
+  }
+
+  if (realtime.socket?.emit) {
+    realtime.socket.emit(event, ...args)
+  }
+}
+
+function subscribeRavenChannelDoctypeRoom() {
+  if (realtimeSubscribedRavenChannelDoctype) {
+    return
+  }
+
+  const realtime = getRealtimeClient()
+
+  if (!realtime) {
+    return
+  }
+
+  realtimeSubscribedRavenChannelDoctype = true
+
+  if (typeof realtime.doctype_subscribe === 'function') {
+    realtime.doctype_subscribe('Raven Channel')
+    return
+  }
+
+  emitRealtime('doctype_subscribe', 'Raven Channel')
+}
+
+function subscribeRavenChannelRoom(channelId?: string) {
+  const channel = String(channelId || '').trim()
+
+  if (!channel || realtimeSubscribedRavenChannelDocs.has(channel)) {
+    return
+  }
+
+  const realtime = getRealtimeClient()
+
+  if (!realtime) {
+    return
+  }
+
+  realtimeSubscribedRavenChannelDocs.add(channel)
+
+  // Raven publishes AI/thread events with doctype='Raven Channel' and docname=channel_id.
+  // The native Frappe realtime client supports doc_subscribe, but we also emit directly
+  // to avoid the built-in one-second throttle blocking rapid main-channel/thread subscriptions.
+  emitRealtime('doc_subscribe', 'Raven Channel', channel)
+}
+
+function unsubscribeAllRealtimeRooms() {
+  if (realtimeSubscribedRavenChannelDoctype) {
+    emitRealtime('doctype_unsubscribe', 'Raven Channel')
+    realtimeSubscribedRavenChannelDoctype = false
+  }
+
+  for (const channel of realtimeSubscribedRavenChannelDocs) {
+    emitRealtime('doc_unsubscribe', 'Raven Channel', channel)
+  }
+
+  realtimeSubscribedRavenChannelDocs.clear()
+}
+
+function subscribeRealtimeRoomsForActiveContext() {
+  if (!window.frappe?.realtime) {
+    return
+  }
+
+  subscribeRavenChannelDoctypeRoom()
+  subscribeRavenChannelRoom(activeChannelName.value)
+  subscribeRavenChannelRoom(activeThreadId.value)
+  subscribeRavenChannelRoom(pendingImageMessageName.value)
+}
+
+function getRealtimeEventChannel(data: any) {
+  return String(
+    data?.channel_id ||
+    data?.channel ||
+    data?.thread_id ||
+    data?.message?.channel_id ||
+    data?.reply?.channel_id ||
+    ''
+  )
+}
+
+function isActiveThreadRealtimeEvent(data: any) {
+  const eventChannel = getRealtimeEventChannel(data)
+
+  return Boolean(activeThreadId.value && eventChannel === String(activeThreadId.value))
 }
 
 function handleRealtimeConnect() {
   realtimeReady.value = true
   realtimeStatus.value = 'Live'
+  subscribeRealtimeRoomsForActiveContext()
 }
 
 function handleRealtimeDisconnect() {
@@ -1756,11 +2453,21 @@ function handleRealtimeError() {
 }
 
 function handleRavenChannelUpdate(data: any) {
-  if (!data || data.sent_by === currentUser.value) {
+  if (!data) {
     return
   }
 
-  if (!isRealtimeChannelMatch(data.channel_id)) {
+  if (isActiveThreadRealtimeEvent(data)) {
+    scheduleThreadMessagesRefresh(100)
+    scheduleThreadMessagesRefresh(700)
+    return
+  }
+
+  if (data.sent_by === currentUser.value) {
+    return
+  }
+
+  if (!isRealtimeChannelMatch(getRealtimeEventChannel(data))) {
     return
   }
 
@@ -1768,12 +2475,30 @@ function handleRavenChannelUpdate(data: any) {
 }
 
 function handleVertoMessageUpdate(data: any) {
-  if (!data || !isRealtimeChannelMatch(data.channel)) {
+  if (!data) {
+    return
+  }
+
+  if (isActiveThreadRealtimeEvent(data)) {
+    if (data.message) {
+      mergeThreadReplies(normaliseRavenStreamMessages([data.message]))
+      aiThinking.value = false
+      aiThinkingText.value = ''
+      scrollThreadToBottom()
+      return
+    }
+
+    scheduleThreadMessagesRefresh(100)
+    scheduleThreadMessagesRefresh(700)
+    return
+  }
+
+  if (!isRealtimeChannelMatch(getRealtimeEventChannel(data))) {
     return
   }
 
   if (data.message) {
-    mergeMessages([data.message])
+    mergeMessages(normaliseRavenStreamMessages([data.message]))
     scrollToBottom()
     return
   }
@@ -1786,15 +2511,9 @@ function handleRavenThreadReply(data: any) {
     return
   }
 
-  const eventThreadId = String(
-    data.channel ||
-    data.channel_id ||
-    data.thread_id ||
-    ''
-  )
-
-  if (activeThreadId.value && eventThreadId === String(activeThreadId.value)) {
-    fetchThreadMessages()
+  if (isActiveThreadRealtimeEvent(data)) {
+    scheduleThreadMessagesRefresh(100)
+    scheduleThreadMessagesRefresh(700)
   }
 
   const parentMessageName = threadParent.value?.name
@@ -1818,26 +2537,164 @@ function handleVertoThreadReply(data: any) {
     return
   }
 
-  const eventThreadId = String(data.channel || data.channel_id || '')
-
-  if (eventThreadId !== String(activeThreadId.value)) {
+  if (!isActiveThreadRealtimeEvent(data)) {
     return
   }
 
   if (data.reply) {
     mergeThreadReplies([data.reply])
+    aiThinking.value = false
+    aiThinkingText.value = ''
     scrollThreadToBottom()
     return
   }
 
-  fetchThreadMessages()
+  scheduleThreadMessagesRefresh(100)
+  scheduleThreadMessagesRefresh(700)
 }
+
+function handleAiThreadCreated(data: AiThreadCreatedPayload) {
+  if (!data?.is_ai_thread || !data.thread_id) {
+    return
+  }
+
+  if (!isRealtimeChannelMatch(data.channel_id)) {
+    return
+  }
+
+  const threadId = String(data.thread_id)
+
+  if (pendingImageMessageName.value && pendingImageMessageName.value !== threadId) {
+    return
+  }
+
+  subscribeRavenChannelRoom(threadId)
+
+  activeThreadId.value = threadId
+  stopPendingThreadDiscovery()
+  aiThinking.value = true
+  aiThinkingText.value = `${periBotName.value || 'PERI'} is analysing...`
+  startThreadLiveRefresh(true)
+
+  openExistingAiThread(threadId, threadId)
+}
+
+function handleAiEvent(data: AiEventPayload) {
+  if (!data?.channel_id) {
+    return
+  }
+
+  const eventChannel = String(data.channel_id)
+
+  if (activeThreadId.value && eventChannel !== String(activeThreadId.value)) {
+    return
+  }
+
+  if (!activeThreadId.value && pendingImageMessageName.value && eventChannel !== pendingImageMessageName.value) {
+    return
+  }
+
+  if (eventChannel) {
+    subscribeRavenChannelRoom(eventChannel)
+  }
+
+  aiThinking.value = true
+  aiThinkingText.value = data.text || `${periBotName.value || 'PERI'} is analysing...`
+  restartThreadLiveRefresh(false)
+  scheduleThreadMessagesRefresh(250)
+
+  scrollThreadToBottom()
+}
+
+async function handleAiEventClear(data: AiEventPayload) {
+  if (!data?.channel_id) {
+    return
+  }
+
+  const eventChannel = String(data.channel_id)
+
+  if (activeThreadId.value && eventChannel !== String(activeThreadId.value)) {
+    return
+  }
+
+  if (!activeThreadId.value && pendingImageMessageName.value && eventChannel !== pendingImageMessageName.value) {
+    return
+  }
+
+  if (eventChannel && !activeThreadId.value) {
+    activeThreadId.value = eventChannel
+    subscribeRavenChannelRoom(eventChannel)
+  }
+
+  aiThinking.value = false
+  aiThinkingText.value = ''
+  restartThreadLiveRefresh(false)
+
+  scheduleThreadMessagesRefresh(100)
+  scheduleThreadMessagesRefresh(600)
+  scheduleThreadMessagesRefresh(1400)
+  await scrollThreadToBottom()
+}
+
 
 watch(
   () => route.fullPath,
   async () => {
     if (!loading.value && route.path.startsWith('/chat')) {
       await selectRequestedRouteChannel()
+    }
+  }
+)
+
+watch(
+  () => activeChannelName.value,
+  () => {
+    subscribeRealtimeRoomsForActiveContext()
+  }
+)
+
+watch(
+  () => activeThreadId.value,
+  (value) => {
+    subscribeRealtimeRoomsForActiveContext()
+
+    if (value) {
+      stopPendingThreadDiscovery()
+    }
+
+    restartThreadLiveRefresh(true)
+  }
+)
+
+watch(
+  () => threadOpen.value,
+  (isOpen) => {
+    if (isOpen) {
+      restartThreadLiveRefresh(true)
+      startPendingThreadDiscovery(true)
+    } else {
+      stopThreadLiveRefresh()
+      stopPendingThreadDiscovery()
+    }
+  }
+)
+
+watch(
+  () => aiThinking.value,
+  () => {
+    restartThreadLiveRefresh(false)
+  }
+)
+
+watch(
+  () => pendingImageMessageName.value,
+  (value) => {
+    subscribeRealtimeRoomsForActiveContext()
+
+    if (value) {
+      startPendingThreadDiscovery(true)
+    } else {
+      stopPendingThreadDiscovery()
     }
   }
 )
@@ -1863,6 +2720,106 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  stopThreadLiveRefresh()
+  stopPendingThreadDiscovery()
   cleanupRealtimeListeners()
 })
 </script>
+
+<style scoped>
+
+.rich-message-html {
+  white-space: normal;
+}
+
+.rich-message-html :deep(p) {
+  margin: 0.25rem 0;
+}
+
+.rich-message-html :deep(p:first-child) {
+  margin-top: 0;
+}
+
+.rich-message-html :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.rich-message-html :deep(ul),
+.rich-message-html :deep(ol) {
+  margin: 0.35rem 0 0.35rem 1.25rem;
+  padding: 0;
+}
+
+.rich-message-html :deep(ul) {
+  list-style: disc;
+}
+
+.rich-message-html :deep(ol) {
+  list-style: decimal;
+}
+
+.rich-message-html :deep(blockquote) {
+  margin: 0.35rem 0;
+  border-left: 3px solid currentColor;
+  padding-left: 0.65rem;
+  opacity: 0.85;
+}
+
+.rich-message-html :deep(pre) {
+  margin: 0.35rem 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  border-radius: 0.5rem;
+  background: rgba(15, 23, 42, 0.08);
+  padding: 0.5rem;
+}
+
+.rich-message-html :deep(code) {
+  border-radius: 0.25rem;
+  background: rgba(15, 23, 42, 0.08);
+  padding: 0.05rem 0.2rem;
+  font-size: 0.875em;
+}
+
+.rich-message-html :deep(a) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.thinking-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.35;
+  animation: thinking-dot 1.1s infinite ease-in-out;
+}
+
+.thinking-dots span:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.thinking-dots span:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes thinking-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+
+  40% {
+    opacity: 0.9;
+    transform: translateY(-2px);
+  }
+}
+</style>

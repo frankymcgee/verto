@@ -89,6 +89,14 @@
           <button
             type="button"
             class="block w-full px-3 py-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1"
+            @click="openAppList"
+          >
+            Apps
+          </button>
+
+          <button
+            type="button"
+            class="block w-full px-3 py-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1"
             @click="reloadApp"
           >
             Reload app
@@ -257,6 +265,11 @@ async function reloadApp() {
 function openProfile() {
   menuOpen.value = false
   window.location.href = '/app/user-profile'
+}
+
+function openAppList() {
+  menuOpen.value = false
+  window.location.href = '/apps'
 }
 
 function logout() {

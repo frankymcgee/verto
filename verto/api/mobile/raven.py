@@ -645,33 +645,48 @@ def _create_thread_via_raven(message_id):
     return create_thread(message_id=message_id)
 
 
+def _find_existing_thread_for_message(message_id):
+    if not message_id or not _doctype_exists("Raven Channel"):
+        return None
+
+    if frappe.db.exists("Raven Channel", message_id):
+        channel = frappe.get_doc("Raven Channel", message_id)
+        if getattr(channel, "is_thread", 0):
+            return channel.name
+
+    filters_to_try = []
+
+    if _field_exists("Raven Channel", "channel_name"):
+        filters_to_try.append({
+            "channel_name": message_id,
+            "is_thread": 1,
+        })
+
+    filters_to_try.append({
+        "name": message_id,
+        "is_thread": 1,
+    })
+
+    for filters in filters_to_try:
+        existing = frappe.db.get_value("Raven Channel", filters, "name")
+
+        if existing:
+            return existing
+
+    return None
+
+
 def _get_or_create_thread_for_message(message_id):
     if not frappe.db.exists("Raven Message", message_id):
         frappe.throw(_("Message not found."))
 
-    message = frappe.get_doc("Raven Message", message_id)
-
-    if getattr(message, "is_thread", 0):
-        if frappe.db.exists("Raven Channel", message_id):
-            return {
-                "channel_id": getattr(message, "channel_id", None),
-                "thread_id": message_id,
-            }
-
-        existing_thread = None
-
-        if _field_exists("Raven Channel", "channel_name"):
-            existing_thread = frappe.db.get_value(
-                "Raven Channel",
-                {"channel_name": message_id, "is_thread": 1},
-                "name",
-            )
-
-        if existing_thread:
-            return {
-                "channel_id": getattr(message, "channel_id", None),
-                "thread_id": existing_thread,
-            }
+    existing_thread = _find_existing_thread_for_message(message_id)
+    if existing_thread:
+        message = frappe.get_doc("Raven Message", message_id)
+        return {
+            "channel_id": getattr(message, "channel_id", None),
+            "thread_id": existing_thread,
+        }
 
     return _create_thread_via_raven(message_id)
 
@@ -874,6 +889,98 @@ def send_channel_message(channel, text):
 
 
 @frappe.whitelist()
+def upload_image_for_analysis(channel, caption=None, compress_images=1):
+    """
+    Upload an image to a Raven channel only.
+
+    Raven's own bot DM handler creates the AI thread asynchronously and emits
+    ai_thread_created / ai_event / ai_event_clear realtime events. The mobile
+    frontend listens to those events rather than creating the thread here.
+    """
+    channel_id = _resolve_channel_name(channel)
+
+    if not frappe.has_permission("Raven Channel", doc=channel_id, ptype="read"):
+        frappe.throw(
+            _("You do not have permission to access this channel."),
+            frappe.PermissionError,
+        )
+
+    if not getattr(frappe, "request", None) or "file" not in frappe.request.files:
+        frappe.throw(_("Image file is required."))
+
+    uploaded_file = frappe.request.files.get("file")
+
+    if not uploaded_file or not uploaded_file.filename:
+        frappe.throw(_("Image file is required."))
+
+    filename = uploaded_file.filename or ""
+    lowered_filename = filename.lower()
+    content_type = uploaded_file.content_type or ""
+
+    allowed_extensions = (
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".webp",
+        ".bmp",
+        ".svg",
+    )
+
+    is_allowed_extension = lowered_filename.endswith(allowed_extensions)
+    is_allowed_mime = content_type.startswith("image/") if content_type else True
+
+    if not is_allowed_extension or not is_allowed_mime:
+        frappe.throw(_("Only image files are supported."))
+
+    safe_caption = (caption or "").strip()
+
+    frappe.form_dict.channelID = channel_id
+    frappe.form_dict.caption = safe_caption
+    frappe.form_dict.is_reply = 0
+    frappe.form_dict.linked_message = ""
+    frappe.form_dict.compressImages = compress_images
+
+    try:
+        from raven.api.upload_file import upload_file_with_message
+
+        message_doc = upload_file_with_message()
+    except Exception:
+        frappe.log_error(
+            title="Verto Raven image upload failed",
+            message=frappe.get_traceback(),
+        )
+        frappe.throw(_("Could not upload image to Raven."))
+
+    if not message_doc:
+        frappe.throw(_("Could not upload image to Raven."))
+
+    message_doc.reload()
+
+    image_message = _normalise_message(message_doc.as_dict())
+
+    try:
+        frappe.publish_realtime(
+            event="verto_mobile_raven_message",
+            message={
+                "channel": channel_id,
+                "message": image_message,
+            },
+            user=frappe.session.user,
+            after_commit=True,
+        )
+    except Exception:
+        pass
+
+    return {
+        "message": image_message,
+        "channel_id": channel_id,
+        "thread_id": "",
+        "thread_pending": True,
+    }
+
+
+@frappe.whitelist()
 def get_or_create_peri_channel():
     user = frappe.session.user
     channel = _get_or_create_peri_channel(user)
@@ -1025,6 +1132,44 @@ def get_message_thread(message, limit=20):
         "thread_id": thread_id,
         "channel_id": thread.get("channel_id"),
         "thread_supported": True,
+    }
+
+
+@frappe.whitelist()
+def get_existing_message_thread(message, limit=20):
+    """
+    Return an existing Raven thread for a message without creating one.
+    Useful for image uploads where Raven AI creates the thread asynchronously.
+    """
+    if not frappe.db.exists("Raven Message", message):
+        frappe.throw(_("Message not found."))
+
+    parent = frappe.get_doc("Raven Message", message)
+    thread_id = _find_existing_thread_for_message(message)
+
+    if not thread_id:
+        return {
+            "parent": _normalise_message(parent.as_dict()),
+            "replies": [],
+            "thread_id": "",
+            "thread_supported": True,
+            "thread_pending": True,
+        }
+
+    thread_messages = []
+
+    try:
+        thread_messages = get_channel_messages(thread_id, limit=limit).get("messages", [])
+    except Exception:
+        thread_messages = []
+
+    return {
+        "parent": _normalise_message(parent.as_dict()),
+        "replies": thread_messages,
+        "thread_id": thread_id,
+        "channel_id": thread_id,
+        "thread_supported": True,
+        "thread_pending": False,
     }
 
 

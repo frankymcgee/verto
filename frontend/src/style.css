@@ -24,3 +24,20 @@ body {
   padding: 0;
   background: #f9fafb;
 }
+
+/* Prevent iOS Safari/PWA auto-zoom when focusing form fields.
+   Keep this scoped to form entry controls only so nav buttons stay small. */
+@supports (-webkit-touch-callout: none) {
+  input,
+  textarea,
+  select,
+  [contenteditable='true'],
+  [role='textbox'] {
+    font-size: 16px !important;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    font-size: 16px !important;
+  }
+}
