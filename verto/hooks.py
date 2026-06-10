@@ -41,14 +41,14 @@ app_include_css = [
 app_include_js = [
 	"/assets/verto/js/gantt_view.js",
     "/assets/verto/js/task_gantt_map.js",
-	"/assets/verto/js/geolocation.js",
+	#"/assets/verto/js/geolocation.js",
 	"/assets/verto/js/map_defaults.js",
 	"/assets/verto/js/project_calendar.js",
 	"/assets/verto/js/map_view.js",
-    "/assets/verto/js/leaflet.js",
-    "/assets/verto/js/leaflet.draw.js",
-    "/assets/verto/js/easy-button.js",
-    "/assets/verto/js/L.Control.Locate.js"
+    #"/assets/verto/js/leaflet.js",
+    #"/assets/verto/js/leaflet.draw.js",
+    #"/assets/verto/js/easy-button.js",
+    #"/assets/verto/js/L.Control.Locate.js"
     "/assets/verto/js/raven_peri_auto_command.js",
 ]	
 
@@ -181,6 +181,10 @@ doc_events = {
 	# }
     "Project": {
         "after_insert": "verto.api.hooks.create_project_handover_records"
+    },
+    "Raven Message": {
+        "on_update": "verto.api.mobile.raven_realtime_bridge.publish_raven_message_upsert",
+        "after_delete": "verto.api.mobile.raven_realtime_bridge.publish_raven_message_delete",
     }
 }
 

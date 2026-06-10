@@ -20,6 +20,12 @@
   "link_task",
   "work_order_number",
   "work_area",
+  "contractor_submitting_section",
+  "submitting_contractor",
+  "column_break_gqnn",
+  "submitting_supervisor",
+  "column_break_csgr",
+  "location",
   "interaction_details_section",
   "contractor",
   "column_break_uvqwd",
@@ -139,7 +145,8 @@
   "safety_category",
   "improvement_required",
   "fl_comments",
-  "compliance_percentage"
+  "compliance_percentage",
+  "photo"
  ],
  "fields": [
   {
@@ -978,13 +985,54 @@
    "fieldname": "ar_work_com",
    "fieldtype": "Small Text",
    "label": "Comments"
+  },
+  {
+   "fieldname": "photo",
+   "fieldtype": "Attach Image",
+   "hidden": 1,
+   "label": "Photo"
+  },
+  {
+   "fieldname": "contractor_submitting_section",
+   "fieldtype": "Section Break",
+   "hidden": 1,
+   "label": "Contractor Submitting"
+  },
+  {
+   "description": "Select from the list",
+   "fieldname": "submitting_contractor",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Contractor",
+   "options": "Contractor"
+  },
+  {
+   "fieldname": "column_break_gqnn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Please enter full name",
+   "fieldname": "submitting_supervisor",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Supervisor"
+  },
+  {
+   "fieldname": "column_break_csgr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Location"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-04-13 19:26:45.821944",
- "modified_by": "sean@minesitesupport.com.au",
+ "modified": "2026-06-10 11:39:46.737721",
+ "modified_by": "Administrator",
  "module": "Safety",
  "name": "Field Interaction",
  "naming_rule": "By \"Naming Series\" field",
