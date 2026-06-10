@@ -1,6 +1,6 @@
 <template>
-  <section class="min-h-screen bg-surface-gray-1">
-    <main class="space-y-3 px-3 py-3 pb-[calc(var(--mobile-bottom-tabs-height,4rem)+2rem)]">
+  <section class="h-full min-h-0 bg-surface-gray-1">
+    <main class="space-y-3 px-[var(--verto-page-x,0.75rem)] py-[var(--verto-page-y,0.75rem)]">
       <!-- Top Action Row -->
       <div class="flex items-center justify-between gap-3">
         <div class="min-w-0">

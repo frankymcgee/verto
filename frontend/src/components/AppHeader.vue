@@ -1,6 +1,6 @@
 <template>
-  <header class="app-header-safe sticky top-0 z-40 border-b border-outline-gray-1 bg-surface-white/95 backdrop-blur">
-    <div class="mx-auto flex max-w-md items-center justify-between gap-3 px-3 py-2">
+  <header class="app-header-safe z-40 shrink-0 border-b border-outline-gray-1 bg-surface-white/95 backdrop-blur">
+    <div class="mx-auto flex w-full max-w-[var(--verto-shell-max-width,28rem)] items-center justify-between gap-3 px-[var(--verto-page-x,0.75rem)] py-2">
       <!-- Left: App icon + current page -->
       <div class="flex min-w-0 items-center gap-2">
         <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-gray-2">
@@ -53,7 +53,7 @@
 
         <div
           v-if="menuOpen"
-          class="absolute right-0 mt-2 w-56 overflow-hidden rounded-xl border border-outline-gray-1 bg-surface-white shadow-lg"
+          class="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-outline-gray-1 bg-surface-white shadow-lg"
         >
           <div class="border-b border-outline-gray-1 px-3 py-2">
             <div class="flex items-center gap-2">
@@ -280,6 +280,6 @@ function logout() {
 
 <style scoped>
 .app-header-safe {
-  padding-top: max(env(safe-area-inset-top, 0px), 20px);
+  padding-top: var(--verto-header-safe-top, max(env(safe-area-inset-top, 0px), 20px));
 }
 </style>

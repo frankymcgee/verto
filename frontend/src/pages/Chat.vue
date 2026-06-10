@@ -1,7 +1,7 @@
-<!-- VERTO_CHAT_RAVEN_NATIVE_CLIENT_FORCED_POLLING_2026_06_10 -->
+<!-- VERTO_CHAT_THREAD_COUNT_RESTORE_FIX_2026_06_10 -->
 <template>
-  <section class="min-h-screen bg-surface-gray-1">
-    <main class="flex h-[calc(100vh-3.5rem-var(--mobile-bottom-tabs-height,4rem))] flex-col">
+  <section class="h-full min-h-0 bg-surface-gray-1">
+    <main class="flex h-full min-h-0 flex-col overflow-hidden">
       <div
         v-if="chat.loading.value"
         class="space-y-3 p-3"
@@ -41,7 +41,7 @@
       </div>
 
       <template v-else>
-        <div class="border-b border-outline-gray-1 bg-surface-white px-3 py-2">
+        <div class="shrink-0 border-b border-outline-gray-1 bg-surface-white px-[var(--verto-page-x,0.75rem)] py-2">
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
               <p class="truncate text-sm font-semibold text-ink-gray-9">
@@ -82,7 +82,7 @@
 
         <div
           ref="messagesEl"
-          class="flex-1 space-y-3 overflow-y-auto px-3 py-3"
+          class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-[var(--verto-page-x,0.75rem)] py-[var(--verto-page-y,0.75rem)]"
         >
           <Card
             v-if="!chat.activeChannel.value"
@@ -234,10 +234,16 @@
               class="mt-1 shrink-0"
             />
           </div>
+
+          <div
+            ref="messagesBottomEl"
+            class="h-px w-full shrink-0"
+            aria-hidden="true"
+          />
         </div>
 
         <form
-          class="border-t border-outline-gray-1 bg-surface-white p-3"
+          class="shrink-0 border-t border-outline-gray-1 bg-surface-white p-[var(--verto-page-x,0.75rem)]"
           @submit.prevent="sendDraft"
         >
           <div class="flex items-end gap-2">
@@ -556,6 +562,7 @@ const {
 } = useMobileBoot()
 
 const messagesEl = ref<HTMLElement | null>(null)
+const messagesBottomEl = ref<HTMLElement | null>(null)
 const threadMessagesEl = ref<HTMLElement | null>(null)
 const fileInputEl = ref<HTMLInputElement | null>(null)
 const previewAttachment = ref<RavenAttachment | null>(null)
@@ -569,6 +576,8 @@ const threadParent = ref<RavenMessage | null>(null)
 const threadReplies = ref<RavenMessage[]>([])
 const threadDraft = ref('')
 const activeThreadId = ref('')
+const threadCounts = ref<Record<string, number>>({})
+const hydratingThreadCounts = ref(false)
 
 const FORCED_REFRESH_INTERVAL_MS = 5000
 let forcedRefreshTimer: number | undefined
@@ -604,6 +613,7 @@ const realtime = useRavenRealtime({
     }
 
     chat.mergeMessages([message])
+    hydrateThreadCountsForMessages()
     scrollToBottom()
   },
   onMessageEdited(messageId, patch) {
@@ -905,15 +915,33 @@ function formatFileSize(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)} MB`
 }
 
+function getNumericThreadCountValue(value: unknown) {
+  const count = Number(value)
+
+  if (!Number.isFinite(count)) {
+    return 0
+  }
+
+  return Math.max(0, Math.round(count))
+}
+
 function getThreadCount(message: RavenMessage) {
-  return Number(
+  const directCount = getNumericThreadCountValue(
     message.number_of_replies ??
       message.thread_count ??
       message.reply_count ??
       message.replies_count ??
       message.thread_replies_count ??
-      0
-  ) || 0
+      message.total_replies ??
+      message.reply_count_on_thread ??
+      message.thread_reply_count
+  )
+
+  if (directCount > 0) {
+    return directCount
+  }
+
+  return threadCounts.value[message.name] || 0
 }
 
 function shouldShowThreadButton(message: RavenMessage) {
@@ -925,33 +953,114 @@ function getThreadButtonLabel(message: RavenMessage) {
   return count ? `Open thread · ${count}` : 'Open thread'
 }
 
+async function hydrateThreadCountsForMessages() {
+  if (hydratingThreadCounts.value) {
+    return
+  }
+
+  const missingThreadCounts = chat.messages.value.filter((message) => {
+    return Boolean(message.is_thread) && !getThreadCount(message) && !threadCounts.value[message.name]
+  })
+
+  if (!missingThreadCounts.length) {
+    return
+  }
+
+  hydratingThreadCounts.value = true
+
+  try {
+    const nextCounts = { ...threadCounts.value }
+
+    await Promise.all(
+      missingThreadCounts.slice(0, 12).map(async (message) => {
+        try {
+          const threadData = await getMessages(message.name, 100)
+          nextCounts[message.name] = threadData.messages.length
+        } catch {
+          nextCounts[message.name] = 0
+        }
+      })
+    )
+
+    threadCounts.value = nextCounts
+  } finally {
+    hydratingThreadCounts.value = false
+  }
+}
+
+function setKnownThreadCount(messageName: string, count: number) {
+  if (!messageName) {
+    return
+  }
+
+  threadCounts.value = {
+    ...threadCounts.value,
+    [messageName]: Math.max(0, Math.round(count)),
+  }
+}
+
 function scrollElementToBottom(element: HTMLElement | null) {
   if (!element) return
+
   element.scrollTop = element.scrollHeight
+}
+
+function isNearBottom(element: HTMLElement | null, threshold = 120) {
+  if (!element) return true
+
+  return element.scrollTop + element.clientHeight >= element.scrollHeight - threshold
+}
+
+function runScrollToBottom(element: HTMLElement | null, marker?: HTMLElement | null) {
+  scrollElementToBottom(element)
+
+  if (marker) {
+    marker.scrollIntoView({
+      block: 'end',
+      inline: 'nearest',
+      behavior: 'auto',
+    })
+  }
 }
 
 async function scrollToBottom() {
   await nextTick()
 
+  const run = () => runScrollToBottom(messagesEl.value, messagesBottomEl.value)
+
+  run()
+
   requestAnimationFrame(() => {
-    scrollElementToBottom(messagesEl.value)
+    run()
 
     requestAnimationFrame(() => {
-      scrollElementToBottom(messagesEl.value)
+      run()
     })
   })
+
+  window.setTimeout(run, 80)
+  window.setTimeout(run, 250)
+  window.setTimeout(run, 600)
 }
 
 async function scrollThreadToBottom() {
   await nextTick()
 
+  const run = () => scrollElementToBottom(threadMessagesEl.value)
+
+  run()
+
   requestAnimationFrame(() => {
-    scrollElementToBottom(threadMessagesEl.value)
+    run()
 
     requestAnimationFrame(() => {
-      scrollElementToBottom(threadMessagesEl.value)
+      run()
     })
   })
+
+  window.setTimeout(run, 80)
+  window.setTimeout(run, 250)
+  window.setTimeout(run, 600)
 }
 
 function openPreview(attachment: RavenAttachment) {
@@ -1009,6 +1118,10 @@ function mergeThreadReplies(incoming: RavenMessage[]) {
   }
 
   threadReplies.value = sortMessagesOldestFirst([...byName.values()])
+
+  if (threadParent.value?.name) {
+    setKnownThreadCount(threadParent.value.name, threadReplies.value.length)
+  }
 }
 
 function patchThreadReply(messageId: string, patch: Partial<RavenMessage>) {
@@ -1024,8 +1137,13 @@ async function refreshThreadMessages() {
   if (!activeThreadId.value) return
 
   try {
-    const data = await getMessages(activeThreadId.value, 50)
+    const data = await getMessages(activeThreadId.value, 100)
     threadReplies.value = data.messages
+
+    if (threadParent.value?.name) {
+      setKnownThreadCount(threadParent.value.name, data.messages.length)
+    }
+
     await scrollThreadToBottom()
   } catch (err) {
     threadError.value = err instanceof Error ? err.message : 'Could not refresh Raven thread.'
@@ -1048,6 +1166,7 @@ async function openThread(message: RavenMessage) {
       threadId = existing.thread_id || ''
       threadParent.value = existing.parent || message
       threadReplies.value = sortMessagesOldestFirst(existing.replies || [])
+      setKnownThreadCount(message.name, threadReplies.value.length)
     }
 
     if (!threadId) {
@@ -1055,6 +1174,7 @@ async function openThread(message: RavenMessage) {
       threadId = createdOrLoaded.thread_id || ''
       threadParent.value = createdOrLoaded.parent || message
       threadReplies.value = sortMessagesOldestFirst(createdOrLoaded.replies || [])
+      setKnownThreadCount(message.name, threadReplies.value.length)
     }
 
     activeThreadId.value = threadId
@@ -1119,13 +1239,15 @@ async function forcedRefreshFromRaven() {
 
   const beforeLatestMessage = getLatestMessageName(chat.messages.value)
   const beforeThreadLatestMessage = getLatestMessageName(threadReplies.value)
+  const shouldStayAtBottom = isNearBottom(messagesEl.value, 180)
 
   try {
     await chat.loadMessages()
+    await hydrateThreadCountsForMessages()
 
     const afterLatestMessage = getLatestMessageName(chat.messages.value)
 
-    if (afterLatestMessage && afterLatestMessage !== beforeLatestMessage) {
+    if (afterLatestMessage && (afterLatestMessage !== beforeLatestMessage || shouldStayAtBottom)) {
       await scrollToBottom()
     }
 
@@ -1186,6 +1308,7 @@ async function handlePeriAutoSend() {
 
 async function reloadChat() {
   await chat.load()
+  await hydrateThreadCountsForMessages()
   realtime.resubscribeAll()
   startForcedRefreshPolling()
   await scrollToBottom()
@@ -1195,6 +1318,7 @@ watch(
   () => route.fullPath,
   async () => {
     await chat.load()
+    await hydrateThreadCountsForMessages()
     realtime.resubscribeAll()
     startForcedRefreshPolling()
     await handlePeriAutoSend()
@@ -1205,6 +1329,7 @@ watch(
 onMounted(async () => {
   await loadMobileBoot()
   await chat.load()
+  await hydrateThreadCountsForMessages()
   realtime.start()
   startForcedRefreshPolling()
   await handlePeriAutoSend()

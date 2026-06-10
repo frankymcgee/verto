@@ -100,14 +100,18 @@
 
         prompt.innerHTML = `
             <div class="mobile-install-card">
-                <div class="mobile-install-icon">📱</div>
-                <div class="mobile-install-content">
-                    <div class="mobile-install-title">Install this app</div>
-                    <div class="mobile-install-text">
-                        Add this site to your home screen for quicker access.
+                <div class="mobile-install-top">
+                    <div class="mobile-install-icon">📱</div>
+
+                    <div class="mobile-install-content">
+                        <div class="mobile-install-title">Install this app</div>
+                        <div class="mobile-install-text">
+                            Add this site to your home screen for quicker access.
+                        </div>
                     </div>
                 </div>
-                <button type="button" class="btn btn-primary btn-sm" id="mobile-install-button">
+
+                <button type="button" class="btn btn-primary btn-sm mobile-install-button" id="mobile-install-button">
                     Install
                 </button>
             </div>

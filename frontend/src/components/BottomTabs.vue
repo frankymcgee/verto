@@ -1,9 +1,9 @@
 <template>
   <nav
-    class="bottom-tabs fixed inset-x-0 bottom-0 z-50 border-t border-outline-gray-1 bg-surface-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur"
+    class="bottom-tabs z-40 shrink-0 border-t border-outline-gray-1 bg-surface-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur"
     aria-label="Primary mobile navigation"
   >
-    <div class="mx-auto grid max-w-md grid-cols-5 px-1 pb-[env(safe-area-inset-bottom)]">
+    <div class="mx-auto grid w-full max-w-[var(--verto-shell-max-width,28rem)] grid-cols-5 px-1 pb-[var(--verto-footer-safe-bottom,env(safe-area-inset-bottom,0px))]">
       <RouterLink
         to="/"
         class="navbar-item"
@@ -296,7 +296,7 @@ async function openPeriChat() {
 
 <style scoped>
 .bottom-tabs {
-  --mobile-bottom-tabs-height: calc(68px + env(safe-area-inset-bottom));
+  --mobile-bottom-tabs-height: calc(68px + var(--verto-footer-safe-bottom, env(safe-area-inset-bottom, 0px)));
   min-height: var(--mobile-bottom-tabs-height);
 }
 
