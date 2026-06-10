@@ -1,4 +1,4 @@
-<!-- VERTO_CHAT_THREAD_COUNT_RESTORE_FIX_2026_06_10 -->
+<!-- VERTO_CHAT_TEXT_FIELD_PRIORITY_FIX_2026_06_10 -->
 <template>
   <section class="h-full min-h-0 bg-surface-gray-1">
     <main class="flex h-full min-h-0 flex-col overflow-hidden">
@@ -762,8 +762,27 @@ function sanitiseMessageHtml(value: string) {
   return template.innerHTML.trim()
 }
 
+function getRawDisplayText(message: RavenMessage) {
+  // Raven's native chat_stream API returns the rich/HTML message body in `text`.
+  // Prefer `text` explicitly so AI formatting, links, mentions, and paragraphs render correctly.
+  // Only fall back to legacy/custom fields when Raven did not provide `text` at all.
+  if (message.text !== undefined && message.text !== null) {
+    return String(message.text)
+  }
+
+  if (message.message !== undefined && message.message !== null) {
+    return String(message.message)
+  }
+
+  if (message.content !== undefined && message.content !== null) {
+    return String(message.content)
+  }
+
+  return ''
+}
+
 function getVisibleMessageHtml(message: RavenMessage) {
-  const raw = String(message.text || message.message || message.content || '').trim()
+  const raw = getRawDisplayText(message).trim()
 
   if (!raw) return ''
 

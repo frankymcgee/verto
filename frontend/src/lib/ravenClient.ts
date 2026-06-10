@@ -1,4 +1,4 @@
-// VERTO_RAVEN_NATIVE_CLIENT_LAYER_2026_06_10
+// VERTO_RAVEN_NATIVE_CLIENT_TEXT_FIELD_PRIORITY_FIX_2026_06_10
 import { apiRequest } from './api'
 
 export type FrappeResponse<T> = {
@@ -166,15 +166,34 @@ function buildAttachmentFromRavenFile(message: RavenMessage): RavenAttachment[] 
   ]
 }
 
+function pickRavenTextField(message: RavenMessage) {
+  // Raven's source-of-truth display field is `text`.
+  // Use nullish checks instead of `||` so we do not accidentally replace a valid
+  // empty string with `content`, which is Raven's plain-text/search summary field.
+  if (message.text !== undefined && message.text !== null) {
+    return String(message.text)
+  }
+
+  if (message.message !== undefined && message.message !== null) {
+    return String(message.message)
+  }
+
+  if (message.content !== undefined && message.content !== null) {
+    return String(message.content)
+  }
+
+  return ''
+}
+
 export function normaliseRavenMessage(message: RavenMessage): RavenMessage {
-  const text = message.text || message.message || message.content || ''
+  const text = pickRavenTextField(message)
 
   const normalised: RavenMessage = {
     ...message,
     owner: message.owner || message.sender || '',
     sender: message.sender || message.owner || '',
-    message: message.message || text,
-    content: message.content || message.message || text,
+    message: message.message ?? text,
+    content: message.content ?? message.message ?? text,
     text,
     channel_id: message.channel_id || message.channel || '',
     channel: message.channel || message.channel_id || '',
