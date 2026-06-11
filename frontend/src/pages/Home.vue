@@ -1,3 +1,4 @@
+<!-- VERTO_HOME_APP_BROWSER_DRAWER_2026_06_11 -->
 <!-- VERTO_HOME_HANDOVER_TYPE_FROM_BASE_FIX_2026_06_11 -->
 <template>
   <section class="h-full min-h-0 bg-surface-gray-1">
@@ -407,6 +408,7 @@ import {
   Card,
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
+import { openAppBrowser } from '../lib/appBrowser'
 
 type HomeButton = {
   label: string
@@ -735,7 +737,10 @@ function openInternalUrl(url?: string, label = 'link') {
     return
   }
 
-  window.location.href = value
+  openAppBrowser({
+    url: value,
+    title: label,
+  })
 }
 
 function openExternalUrl(url?: string, label = 'link') {
@@ -746,11 +751,10 @@ function openExternalUrl(url?: string, label = 'link') {
     return
   }
 
-  const openedWindow = window.open(value, '_blank', 'noopener,noreferrer')
-
-  if (!openedWindow) {
-    window.location.href = value
-  }
+  openAppBrowser({
+    url: value,
+    title: label,
+  })
 }
 
 function getProjectChatChannel(scope: ScopeGroup) {

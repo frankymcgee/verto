@@ -1,3 +1,4 @@
+<!-- VERTO_APP_HEADER_APP_BROWSER_DRAWER_2026_06_11 -->
 <template>
   <header class="app-header-safe z-40 shrink-0 border-b border-outline-gray-1 bg-surface-white/95 backdrop-blur">
     <div class="mx-auto flex w-full max-w-[var(--verto-shell-max-width,28rem)] items-center justify-between gap-3 px-[var(--verto-page-x,0.75rem)] py-2">
@@ -135,6 +136,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMobileBoot } from '../lib/mobileBoot'
+import { openAppBrowser } from '../lib/appBrowser'
 
 const route = useRoute()
 
@@ -264,12 +266,18 @@ async function reloadApp() {
 
 function openProfile() {
   menuOpen.value = false
-  window.location.href = '/app/user-profile'
+  openAppBrowser({
+    url: '/app/user-profile',
+    title: 'My profile',
+  })
 }
 
 function openAppList() {
   menuOpen.value = false
-  window.location.href = '/apps'
+  openAppBrowser({
+    url: '/apps',
+    title: 'Apps',
+  })
 }
 
 function logout() {
