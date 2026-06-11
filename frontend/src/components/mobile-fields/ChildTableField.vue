@@ -1,108 +1,122 @@
 <template>
-  <Card class="overflow-visible border border-outline-gray-1 bg-surface-white">
-    <!-- Header -->
-    <div class="border-b border-outline-gray-1 px-4 py-3">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <h3 class="truncate text-sm font-semibold text-ink-gray-9">
-            {{ field.label || 'Rows' }}
-          </h3>
-
-          <p
-            v-if="field.description"
-            class="mt-1 text-sm text-ink-gray-5"
+  <div class="space-y-2">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <label class="block text-sm font-medium text-ink-gray-8">
+          {{ field.label || field.fieldname }}
+          <span
+            v-if="field.required"
+            class="text-red-500"
           >
-            {{ field.description }}
-          </p>
+            *
+          </span>
+        </label>
 
-          <p
-            v-else-if="field.child_doctype"
-            class="mt-1 text-xs text-ink-gray-5"
-          >
-            {{ field.child_doctype }}
-          </p>
-        </div>
-
-        <Button
-          variant="subtle"
-          theme="gray"
-          size="sm"
-          @click="addRow"
+        <p
+          v-if="field.description"
+          class="mt-1 text-sm text-ink-gray-5"
         >
-          Add
-        </Button>
-      </div>
-    </div>
-
-    <!-- Empty State -->
-    <div
-      v-if="rows.length === 0"
-      class="p-4"
-    >
-      <div class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-5 text-center">
-        <p class="text-sm font-medium text-ink-gray-7">
-          No rows added yet.
-        </p>
-
-        <p class="mt-1 text-sm text-ink-gray-5">
-          Tap Add to create the first row.
+          {{ field.description }}
         </p>
       </div>
+
+      <Button
+        v-if="!disabled"
+        variant="subtle"
+        theme="gray"
+        size="sm"
+        @click="openNewRow"
+      >
+        + Add
+      </Button>
     </div>
 
-    <!-- Rows -->
     <div
-      v-else
-      class="space-y-3 p-3"
+      v-if="rows.length"
+      class="space-y-2"
     >
-      <Card
+      <button
         v-for="(row, index) in rows"
         :key="getRowKey(row, index)"
-        class="overflow-visible border border-outline-gray-1 bg-surface-white"
+        type="button"
+        class="w-full rounded-xl border border-outline-gray-1 bg-surface-white px-3 py-3 text-left shadow-sm transition active:scale-[0.99]"
+        @click="openExistingRow(index)"
       >
-        <!-- Row Header -->
-        <div class="flex items-center justify-between gap-3 border-b border-outline-gray-1 px-3 py-2.5">
+        <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <p class="text-sm font-medium text-ink-gray-8">
-              Row {{ index + 1 }}
+            <p class="truncate text-sm font-semibold text-ink-gray-9">
+              {{ getRowTitle(row, index) }}
             </p>
 
             <p
-              v-if="getRowSummary(row)"
-              class="truncate text-xs text-ink-gray-5"
+              v-if="getRowSubtitle(row)"
+              class="mt-1 line-clamp-2 text-xs text-ink-gray-5"
             >
-              {{ getRowSummary(row) }}
+              {{ getRowSubtitle(row) }}
+            </p>
+          </div>
+
+          <span class="shrink-0 text-xs font-medium text-blue-600">
+            {{ disabled ? 'View' : 'Edit' }}
+          </span>
+        </div>
+      </button>
+    </div>
+
+    <div
+      v-else
+      class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-5 text-center"
+    >
+      <p class="text-sm font-medium text-ink-gray-7">
+        No rows added.
+      </p>
+
+      <p class="mt-1 text-sm text-ink-gray-5">
+        {{ disabled ? 'There are no entries to view.' : 'Tap Add to create an entry.' }}
+      </p>
+    </div>
+
+    <div
+      v-if="drawerOpen"
+      class="fixed inset-0 z-[70] flex items-end bg-black/40"
+      @click.self="closeDrawer"
+    >
+      <Card class="max-h-[88vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
+        <div class="flex items-center justify-between gap-3 border-b border-outline-gray-1 px-4 py-3">
+          <div class="min-w-0">
+            <h2 class="truncate text-lg font-semibold text-ink-gray-9">
+              {{ drawerTitle }}
+            </h2>
+
+            <p class="mt-1 truncate text-sm text-ink-gray-5">
+              {{ field.label || field.fieldname }}
             </p>
           </div>
 
           <Button
-            variant="ghost"
-            theme="red"
-            size="sm"
-            @click="removeRow(index)"
+            variant="subtle"
+            theme="gray"
+            @click="closeDrawer"
           >
-            Remove
+            Close
           </Button>
         </div>
 
-        <!-- Row Fields -->
-        <div class="space-y-4 p-3">
+        <div class="max-h-[calc(88vh-132px)] space-y-4 overflow-y-auto px-4 py-4">
           <template
-            v-for="childField in field.child_fields || []"
+            v-for="childField in visibleChildFields"
             :key="childField.fieldname"
           >
-            <!-- Section Break -->
             <div
               v-if="childField.fieldtype === 'Section Break'"
-              v-show="isChildFieldVisible(childField, row)"
               class="border-t border-outline-gray-1 pt-4 first:border-t-0 first:pt-0"
             >
-              <h4
+              <h3
                 v-if="childField.label"
-                class="text-sm font-semibold text-ink-gray-9"
+                class="text-base font-semibold text-ink-gray-9"
               >
                 {{ childField.label }}
-              </h4>
+              </h3>
 
               <p
                 v-if="childField.description"
@@ -112,39 +126,37 @@
               </p>
             </div>
 
-            <!-- Standard Child Fields -->
             <div
-              v-else-if="childField.fieldtype !== 'Table'"
-              v-show="isChildFieldVisible(childField, row)"
+              v-else-if="!isLayoutField(childField)"
               class="space-y-1"
             >
               <FormControl
                 v-if="isTextInput(childField.fieldtype)"
-                v-model="row[childField.fieldname]"
+                v-model="draftRow[childField.fieldname]"
                 class="w-full"
                 :type="getInputType(childField.fieldtype)"
                 :label="childField.label"
                 :description="childField.description"
                 :placeholder="childField.label"
-                :required="isChildFieldMandatory(childField, row)"
-                :disabled="isChildFieldReadOnly(childField, row)"
+                :required="isFieldMandatory(childField)"
+                :disabled="isFieldReadOnly(childField) || disabled"
               />
 
               <Textarea
                 v-else-if="isTextArea(childField.fieldtype)"
-                v-model="row[childField.fieldname]"
+                v-model="draftRow[childField.fieldname]"
                 class="w-full"
                 :label="childField.label"
                 :description="childField.description"
                 :placeholder="childField.label"
-                :required="isChildFieldMandatory(childField, row)"
-                :disabled="isChildFieldReadOnly(childField, row)"
-                :rows="3"
+                :required="isFieldMandatory(childField)"
+                :disabled="isFieldReadOnly(childField) || disabled"
+                :rows="4"
               />
 
               <Select
                 v-else-if="childField.fieldtype === 'Select'"
-                :model-value="getSelectValue(row, childField.fieldname)"
+                :model-value="getSelectValue(childField.fieldname)"
                 class="w-full"
                 variant="outline"
                 size="md"
@@ -152,9 +164,9 @@
                 :description="childField.description"
                 :placeholder="childField.label || 'Select option'"
                 :options="getSelectOptions(childField.options)"
-                :required="isChildFieldMandatory(childField, row)"
-                :disabled="isChildFieldReadOnly(childField, row)"
-                @update:model-value="(value) => updateSelectValue(row, childField, value)"
+                :required="isFieldMandatory(childField)"
+                :disabled="isFieldReadOnly(childField) || disabled"
+                @update:model-value="(value) => updateSelectValue(childField, value)"
               >
                 <template #item-label="{ item }">
                   <div class="min-w-0 truncate text-sm text-ink-gray-8">
@@ -165,55 +177,92 @@
 
               <Checkbox
                 v-else-if="childField.fieldtype === 'Check'"
-                v-model="row[childField.fieldname]"
+                v-model="draftRow[childField.fieldname]"
                 :label="childField.label"
                 :description="childField.description"
-                :required="isChildFieldMandatory(childField, row)"
-                :disabled="isChildFieldReadOnly(childField, row)"
+                :required="isFieldMandatory(childField)"
+                :disabled="isFieldReadOnly(childField) || disabled"
               />
 
               <LinkField
                 v-else-if="childField.fieldtype === 'Link'"
-                v-model="row[childField.fieldname]"
+                v-model="draftRow[childField.fieldname]"
                 :field="childField"
-                :required="isChildFieldMandatory(childField, row)"
-                :disabled="isChildFieldReadOnly(childField, row)"
+                :required="isFieldMandatory(childField)"
+                :disabled="isFieldReadOnly(childField) || disabled"
               />
 
-              <div
+              <SignatureField
                 v-else-if="childField.fieldtype === 'Signature'"
-                class="space-y-1"
-              >
-                <SignatureField
-                  v-model="row[childField.fieldname]"
-                  :label="childField.label"
-                  :description="childField.description"
-                  :required="isChildFieldMandatory(childField, row)"
-                  :disabled="isChildFieldReadOnly(childField, row)"
-                />
-              </div>
+                v-model="draftRow[childField.fieldname]"
+                :label="childField.label"
+                :description="childField.description"
+                :required="isFieldMandatory(childField)"
+                :disabled="isFieldReadOnly(childField) || disabled"
+              />
 
               <FormControl
                 v-else
-                v-model="row[childField.fieldname]"
+                v-model="draftRow[childField.fieldname]"
                 class="w-full"
                 type="text"
                 :label="childField.label"
                 :description="childField.description"
                 :placeholder="`${childField.label} (${childField.fieldtype})`"
-                :required="isChildFieldMandatory(childField, row)"
-                :disabled="isChildFieldReadOnly(childField, row)"
+                :required="isFieldMandatory(childField)"
+                :disabled="isFieldReadOnly(childField) || disabled"
               />
             </div>
           </template>
+
+          <div
+            v-if="visibleChildFields.length === 0"
+            class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center"
+          >
+            <p class="text-sm font-medium text-ink-gray-7">
+              No fields configured for this table.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex gap-2 border-t border-outline-gray-1 bg-surface-white px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+          <Button
+            v-if="!disabled && editingIndex !== null"
+            variant="subtle"
+            theme="red"
+            class="flex-1 justify-center"
+            @click="deleteRow"
+          >
+            Delete
+          </Button>
+
+          <Button
+            v-if="!disabled"
+            variant="solid"
+            theme="gray"
+            class="flex-1 justify-center"
+            @click="saveRow"
+          >
+            Save Row
+          </Button>
+
+          <Button
+            v-else
+            variant="solid"
+            theme="gray"
+            class="w-full justify-center"
+            @click="closeDrawer"
+          >
+            Done
+          </Button>
         </div>
       </Card>
     </div>
-  </Card>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   Button,
   Card,
@@ -222,16 +271,34 @@ import {
   Select,
   Textarea,
 } from 'frappe-ui'
-import LinkField from './LinkField.vue'
-import type { MobileField } from '../../pages/NewDocument.vue'
 import {
   evaluateDependsOn,
   evaluateMandatoryDependsOn,
   evaluateReadOnlyDependsOn,
 } from '../../lib/dependencies'
+import LinkField from './LinkField.vue'
 import SignatureField from './SignatureField.vue'
 
-type ChildRow = Record<string, any>
+type MobileField = {
+  fieldname: string
+  label: string
+  fieldtype: string
+  options?: string
+  required?: boolean
+  default?: any
+  description?: string
+  depends_on?: string
+  mandatory_depends_on?: string
+  read_only_depends_on?: string
+  read_only?: boolean
+  fetch_from?: string
+  fetch_if_empty?: boolean
+  precision?: string | number
+  length?: string | number
+  idx?: number
+  child_doctype?: string
+  child_fields?: MobileField[]
+}
 
 type SelectOption = {
   label: string
@@ -241,98 +308,63 @@ type SelectOption = {
 type SelectValue = string | number | bigint | Record<string, any> | undefined
 
 const props = defineProps<{
-  modelValue: ChildRow[]
+  modelValue?: Record<string, any>[]
   field: MobileField
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
-  'update:modelValue': [value: ChildRow[]]
+  'update:modelValue': [value: Record<string, any>[]]
 }>()
 
-const rows = computed({
-  get() {
-    return props.modelValue || []
-  },
-  set(value: ChildRow[]) {
-    emit('update:modelValue', value)
-  },
+const drawerOpen = ref(false)
+const editingIndex = ref<number | null>(null)
+const draftRow = ref<Record<string, any>>({})
+
+const rows = computed(() => {
+  return Array.isArray(props.modelValue) ? props.modelValue : []
 })
 
-function addRow() {
-  const row: ChildRow = {}
+const childFields = computed(() => {
+  return (props.field.child_fields || [])
+    .slice()
+    .sort((a, b) => Number(a.idx || 0) - Number(b.idx || 0))
+})
 
-  for (const childField of props.field.child_fields || []) {
-    if (isLayoutField(childField)) {
-      continue
+const visibleChildFields = computed(() => {
+  return childFields.value.filter((field) => {
+    if (field.fieldtype === 'Tab Break' || field.fieldtype === 'Column Break') {
+      return false
     }
 
-    row[childField.fieldname] = getDefaultValue(childField)
-  }
+    if (field.fieldtype === 'Section Break') {
+      return true
+    }
 
-  rows.value = [...rows.value, row]
-}
-
-function removeRow(index: number) {
-  rows.value = rows.value.filter((_, rowIndex) => rowIndex !== index)
-}
-
-function getRowKey(row: ChildRow, index: number) {
-  return row.name || row.idx || index
-}
-
-function getRowSummary(row: ChildRow) {
-  const childFields = props.field.child_fields || []
-
-  const firstUsefulField = childFields.find((childField) => {
-    if (isLayoutField(childField)) return false
-    if (childField.fieldtype === 'Check') return false
-    if (childField.fieldtype === 'Table') return false
-
-    const value = row[childField.fieldname]
-
-    return value !== undefined && value !== null && String(value).trim() !== ''
+    return isFieldVisible(field)
   })
+})
 
-  if (!firstUsefulField) {
-    return ''
+const drawerTitle = computed(() => {
+  if (editingIndex.value === null) {
+    return 'Add row'
   }
 
-  return String(row[firstUsefulField.fieldname])
-}
+  return props.disabled ? 'View row' : 'Edit row'
+})
+
+watch(
+  () => props.modelValue,
+  (value) => {
+    if (!Array.isArray(value)) {
+      emit('update:modelValue', [])
+    }
+  },
+  { immediate: true }
+)
 
 function isLayoutField(field: MobileField) {
-  return ['Section Break', 'Tab Break', 'Column Break'].includes(field.fieldtype)
-}
-
-function getDefaultValue(field: MobileField) {
-  if (field.fieldtype === 'Check') {
-    return field.default === 1 || field.default === '1' || field.default === true
-  }
-
-  if (field.fieldtype === 'Table') {
-    return []
-  }
-
-  if (field.fieldtype === 'Signature') {
-    return field.default ? String(field.default) : ''
-  }
-
-  return field.default ?? ''
-}
-
-function isChildFieldVisible(field: MobileField, row: ChildRow) {
-  return evaluateDependsOn(field.depends_on, row)
-}
-
-function isChildFieldMandatory(field: MobileField, row: ChildRow) {
-  return Boolean(field.required) || evaluateMandatoryDependsOn(
-    field.mandatory_depends_on,
-    row
-  )
-}
-
-function isChildFieldReadOnly(field: MobileField, row: ChildRow) {
-  return evaluateReadOnlyDependsOn(field.read_only_depends_on, row)
+  return ['Section Break', 'Column Break', 'Tab Break'].includes(field.fieldtype)
 }
 
 function isTextInput(fieldtype: string) {
@@ -380,8 +412,196 @@ function getInputType(fieldtype: string) {
   return 'text'
 }
 
-function getSelectValue(row: ChildRow, fieldname: string) {
-  const value = row[fieldname]
+function normaliseTimeValue(value: any) {
+  if (value === undefined || value === null || value === '') {
+    return ''
+  }
+
+  const stringValue = String(value).trim()
+
+  if (/^\d{2}:\d{2}$/.test(stringValue)) {
+    return stringValue
+  }
+
+  if (/^\d{2}:\d{2}:\d{2}$/.test(stringValue)) {
+    return stringValue.slice(0, 5)
+  }
+
+  if (/^\d{1}:\d{2}(:\d{2})?$/.test(stringValue)) {
+    return `0${stringValue}`.slice(0, 5)
+  }
+
+  if (stringValue.includes('T')) {
+    return normaliseTimeValue(stringValue.split('T')[1])
+  }
+
+  if (stringValue.includes(' ')) {
+    return normaliseTimeValue(stringValue.split(' ')[1])
+  }
+
+  return stringValue.slice(0, 5)
+}
+
+function normaliseTimeForSave(value: any) {
+  const timeValue = normaliseTimeValue(value)
+
+  if (!timeValue) {
+    return ''
+  }
+
+  return `${timeValue}:00`
+}
+
+function getDefaultValue(field: MobileField) {
+  if (field.fieldtype === 'Check') {
+    return field.default === 1 || field.default === '1' || field.default === true
+  }
+
+  if (field.fieldtype === 'Time') {
+    return normaliseTimeValue(field.default)
+  }
+
+  return field.default ?? ''
+}
+
+function normaliseLoadedValue(field: MobileField, value: any) {
+  if (value === undefined || value === null) {
+    return getDefaultValue(field)
+  }
+
+  if (field.fieldtype === 'Check') {
+    return value === 1 || value === '1' || value === true
+  }
+
+  if (field.fieldtype === 'Time') {
+    return normaliseTimeValue(value)
+  }
+
+  if (field.fieldtype === 'Datetime' && typeof value === 'string' && value.includes(' ')) {
+    return value.replace(' ', 'T').slice(0, 16)
+  }
+
+  return value
+}
+
+function getValueForSave(field: MobileField) {
+  const value = draftRow.value[field.fieldname]
+
+  if (field.fieldtype === 'Time') {
+    return normaliseTimeForSave(value)
+  }
+
+  return value
+}
+
+function createEmptyRow() {
+  const row: Record<string, any> = {}
+
+  for (const field of childFields.value) {
+    if (isLayoutField(field)) {
+      continue
+    }
+
+    row[field.fieldname] = getDefaultValue(field)
+  }
+
+  return row
+}
+
+function createDraftFromRow(row?: Record<string, any>) {
+  const draft = createEmptyRow()
+
+  for (const field of childFields.value) {
+    if (isLayoutField(field)) {
+      continue
+    }
+
+    draft[field.fieldname] = normaliseLoadedValue(field, row?.[field.fieldname])
+  }
+
+  if (row) {
+    for (const [key, value] of Object.entries(row)) {
+      if (!(key in draft)) {
+        draft[key] = value
+      }
+    }
+  }
+
+  return draft
+}
+
+function openNewRow() {
+  if (props.disabled) {
+    return
+  }
+
+  editingIndex.value = null
+  draftRow.value = createDraftFromRow()
+  drawerOpen.value = true
+}
+
+function openExistingRow(index: number) {
+  editingIndex.value = index
+  draftRow.value = createDraftFromRow(rows.value[index])
+  drawerOpen.value = true
+}
+
+function closeDrawer() {
+  drawerOpen.value = false
+  editingIndex.value = null
+  draftRow.value = {}
+}
+
+function saveRow() {
+  if (props.disabled) {
+    closeDrawer()
+    return
+  }
+
+  const cleaned: Record<string, any> = {
+    ...draftRow.value,
+  }
+
+  for (const field of childFields.value) {
+    if (isLayoutField(field)) {
+      continue
+    }
+
+    if (!isFieldVisible(field)) {
+      continue
+    }
+
+    cleaned[field.fieldname] = getValueForSave(field)
+  }
+
+  const nextRows = rows.value.map((row) => ({ ...row }))
+
+  if (editingIndex.value === null) {
+    nextRows.push(cleaned)
+  } else {
+    nextRows[editingIndex.value] = {
+      ...nextRows[editingIndex.value],
+      ...cleaned,
+    }
+  }
+
+  emit('update:modelValue', nextRows)
+  closeDrawer()
+}
+
+function deleteRow() {
+  if (props.disabled || editingIndex.value === null) {
+    return
+  }
+
+  const nextRows = rows.value.filter((_, index) => index !== editingIndex.value)
+
+  emit('update:modelValue', nextRows)
+  closeDrawer()
+}
+
+function getSelectValue(fieldname: string) {
+  const value = draftRow.value[fieldname]
 
   if (value === null || value === undefined || value === '') {
     return undefined
@@ -390,23 +610,24 @@ function getSelectValue(row: ChildRow, fieldname: string) {
   return String(value)
 }
 
-function updateSelectValue(row: ChildRow, field: MobileField, selected: SelectValue) {
+function updateSelectValue(field: MobileField, selected: SelectValue) {
+  if (props.disabled) {
+    return
+  }
+
   if (selected === undefined) {
-    row[field.fieldname] = ''
-    emitRowsChanged()
+    draftRow.value[field.fieldname] = ''
     return
   }
 
   if (typeof selected === 'object') {
     const optionValue = selected.value ?? selected.label ?? ''
 
-    row[field.fieldname] = String(optionValue)
-    emitRowsChanged()
+    draftRow.value[field.fieldname] = String(optionValue)
     return
   }
 
-  row[field.fieldname] = String(selected)
-  emitRowsChanged()
+  draftRow.value[field.fieldname] = String(selected)
 }
 
 function getSelectOptions(options?: string): SelectOption[] {
@@ -422,7 +643,50 @@ function getSelectOptions(options?: string): SelectOption[] {
     }))
 }
 
-function emitRowsChanged() {
-  rows.value = [...rows.value]
+function isFieldVisible(field: MobileField) {
+  return evaluateDependsOn(field.depends_on, draftRow.value)
+}
+
+function isFieldMandatory(field: MobileField) {
+  return Boolean(field.required) || evaluateMandatoryDependsOn(
+    field.mandatory_depends_on,
+    draftRow.value
+  )
+}
+
+function isFieldReadOnly(field: MobileField) {
+  return Boolean(field.read_only) ||
+    evaluateReadOnlyDependsOn(field.read_only_depends_on, draftRow.value)
+}
+
+function getRowKey(row: Record<string, any>, index: number) {
+  return row.name || row.idx || `${props.field.fieldname}-${index}`
+}
+
+function getSummaryFields(row: Record<string, any>) {
+  return childFields.value
+    .filter((field) => !isLayoutField(field))
+    .filter((field) => {
+      const value = row[field.fieldname]
+
+      return value !== undefined && value !== null && String(value).trim() !== ''
+    })
+}
+
+function getRowTitle(row: Record<string, any>, index: number) {
+  const firstField = getSummaryFields(row)[0]
+
+  if (firstField) {
+    return String(row[firstField.fieldname])
+  }
+
+  return `Row ${index + 1}`
+}
+
+function getRowSubtitle(row: Record<string, any>) {
+  return getSummaryFields(row)
+    .slice(1, 4)
+    .map((field) => `${field.label || field.fieldname}: ${row[field.fieldname]}`)
+    .join(' • ')
 }
 </script>

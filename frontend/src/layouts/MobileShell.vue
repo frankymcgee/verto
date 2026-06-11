@@ -1,6 +1,7 @@
 <template>
   <div class="mobile-shell flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-gray-50 text-gray-900">
     <AppHeader class="mobile-shell-header shrink-0" />
+    <OfflineSyncStatus />
 
     <main
       ref="mainEl"
@@ -10,6 +11,7 @@
     </main>
 
     <BottomTabs class="mobile-shell-tabs shrink-0" />
+    <PwaUpdatePrompt />
   </div>
 </template>
 
@@ -19,6 +21,8 @@ import { nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import BottomTabs from '../components/BottomTabs.vue'
+import OfflineSyncStatus from '../components/OfflineSyncStatus.vue'
+import PwaUpdatePrompt from '../components/PwaUpdatePrompt.vue'
 
 const route = useRoute()
 const mainEl = ref<HTMLElement | null>(null)

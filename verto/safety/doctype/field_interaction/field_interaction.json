@@ -21,6 +21,7 @@
   "work_order_number",
   "work_area",
   "contractor_submitting_section",
+  "column_break_hzxh",
   "submitting_contractor",
   "column_break_gqnn",
   "submitting_supervisor",
@@ -1002,37 +1003,46 @@
    "description": "Select from the list",
    "fieldname": "submitting_contractor",
    "fieldtype": "Link",
+   "hidden": 1,
    "in_list_view": 1,
    "label": "Contractor",
    "options": "Contractor"
   },
   {
    "fieldname": "column_break_gqnn",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "hidden": 1
   },
   {
    "description": "Please enter full name",
    "fieldname": "submitting_supervisor",
    "fieldtype": "Data",
+   "hidden": 1,
    "in_list_view": 1,
    "label": "Supervisor"
   },
   {
    "fieldname": "column_break_csgr",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "hidden": 1
   },
   {
    "fieldname": "location",
    "fieldtype": "Data",
    "hidden": 1,
    "label": "Location"
+  },
+  {
+   "fieldname": "column_break_hzxh",
+   "fieldtype": "Column Break",
+   "hidden": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-06-10 11:39:46.737721",
- "modified_by": "Administrator",
+ "modified": "2026-06-10 22:14:09.653672",
+ "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "Field Interaction",
  "naming_rule": "By \"Naming Series\" field",

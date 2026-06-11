@@ -274,6 +274,7 @@
                   v-else-if="field.fieldtype === 'Table' && isFieldVisible(field)"
                   v-model="values[field.fieldname]"
                   :field="field"
+                  :disabled="!canWrite"
                 />
               </template>
             </div>

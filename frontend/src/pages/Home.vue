@@ -1,7 +1,7 @@
-<!-- VERTO_HOME_ANALYSE_PERI_CHANNEL_ROUTE_FIX_2026_06_10 -->
+<!-- VERTO_HOME_HANDOVER_TYPE_FROM_BASE_FIX_2026_06_11 -->
 <template>
-  <section class="min-h-screen bg-surface-gray-1">
-    <main class="space-y-3 px-3 py-3 pb-[calc(var(--mobile-bottom-tabs-height,4rem)+2rem)]">
+  <section class="h-full min-h-0 bg-surface-gray-1">
+    <main class="space-y-3 px-[var(--verto-page-x,0.75rem)] py-[var(--verto-page-y,0.75rem)]">
       <!-- Loading State -->
       <Card
         v-if="loading"
@@ -284,7 +284,7 @@
                 variant="subtle"
                 theme="gray"
                 class="justify-center"
-                @click="openExternalUrl(getHandoverUrl(scope), 'Handover')"
+                @click="openProjectHandover(scope)"
               >
                 Handover
               </Button>
@@ -479,6 +479,16 @@ type PeriChannelResponse = {
   channel_id?: string
   channel_name?: string
   message?: string | Record<string, any>
+}
+
+type ProjectHandoverResponse = {
+  doctype: string
+  mobile_doctype: string
+  name: string
+  route?: string
+  created?: boolean
+  requested_doctype?: string
+  handover_base?: string
 }
 
 const router = useRouter()
@@ -859,8 +869,114 @@ function getShareFolder(scope: ScopeGroup) {
   return firstTask?.share_folder || '#'
 }
 
-function getHandoverUrl(scope: ScopeGroup) {
-  return `${home.value?.handover_base || ''}/${encodeURIComponent(scope.scope_name)}`
+function getConfiguredHandoverBase() {
+  return String(home.value?.handover_base || '').trim()
+}
+
+function inferHandoverDoctypeFromBase(base?: string) {
+  const value = String(base || '').trim().toLowerCase()
+
+  if (!value) {
+    return ''
+  }
+
+  if (value.includes('lead-safety-handover') || value.includes('lead_safety_handover')) {
+    return 'Lead Safety Handover'
+  }
+
+  if (value.includes('safety-handover') || value.includes('safety_handover')) {
+    return 'Safety Handover'
+  }
+
+  if (value.includes('project-handover') || value.includes('project_handover')) {
+    return 'Project Handover'
+  }
+
+  if (value.includes('handover')) {
+    return 'Handover'
+  }
+
+  return ''
+}
+
+function getProjectIdForHandover(scope: ScopeGroup) {
+  const project = scope.project_details || {}
+
+  return (
+    scope.project ||
+    project.name ||
+    project.project ||
+    project.project_name ||
+    scope.scope_name ||
+    ''
+  )
+}
+
+async function openProjectHandover(scope: ScopeGroup) {
+  const project = getProjectIdForHandover(scope)
+  const projectName = getProjectDisplayName(scope) || scope.scope_name || project
+  const handoverBase = getConfiguredHandoverBase()
+  const handoverDoctype = inferHandoverDoctypeFromBase(handoverBase)
+
+  if (!project && !projectName) {
+    error.value = 'Could not determine the project for this handover.'
+    return
+  }
+
+  try {
+    const payload = new FormData()
+
+    if (project) {
+      payload.append('project', project)
+    }
+
+    if (projectName) {
+      payload.append('project_name', projectName)
+    }
+
+    if (scope.scope_name) {
+      payload.append('scope_name', scope.scope_name)
+    }
+
+    if (handoverBase) {
+      payload.append('handover_base', handoverBase)
+    }
+
+    if (handoverDoctype) {
+      payload.append('handover_doctype', handoverDoctype)
+    }
+
+    const data = await apiRequest<FrappeResponse<ProjectHandoverResponse>>(
+      '/api/method/verto.api.mobile.handover.get_or_create_project_handover',
+      {
+        method: 'POST',
+        body: payload,
+      }
+    )
+
+    const handover = data.message
+
+    if (!handover?.mobile_doctype || !handover?.name) {
+      throw new Error('Could not resolve the project handover record.')
+    }
+
+    if (handover.route) {
+      await router.push(handover.route)
+      return
+    }
+
+    await router.push({
+      path: `/edit/${encodeURIComponent(handover.mobile_doctype)}/${encodeURIComponent(handover.name)}`,
+    })
+  } catch (err) {
+    if (err instanceof Error && err.message === 'Login required') {
+      return
+    }
+
+    error.value = err instanceof Error
+      ? err.message
+      : 'Could not open the project handover.'
+  }
 }
 
 function getGameplanUrl(scope: ScopeGroup) {

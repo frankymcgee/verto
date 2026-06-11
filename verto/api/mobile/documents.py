@@ -16,6 +16,9 @@ ALLOWED_MOBILE_DOCTYPES = {
     "supervisor-batb": "Supervisor BATB",
     "weekly-summary": "Weekly Summary",
 
+    "safety-handover": "Safety Handover",
+    "lead-safety-handover": "Lead Safety Handover",
+
     "lv-pre-start": "LV Pre-Start",
     "take-5": "Take 5",
     "shift-request": "Shift Request",

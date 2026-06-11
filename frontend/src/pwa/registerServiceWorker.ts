@@ -1,41 +1,47 @@
-// VERTO_PWA_REGISTER_RAVEN_STYLE_STAGE_1_2026_06_10
+// VERTO_PWA_STAGE2_REGISTER_SERVICE_WORKER_2026_06_10
+
 import { registerSW } from 'virtual:pwa-register'
 
-let registered = false
+let updateServiceWorker: ((reloadPage?: boolean) => Promise<void>) | undefined
 
 export function registerVertoServiceWorker() {
-  if (registered) {
-    return
-  }
-
-  if (typeof window === 'undefined') {
-    return
-  }
-
   if (!('serviceWorker' in navigator)) {
-    console.info('[verto pwa] service workers are not supported in this browser')
+    console.info('[verto pwa] Service workers are not supported in this browser.')
     return
   }
 
-  registered = true
-
-  const updateSW = registerSW({
+  updateServiceWorker = registerSW({
     immediate: true,
     onNeedRefresh() {
-      console.info('[verto pwa] app update available')
-      updateSW(true)
+      console.info('[verto pwa] New app version available.')
+      window.dispatchEvent(new CustomEvent('verto:pwa-update-available'))
     },
     onOfflineReady() {
-      console.info('[verto pwa] app shell is ready for offline use')
+      console.info('[verto pwa] App shell is ready for offline use.')
+      window.dispatchEvent(new CustomEvent('verto:pwa-offline-ready'))
     },
     onRegisteredSW(swUrl, registration) {
-      console.info('[verto pwa] service worker registered', {
-        swUrl,
-        scope: registration?.scope,
-      })
+      console.info('[verto pwa] Service worker registered:', swUrl)
+
+      if (registration) {
+        window.dispatchEvent(new CustomEvent('verto:pwa-registered', {
+          detail: {
+            swUrl,
+          },
+        }))
+      }
     },
     onRegisterError(error) {
-      console.error('[verto pwa] service worker registration failed', error)
+      console.error('[verto pwa] Service worker registration failed:', error)
     },
   })
+}
+
+export async function updateVertoServiceWorkerAndReload() {
+  if (!updateServiceWorker) {
+    window.location.reload()
+    return
+  }
+
+  await updateServiceWorker(true)
 }
