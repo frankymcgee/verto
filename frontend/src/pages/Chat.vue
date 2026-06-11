@@ -1,4 +1,4 @@
-<!-- VERTO_CHAT_TEXT_FIELD_PRIORITY_FIX_2026_06_10 -->
+<!-- VERTO_CHAT_ALL_DRAWERS_SLIDE_UP_2026_06_11 -->
 <template>
   <section class="h-full min-h-0 bg-surface-gray-1">
     <main class="flex h-full min-h-0 flex-col overflow-hidden">
@@ -306,12 +306,13 @@
     </main>
 
     <!-- File Attachment Preview Drawer -->
-    <div
-      v-if="previewAttachment"
-      class="fixed inset-0 z-[70] flex items-end bg-black/60"
-      @click.self="closePreview"
-    >
-      <Card class="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
+    <Transition name="drawer-fade-slide">
+      <div
+        v-if="previewAttachment"
+        class="fixed inset-0 z-[70] flex items-end bg-black/60"
+        @click.self="closePreview"
+      >
+        <Card class="drawer-panel flex max-h-[92vh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
         <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
           <div class="min-w-0">
             <p class="truncate text-sm font-semibold text-ink-gray-9">
@@ -379,16 +380,18 @@
             </Button>
           </Card>
         </div>
-      </Card>
-    </div>
+        </Card>
+      </div>
+    </Transition>
 
     <!-- Thread Drawer -->
-    <div
-      v-if="threadOpen"
-      class="fixed inset-0 z-[65] flex items-end bg-black/50"
-      @click.self="closeThread"
-    >
-      <Card class="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
+    <Transition name="drawer-fade-slide">
+      <div
+        v-if="threadOpen"
+        class="fixed inset-0 z-[65] flex items-end bg-black/50"
+        @click.self="closeThread"
+      >
+        <Card class="drawer-panel flex max-h-[88vh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
         <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
           <div class="min-w-0">
             <p class="truncate text-base font-semibold text-ink-gray-9">
@@ -521,8 +524,9 @@
             </Button>
           </div>
         </form>
-      </Card>
-    </div>
+        </Card>
+      </div>
+    </Transition>
   </section>
 </template>
 
@@ -1397,4 +1401,43 @@ onBeforeUnmount(() => {
   padding: 0.05rem 0.25rem;
   background: rgba(0, 0, 0, 0.08);
 }
+
+
+.drawer-fade-slide-enter-active,
+.drawer-fade-slide-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.drawer-fade-slide-enter-active :deep(.drawer-panel),
+.drawer-fade-slide-leave-active :deep(.drawer-panel) {
+  transition: transform 0.24s ease, opacity 0.24s ease;
+}
+
+.drawer-fade-slide-enter-from,
+.drawer-fade-slide-leave-to {
+  opacity: 0;
+}
+
+.drawer-fade-slide-enter-from :deep(.drawer-panel),
+.drawer-fade-slide-leave-to :deep(.drawer-panel) {
+  opacity: 0;
+  transform: translateY(100%);
+}
+
+.drawer-fade-slide-enter-to :deep(.drawer-panel),
+.drawer-fade-slide-leave-from :deep(.drawer-panel) {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer-fade-slide-enter-active,
+  .drawer-fade-slide-leave-active,
+  .drawer-fade-slide-enter-active :deep(.drawer-panel),
+  .drawer-fade-slide-leave-active :deep(.drawer-panel) {
+    transition: none;
+  }
+}
+
+
 </style>

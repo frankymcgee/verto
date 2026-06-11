@@ -54,12 +54,12 @@ app_include_js = [
 
 # include js, css files in header of web template
 web_include_js = [
-    "/assets/verto/js/mobile_install_prompt.js",
+    #"/assets/verto/js/mobile_install_prompt.js",
     "/assets/verto/js/raven_peri_auto_command.js",
 ]
 
 web_include_css = [
-    "/assets/verto/css/mobile_install_prompt.css"
+    #"/assets/verto/css/mobile_install_prompt.css"
 ]
 
 website_context = {

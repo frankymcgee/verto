@@ -1,3 +1,4 @@
+<!-- VERTO_CHILD_TABLE_DRAWER_SLIDE_UP_2026_06_11 -->
 <template>
   <div class="space-y-2">
     <div class="flex items-start justify-between gap-3">
@@ -76,12 +77,13 @@
       </p>
     </div>
 
-    <div
-      v-if="drawerOpen"
-      class="fixed inset-0 z-[70] flex items-end bg-black/40"
-      @click.self="closeDrawer"
-    >
-      <Card class="max-h-[88vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
+    <Transition name="drawer-fade-slide">
+      <div
+        v-if="drawerOpen"
+        class="fixed inset-0 z-[70] flex items-end bg-black/40"
+        @click.self="closeDrawer"
+      >
+        <Card class="drawer-panel max-h-[88vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
         <div class="flex items-center justify-between gap-3 border-b border-outline-gray-1 px-4 py-3">
           <div class="min-w-0">
             <h2 class="truncate text-lg font-semibold text-ink-gray-9">
@@ -256,8 +258,9 @@
             Done
           </Button>
         </div>
-      </Card>
-    </div>
+        </Card>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -690,3 +693,42 @@ function getRowSubtitle(row: Record<string, any>) {
     .join(' • ')
 }
 </script>
+
+
+<style scoped>
+.drawer-fade-slide-enter-active,
+.drawer-fade-slide-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.drawer-fade-slide-enter-active :deep(.drawer-panel),
+.drawer-fade-slide-leave-active :deep(.drawer-panel) {
+  transition: transform 0.24s ease, opacity 0.24s ease;
+}
+
+.drawer-fade-slide-enter-from,
+.drawer-fade-slide-leave-to {
+  opacity: 0;
+}
+
+.drawer-fade-slide-enter-from :deep(.drawer-panel),
+.drawer-fade-slide-leave-to :deep(.drawer-panel) {
+  opacity: 0;
+  transform: translateY(100%);
+}
+
+.drawer-fade-slide-enter-to :deep(.drawer-panel),
+.drawer-fade-slide-leave-from :deep(.drawer-panel) {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer-fade-slide-enter-active,
+  .drawer-fade-slide-leave-active,
+  .drawer-fade-slide-enter-active :deep(.drawer-panel),
+  .drawer-fade-slide-leave-active :deep(.drawer-panel) {
+    transition: none;
+  }
+}
+</style>

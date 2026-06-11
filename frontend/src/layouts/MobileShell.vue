@@ -6,6 +6,7 @@
   >
     <div class="mobile-shell-frame mx-auto flex h-[100dvh] min-h-[100dvh] w-full flex-col overflow-hidden bg-gray-50">
       <AppHeader />
+      <OfflineSyncStatus />
 
       <main
         ref="mainEl"
@@ -18,6 +19,8 @@
     </div>
 
     <AppBrowserDrawer />
+    <PwaUpdatePrompt />
+    <PwaInstallPrompt />
   </div>
 </template>
 
@@ -27,6 +30,8 @@ import { useRoute } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import BottomTabs from '../components/BottomTabs.vue'
 import AppBrowserDrawer from '../components/AppBrowserDrawer.vue'
+import PwaUpdatePrompt from '../components/PwaUpdatePrompt.vue'
+import PwaInstallPrompt from '../components/PwaInstallPrompt.vue'
 import { handleAppBrowserLinkClick } from '../lib/appBrowser'
 
 const route = useRoute()

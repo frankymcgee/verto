@@ -2,6 +2,111 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import Icons from 'unplugin-icons/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import type { ManifestOptions } from 'vite-plugin-pwa'
+
+const mssManifest = {
+  name: 'MSS Dashboard',
+  short_name: 'MSS',
+  id: '/verto-mobile/',
+  start_url: '/verto-mobile/',
+  scope: '/verto-mobile/',
+  display: 'standalone',
+  description: 'PWA Companion app for Mine Site Support',
+  lang: 'en-AU',
+  dir: 'auto',
+  theme_color: '#171717',
+  background_color: '#171717',
+  orientation: 'portrait-primary',
+  prefer_related_applications: false,
+  icons: [
+    {
+      src: '/assets/verto/manifest/mss-pwa-192.png',
+      sizes: '192x192',
+      type: 'image/png',
+      purpose: 'any',
+    },
+    {
+      src: '/assets/verto/manifest/mss-pwa-512.png',
+      sizes: '512x512',
+      type: 'image/png',
+      purpose: 'any',
+    },
+    {
+      src: '/assets/verto/manifest/mss-pwa-maskable-192.png',
+      sizes: '192x192',
+      type: 'image/png',
+      purpose: 'maskable',
+    },
+    {
+      src: '/assets/verto/manifest/mss-pwa-maskable-512.png',
+      sizes: '512x512',
+      type: 'image/png',
+      purpose: 'maskable',
+    },
+    {
+      src: '/assets/verto/manifest/apple-touch-icon.png',
+      sizes: '180x180',
+      type: 'image/png',
+      purpose: 'any',
+    },
+  ],
+  screenshots: [
+    {
+      src: 'https://dashboard.minesitesupport.com.au/files/screen1.png',
+      sizes: '1242x2688',
+      type: 'image/png',
+      description: 'Companion app for Mine Site Support',
+    },
+    {
+      src: 'https://dashboard.minesitesupport.com.au/files/screen2.png',
+      sizes: '1242x2688',
+      type: 'image/png',
+      description: 'Complete Site Forms online',
+    },
+    {
+      src: 'https://dashboard.minesitesupport.com.au/files/screen3.png',
+      sizes: '1242x2688',
+      type: 'image/png',
+      description: 'Chat with teams on any jobsite',
+    },
+    {
+      src: 'https://dashboard.minesitesupport.com.au/files/screen4.png',
+      sizes: '1242x2688',
+      type: 'image/png',
+      description: 'Direct message other team members',
+    },
+  ],
+  categories: [
+    'business',
+    'productivity',
+  ],
+  shortcuts: [
+    {
+      name: 'Home',
+      short_name: 'Home',
+      url: '/verto-mobile/',
+      description: 'Open the Verto Mobile home page',
+    },
+    {
+      name: 'Shifts',
+      short_name: 'Shifts',
+      url: '/verto-mobile/shifts',
+      description: 'View allocated shifts',
+    },
+    {
+      name: 'Forms',
+      short_name: 'Forms',
+      url: '/verto-mobile/forms',
+      description: 'Open completed forms',
+    },
+    {
+      name: 'Ask PERI',
+      short_name: 'PERI',
+      url: '/verto-mobile/chat/peri?mode=ai',
+      description: 'Open Ask PERI',
+    },
+  ],
+} as unknown as Partial<ManifestOptions>
 
 export default defineConfig(({ command }) => {
   const isDev = command === 'serve'
@@ -21,63 +126,14 @@ export default defineConfig(({ command }) => {
         registerType: 'autoUpdate',
         strategies: 'injectManifest',
         injectRegister: null,
-
-        // This must stay aligned with build.outDir.
-        // VitePWA will output the built service worker into:
-        // apps/verto/verto/public/verto-mobile/
-        outDir: '../verto/public/verto-mobile',
-
-        // Source service worker file.
-        // Place this at: frontend/src/verto-sw.ts
         srcDir: 'src',
         filename: 'verto-sw.ts',
-
-        // The generated service worker will be available at:
-        // /assets/verto/verto-mobile/verto-sw.js
-        // This scope can control assets under /assets/verto/verto-mobile/.
-        // It will not fully control /verto-mobile/ without a root/scope route,
-        // but this avoids editing bench-generated nginx config.
-        scope: '/assets/verto/verto-mobile/',
-        base: '/assets/verto/verto-mobile/',
-
-        manifest: {
-          name: 'Verto Mobile',
-          short_name: 'Verto',
-          description: 'Mobile field operations app for Mine Site Support.',
-          start_url: '/verto-mobile/',
-          scope: '/verto-mobile/',
-          display: 'standalone',
-          background_color: '#f9fafb',
-          theme_color: '#2563eb',
-          icons: [
-            {
-              src: '/assets/verto/images/verto-icon.png',
-              sizes: '192x192',
-              type: 'image/png',
-              purpose: 'any',
-            },
-            {
-              src: '/assets/verto/images/verto-icon.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'any',
-            },
-            {
-              src: '/assets/verto/images/verto-icon.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'maskable',
-            },
-          ],
-        },
-
-        injectManifest: {
-          maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
-        },
-
-        devOptions: {
-          enabled: false,
-        },
+        outDir: '../verto/public/verto-mobile',
+        manifestFilename: 'manifest.webmanifest',
+        includeAssets: [
+          'offline.html',
+        ],
+        manifest: mssManifest,
       }),
     ],
 

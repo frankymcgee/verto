@@ -4,6 +4,7 @@ import router from './router'
 import './style.css'
 import { setupFrappeRealtime } from './lib/frappeRealtime'
 import { registerVertoServiceWorker } from './pwa/registerServiceWorker'
+import { applyVertoPwaHeadTags } from './pwa/applyPwaHeadTags'
 
 setupFrappeRealtime()
 
@@ -13,3 +14,4 @@ app.use(router)
 
 app.mount('#app')
 registerVertoServiceWorker()
+applyVertoPwaHeadTags(router)
