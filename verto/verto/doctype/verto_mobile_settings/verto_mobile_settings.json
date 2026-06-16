@@ -27,7 +27,11 @@
   "column_break_dlnx",
   "peri_bot_name",
   "peri_bot_user",
-  "peri_bot_image"
+  "peri_bot_image",
+  "planner_tab",
+  "planner_app_name",
+  "desk_icon",
+  "planner_icon"
  ],
  "fields": [
   {
@@ -143,7 +147,7 @@
   {
    "fieldname": "details_tab",
    "fieldtype": "Tab Break",
-   "label": "Details"
+   "label": "Mobile"
   },
   {
    "fieldname": "email_header_image",
@@ -154,13 +158,33 @@
    "fieldname": "image_alt_text",
    "fieldtype": "Data",
    "label": "Image Alt Text"
+  },
+  {
+   "fieldname": "planner_tab",
+   "fieldtype": "Tab Break",
+   "label": "Planner"
+  },
+  {
+   "fieldname": "desk_icon",
+   "fieldtype": "Attach Image",
+   "label": "Desk Icon"
+  },
+  {
+   "fieldname": "planner_icon",
+   "fieldtype": "Attach Image",
+   "label": "Planner Icon"
+  },
+  {
+   "fieldname": "planner_app_name",
+   "fieldtype": "Data",
+   "label": "Planner App Name"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-06-16 13:51:55.065216",
+ "modified": "2026-06-16 15:57:50.470694",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Verto Mobile Settings",

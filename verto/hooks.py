@@ -12,18 +12,11 @@ app_license = "apache-2.0"
 # Each item in the list will be shown as an app in the apps page
 add_to_apps_screen = [
 	{
-		"name": "Roster",
- 		"logo": "/assets/mss_erp/images/calendar-96.png",
- 		"title": "Roster",
- 		"route": "/hr/roster",
- 		"has_permission": "hrms.hr.utils.check_app_permission"
- 	},
-    {
-		"name": "SMS Center",
- 		"logo": "/assets/mss_erp/images/sms-96.png",
- 		"title": "SMS Center",
- 		"route": "/app/sms-center",
- 		"has_permission": "hrms.hr.utils.check_app_permission"
+		"name": "Planner",
+ 		"logo": "/assets/verto/images/verto.png",
+ 		"title": "Planner",
+ 		"route": "/planner",
+ 		"has_permission": "verto.api.planner.check_app_permission"
  	}
  ]
 
