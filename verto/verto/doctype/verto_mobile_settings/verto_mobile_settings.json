@@ -5,6 +5,15 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "verto_desk_app_tab",
+  "timesheet_emails_section",
+  "email_header_image",
+  "image_alt_text",
+  "bcc_email_list",
+  "email_recipients",
+  "reply_to_email",
+  "footer_html",
+  "details_tab",
   "app_settings_section",
   "app_name",
   "favicon",
@@ -99,13 +108,59 @@
   {
    "fieldname": "column_break_dlnx",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "verto_desk_app_tab",
+   "fieldtype": "Tab Break",
+   "label": "Verto Desk App"
+  },
+  {
+   "fieldname": "timesheet_emails_section",
+   "fieldtype": "Section Break",
+   "label": "Timesheet Emails"
+  },
+  {
+   "fieldname": "bcc_email_list",
+   "fieldtype": "Data",
+   "label": "BCC Email List"
+  },
+  {
+   "fieldname": "email_recipients",
+   "fieldtype": "Data",
+   "label": "Email Recipients"
+  },
+  {
+   "fieldname": "reply_to_email",
+   "fieldtype": "Data",
+   "label": "Reply-To Email"
+  },
+  {
+   "default": "<p>Kind Regards,<br><strong>Mine Site Support</strong></p>\n        \n        \n        \n        <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"padding-top: 10px;\">\n            <tbody><tr>\n            <td align=\"center\" style=\"font-family: sans-serif; font-size: 11px; color: #888;\">\n                <p>\n                This email was sent via <a href=\"https://webwire.com.au\"><strong>Verto ERP</strong></a><br>\n                </p>\n            </td>\n            </tr>\n        </tbody></table>\n        \n    \n    ",
+   "fieldname": "footer_html",
+   "fieldtype": "HTML Editor",
+   "label": "footer HTML"
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "email_header_image",
+   "fieldtype": "Attach Image",
+   "label": "Email Header Image"
+  },
+  {
+   "fieldname": "image_alt_text",
+   "fieldtype": "Data",
+   "label": "Image Alt Text"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-06-04 11:21:50.085537",
+ "modified": "2026-06-16 13:51:55.065216",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Verto Mobile Settings",

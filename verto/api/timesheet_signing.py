@@ -1,78 +1,94 @@
 import frappe
-from verto.api.automate import get_employee_doc, generate_attachment_name, generate_attachment
+from verto.api.automate import (
+    get_employee_doc,
+    generate_attachment_name,
+    generate_attachment,
+    get_verto_mobile_email_settings,
+    get_sendmail_options,
+    build_email_body,
+)
+
 
 @frappe.whitelist(allow_guest=True)
 def sign_timesheet(timesheet_name, signature_base64, full_name=None, date_signed=None):
     if not timesheet_name or not signature_base64:
         frappe.throw("Missing timesheet or signature.")
+
     ts = frappe.get_doc("Timesheet", timesheet_name)
+
     if ts.custom_client_signed == 1:
-        return "Already signed"    
-    ts.db_set('custom_client_signature', signature_base64)
-    ts.db_set('custom_client_signed', 1)    
+        return "Already signed"
+
+    ts.db_set("custom_client_signature", signature_base64)
+    ts.db_set("custom_client_signed", 1)
+
     if full_name:
-        ts.db_set('custom_signed_full_name', full_name)
+        ts.db_set("custom_signed_full_name", full_name)
+
     if date_signed:
-        ts.db_set('custom_date_signed', date_signed)
-    frappe.db.commit()    
-    logo_url = frappe.utils.get_url("/files/Company Logo.JPG")
+        ts.db_set("custom_date_signed", date_signed)
+
+    frappe.db.commit()
+
+    email_settings = get_verto_mobile_email_settings()
+    recipients = email_settings.email_recipients
+
+    # Do not fail the public signing action if notification recipients are not configured.
+    # The timesheet has already been signed successfully at this point.
+    if not recipients:
+        frappe.log_error(
+            title="Signed Timesheet email skipped - no recipients",
+            message=(
+                f"No recipients were configured for signed Timesheet {ts.name}. "
+                "Add recipients to Verto Mobile Settings.email_recipients."
+            ),
+        )
+        return "Success"
+
     employee_doc = get_employee_doc(ts)
     employee_name = employee_doc.employee_name
+
     file_name = generate_attachment_name(ts, employee_doc, include_project=True)
     attachment = generate_attachment(ts, file_name)
-    frappe.sendmail(
-                recipients=["jess@minesitesupport.com.au", "enquiries@minesitesupport.com.au"],
-                reply_to="enquiries@minesitesupport.com.au",
-                subject=f"Signed Timesheet for {employee_name} - {ts.project_name}",
-                message = f"""
-                <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4; padding: 20px;">
-                <tr>
-                    <td align="center">
-                    <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; padding: 40px; border-radius: 6px;">
-                        <tr>
-                        <td align="center" style="padding-bottom: 30px;">
-                            <img src="{logo_url}" alt="Mine Site Support" style="max-width: 150px; height: auto;">
-                        </td>
-                        </tr>
-                        <tr>
-                        <td style="font-family: sans-serif; font-size: 14px; color: #333;">
-                            <p>Hi there,</p>
-                            <p>Please find attached the signed weekly timesheet for <strong>{employee_name}</strong>.</p>
-                            <p>Kind Regards,<br><strong>Mine Site Support</strong></p>
-                        </td>
-                        </tr>
-                    </table>
 
-                    <table width="600" cellpadding="0" cellspacing="0" style="padding-top: 10px;">
-                        <tr>
-                        <td align="center" style="font-family: sans-serif; font-size: 11px; color: #888;">
-                            <p>
-                            This email was sent via <a href="https://webwire.com.au"><strong>Verto ERP</strong></a><br>
-                            </p>
-                        </td>
-                        </tr>
-                    </table>
-                    </td>
-                </tr>
-                </table>
-                """,
-                delayed=False,
-                attachments=[attachment]
-            )
+    content_html = f"""
+        <p>Please find attached the signed weekly timesheet for <strong>{employee_name}</strong>.</p>
+        <p><strong>Project:</strong> {ts.project_name}</p>
+        <p>Kind Regards,<br><strong>{frappe.defaults.get_global_default("company") or "Mine Site Support"}</strong></p>
+    """
+
+    sendmail_options = get_sendmail_options(email_settings)
+
+    frappe.sendmail(
+        recipients=recipients,
+        subject=f"Signed Timesheet for {employee_name} - {ts.project_name}",
+        message=build_email_body(content_html, email_settings=email_settings),
+        delayed=False,
+        attachments=[attachment],
+        **sendmail_options,
+    )
+
     return "Success"
+
 
 @frappe.whitelist(allow_guest=True)
 def get_timesheet_public(name):
-    # Limit fields to avoid leaking sensitive info
-    return frappe.get_value("Timesheet", name, [
-        "employee",
-        "employee_name",
-        "project_name",
-        "total_hours",
-        "custom_monday_date",
-        "custom_sunday_date",
-        "custom_client_signed"
-    ], as_dict=True)
+    # Limit fields to avoid leaking sensitive info.
+    return frappe.get_value(
+        "Timesheet",
+        name,
+        [
+            "employee",
+            "employee_name",
+            "project_name",
+            "total_hours",
+            "custom_monday_date",
+            "custom_sunday_date",
+            "custom_client_signed",
+        ],
+        as_dict=True,
+    )
+
 
 @frappe.whitelist()
 def approve_timesheet_with_signature(timesheet, signature_dataurl, approved_by):
@@ -82,4 +98,5 @@ def approve_timesheet_with_signature(timesheet, signature_dataurl, approved_by):
     doc.approved_signature = signature_dataurl
     doc.save(ignore_permissions=True)
     frappe.db.commit()
+
     return {"status": "success", "message": f"{timesheet} updated"}
