@@ -6,26 +6,32 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "notification_tab",
   "section_break_8",
   "title",
   "incident_datetime",
+  "reported_datetime",
+  "project",
   "reported_by",
   "location",
   "department",
-  "project",
-  "classification",
+  "description",
+  "incident_details_tab",
   "severity",
+  "classification",
   "reportable",
   "regulator",
   "regulator_ref",
-  "description",
-  "section_break_9",
   "persons_involved",
-  "root_causes",
-  "icam_factors",
   "section_break_a",
   "related_risk",
-  "amended_from"
+  "amended_from",
+  "incident_findings_tab",
+  "section_break_9",
+  "root_causes",
+  "icam_factors",
+  "actions_tab",
+  "actions"
  ],
  "fields": [
   {
@@ -156,14 +162,47 @@
    "fieldtype": "Table",
    "label": "ICAM Factors",
    "options": "EHS ICAM Factors"
+  },
+  {
+   "fieldname": "notification_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notification"
+  },
+  {
+   "fieldname": "reported_datetime",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Reported Datetime",
+   "reqd": 1
+  },
+  {
+   "fieldname": "incident_details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Incident Details"
+  },
+  {
+   "fieldname": "incident_findings_tab",
+   "fieldtype": "Tab Break",
+   "label": "Incident Findings"
+  },
+  {
+   "fieldname": "actions_tab",
+   "fieldtype": "Tab Break",
+   "label": "Actions"
+  },
+  {
+   "fieldname": "actions",
+   "fieldtype": "Table",
+   "label": "Actions",
+   "options": "EHS Action"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-05-20 11:32:27.112610",
- "modified_by": "sean@minesitesupport.com.au",
+ "modified": "2026-06-11 13:43:57.612176",
+ "modified_by": "Administrator",
  "module": "Verto",
  "name": "EHS Incident",
  "naming_rule": "Expression (old style)",
