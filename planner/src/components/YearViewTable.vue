@@ -481,6 +481,8 @@ type ProjectRow = {
   customer_name?: string | null
   custom_project_location?: string | null
   notes?: string | null
+  task_count?: number | string | null
+  has_tasks?: boolean | number | string | null
   shifts_filled?: boolean | number | string | null
   po_entered?: boolean
   ds_requested?: number
@@ -703,6 +705,16 @@ function projectIsFilled(project: ProjectRow) {
   if (!cells.length) return false
 
   return cells.every((cell) => Number(cell?.count || 0) >= requested)
+}
+
+function projectTaskCount(project: ProjectRow) {
+  const count = Number(project.task_count || 0)
+  return Number.isFinite(count) && count > 0 ? Math.floor(count) : 0
+}
+
+function projectTaskSummary(project: ProjectRow) {
+  const count = projectTaskCount(project)
+  return count > 0 ? `Yes (${count})` : 'No'
 }
 
 type ProjectLane = {
@@ -1548,6 +1560,7 @@ function showProjectHover(project: ProjectRow, segment: ProjectSegment, event: M
         { label: 'Customer', value: project.customer_name || project.customer },
         { label: 'Location', value: project.custom_project_location },
         { label: 'Status', value: project.status },
+        { label: 'Tasks', value: projectTaskSummary(project) },
         { label: 'Shifts Filled', value: projectShiftsFilledValue(project.shifts_filled) === true ? 'Yes' : 'No' },
         { label: 'Date Range', value: segment.subline },
         { label: 'DS Requested', value: segment.dsRequested || 0 },
@@ -1585,7 +1598,7 @@ watch(
 )
 
 const events = createResource({
-  url: 'hrms.api.roster.get_year_events',
+  url: 'verto.api.planner.get_year_events',
   auto: true,
   makeParams() {
     return {

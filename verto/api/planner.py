@@ -11,16 +11,6 @@ from hrms.hr.doctype.shift_schedule.shift_schedule import get_or_insert_shift_sc
 
 ANNUAL_ROSTER_RESULT_LIMIT = 1000
 
-def check_app_permission():
-	"""Check if user has permission to access the app (for showing the app on app screen)"""
-	if frappe.session.user == "Administrator":
-		return True
-
-	if frappe.has_permission("Employee", ptype="read"):
-		return True
-
-	return False
-
 
 @frappe.whitelist()
 def get_default_company() -> str:
@@ -431,6 +421,34 @@ def _safe_int(value) -> int:
 		return 0
 
 
+def get_project_task_counts(project_names: set[str] | list[str] | tuple[str, ...]) -> dict[str, int]:
+	project_names = sorted({project for project in project_names if project})
+	if not project_names:
+		return {}
+
+	try:
+		task_meta = frappe.get_meta("Task")
+		if not task_meta.has_field("project"):
+			return {}
+	except Exception:
+		return {}
+
+	try:
+		rows = frappe.get_all(
+			"Task",
+			filters={"project": ["in", project_names]},
+			fields=["project", "count(name) as task_count"],
+			group_by="project",
+			limit_start=0,
+			limit_page_length=ANNUAL_ROSTER_RESULT_LIMIT,
+			limit=ANNUAL_ROSTER_RESULT_LIMIT,
+		)
+	except Exception:
+		return {}
+
+	return {row.project: _safe_int(row.task_count) for row in rows if row.get("project")}
+
+
 def _project_date_field(candidates: list[str]) -> str | None:
 	return _first_existing_project_field(candidates)
 
@@ -707,6 +725,7 @@ def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str
 		year_start,
 		year_end,
 	)
+	task_counts = get_project_task_counts(active_projects.keys())
 
 	# First summarise roster allocations by project/day. This lets the project hover
 	# and future project span details still know about employees/shift types when
@@ -754,6 +773,8 @@ def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str
 		if not bounds:
 			continue
 
+		project_task_count = task_counts.get(project, 0)
+
 		projects[project] = {
 			"project": project,
 			"project_name": project_name,
@@ -762,6 +783,8 @@ def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str
 			"customer_name": project_meta.get("customer_name"),
 			"custom_project_location": project_meta.get("custom_project_location"),
 			"notes": project_meta.get("notes"),
+			"task_count": project_task_count,
+			"has_tasks": project_task_count > 0,
 			"shifts_filled": project_meta.get("shifts_filled"),
 			"po_entered": project_meta.get("po_entered"),
 			"ds_requested": _safe_int(project_meta.get("ds_requested")),
