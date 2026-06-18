@@ -13,6 +13,7 @@ def fetch_created_records():
         "Supervisor BATB",
         "Workplace Inspection",
         "Prohibited and Restricted Tooling Checklist",
+        "Safety Identification Rectification",
         "CCV - Confined Space",
         "CCV - Contact with Electricity",
         "CCV - Dropped Objects",
@@ -39,63 +40,65 @@ def fetch_created_records():
     all_records = []
 
     for doctype in doctypes:
-        # Check if the 'compliance_percentage' field exists for the current Doctype
-        columns = frappe.db.get_table_columns(doctype)
-        include_compliance = "compliance_percentage" in columns
-        include_task_name = "work_scope" in columns
+        columns = set(frappe.db.get_table_columns(doctype))
 
-        # Fields to fetch, include 'compliance_percentage' if it exists
-        fields = ["name", "owner", "creation", "project_name", "contractor", "supervisor"]
-        if include_compliance:
-            fields.append("compliance_percentage")
-        if include_task_name:
-            fields.append("work_scope")
+        fields = ["name", "owner", "creation"]
 
-        # Apply filters based on whether the user is Administrator
+        optional_fields = [
+            "project_name",
+            "contractor",
+            "supervisor",
+            "compliance_percentage",
+            "work_scope"
+        ]
+
+        for field in optional_fields:
+            if field in columns:
+                fields.append(field)
+
         filters = {"creation": ["between", [start_date, end_date]]}
+
         if not is_admin:
-            filters["owner"] = current_user  # Restrict to records created by the current user
+            filters["owner"] = current_user
 
-        # Fetch records for the current Doctype
-        records = frappe.get_all(doctype, filters=filters, fields=fields)
+        records = frappe.get_all(
+            doctype,
+            filters=filters,
+            fields=fields
+        )
 
-        # Append each record with its Doctype for distinction
         for record in records:
-            # Format creation datetime
             if isinstance(record.creation, datetime):
                 formatted_creation = record.creation.strftime("%d-%b-%y %H:%M")
             else:
-                formatted_creation = record.creation  # Fallback in case it's not a datetime
+                formatted_creation = record.creation
 
-            # Format compliance percentage
-            compliance_percentage = record.get("compliance_percentage")
-            if compliance_percentage is not None:
-                compliance_percentage = f"{round(float(compliance_percentage), 2)}%"
+            # Default compliance to 100% if the field does not exist or has no value
+            if "compliance_percentage" in columns:
+                compliance_value = record.get("compliance_percentage")
+
+                if compliance_value is not None and compliance_value != "":
+                    compliance_percentage = f"{round(float(compliance_value), 2)}%"
+                else:
+                    compliance_percentage = "100%"
             else:
-                compliance_percentage = "N/A"
+                compliance_percentage = "100%"
 
-            # Fetch full name of the owner
             full_name = frappe.db.get_value("User", record.owner, "full_name") or record.owner
 
-             # Generate link to the record
             link = f"/app/{doctype.replace(' ', '-').lower()}/{record.name}"
-
-            project = record.get("project_name") if hasattr(record, 'project_name') else None
-            contractor = record.get("contractor") if hasattr(record, 'contractor') else None
-            supervisor = record.get("supervisor") if hasattr(record, 'supervisor') else None
-            task = record.get("work_scope") if hasattr(record, 'work_scope') else None
 
             all_records.append({
                 "doctype": doctype,
                 "name": record.name,
-                "owner": full_name,  # Use full name instead of email
+                "owner": full_name,
                 "creation": formatted_creation,
                 "compliance_percentage": compliance_percentage,
                 "link": link,
-                "project" : project,
-                "contractor": contractor,
-                "supervisor": supervisor,
-                "task": task
+                "project": record.get("project_name") or "N/A",
+                "contractor": record.get("contractor") or "N/A",
+                "supervisor": record.get("supervisor") or "N/A",
+                "task": record.get("work_scope") or "N/A"
             })
 
     # Sort the combined list by 'creation' in descending order
