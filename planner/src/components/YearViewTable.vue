@@ -353,13 +353,16 @@
           </div>
         </div>
 
-        <span
-          v-if="hoverCard.badge"
-          class="year-hover-card-badge"
-          :class="`year-hover-card-badge-${hoverCard.badgeTone || 'gray'}`"
-        >
-          {{ hoverCard.badge }}
-        </span>
+        <div v-if="hoverCard.badges?.length" class="year-hover-card-badges">
+          <span
+            v-for="badge in hoverCard.badges"
+            :key="badge.label"
+            class="year-hover-card-badge"
+            :class="`year-hover-card-badge-${badge.tone || 'gray'}`"
+          >
+            {{ badge.label }}
+          </span>
+        </div>
       </div>
 
       <div class="year-hover-card-grid">
@@ -523,6 +526,11 @@ type HoverCardRow = {
   value?: string | number | null
 }
 
+type HoverCardBadge = {
+  label: string
+  tone?: 'green' | 'red' | 'gray' | 'blue'
+}
+
 type HoverCard = {
   type: 'shift' | 'project'
   x?: number
@@ -532,6 +540,7 @@ type HoverCard = {
   subtitle?: string
   badge?: string
   badgeTone?: 'green' | 'red' | 'gray' | 'blue'
+  badges?: HoverCardBadge[]
   accent?: string
   rows: HoverCardRow[]
   note?: string
@@ -581,6 +590,20 @@ function onProjectScroll() {
 
 function onEmployeeScroll() {
   syncHorizontalScroll('employee')
+}
+
+function projectHasGantt(project: ProjectRow) {
+  const hasTasks = project.has_tasks
+
+  if (typeof hasTasks === 'boolean') return hasTasks
+
+  if (typeof hasTasks === 'number') return hasTasks > 0
+
+  if (typeof hasTasks === 'string') {
+    return !['', '0', 'no', 'false', 'none'].includes(hasTasks.trim().toLowerCase())
+  }
+
+  return projectTaskCount(project) > 0
 }
 
 const firstOfYear = computed(() => props.firstOfMonth.startOf('year'))
@@ -1544,6 +1567,7 @@ function showProjectHover(project: ProjectRow, segment: ProjectSegment, event: M
   const customerColor = normaliseHexColor(segment.customerColor)
   const fallbackColor = palette(segment.poEntered === false ? 'red' : 'green')
   const accent = customerColor ? darkenHexColor(customerColor, 0.3) : fallbackColor[500]
+  const hasGantt = projectHasGantt(project)
 
   setHoverCard(
     `project:${projectKey(project)}:${segment.date || ''}:${segment.days}`,
@@ -1552,8 +1576,16 @@ function showProjectHover(project: ProjectRow, segment: ProjectSegment, event: M
       kicker: 'Project',
       title: segment.label || project.project_name,
       subtitle: [projectGroupLabel(project), segment.subline].filter(Boolean).join(' · '),
-      badge: segment.poEntered ? 'PO Entered' : 'PO Missing',
-      badgeTone: segment.poEntered ? 'green' : 'red',
+      badges: [
+        {
+          label: segment.poEntered ? 'PO Entered' : 'PO Missing',
+          tone: segment.poEntered ? 'green' : 'red',
+        },
+        {
+          label: hasGantt ? 'Gantt Available' : 'Gantt Missing',
+          tone: hasGantt ? 'green' : 'red',
+        },
+      ],
       accent,
       rows: [
         { label: 'Project ID', value: project.project },
@@ -2135,6 +2167,14 @@ defineExpose({ events, scrollToToday })
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
+}
+
+.year-hover-card-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .year-hover-card-badge-green {
