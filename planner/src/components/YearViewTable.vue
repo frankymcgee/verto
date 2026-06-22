@@ -371,12 +371,20 @@
                   'year-month-start': day.isMonthStart,
                   'year-weekend': day.isWeekend,
                   ...employeeCellClass(employee.name, day.date),
+                  ...employeeDragCellClass(employee.name, day.date),
                 }"
                 :style="employeeCellStyle(employee.name, day.date)"
                 :aria-label="employeeCellTitle(employee.name, day.date)"
+                :draggable="isEmployeeShiftCell(employee.name, day.date)"
                 @mouseenter="showEmployeeHover(employee, day.date, $event)"
                 @mousemove="moveHoverCard"
                 @mouseleave="() => scheduleClearHoverCard()"
+                @dragstart="onEmployeeCellDragStart(employee.name, day.date, $event)"
+                @dragend="onEmployeeCellDragEnd"
+                @dragenter="onEmployeeCellDragEnter(employee.name, day.date)"
+                @dragleave="onEmployeeCellDragLeave(employee.name, day.date, $event)"
+                @dragover="onEmployeeCellDragOver(employee.name, day.date, $event)"
+                @drop="onEmployeeCellDrop(employee.name, day.date, $event)"
                 @click="openEmployeeCell(employee.name, day.date)"
               >
                 {{ employeeCellLabel(employee.name, day.date) }}
@@ -611,6 +619,34 @@ const shiftAssignment = ref<string>('')
 const showShiftAssignmentDialog = ref(false)
 const selectedCell = ref<{ employee: string; date: string }>({ employee: '', date: '' })
 
+type DraggedShift = {
+  employee: string
+  date: string
+  shift: ShiftAssignment
+}
+
+type DropCell = {
+  employee: string
+  date: string
+  shift: string
+}
+
+type SwapShiftParams = {
+  src_shift: string
+  src_date: string
+  tgt_employee: string
+  tgt_date: string
+  tgt_shift?: string | null
+}
+
+const draggedShift = ref<DraggedShift | null>(null)
+const dropCell = ref<DropCell>({ employee: '', date: '', shift: '' })
+const pendingSwapParams = ref<SwapShiftParams | null>(null)
+const isDroppingShift = ref(false)
+const suppressNextCellClick = ref(false)
+let suppressClickTimer: number | null = null
+let dragPreviewElement: HTMLDivElement | null = null
+
 type HoverCardRow = {
   label: string
   value?: string | number | null
@@ -732,6 +768,11 @@ function resetTableResize() {
 
 onBeforeUnmount(() => {
   stopTableResize()
+  if (suppressClickTimer !== null) {
+    window.clearTimeout(suppressClickTimer)
+    suppressClickTimer = null
+  }
+  clearDragPreviewElement()
 })
 
 function onProjectScroll() {
@@ -1570,7 +1611,224 @@ function employeeCellStyle(employee: string, date: string) {
   }
 }
 
+function getPrimaryShift(employee: string, date: string) {
+  const cell = getEmployeeCell(employee, date)
+  return cell?.type === 'shift' ? cell.shift : null
+}
+
+function isLeaveCell(employee: string, date: string) {
+  return getEmployeeCell(employee, date)?.type === 'leave'
+}
+
+function isSameDragSourceCell(employee: string, date: string) {
+  return draggedShift.value?.employee === employee && draggedShift.value?.date === date
+}
+
+function sameShiftIdentity(a?: ShiftAssignment | null, b?: ShiftAssignment | null) {
+  if (!a || !b) return false
+
+  return (
+    a.shift_type === b.shift_type &&
+    (a.shift_location || '') === (b.shift_location || '') &&
+    a.status === b.status
+  )
+}
+
+function targetHasSameShiftAsDragged(employee: string, date: string) {
+  const source = draggedShift.value?.shift
+  const target = getEmployeeCell(employee, date)
+  if (!source || target?.type !== 'shift') return false
+
+  return target.shifts.some((shift) => shift.name !== source.name && sameShiftIdentity(source, shift))
+}
+
+function canDropOnEmployeeCell(employee: string, date: string) {
+  if (!draggedShift.value || isDroppingShift.value) return false
+  if (isSameDragSourceCell(employee, date)) return false
+  if (isLeaveCell(employee, date)) return false
+  if (targetHasSameShiftAsDragged(employee, date)) return false
+
+  return true
+}
+
+function isCurrentDropCell(employee: string, date: string) {
+  return dropCell.value.employee === employee && dropCell.value.date === date
+}
+
+function employeeDragCellClass(employee: string, date: string) {
+  // Keep this very cheap. This function runs for every visible employee/day cell
+  // whenever drag state changes. Only the source cell and the current target cell
+  // need drag classes, so avoid checking leave/shift/drop validity for every cell.
+  const isSource = isSameDragSourceCell(employee, date)
+  const isDropTarget = isCurrentDropCell(employee, date)
+
+  if (!isSource && !isDropTarget) {
+    return {}
+  }
+
+  if (!isDropTarget) {
+    return {
+      'year-employee-drag-source': isSource,
+    }
+  }
+
+  const canDrop = canDropOnEmployeeCell(employee, date)
+  const hasTargetShift = Boolean(getPrimaryShift(employee, date))
+  const hasActiveDrag = Boolean(draggedShift.value)
+
+  return {
+    'year-employee-drag-source': isSource,
+    'year-employee-drop-target': hasActiveDrag,
+    'year-employee-drop-target-move': canDrop && !hasTargetShift,
+    'year-employee-drop-target-swap': canDrop && hasTargetShift,
+    'year-employee-drop-target-invalid': hasActiveDrag && !canDrop,
+  }
+}
+
+function setDropCell(employee: string, date: string) {
+  // Dragover fires continuously; do not trigger a Vue update when the target
+  // cell has not actually changed. This keeps annual drag/drop responsive.
+  if (dropCell.value.employee === employee && dropCell.value.date === date) {
+    return
+  }
+
+  const targetShift = getPrimaryShift(employee, date)
+  dropCell.value = { employee, date, shift: targetShift?.name || '' }
+}
+
+function clearDropCell() {
+  dropCell.value = { employee: '', date: '', shift: '' }
+}
+
+function clearDragPreviewElement() {
+  if (dragPreviewElement?.parentNode) {
+    dragPreviewElement.parentNode.removeChild(dragPreviewElement)
+  }
+
+  dragPreviewElement = null
+}
+
+function createDragPreviewElement(shift: ShiftAssignment) {
+  clearDragPreviewElement()
+
+  const preview = document.createElement('div')
+  preview.className = 'year-drag-preview'
+  preview.textContent = shiftCellLabel(shift) || shift.custom_project_name || shift.shift_type || 'Shift'
+  document.body.appendChild(preview)
+  dragPreviewElement = preview
+
+  return preview
+}
+
+function clearDragState() {
+  draggedShift.value = null
+  clearDropCell()
+  isDroppingShift.value = false
+  clearDragPreviewElement()
+}
+
+function releaseSuppressedClickSoon() {
+  if (suppressClickTimer !== null) {
+    window.clearTimeout(suppressClickTimer)
+  }
+
+  suppressClickTimer = window.setTimeout(() => {
+    suppressNextCellClick.value = false
+    suppressClickTimer = null
+  }, 0)
+}
+
+function onEmployeeCellDragStart(employee: string, date: string, event: DragEvent) {
+  const shift = getPrimaryShift(employee, date)
+  if (!shift) {
+    event.preventDefault()
+    return
+  }
+
+  clearHoverCard()
+  suppressNextCellClick.value = true
+  draggedShift.value = { employee, date, shift }
+  clearDropCell()
+
+  if (event.dataTransfer) {
+    const preview = createDragPreviewElement(shift)
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', shift.name)
+    event.dataTransfer.setDragImage(preview, 18, 14)
+  }
+}
+
+function onEmployeeCellDragEnd() {
+  clearDragPreviewElement()
+
+  if (!isDroppingShift.value) {
+    clearDragState()
+  }
+
+  releaseSuppressedClickSoon()
+}
+
+function onEmployeeCellDragEnter(employee: string, date: string) {
+  if (!draggedShift.value) return
+  setDropCell(employee, date)
+}
+
+function onEmployeeCellDragLeave(employee: string, date: string, event: DragEvent) {
+  const currentTarget = event.currentTarget as HTMLElement | null
+  const relatedTarget = event.relatedTarget as Node | null
+
+  if (currentTarget && relatedTarget && currentTarget.contains(relatedTarget)) return
+  if (!isCurrentDropCell(employee, date)) return
+
+  clearDropCell()
+}
+
+function onEmployeeCellDragOver(employee: string, date: string, event: DragEvent) {
+  if (!draggedShift.value) return
+
+  setDropCell(employee, date)
+
+  if (!canDropOnEmployeeCell(employee, date)) {
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'none'
+    return
+  }
+
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+}
+
+function onEmployeeCellDrop(employee: string, date: string, event: DragEvent) {
+  if (!draggedShift.value) return
+
+  setDropCell(employee, date)
+
+  if (!canDropOnEmployeeCell(employee, date)) {
+    event.preventDefault()
+    clearDropCell()
+    return
+  }
+
+  event.preventDefault()
+  clearHoverCard()
+
+  const targetShift = getPrimaryShift(employee, date)
+  pendingSwapParams.value = {
+    src_shift: draggedShift.value.shift.name,
+    src_date: draggedShift.value.date,
+    tgt_employee: employee,
+    tgt_date: date,
+    tgt_shift: targetShift?.name || null,
+  }
+
+  isDroppingShift.value = true
+  clearDragPreviewElement()
+  loading.value = true
+  swapShift.submit()
+}
+
 function openEmployeeCell(employee: string, date: string) {
+  if (suppressNextCellClick.value || isDroppingShift.value) return
+
   clearHoverCard()
   const cell = getEmployeeCell(employee, date)
   if (cell?.type === 'holiday' || cell?.type === 'leave') return
@@ -2094,6 +2352,32 @@ const events = createResource({
   },
 })
 
+const swapShift = createResource({
+  url: 'verto.api.planner.swap_shift',
+  makeParams() {
+    return pendingSwapParams.value || {
+      src_shift: '',
+      src_date: '',
+      tgt_employee: '',
+      tgt_date: '',
+      tgt_shift: null,
+    }
+  },
+  onSuccess() {
+    const wasSwap = Boolean(pendingSwapParams.value?.tgt_shift)
+    raiseToast('success', `Shift ${wasSwap ? 'swapped' : 'moved'} successfully!`)
+    pendingSwapParams.value = null
+    clearDragState()
+    events.fetch()
+  },
+  onError(error: { messages?: string[]; message?: string }) {
+    loading.value = false
+    pendingSwapParams.value = null
+    clearDragState()
+    raiseToast('error', error?.messages?.[0] || error?.message || 'Failed to move shift')
+  },
+})
+
 defineExpose({ events, scrollToToday })
 </script>
 
@@ -2305,6 +2589,86 @@ defineExpose({ events, scrollToToday })
 
 .year-employee-shift-cell {
   border-style: solid !important;
+}
+
+.year-employee-shift-cell[draggable='true'] {
+  cursor: grab;
+}
+
+.year-employee-shift-cell[draggable='true']:active {
+  cursor: grabbing;
+}
+
+:global(.year-drag-preview) {
+  position: fixed;
+  left: -9999px;
+  top: -9999px;
+  z-index: 2147483647;
+  max-width: 120px;
+  border: 1px solid rgb(37 99 235 / 0.65);
+  border-radius: 9999px;
+  background: rgb(239 246 255);
+  padding: 5px 10px;
+  color: rgb(30 64 175);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 8px 20px rgb(15 23 42 / 0.18);
+  pointer-events: none;
+}
+
+.year-employee-drag-source {
+  opacity: 0.38;
+}
+
+.year-employee-drop-target {
+  position: relative;
+  outline: 2px solid rgb(37 99 235 / 0.9) !important;
+  outline-offset: -2px;
+  background-image: linear-gradient(rgb(219 234 254 / 0.8), rgb(219 234 254 / 0.8)) !important;
+  contain: paint;
+}
+
+.year-employee-drop-target-move::after,
+.year-employee-drop-target-swap::after,
+.year-employee-drop-target-invalid::after {
+  position: absolute;
+  inset: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.year-employee-drop-target-move::after {
+  content: 'MOVE';
+  background: rgb(219 234 254 / 0.78);
+  color: rgb(30 64 175);
+}
+
+.year-employee-drop-target-swap::after {
+  content: 'SWAP';
+  background: rgb(220 252 231 / 0.82);
+  color: rgb(22 101 52);
+}
+
+.year-employee-drop-target-invalid {
+  position: relative;
+  outline: 2px solid rgb(239 68 68 / 0.9) !important;
+  outline-offset: -2px;
+  background-image: linear-gradient(rgb(254 226 226 / 0.82), rgb(254 226 226 / 0.82)) !important;
+  contain: paint;
+}
+
+.year-employee-drop-target-invalid::after {
+  content: 'BLOCKED';
+  background: rgb(254 226 226 / 0.9);
+  color: rgb(153 27 27);
 }
 
 .year-employee-shift-continues-left.year-month-start {
