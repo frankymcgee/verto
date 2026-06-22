@@ -16,6 +16,7 @@
   "details_tab",
   "app_settings_section",
   "app_name",
+  "short_name",
   "favicon",
   "fallback_home_route",
   "column_break_odql",
@@ -178,13 +179,18 @@
    "fieldname": "planner_app_name",
    "fieldtype": "Data",
    "label": "Planner App Name"
+  },
+  {
+   "fieldname": "short_name",
+   "fieldtype": "Data",
+   "label": "Short Name"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-06-16 15:57:50.470694",
+ "modified": "2026-06-22 11:26:54.826611",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Verto Mobile Settings",
