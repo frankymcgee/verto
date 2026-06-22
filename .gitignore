@@ -5,3 +5,7 @@
 tags
 node_modules
 __pycache__
+
+# Planner build output
+/verto/public/planner/assets/
+/verto/www/planner.html

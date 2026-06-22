@@ -51,23 +51,31 @@
                   </div>
 
                   <div class="year-project-filter-row mt-1">
-                    <span>Show All</span>
-                    <div class="year-project-filter-toggle" role="group" aria-label="Show all annual projects">
+                    <span>Type</span>
+                    <div class="year-project-filter-toggle" role="group" aria-label="Filter annual projects by roster or shutdown">
                       <button
                         type="button"
                         class="year-project-filter-option"
-                        :class="!showAllProjects && 'year-project-filter-option-active'"
-                        @click.stop="showAllProjects = false"
+                        :class="projectTypeFilter === 'all' && 'year-project-filter-option-active'"
+                        @click.stop="projectTypeFilter = 'all'"
                       >
-                        No
+                        Show All
                       </button>
                       <button
                         type="button"
                         class="year-project-filter-option"
-                        :class="showAllProjects && 'year-project-filter-option-active'"
-                        @click.stop="showAllProjects = true"
+                        :class="projectTypeFilter === 'roster' && 'year-project-filter-option-active'"
+                        @click.stop="projectTypeFilter = 'roster'"
                       >
-                        Yes
+                        Roster
+                      </button>
+                      <button
+                        type="button"
+                        class="year-project-filter-option"
+                        :class="projectTypeFilter === 'shutdown' && 'year-project-filter-option-active'"
+                        @click.stop="projectTypeFilter = 'shutdown'"
+                      >
+                        Shutdown
                       </button>
                     </div>
                   </div>
@@ -353,14 +361,23 @@
           </div>
         </div>
 
-        <div v-if="hoverCard.badges?.length" class="year-hover-card-badges">
+        <div
+          v-if="hoverCard.badge || hoverCard.secondaryBadge"
+          class="year-hover-card-badge-stack"
+        >
           <span
-            v-for="badge in hoverCard.badges"
-            :key="badge.label"
+            v-if="hoverCard.badge"
             class="year-hover-card-badge"
-            :class="`year-hover-card-badge-${badge.tone || 'gray'}`"
+            :class="`year-hover-card-badge-${hoverCard.badgeTone || 'gray'}`"
           >
-            {{ badge.label }}
+            {{ hoverCard.badge }}
+          </span>
+          <span
+            v-if="hoverCard.secondaryBadge"
+            class="year-hover-card-badge"
+            :class="`year-hover-card-badge-${hoverCard.secondaryBadgeTone || 'gray'}`"
+          >
+            {{ hoverCard.secondaryBadge }}
           </span>
         </div>
       </div>
@@ -484,6 +501,7 @@ type ProjectRow = {
   customer_name?: string | null
   custom_project_location?: string | null
   notes?: string | null
+  roster_or_shutdown?: string | null
   task_count?: number | string | null
   has_tasks?: boolean | number | string | null
   shifts_filled?: boolean | number | string | null
@@ -508,7 +526,7 @@ const props = defineProps<{
   employees: Employee[]
   employeeFilters: { [K in keyof EmployeeFilters]?: string }
   shiftFilters: { [K in keyof ShiftFilters]?: string }
-  projectFilters?: { company?: string; shifts_filled?: 0 | 1 }
+  projectFilters?: { company?: string; shifts_filled?: 0 | 1; roster_or_shutdown?: string }
   maxHeightPx?: number
 }>()
 
@@ -516,7 +534,7 @@ const loading = ref(true)
 const employeeSearch = ref<{ value: string; label: string }[]>([])
 const projectCollapsed = ref(false)
 const employeeCollapsed = ref(false)
-const showAllProjects = ref(false)
+const projectTypeFilter = ref<'all' | 'roster' | 'shutdown'>('all')
 const shiftAssignment = ref<string>('')
 const showShiftAssignmentDialog = ref(false)
 const selectedCell = ref<{ employee: string; date: string }>({ employee: '', date: '' })
@@ -524,11 +542,6 @@ const selectedCell = ref<{ employee: string; date: string }>({ employee: '', dat
 type HoverCardRow = {
   label: string
   value?: string | number | null
-}
-
-type HoverCardBadge = {
-  label: string
-  tone?: 'green' | 'red' | 'gray' | 'blue'
 }
 
 type HoverCard = {
@@ -540,7 +553,8 @@ type HoverCard = {
   subtitle?: string
   badge?: string
   badgeTone?: 'green' | 'red' | 'gray' | 'blue'
-  badges?: HoverCardBadge[]
+  secondaryBadge?: string
+  secondaryBadgeTone?: 'green' | 'red' | 'gray' | 'blue'
   accent?: string
   rows: HoverCardRow[]
   note?: string
@@ -590,20 +604,6 @@ function onProjectScroll() {
 
 function onEmployeeScroll() {
   syncHorizontalScroll('employee')
-}
-
-function projectHasGantt(project: ProjectRow) {
-  const hasTasks = project.has_tasks
-
-  if (typeof hasTasks === 'boolean') return hasTasks
-
-  if (typeof hasTasks === 'number') return hasTasks > 0
-
-  if (typeof hasTasks === 'string') {
-    return !['', '0', 'no', 'false', 'none'].includes(hasTasks.trim().toLowerCase())
-  }
-
-  return projectTaskCount(project) > 0
 }
 
 const firstOfYear = computed(() => props.firstOfMonth.startOf('year'))
@@ -692,15 +692,33 @@ const allProjectRows = computed(() => {
 })
 
 const projectRows = computed(() => {
-  if (showAllProjects.value) return allProjectRows.value
-  return allProjectRows.value.filter((project) => !projectIsFilled(project))
+  if (projectTypeFilter.value === 'all') return allProjectRows.value
+
+  return allProjectRows.value.filter((project) => {
+    return normaliseProjectType(project.roster_or_shutdown) === projectTypeFilter.value
+  })
 })
 
 const projectEmptyStateMessage = computed(() => {
   if (!allProjectRows.value.length) return 'No active projects found for this year'
-  if (showAllProjects.value) return 'No projects match the current annual filters'
-  return 'All project shifts are currently filled. Set Show All to Yes to view filled projects.'
+  if (projectTypeFilter.value === 'roster') return 'No roster projects found for this year'
+  if (projectTypeFilter.value === 'shutdown') return 'No shutdown projects found for this year'
+  return 'No projects match the current annual filters'
 })
+
+function normaliseProjectType(value: string | null | undefined) {
+  const normalised = String(value || '').trim().toLowerCase()
+  if (normalised === 'roster') return 'roster'
+  if (normalised === 'shutdown') return 'shutdown'
+  return ''
+}
+
+function projectTypeLabel(project: ProjectRow) {
+  const type = normaliseProjectType(project.roster_or_shutdown)
+  if (type === 'roster') return 'Roster'
+  if (type === 'shutdown') return 'Shutdown'
+  return project.roster_or_shutdown || 'Not Set'
+}
 
 function projectRequestedCount(project: ProjectRow) {
   return Math.max(0, Number(project.ds_requested || 0) + Number(project.ns_requested || 0))
@@ -738,6 +756,14 @@ function projectTaskCount(project: ProjectRow) {
 function projectTaskSummary(project: ProjectRow) {
   const count = projectTaskCount(project)
   return count > 0 ? `Yes (${count})` : 'No'
+}
+
+function projectGanttStatus(project: ProjectRow) {
+  return projectTaskCount(project) > 0 ? 'Gantt Available' : 'Gantt Missing'
+}
+
+function projectGanttStatusTone(project: ProjectRow): 'green' | 'red' {
+  return projectTaskCount(project) > 0 ? 'green' : 'red'
 }
 
 type ProjectLane = {
@@ -1567,7 +1593,6 @@ function showProjectHover(project: ProjectRow, segment: ProjectSegment, event: M
   const customerColor = normaliseHexColor(segment.customerColor)
   const fallbackColor = palette(segment.poEntered === false ? 'red' : 'green')
   const accent = customerColor ? darkenHexColor(customerColor, 0.3) : fallbackColor[500]
-  const hasGantt = projectHasGantt(project)
 
   setHoverCard(
     `project:${projectKey(project)}:${segment.date || ''}:${segment.days}`,
@@ -1576,22 +1601,17 @@ function showProjectHover(project: ProjectRow, segment: ProjectSegment, event: M
       kicker: 'Project',
       title: segment.label || project.project_name,
       subtitle: [projectGroupLabel(project), segment.subline].filter(Boolean).join(' · '),
-      badges: [
-        {
-          label: segment.poEntered ? 'PO Entered' : 'PO Missing',
-          tone: segment.poEntered ? 'green' : 'red',
-        },
-        {
-          label: hasGantt ? 'Gantt Available' : 'Gantt Missing',
-          tone: hasGantt ? 'green' : 'red',
-        },
-      ],
+      badge: segment.poEntered ? 'PO Entered' : 'PO Missing',
+      badgeTone: segment.poEntered ? 'green' : 'red',
+      secondaryBadge: projectGanttStatus(project),
+      secondaryBadgeTone: projectGanttStatusTone(project),
       accent,
       rows: [
         { label: 'Project ID', value: project.project },
         { label: 'Customer', value: project.customer_name || project.customer },
         { label: 'Location', value: project.custom_project_location },
         { label: 'Status', value: project.status },
+        { label: 'Type', value: projectTypeLabel(project) },
         { label: 'Tasks', value: projectTaskSummary(project) },
         { label: 'Shifts Filled', value: projectShiftsFilledValue(project.shifts_filled) === true ? 'Yes' : 'No' },
         { label: 'Date Range', value: segment.subline },
@@ -2010,7 +2030,7 @@ defineExpose({ events, scrollToToday })
 }
 
 .year-project-filter-option {
-  min-width: 30px;
+  min-width: 42px;
   border: 0;
   background: transparent;
   padding: 3px 7px;
@@ -2157,6 +2177,14 @@ defineExpose({ events, scrollToToday })
   line-height: 1.2;
 }
 
+.year-hover-card-badge-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  margin-left: 12px;
+}
+
 .year-hover-card-badge {
   display: inline-flex;
   align-items: center;
@@ -2167,14 +2195,6 @@ defineExpose({ events, scrollToToday })
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
-}
-
-.year-hover-card-badges {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  flex-shrink: 0;
 }
 
 .year-hover-card-badge-green {

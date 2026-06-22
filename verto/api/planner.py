@@ -11,16 +11,6 @@ from hrms.hr.doctype.shift_schedule.shift_schedule import get_or_insert_shift_sc
 
 ANNUAL_ROSTER_RESULT_LIMIT = 1000
 
-def check_app_permission():
-	"""Check if user has permission to access the app (for showing the app on app screen)"""
-	if frappe.session.user == "Administrator":
-		return True
-
-	if frappe.has_permission("Employee", ptype="read"):
-		return True
-
-	return False
-
 
 @frappe.whitelist()
 def get_default_company() -> str:
@@ -573,6 +563,7 @@ def get_active_project_meta(
 	customer_field = _first_existing_project_field(["customer"])
 	project_location_field = _first_existing_project_field(["custom_project_location"])
 	project_notes_field = _first_existing_project_field(["notes"])
+	roster_or_shutdown_field = _first_existing_project_field(["roster_or_shutdown"])
 	shifts_filled_field = _first_existing_project_field(["shifts_filled"])
 	start_field = _project_date_field([
 		"expected_start_date",
@@ -601,6 +592,7 @@ def get_active_project_meta(
 			customer_field,
 			project_location_field,
 			project_notes_field,
+			roster_or_shutdown_field,
 			shifts_filled_field,
 			start_field,
 			end_field,
@@ -691,6 +683,9 @@ def get_active_project_meta(
 		)
 		project["custom_project_location"] = project.get(project_location_field) if project_location_field else None
 		project["notes"] = project.get(project_notes_field) if project_notes_field else None
+		project["roster_or_shutdown"] = (
+			project.get(roster_or_shutdown_field) if roster_or_shutdown_field else None
+		)
 		project["shifts_filled"] = (
 			_truthy_project_value(project.get(shifts_filled_field)) if shifts_filled_field else None
 		)
@@ -793,6 +788,7 @@ def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str
 			"customer_name": project_meta.get("customer_name"),
 			"custom_project_location": project_meta.get("custom_project_location"),
 			"notes": project_meta.get("notes"),
+			"roster_or_shutdown": project_meta.get("roster_or_shutdown"),
 			"task_count": project_task_count,
 			"has_tasks": project_task_count > 0,
 			"shifts_filled": project_meta.get("shifts_filled"),
