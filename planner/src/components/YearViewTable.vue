@@ -607,6 +607,8 @@ const LEFT_COLUMN_WIDTH = 300
 const DAY_COLUMN_WIDTH = 28
 const RESIZER_HEIGHT = 18
 const PROJECT_TABLE_MIN_HEIGHT = 132
+const PROJECT_TABLE_HEADER_HEIGHT = 112
+const PROJECT_TABLE_ROW_HEIGHT = 30
 const EMPLOYEE_TABLE_MIN_HEIGHT = 220
 
 const projectTableHeight = ref<number | null>(null)
@@ -1183,12 +1185,16 @@ const showTableResizer = computed(() => {
   return showProjectsPanel.value && showEmployeesPanel.value && !projectCollapsed.value && !employeeCollapsed.value
 })
 
-const naturalProjectTableHeight = computed(() => {
-  const headerHeight = 112
-  const rowHeight = 30
+const projectTableContentHeight = computed(() => {
   const visibleProjectRowCount = Math.max(1, projectLanes.value.length)
-  const naturalHeight = headerHeight + visibleProjectRowCount * rowHeight
-  return Math.min(240, Math.max(PROJECT_TABLE_MIN_HEIGHT, naturalHeight))
+  return Math.max(
+    PROJECT_TABLE_MIN_HEIGHT,
+    PROJECT_TABLE_HEADER_HEIGHT + visibleProjectRowCount * PROJECT_TABLE_ROW_HEIGHT,
+  )
+})
+
+const naturalProjectTableHeight = computed(() => {
+  return Math.min(240, projectTableContentHeight.value)
 })
 
 const projectTableMaxHeight = computed(() => {
@@ -1206,13 +1212,21 @@ const projectTableMaxHeight = computed(() => {
   return naturalProjectTableHeight.value
 })
 
+const projectTableRenderedHeight = computed(() => {
+  if (!showProjectsPanel.value) return 0
+  if (projectCollapsed.value) return PROJECT_COLLAPSED_HEIGHT
+  if (employeeCollapsed.value) return projectTableMaxHeight.value
+
+  return Math.min(projectTableMaxHeight.value, projectTableContentHeight.value)
+})
+
 const employeeTableMaxHeight = computed(() => {
   if (employeeCollapsed.value) return EMPLOYEE_COLLAPSED_HEIGHT
 
   if (!showProjectsPanel.value) return annualContentHeight.value
 
   const resizerUsed = showTableResizer.value ? RESIZER_HEIGHT : 0
-  const projectPanelUsed = projectTableMaxHeight.value + sectionGap + resizerUsed
+  const projectPanelUsed = projectTableRenderedHeight.value + sectionGap + resizerUsed
   return Math.max(EMPLOYEE_TABLE_MIN_HEIGHT, annualContentHeight.value - projectPanelUsed)
 })
 
