@@ -10,3 +10,7 @@ __pycache__
 /verto/public/planner/assets/
 /verto/public/planner/index.html
 /verto/www/planner.html
+
+# Yarn lock files
+yarn.lock
+**/yarn.lock
