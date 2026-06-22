@@ -8,4 +8,5 @@ __pycache__
 
 # Planner build output
 /verto/public/planner/assets/
+/verto/public/planner/index.html
 /verto/www/planner.html

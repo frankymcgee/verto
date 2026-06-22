@@ -5,7 +5,7 @@
     :style="{ height: shellHeight + 'px' }"
   >
     <!-- Toolbar / Title row -->
-    <div ref="toolbarRef" class="px-12 py-8 pb-4">
+    <div ref="toolbarRef" class="px-6 py-4 pb-4">
       <div class="flex items-center">
         <FeatherIcon name="calendar" class="h-7 w-7 text-gray-500 mr-2.5" />
         <span class="font-semibold text-2xl text-gray-500 mr-2">Roster:</span>
@@ -58,7 +58,7 @@
     </div>
 
     <!-- Filters header -->
-    <div ref="filtersRef" class="px-12 pb-4">
+    <div ref="filtersRef" class="px-6 pb-4">
       <MonthViewHeader
         :firstOfMonth="firstOfMonth"
         :viewMode="viewMode"
@@ -70,7 +70,7 @@
     </div>
 
     <!-- Projects timeline (collapsible) - month view only -->
-    <div v-show="viewMode === 'month'" ref="timelineRef" class="px-12 pb-4">
+    <div v-show="viewMode === 'month'" ref="timelineRef" class="px-6 pb-4">
       <ProjectTimelineRow
         v-model:collapsed="projectsCollapsed"
         :firstOfMonth="firstOfMonth"
@@ -83,7 +83,7 @@
     </div>
 
     <!-- Table area fills remaining height -->
-    <div ref="tableAreaRef" class="px-12 pb-8 flex-1 min-h-0 mt-px">
+    <div ref="tableAreaRef" class="px-6 pb-8 flex-1 min-h-0 mt-px">
       <MonthViewTable
         v-if="isCompanySelected && viewMode === 'month'"
         ref="monthViewTable"
