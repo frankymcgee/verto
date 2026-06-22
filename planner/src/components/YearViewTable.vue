@@ -34,7 +34,7 @@
                 <div class="year-project-header-content px-2 py-1.5">
                   <div class="flex items-center justify-between gap-2 text-xs font-semibold text-gray-800">
                     <div class="flex min-w-0 items-center gap-1.5">
-                      <span class="year-project-header-icon">▱</span>
+                      <FeatherIcon name="briefcase" class="year-project-header-icon" />
                       <span>Projects</span>
                     </div>
 
@@ -84,19 +84,27 @@
 
                   <div class="year-project-legend mt-1">
                     <div class="year-project-legend-item">
-                      <span class="year-legend-icon year-legend-po-entered">✓</span>
+                      <FeatherIcon name="check-circle" class="year-legend-icon year-legend-po-entered" />
                       <span>PO Entered</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <span class="year-legend-icon year-legend-po-missing">×</span>
+                      <FeatherIcon name="x-circle" class="year-legend-icon year-legend-po-missing" />
                       <span>PO Missing</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <span class="year-legend-icon year-legend-ds-requested">☼</span>
+                      <FeatherIcon name="bar-chart-2" class="year-legend-icon year-legend-gantt-available" />
+                      <span>Gantt Available</span>
+                    </div>
+                    <div class="year-project-legend-item">
+                      <FeatherIcon name="alert-triangle" class="year-legend-icon year-legend-gantt-missing" />
+                      <span>Gantt Missing</span>
+                    </div>
+                    <div class="year-project-legend-item">
+                      <FeatherIcon name="sun" class="year-legend-icon year-legend-ds-requested" />
                       <span># DS Requested</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <span class="year-legend-icon year-legend-ns-requested">◔</span>
+                      <FeatherIcon name="moon" class="year-legend-icon year-legend-ns-requested" />
                       <span># NS Requested</span>
                     </div>
                   </div>
@@ -181,7 +189,15 @@
                     :class="segment.poEntered ? 'year-project-po-entered' : 'year-project-po-missing'"
                     :title="segment.poEntered ? 'PO Entered' : 'PO Missing'"
                   >
-                    {{ segment.poEntered ? '✓' : '×' }}
+                    <FeatherIcon :name="segment.poEntered ? 'check-circle' : 'x-circle'" class="year-project-inline-icon" />
+                  </span>
+
+                  <span
+                    class="year-project-gantt-status-icon"
+                    :class="projectHasGantt(segment.project) ? 'year-project-gantt-available' : 'year-project-gantt-missing'"
+                    :title="projectGanttStatusLabel(segment.project)"
+                  >
+                    <FeatherIcon :name="projectHasGantt(segment.project) ? 'bar-chart-2' : 'alert-triangle'" class="year-project-inline-icon" />
                   </span>
 
                   <span class="year-project-span-name truncate">
@@ -192,10 +208,14 @@
                     {{ segment.subline }}
                   </span>
 
-                  <span class="year-project-request year-project-request-ds" title="# DS Requested">☼</span>
+                  <span class="year-project-request year-project-request-ds" title="# DS Requested">
+                    <FeatherIcon name="sun" class="year-project-request-icon" />
+                  </span>
                   <span class="year-project-request-count">{{ segment.dsRequested || 0 }}</span>
 
-                  <span class="year-project-request year-project-request-ns" title="# NS Requested">◔</span>
+                  <span class="year-project-request year-project-request-ns" title="# NS Requested">
+                    <FeatherIcon name="moon" class="year-project-request-icon" />
+                  </span>
                   <span class="year-project-request-count">{{ segment.nsRequested || 0 }}</span>
                 </div>
               </td>
@@ -203,6 +223,21 @@
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div
+        v-if="showTableResizer"
+        class="year-table-resizer"
+        :class="isResizingTables && 'year-table-resizer-active'"
+        title="Drag to resize project and employee tables. Double-click to reset."
+        @pointerdown="startTableResize"
+        @dblclick="resetTableResize"
+      >
+        <span class="year-table-resizer-line"></span>
+        <span class="year-table-resizer-handle" aria-hidden="true">
+          <FeatherIcon name="menu" class="year-table-resizer-icon" />
+        </span>
+        <span class="year-table-resizer-line"></span>
       </div>
     </section>
 
@@ -413,9 +448,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import colors from 'tailwindcss/colors'
-import { Autocomplete, createResource } from 'frappe-ui'
+import { Autocomplete, createResource, FeatherIcon } from 'frappe-ui'
 import type { Dayjs } from 'dayjs'
 
 import { dayjs, raiseToast } from '../utils'
@@ -570,7 +605,15 @@ let activeHoverKey = ''
 
 const LEFT_COLUMN_WIDTH = 300
 const DAY_COLUMN_WIDTH = 28
+const RESIZER_HEIGHT = 18
+const PROJECT_TABLE_MIN_HEIGHT = 132
+const EMPLOYEE_TABLE_MIN_HEIGHT = 220
 
+const projectTableHeight = ref<number | null>(null)
+const isResizingTables = ref(false)
+
+let tableResizeStartY = 0
+let tableResizeStartProjectHeight = 0
 let syncingHorizontalScroll = false
 
 function syncHorizontalScroll(source: 'project' | 'employee') {
@@ -597,6 +640,54 @@ function syncHorizontalScroll(source: 'project' | 'employee') {
 
   emit('hscroll', left)
 }
+
+function clampProjectTableHeight(height: number) {
+  const maxHeight = Math.max(
+    PROJECT_TABLE_MIN_HEIGHT,
+    annualContentHeight.value - EMPLOYEE_TABLE_MIN_HEIGHT - sectionGap - RESIZER_HEIGHT,
+  )
+
+  return Math.min(maxHeight, Math.max(PROJECT_TABLE_MIN_HEIGHT, Math.round(height)))
+}
+
+function startTableResize(event: PointerEvent) {
+  if (!showTableResizer.value) return
+
+  isResizingTables.value = true
+  tableResizeStartY = event.clientY
+  tableResizeStartProjectHeight = projectTableMaxHeight.value
+
+  window.addEventListener('pointermove', onTableResizePointerMove)
+  window.addEventListener('pointerup', stopTableResize)
+  window.addEventListener('pointercancel', stopTableResize)
+  document.body.classList.add('year-table-is-resizing')
+  event.preventDefault()
+}
+
+function onTableResizePointerMove(event: PointerEvent) {
+  if (!isResizingTables.value) return
+
+  const delta = event.clientY - tableResizeStartY
+  projectTableHeight.value = clampProjectTableHeight(tableResizeStartProjectHeight + delta)
+}
+
+function stopTableResize() {
+  if (!isResizingTables.value) return
+
+  isResizingTables.value = false
+  window.removeEventListener('pointermove', onTableResizePointerMove)
+  window.removeEventListener('pointerup', stopTableResize)
+  window.removeEventListener('pointercancel', stopTableResize)
+  document.body.classList.remove('year-table-is-resizing')
+}
+
+function resetTableResize() {
+  projectTableHeight.value = null
+}
+
+onBeforeUnmount(() => {
+  stopTableResize()
+})
 
 function onProjectScroll() {
   syncHorizontalScroll('project')
@@ -758,12 +849,20 @@ function projectTaskSummary(project: ProjectRow) {
   return count > 0 ? `Yes (${count})` : 'No'
 }
 
+function projectHasGantt(project?: ProjectRow | null) {
+  return project ? projectTaskCount(project) > 0 : false
+}
+
 function projectGanttStatus(project: ProjectRow) {
-  return projectTaskCount(project) > 0 ? 'Gantt Available' : 'Gantt Missing'
+  return projectHasGantt(project) ? 'Gantt Available' : 'Gantt Missing'
+}
+
+function projectGanttStatusLabel(project?: ProjectRow | null) {
+  return projectHasGantt(project) ? 'Gantt Available' : 'Gantt Missing'
 }
 
 function projectGanttStatusTone(project: ProjectRow): 'green' | 'red' {
-  return projectTaskCount(project) > 0 ? 'green' : 'red'
+  return projectHasGantt(project) ? 'green' : 'red'
 }
 
 type ProjectLane = {
@@ -1080,6 +1179,18 @@ const annualContentHeight = computed(() => {
   return Math.max(220, total)
 })
 
+const showTableResizer = computed(() => {
+  return showProjectsPanel.value && showEmployeesPanel.value && !projectCollapsed.value && !employeeCollapsed.value
+})
+
+const naturalProjectTableHeight = computed(() => {
+  const headerHeight = 112
+  const rowHeight = 30
+  const visibleProjectRowCount = Math.max(1, projectLanes.value.length)
+  const naturalHeight = headerHeight + visibleProjectRowCount * rowHeight
+  return Math.min(240, Math.max(PROJECT_TABLE_MIN_HEIGHT, naturalHeight))
+})
+
 const projectTableMaxHeight = computed(() => {
   if (!showProjectsPanel.value) return 0
   if (projectCollapsed.value) return PROJECT_COLLAPSED_HEIGHT
@@ -1088,11 +1199,11 @@ const projectTableMaxHeight = computed(() => {
     return Math.max(220, annualContentHeight.value - EMPLOYEE_COLLAPSED_HEIGHT - sectionGap)
   }
 
-  const headerHeight = 98
-  const rowHeight = 30
-  const visibleProjectRowCount = Math.max(1, projectLanes.value.length)
-  const naturalHeight = headerHeight + visibleProjectRowCount * rowHeight
-  return Math.min(240, Math.max(112, naturalHeight))
+  if (showTableResizer.value && projectTableHeight.value !== null) {
+    return clampProjectTableHeight(projectTableHeight.value)
+  }
+
+  return naturalProjectTableHeight.value
 })
 
 const employeeTableMaxHeight = computed(() => {
@@ -1100,8 +1211,9 @@ const employeeTableMaxHeight = computed(() => {
 
   if (!showProjectsPanel.value) return annualContentHeight.value
 
-  const projectPanelUsed = projectTableMaxHeight.value + sectionGap
-  return Math.max(220, annualContentHeight.value - projectPanelUsed)
+  const resizerUsed = showTableResizer.value ? RESIZER_HEIGHT : 0
+  const projectPanelUsed = projectTableMaxHeight.value + sectionGap + resizerUsed
+  return Math.max(EMPLOYEE_TABLE_MIN_HEIGHT, annualContentHeight.value - projectPanelUsed)
 })
 
 function employeeDisplayName(employee: Employee) {
@@ -1681,7 +1793,7 @@ defineExpose({ events, scrollToToday })
 .year-section-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-height: 26px;
   border-radius: 6px;
   border: 1px solid rgb(209 213 219);
@@ -1715,6 +1827,60 @@ defineExpose({ events, scrollToToday })
   min-height: 22px;
   padding: 3px 7px;
   font-size: 10px;
+}
+
+.year-table-resizer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 18px;
+  padding: 0 10px;
+  cursor: row-resize;
+  user-select: none;
+  touch-action: none;
+  border-top: 1px solid rgb(229 231 235);
+  background: linear-gradient(180deg, rgb(249 250 251), rgb(255 255 255));
+}
+
+.year-table-resizer:hover,
+.year-table-resizer-active {
+  background: rgb(239 246 255);
+}
+
+.year-table-resizer-line {
+  height: 1px;
+  min-width: 0;
+  flex: 1;
+  background: rgb(209 213 219);
+}
+
+.year-table-resizer-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 14px;
+  border-radius: 9999px;
+  color: rgb(107 114 128);
+  background: rgb(255 255 255);
+  box-shadow: inset 0 0 0 1px rgb(209 213 219);
+}
+
+.year-table-resizer:hover .year-table-resizer-handle,
+.year-table-resizer-active .year-table-resizer-handle {
+  color: rgb(37 99 235);
+  box-shadow: inset 0 0 0 1px rgb(147 197 253);
+}
+
+.year-table-resizer-icon {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2.2;
+}
+
+:global(body.year-table-is-resizing) {
+  cursor: row-resize !important;
+  user-select: none !important;
 }
 
 .year-table-stage {
@@ -1843,17 +2009,22 @@ defineExpose({ events, scrollToToday })
   white-space: nowrap;
 }
 
-.year-project-status-icon {
+.year-project-status-icon,
+.year-project-gantt-status-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 13px;
-  min-width: 13px;
-  height: 13px;
+  width: 14px;
+  min-width: 14px;
+  height: 14px;
   border-radius: 9999px;
-  font-size: 10px;
-  font-weight: 700;
   line-height: 1;
+}
+
+.year-project-inline-icon {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2.1;
 }
 
 .year-project-po-entered {
@@ -1864,9 +2035,17 @@ defineExpose({ events, scrollToToday })
   color: rgb(239 68 68);
 }
 
+.year-project-gantt-available {
+  color: rgb(22 163 74);
+}
+
+.year-project-gantt-missing {
+  color: rgb(239 68 68);
+}
+
 .year-project-span-name {
   min-width: 0;
-  max-width: 58%;
+  max-width: 52%;
   color: var(--year-project-span-text, rgb(31 41 55));
   font-size: 10px;
   font-weight: 700;
@@ -1888,8 +2067,13 @@ defineExpose({ events, scrollToToday })
   width: 13px;
   min-width: 13px;
   height: 13px;
-  font-size: 11px;
   line-height: 1;
+}
+
+.year-project-request-icon {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2;
 }
 
 .year-project-request-ds {
@@ -2054,7 +2238,7 @@ defineExpose({ events, scrollToToday })
 }
 
 .year-project-legend-header {
-  height: 98px;
+  height: 112px;
   vertical-align: top;
 }
 
@@ -2063,13 +2247,10 @@ defineExpose({ events, scrollToToday })
 }
 
 .year-project-header-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 14px;
   height: 14px;
-  color: rgb(107 114 128);
-  font-size: 12px;
+  color: rgb(37 99 235);
+  stroke-width: 1.8;
 }
 
 .year-project-legend {
@@ -2094,12 +2275,12 @@ defineExpose({ events, scrollToToday })
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 11px;
-  min-width: 11px;
-  height: 11px;
+  width: 12px;
+  min-width: 12px;
+  height: 12px;
   border-radius: 9999px;
-  font-size: 9px;
   line-height: 1;
+  stroke-width: 2;
 }
 
 .year-legend-po-entered {
@@ -2107,6 +2288,14 @@ defineExpose({ events, scrollToToday })
 }
 
 .year-legend-po-missing {
+  color: rgb(239 68 68);
+}
+
+.year-legend-gantt-available {
+  color: rgb(22 163 74);
+}
+
+.year-legend-gantt-missing {
   color: rgb(239 68 68);
 }
 
