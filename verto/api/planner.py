@@ -98,17 +98,15 @@ def apply_planner_project_to_shift_assignments(
 	shift_assignment_names: list[str] | tuple[str, ...] | None = None,
 	shift_schedule_assignment: str | None = None,
 	custom_project: str | None = None,
+	note: str | None = None,
 ) -> None:
-	"""Apply Planner project fields to already-created Shift Assignments.
+	"""Apply Planner fields to already-created Shift Assignments.
 
 	This is used after HRMS creates shifts from a Shift Schedule Assignment,
 	because the upstream schedule code creates standard Shift Assignment records
-	and does not know about Planner's custom project fields.
+	and does not know about Planner's custom project/note fields.
 	"""
-	if not custom_project:
-		return
-
-	if not _doctype_has_field("Shift Assignment", "custom_project"):
+	if not custom_project and not note:
 		return
 
 	if shift_assignment_names is None:
@@ -123,22 +121,34 @@ def apply_planner_project_to_shift_assignments(
 			limit=ANNUAL_ROSTER_RESULT_LIMIT,
 		)
 
-	project_title = _get_project_title(custom_project)
+	project_title = _get_project_title(custom_project) if custom_project else None
+	has_custom_project = _doctype_has_field("Shift Assignment", "custom_project")
+	has_custom_project_name = _doctype_has_field("Shift Assignment", "custom_project_name")
+	has_note = _doctype_has_field("Shift Assignment", "note")
 
 	for shift_assignment in shift_assignment_names or []:
-		frappe.db.set_value(
-			"Shift Assignment",
-			shift_assignment,
-			"custom_project",
-			custom_project,
-			update_modified=False,
-		)
-		if project_title and _doctype_has_field("Shift Assignment", "custom_project_name"):
+		if custom_project and has_custom_project:
+			frappe.db.set_value(
+				"Shift Assignment",
+				shift_assignment,
+				"custom_project",
+				custom_project,
+				update_modified=False,
+			)
+		if project_title and has_custom_project_name:
 			frappe.db.set_value(
 				"Shift Assignment",
 				shift_assignment,
 				"custom_project_name",
 				project_title,
+				update_modified=False,
+			)
+		if note and has_note:
+			frappe.db.set_value(
+				"Shift Assignment",
+				shift_assignment,
+				"note",
+				note,
 				update_modified=False,
 			)
 
@@ -148,14 +158,16 @@ def create_shift_schedule_shifts_with_planner_fields(
 	start_date: str,
 	end_date: str | None = None,
 	custom_project: str | None = None,
+	note: str | None = None,
 ) -> None:
 	shift_schedule_assignment = frappe.get_doc("Shift Schedule Assignment", shift_schedule_assignment_name)
 	shift_schedule_assignment.create_shifts(start_date, end_date)
 
-	if custom_project:
+	if custom_project or note:
 		apply_planner_project_to_shift_assignments(
 			shift_schedule_assignment=shift_schedule_assignment_name,
 			custom_project=custom_project,
+			note=note,
 		)
 
 
@@ -416,6 +428,7 @@ def create_shift_schedule_assignment(
 	frequency: str,
 	shift_location: str | None = None,
 	custom_project: str | None = None,
+	note: str | None = None,
 ) -> None:
 	shift_schedule = get_or_insert_shift_schedule(shift_type, frequency, repeat_on_days)
 
@@ -443,6 +456,7 @@ def create_shift_schedule_assignment(
 			start_date,
 			end_date,
 			custom_project,
+			note,
 		)
 		return
 
@@ -453,7 +467,141 @@ def create_shift_schedule_assignment(
 		start_date=start_date,
 		end_date=end_date,
 		custom_project=custom_project,
+		note=note,
 	)
+
+
+def _validate_shift_type_exists(shift_type: str, label: str | None = None) -> None:
+	if not shift_type or not frappe.db.exists("Shift Type", shift_type):
+		frappe.throw(_("Shift Type {0} does not exist").format(frappe.bold(label or shift_type or "")))
+
+
+def _as_bool(value, default: bool = False) -> bool:
+	if value is None:
+		return default
+	if isinstance(value, bool):
+		return value
+	if isinstance(value, (int, float)):
+		return bool(value)
+	if isinstance(value, str):
+		return value.strip().lower() in ("1", "true", "yes", "y", "on")
+	return bool(value)
+
+
+@frappe.whitelist()
+def create_rolling_roster_assignment(
+	employee: str,
+	company: str,
+	shift_type: str,
+	status: str,
+	start_date: str,
+	end_date: str,
+	days_on_site: int | str,
+	days_off_site: int | str,
+	shift_location: str | None = None,
+	custom_project: str | None = None,
+	note: str | None = None,
+	include_fly_in_out: bool | int | str = True,
+	fly_in_shift_type: str = "FI",
+	fly_out_shift_type: str = "FO",
+) -> None:
+	"""Create a rolling roster pattern across a date range.
+
+	Example: an 8:6 roster creates 8 working days followed by 6 off days.
+	When include_fly_in_out is enabled, the first working day is assigned to FI,
+	the final working day is assigned to FO, and the days in between use the
+	selected shift type. When disabled, all working days use the selected shift type.
+	"""
+	days_on_site = int(days_on_site or 0)
+	days_off_site = int(days_off_site or 0)
+	include_fly_in_out = _as_bool(include_fly_in_out, default=True)
+
+	if days_on_site < 1:
+		frappe.throw(_("Days on site must be at least 1."))
+	if include_fly_in_out and days_on_site < 2:
+		frappe.throw(_("Days on site must be at least 2 when fly in / fly out is enabled."))
+	if days_off_site < 0:
+		frappe.throw(_("Days off site cannot be negative."))
+	if not start_date or not end_date:
+		frappe.throw(_("Start Date and End Date are required for a Rolling Roster."))
+
+	_validate_shift_type_exists(shift_type, shift_type)
+	if include_fly_in_out:
+		_validate_shift_type_exists(fly_in_shift_type, fly_in_shift_type)
+		_validate_shift_type_exists(fly_out_shift_type, fly_out_shift_type)
+
+	current = getdate(start_date)
+	final_date = getdate(end_date)
+
+	if current > final_date:
+		frappe.throw(_("End Date cannot be before Start Date."))
+
+	while current <= final_date:
+		swing_start = current
+		swing_end = getdate(add_days(swing_start, days_on_site - 1))
+		if swing_end > final_date:
+			swing_end = final_date
+
+		if not include_fly_in_out:
+			insert_shift(
+				employee=employee,
+				company=company,
+				shift_type=shift_type,
+				start_date=_to_date_str(swing_start),
+				end_date=_to_date_str(swing_end),
+				status=status,
+				shift_location=shift_location,
+				custom_project=custom_project,
+				note=note,
+			)
+			current = getdate(add_days(swing_start, days_on_site + days_off_site))
+			continue
+
+		# First day of the swing: fly in.
+		insert_shift(
+			employee=employee,
+			company=company,
+			shift_type=fly_in_shift_type,
+			start_date=_to_date_str(swing_start),
+			end_date=_to_date_str(swing_start),
+			status=status,
+			shift_location=shift_location,
+			custom_project=custom_project,
+			note=note,
+		)
+
+		if date_diff(swing_end, swing_start) >= 1:
+			middle_start = getdate(add_days(swing_start, 1))
+			middle_end = getdate(add_days(swing_end, -1))
+
+			# Middle of the swing: selected site shift type.
+			if middle_start <= middle_end:
+				insert_shift(
+					employee=employee,
+					company=company,
+					shift_type=shift_type,
+					start_date=_to_date_str(middle_start),
+					end_date=_to_date_str(middle_end),
+					status=status,
+					shift_location=shift_location,
+					custom_project=custom_project,
+					note=note,
+				)
+
+			# Final day of the swing: fly out.
+			insert_shift(
+				employee=employee,
+				company=company,
+				shift_type=fly_out_shift_type,
+				start_date=_to_date_str(swing_end),
+				end_date=_to_date_str(swing_end),
+				status=status,
+				shift_location=shift_location,
+				custom_project=custom_project,
+				note=note,
+			)
+
+		current = getdate(add_days(swing_start, days_on_site + days_off_site))
 
 
 @frappe.whitelist()
@@ -493,6 +641,7 @@ def swap_shift(
 		src_shift_doc.status,
 		src_shift_doc.shift_location,
 		src_shift_doc.get("custom_project"),
+		src_shift_doc.get("note"),
 	)
 
 	if tgt_shift:
@@ -505,6 +654,7 @@ def swap_shift(
 			tgt_shift_doc.status,
 			tgt_shift_doc.shift_location,
 			tgt_shift_doc.get("custom_project"),
+			tgt_shift_doc.get("note"),
 		)
 
 
@@ -566,6 +716,7 @@ def insert_shift(
 	status: str,
 	shift_location: str | None = None,
 	custom_project: str | None = None,
+	note: str | None = None,
 ) -> None:
 	from frappe.utils import add_days
 
@@ -581,6 +732,8 @@ def insert_shift(
 
 	if _doctype_has_field("Shift Assignment", "custom_project"):
 		filters["custom_project"] = custom_project
+	if _doctype_has_field("Shift Assignment", "note"):
+		filters["note"] = note
 
 	prev_shift = frappe.db.exists(dict({"end_date": add_days(start_date, -1)}, **filters))
 	next_shift = (
@@ -594,14 +747,14 @@ def insert_shift(
 			frappe.delete_doc("Shift Assignment", next_shift)
 
 		frappe.db.set_value("Shift Assignment", prev_shift, "end_date", end_date or None)
-		# ensure project sticks even if previous block had None
-		if custom_project:
-			apply_planner_project_to_shift_assignments([prev_shift], custom_project=custom_project)
+		# ensure Planner fields stick even if previous block had blank values
+		if custom_project or note:
+			apply_planner_project_to_shift_assignments([prev_shift], custom_project=custom_project, note=note)
 
 	elif next_shift:
 		frappe.db.set_value("Shift Assignment", next_shift, "start_date", start_date)
-		if custom_project:
-			apply_planner_project_to_shift_assignments([next_shift], custom_project=custom_project)
+		if custom_project or note:
+			apply_planner_project_to_shift_assignments([next_shift], custom_project=custom_project, note=note)
 
 	else:
 		create_planner_shift_assignment(
@@ -613,6 +766,7 @@ def insert_shift(
 			status=status,
 			shift_location=shift_location,
 			custom_project=custom_project,
+			note=note,
 		)
 
 

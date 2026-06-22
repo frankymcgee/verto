@@ -70,12 +70,40 @@
 					label="Status"
 					v-model="form.status"
 				/>
+
 				<!-- Notes -->
 				<FormControl
 					type="textarea"
 					label="Note"
 					v-model="form.note"
 				/>
+
+				<div v-if="!props.shiftAssignmentName && showShiftScheduleSettings" class="space-y-3">
+					<FormControl
+						type="select"
+						:options="scheduleTypeOptions"
+						label="Schedule Type"
+						v-model="scheduleType"
+						:disabled="!!form.shift_schedule_assignment"
+					/>
+
+					<label
+						v-if="scheduleType === 'Rolling Roster'"
+						class="flex items-start gap-2 rounded border bg-gray-50 px-3 py-2 text-sm text-gray-700"
+					>
+						<input
+							type="checkbox"
+							class="mt-0.5"
+							v-model="includeFlyInFlyOut"
+						/>
+						<span>
+							<span class="block font-medium text-gray-800">Add fly in / fly out</span>
+							<span class="block text-xs text-gray-500">
+								Creates FI on the first day and FO on the last day of each swing.
+							</span>
+						</span>
+					</label>
+				</div>
 			</div>
 
 			<!-- Schedule Settings -->
@@ -86,7 +114,32 @@
 				<hr />
 				<h4 class="font-semibold">Schedule Settings</h4>
 				<div class="grid grid-cols-2 gap-6">
-					<div class="space-y-1.5">
+					<FormControl
+						v-if="scheduleType === 'Repeat On Days'"
+						type="select"
+						:options="['Every Week', 'Every 2 Weeks', 'Every 3 Weeks', 'Every 4 Weeks']"
+						label="Frequency"
+						v-model="frequency"
+						:disabled="!!props.shiftAssignmentName"
+					/>
+
+					<FormControl
+						v-if="scheduleType === 'Rolling Roster'"
+						type="number"
+						label="Days On Site"
+						v-model="rollingRoster.days_on_site"
+						:disabled="!!props.shiftAssignmentName"
+					/>
+
+					<FormControl
+						v-if="scheduleType === 'Rolling Roster'"
+						type="number"
+						label="Days Off Site"
+						v-model="rollingRoster.days_off_site"
+						:disabled="!!props.shiftAssignmentName"
+					/>
+
+					<div v-if="scheduleType === 'Repeat On Days'" class="space-y-1.5">
 						<div class="text-xs text-gray-600">Repeat On Days</div>
 						<div class="border rounded grid grid-flow-col h-7 justify-stretch overflow-clip">
 							<div
@@ -107,13 +160,16 @@
 						</div>
 					</div>
 
-					<FormControl
-						type="select"
-						:options="['Every Week', 'Every 2 Weeks', 'Every 3 Weeks', 'Every 4 Weeks']"
-						label="Frequency"
-						v-model="frequency"
-						:disabled="!!props.shiftAssignmentName"
-					/>
+					<div v-if="scheduleType === 'Rolling Roster'" class="col-span-2 rounded border bg-gray-50 px-3 py-2 text-xs text-gray-600">
+						<template v-if="includeFlyInFlyOut">
+							Rolling roster will create each swing using <b>FI</b> on the first day,
+							the selected Shift Type for the days in between, and <b>FO</b> on the final day.
+						</template>
+						<template v-else>
+							Rolling roster will create each on-site swing using the selected Shift Type only.
+							FI and FO shifts will not be created.
+						</template>
+					</div>
 				</div>
 			</div>
 
@@ -221,6 +277,10 @@ const repeatOnDays = reactive({ ...repeatOnDaysObject });
 const shiftAssignment = ref<any>();
 const selectedDate = ref<string>();
 const frequency = ref("Every Week");
+const scheduleTypeOptions = ["Repeat On Days", "Rolling Roster"];
+const scheduleType = ref<"Repeat On Days" | "Rolling Roster">("Repeat On Days");
+const includeFlyInFlyOut = ref(true);
+const rollingRoster = reactive({ days_on_site: 8, days_off_site: 6 });
 const showDeleteDialog = ref(false);
 const deleteDialogOptions = ref<{ title: string; message: string; action: () => void }>({
 	title: "",
@@ -293,6 +353,7 @@ const actions = computed(() => {
 const showShiftScheduleSettings = computed(() => {
 	if (!form.start_date || dayjs(form.end_date).diff(dayjs(form.start_date), "d") < 7) {
 		frequency.value = "Every Week";
+		if (!props.shiftAssignmentName) scheduleType.value = "Repeat On Days";
 		return false;
 	}
 	return true;
@@ -317,6 +378,12 @@ watch(
 			if (props.selectedCell) selectedDate.value = props.selectedCell.date;
 		} else {
 			Object.assign(form, formObject);
+			scheduleType.value = "Repeat On Days";
+			frequency.value = "Every Week";
+			includeFlyInFlyOut.value = true;
+			rollingRoster.days_on_site = 8;
+			rollingRoster.days_off_site = 6;
+			Object.assign(repeatOnDays, repeatOnDaysObject);
 			if (!props.selectedCell) return;
 			form.employee = { value: props.selectedCell.employee };
 			form.start_date = props.selectedCell.date;
@@ -360,6 +427,11 @@ const updateShiftAssigment = () => {
 };
 
 const createShiftAssigment = () => {
+	if (showShiftScheduleSettings.value && scheduleType.value === "Rolling Roster") {
+		createRollingRosterAssignment.submit();
+		return;
+	}
+
 	if (
 		showShiftScheduleSettings.value &&
 		(Object.values(repeatOnDays).some((day) => !day) || frequency.value !== "Every Week")
@@ -537,6 +609,33 @@ const createShiftAssignmentSchedule = createResource({
 	},
 	onSuccess: () => {
 		raiseToast("success", "Shift Schedule Assignment created successfully!");
+		emit("fetchEvents");
+	},
+	onError(error: { messages: string[] }) {
+		raiseToast("error", error.messages[0]);
+	},
+});
+
+const createRollingRosterAssignment = createResource({
+	url: "verto.api.planner.create_rolling_roster_assignment",
+	makeParams() {
+		return {
+			employee: getId(form.employee),
+			shift_type: getId(form.shift_type),
+			company: form.company,
+			status: form.status,
+			start_date: form.start_date,
+			end_date: form.end_date,
+			note: form.note,
+			shift_location: getId(form.shift_location),
+			custom_project: getId(form.custom_project),
+			days_on_site: rollingRoster.days_on_site,
+			days_off_site: rollingRoster.days_off_site,
+			include_fly_in_out: includeFlyInFlyOut.value,
+		};
+	},
+	onSuccess: () => {
+		raiseToast("success", "Rolling Roster created successfully!");
 		emit("fetchEvents");
 	},
 	onError(error: { messages: string[] }) {
