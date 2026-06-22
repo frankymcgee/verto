@@ -21,6 +21,17 @@ def check_app_permission():
 
 	return False
 
+@frappe.whitelist()
+def get_current_user_info():
+	user = frappe.get_doc("User", frappe.session.user)
+
+	return {
+		"name": user.name,
+		"first_name": user.first_name,
+		"full_name": user.full_name,
+		"user_image": user.user_image,
+		"roles": frappe.get_roles(frappe.session.user),
+	}
 
 @frappe.whitelist()
 def get_default_company() -> str:
