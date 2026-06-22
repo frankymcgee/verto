@@ -1750,6 +1750,33 @@ def _shift_type_key(shift_type: str | None) -> str:
 	return (shift_type or "").strip().upper()
 
 
+def _shift_type_suffix_key(shift_type: str | None) -> str:
+	"""Return the roster meaning part of a Shift Type name.
+
+	Examples:
+	- DS -> DS
+	- NS -> NS
+	- FG-DS -> DS
+	- RH-NS -> NS
+	- FG-DS-CREW-1 -> DS-CREW-1
+	"""
+	key = _shift_type_key(shift_type)
+	for prefix in ("FG-", "RH-"):
+		if key.startswith(prefix):
+			return key[len(prefix):]
+	return key
+
+
+def _is_ds_personnel_shift(shift_type: str | None) -> bool:
+	suffix = _shift_type_suffix_key(shift_type)
+	return suffix == "DS" or suffix.startswith("DS-")
+
+
+def _is_ns_personnel_shift(shift_type: str | None) -> bool:
+	suffix = _shift_type_suffix_key(shift_type)
+	return suffix == "NS" or suffix.startswith("NS-")
+
+
 def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str) -> list[dict]:
 	projects = {}
 	shift_summaries: dict[str, dict] = {}
@@ -1799,10 +1826,10 @@ def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str
 				cell["_employees"].append(shift.get("employee"))
 
 			employee_label = _shift_employee_label(shift)
-			shift_type_key = _shift_type_key(shift.get("shift_type"))
-			if employee_label and shift_type_key == "DS":
+			shift_type = shift.get("shift_type")
+			if employee_label and _is_ds_personnel_shift(shift_type):
 				cell["_ds_personnel"].append(employee_label)
-			elif employee_label and shift_type_key == "NS":
+			elif employee_label and _is_ns_personnel_shift(shift_type):
 				cell["_ns_personnel"].append(employee_label)
 
 			current = getdate(add_days(current, 1))
