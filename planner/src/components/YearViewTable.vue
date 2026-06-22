@@ -448,7 +448,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import colors from 'tailwindcss/colors'
 import { Autocomplete, createResource, FeatherIcon } from 'frappe-ui'
 import type { Dayjs } from 'dayjs'
@@ -595,13 +595,19 @@ type HoverCard = {
   note?: string
 }
 
-const hoverCard = ref<HoverCard | null>(null)
+const hoverCard = shallowRef<HoverCard | null>(null)
 const hoverCardElement = ref<HTMLDivElement | null>(null)
 
+type HoverPointer = {
+  clientX: number
+  clientY: number
+}
+
 let hoverPositionFrame = 0
-let pendingHoverEvent: MouseEvent | null = null
+let pendingHoverPointer: HoverPointer | null = null
 let hoverHideTimer: number | null = null
 let activeHoverKey = ''
+const htmlPlainTextCache = new Map<string, string>()
 
 const LEFT_COLUMN_WIDTH = 300
 const DAY_COLUMN_WIDTH = 28
@@ -1351,32 +1357,42 @@ function plainTextFromHtml(value: string | null | undefined) {
   const raw = typeof value === 'string' ? value.trim() : ''
   if (!raw) return ''
 
+  const cached = htmlPlainTextCache.get(raw)
+  if (cached !== undefined) return cached
+
   const withLineBreaks = raw
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n')
     .replace(/<\/div>/gi, '\n')
     .replace(/<\/li>/gi, '\n')
 
+  let output = ''
+
   if (typeof DOMParser !== 'undefined') {
     const parsed = new DOMParser().parseFromString(withLineBreaks, 'text/html')
-    return (parsed.body.textContent || '')
+    output = (parsed.body.textContent || '')
       .replace(/\u00a0/g, ' ')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  } else {
+    output = withLineBreaks
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
       .replace(/[ \t]+\n/g, '\n')
       .replace(/\n{3,}/g, '\n\n')
       .trim()
   }
 
-  return withLineBreaks
-    .replace(/<[^>]*>/g, '')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+  // Keep the cache bounded so long sessions do not keep growing indefinitely.
+  if (htmlPlainTextCache.size > 300) htmlPlainTextCache.clear()
+  htmlPlainTextCache.set(raw, output)
+  return output
 }
 
 function mapEventsToYear(data: Events): MappedEvents {
@@ -1560,7 +1576,14 @@ function projectSegmentStyle(segment: ProjectSegment) {
 }
 
 
-function applyHoverCardPosition(event: MouseEvent) {
+function getHoverPointer(event: MouseEvent): HoverPointer {
+  return {
+    clientX: event.clientX,
+    clientY: event.clientY,
+  }
+}
+
+function applyHoverCardPosition(pointer: HoverPointer) {
   if (!hoverCard.value || !hoverCardElement.value) return
 
   const padding = 12
@@ -1572,14 +1595,14 @@ function applyHoverCardPosition(event: MouseEvent) {
   const maxLeft = Math.max(padding, window.innerWidth - cardWidth - padding)
   const maxTop = Math.max(padding, window.innerHeight - cardHeight - padding)
 
-  let x = event.clientX + cursorOffset
+  let x = pointer.clientX + cursorOffset
   if (x + cardWidth + padding > window.innerWidth) {
-    x = event.clientX - cardWidth - cursorOffset
+    x = pointer.clientX - cardWidth - cursorOffset
   }
 
-  let y = event.clientY + cursorOffset
+  let y = pointer.clientY + cursorOffset
   if (y + cardHeight + padding > window.innerHeight) {
-    y = event.clientY - cardHeight - cursorOffset
+    y = pointer.clientY - cardHeight - cursorOffset
   }
 
   const clampedX = Math.min(Math.max(padding, x), maxLeft)
@@ -1591,13 +1614,13 @@ function applyHoverCardPosition(event: MouseEvent) {
 function scheduleHoverCardPosition(event: MouseEvent) {
   if (!hoverCard.value) return
 
-  pendingHoverEvent = event
+  pendingHoverPointer = getHoverPointer(event)
   if (hoverPositionFrame) return
 
   hoverPositionFrame = window.requestAnimationFrame(() => {
     hoverPositionFrame = 0
-    if (pendingHoverEvent) applyHoverCardPosition(pendingHoverEvent)
-    pendingHoverEvent = null
+    if (pendingHoverPointer) applyHoverCardPosition(pendingHoverPointer)
+    pendingHoverPointer = null
   })
 }
 
@@ -1611,21 +1634,33 @@ function cancelScheduledHoverClear() {
 function setHoverCard(key: string, card: HoverCard, event: MouseEvent) {
   cancelScheduledHoverClear()
 
+  const pointer = getHoverPointer(event)
+  const cardAlreadyMounted = Boolean(hoverCard.value && hoverCardElement.value)
+
   if (activeHoverKey === key && hoverCard.value) {
-    scheduleHoverCardPosition(event)
+    pendingHoverPointer = pointer
+    if (hoverCardElement.value) applyHoverCardPosition(pointer)
     return
   }
 
   activeHoverKey = key
+
+  // Move the existing mounted card before swapping its content. This makes rapid
+  // project/shift switching feel instant instead of waiting for the next render.
+  if (cardAlreadyMounted) {
+    applyHoverCardPosition(pointer)
+  }
+
   hoverCard.value = card
 
-  // If the card is already mounted, move it immediately. Otherwise wait for Vue
-  // to mount the card, then position it once. Mouse movement after that uses the
-  // rAF/direct-transform path and does not re-render the card.
   if (hoverCardElement.value) {
-    scheduleHoverCardPosition(event)
+    pendingHoverPointer = pointer
+    window.requestAnimationFrame(() => {
+      if (pendingHoverPointer) applyHoverCardPosition(pendingHoverPointer)
+      pendingHoverPointer = null
+    })
   } else {
-    nextTick(() => scheduleHoverCardPosition(event))
+    nextTick(() => applyHoverCardPosition(pointer))
   }
 }
 
@@ -1637,7 +1672,7 @@ function moveHoverCard(event: MouseEvent) {
   scheduleHoverCardPosition(event)
 }
 
-function scheduleClearHoverCard(delay = 45) {
+function scheduleClearHoverCard(delay = 90) {
   cancelScheduledHoverClear()
   hoverHideTimer = window.setTimeout(() => {
     clearHoverCard()
@@ -1653,7 +1688,7 @@ function clearHoverCard() {
   }
 
   activeHoverKey = ''
-  pendingHoverEvent = null
+  pendingHoverPointer = null
   hoverCard.value = null
 }
 
@@ -2335,14 +2370,15 @@ defineExpose({ events, scrollToToday })
   border: 1px solid rgb(209 213 219);
   border-left: 4px solid var(--year-hover-accent, rgb(59 130 246));
   border-radius: 10px;
-  background: rgb(255 255 255 / 0.98);
-  box-shadow: 0 18px 40px rgb(15 23 42 / 0.22), 0 4px 12px rgb(15 23 42 / 0.12);
+  background: rgb(255 255 255);
+  box-shadow: 0 18px 40px rgb(15 23 42 / 0.18), 0 4px 12px rgb(15 23 42 / 0.1);
   color: rgb(31 41 55);
   max-height: calc(100vh - 24px);
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  backdrop-filter: blur(8px);
+  contain: layout paint style;
+  backface-visibility: hidden;
 }
 
 .year-hover-card-header {
