@@ -385,7 +385,7 @@
                 @dragleave="onEmployeeCellDragLeave(employee.name, day.date, $event)"
                 @dragover="onEmployeeCellDragOver(employee.name, day.date, $event)"
                 @drop="onEmployeeCellDrop(employee.name, day.date, $event)"
-                @click="openEmployeeCell(employee.name, day.date)"
+                @click="openEmployeeCell(employee.name, day.date, $event)"
               >
                 {{ employeeCellLabel(employee.name, day.date) }}
               </td>
@@ -468,7 +468,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import colors from 'tailwindcss/colors'
 import { Autocomplete, createResource, FeatherIcon } from 'frappe-ui'
 import type { Dayjs } from 'dayjs'
@@ -630,23 +630,31 @@ type DraggedShift = {
   shift: ShiftAssignment
 }
 
+type SelectedShiftCell = DraggedShift
+
 type DropCell = {
   employee: string
   date: string
   shift: string
 }
 
-type SwapShiftParams = {
-  src_shift: string
-  src_date: string
-  tgt_employee: string
-  tgt_date: string
-  tgt_shift?: string | null
+type BulkMoveShiftItem = {
+  shift: string
+  employee: string
+  date: string
+}
+
+type BulkMoveShiftParams = {
+  shifts: BulkMoveShiftItem[]
+  target_employee: string
+  target_date: string
 }
 
 const draggedShift = ref<DraggedShift | null>(null)
+const selectedShiftCells = ref<Record<string, SelectedShiftCell>>({})
 const dropCell = ref<DropCell>({ employee: '', date: '', shift: '' })
-const pendingSwapParams = ref<SwapShiftParams | null>(null)
+const pendingBulkShiftParams = ref<BulkMoveShiftParams | null>(null)
+const pendingBulkShiftWillSwap = ref(false)
 const isDroppingShift = ref(false)
 const suppressNextCellClick = ref(false)
 let suppressClickTimer: number | null = null
@@ -771,8 +779,19 @@ function resetTableResize() {
   projectTableHeight.value = null
 }
 
+function onWindowKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    clearSelectedShiftCells()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onWindowKeydown)
+})
+
 onBeforeUnmount(() => {
   stopTableResize()
+  window.removeEventListener('keydown', onWindowKeydown)
   if (suppressClickTimer !== null) {
     window.clearTimeout(suppressClickTimer)
     suppressClickTimer = null
@@ -1649,8 +1668,78 @@ function isLeaveCell(employee: string, date: string) {
   return getEmployeeCell(employee, date)?.type === 'leave'
 }
 
+function shiftCellKey(employee: string, date: string) {
+  return `${employee}::${date}`
+}
+
+function selectedShiftList() {
+  return Object.values(selectedShiftCells.value).sort(
+    (a, b) => a.employee.localeCompare(b.employee) || a.date.localeCompare(b.date),
+  )
+}
+
+function selectedShiftCount() {
+  return selectedShiftList().length
+}
+
+function selectedShiftEmployee() {
+  return selectedShiftList()[0]?.employee || ''
+}
+
+function isSelectedShiftCell(employee: string, date: string) {
+  return Boolean(selectedShiftCells.value[shiftCellKey(employee, date)])
+}
+
+function clearSelectedShiftCells() {
+  selectedShiftCells.value = {}
+}
+
+function toggleSelectedShiftCell(employee: string, date: string) {
+  const shift = getPrimaryShift(employee, date)
+  if (!shift) return
+
+  const existingEmployee = selectedShiftEmployee()
+  const key = shiftCellKey(employee, date)
+  const next = existingEmployee && existingEmployee !== employee ? {} : { ...selectedShiftCells.value }
+
+  if (next[key]) {
+    delete next[key]
+  } else {
+    next[key] = { employee, date, shift }
+  }
+
+  selectedShiftCells.value = next
+}
+
+function activeDragShiftCells() {
+  if (!draggedShift.value) return []
+
+  const selected = selectedShiftList()
+  if (selected.some((cell) => cell.employee === draggedShift.value?.employee && cell.date === draggedShift.value?.date)) {
+    return selected
+  }
+
+  return [draggedShift.value]
+}
+
+function firstActiveDragDate() {
+  return activeDragShiftCells()[0]?.date || draggedShift.value?.date || ''
+}
+
+function targetDateForDragCell(cell: SelectedShiftCell, targetStartDate: string) {
+  const firstDate = firstActiveDragDate()
+  if (!firstDate) return targetStartDate
+
+  const offset = dayjs(cell.date).diff(dayjs(firstDate), 'day')
+  return dayjs(targetStartDate).add(offset, 'day').format('YYYY-MM-DD')
+}
+
+function activeDragTargetDates(targetStartDate: string) {
+  return activeDragShiftCells().map((cell) => targetDateForDragCell(cell, targetStartDate))
+}
+
 function isSameDragSourceCell(employee: string, date: string) {
-  return draggedShift.value?.employee === employee && draggedShift.value?.date === date
+  return activeDragShiftCells().some((cell) => cell.employee === employee && cell.date === date)
 }
 
 function sameShiftIdentity(a?: ShiftAssignment | null, b?: ShiftAssignment | null) {
@@ -1664,17 +1753,42 @@ function sameShiftIdentity(a?: ShiftAssignment | null, b?: ShiftAssignment | nul
 }
 
 function targetHasSameShiftAsDragged(employee: string, date: string) {
-  const source = draggedShift.value?.shift
-  const target = getEmployeeCell(employee, date)
-  if (!source || target?.type !== 'shift') return false
+  const dragCells = activeDragShiftCells()
+  if (!dragCells.length) return false
 
-  return target.shifts.some((shift) => shift.name !== source.name && sameShiftIdentity(source, shift))
+  for (const source of dragCells) {
+    const targetDate = targetDateForDragCell(source, date)
+    const target = getEmployeeCell(employee, targetDate)
+    if (target?.type !== 'shift') continue
+
+    if (target.shifts.some((shift) => shift.name !== source.shift.name && sameShiftIdentity(source.shift, shift))) {
+      return true
+    }
+  }
+
+  return false
+}
+
+function targetRangeHasLeave(employee: string, date: string) {
+  return activeDragTargetDates(date).some((targetDate) => isLeaveCell(employee, targetDate))
+}
+
+function targetRangeIntersectsSource(employee: string, date: string) {
+  const dragCells = activeDragShiftCells()
+  if (!dragCells.length || dragCells[0].employee !== employee) return false
+
+  const sourceDates = new Set(dragCells.map((cell) => cell.date))
+  return activeDragTargetDates(date).some((targetDate) => sourceDates.has(targetDate))
+}
+
+function targetRangeHasShift(employee: string, date: string) {
+  return activeDragTargetDates(date).some((targetDate) => Boolean(getPrimaryShift(employee, targetDate)))
 }
 
 function canDropOnEmployeeCell(employee: string, date: string) {
   if (!draggedShift.value || isDroppingShift.value) return false
-  if (isSameDragSourceCell(employee, date)) return false
-  if (isLeaveCell(employee, date)) return false
+  if (targetRangeIntersectsSource(employee, date)) return false
+  if (targetRangeHasLeave(employee, date)) return false
   if (targetHasSameShiftAsDragged(employee, date)) return false
 
   return true
@@ -1685,27 +1799,30 @@ function isCurrentDropCell(employee: string, date: string) {
 }
 
 function employeeDragCellClass(employee: string, date: string) {
-  // Keep this very cheap. This function runs for every visible employee/day cell
-  // whenever drag state changes. Only the source cell and the current target cell
-  // need drag classes, so avoid checking leave/shift/drop validity for every cell.
+  // Keep this cheap. It runs for every visible employee/day cell whenever drag
+  // or multi-select state changes. Selection is a direct key lookup; drop
+  // validation only runs on the current drop target.
+  const isSelected = isSelectedShiftCell(employee, date)
   const isSource = isSameDragSourceCell(employee, date)
   const isDropTarget = isCurrentDropCell(employee, date)
 
-  if (!isSource && !isDropTarget) {
+  if (!isSelected && !isSource && !isDropTarget) {
     return {}
   }
 
   if (!isDropTarget) {
     return {
+      'year-employee-shift-selected': isSelected,
       'year-employee-drag-source': isSource,
     }
   }
 
   const canDrop = canDropOnEmployeeCell(employee, date)
-  const hasTargetShift = Boolean(getPrimaryShift(employee, date))
+  const hasTargetShift = targetRangeHasShift(employee, date)
   const hasActiveDrag = Boolean(draggedShift.value)
 
   return {
+    'year-employee-shift-selected': isSelected,
     'year-employee-drag-source': isSource,
     'year-employee-drop-target': hasActiveDrag,
     'year-employee-drop-target-move': canDrop && !hasTargetShift,
@@ -1737,12 +1854,12 @@ function clearDragPreviewElement() {
   dragPreviewElement = null
 }
 
-function createDragPreviewElement(shift: ShiftAssignment) {
+function createDragPreviewElement(shift: ShiftAssignment, count = 1) {
   clearDragPreviewElement()
 
   const preview = document.createElement('div')
   preview.className = 'year-drag-preview'
-  preview.textContent = shiftCellLabel(shift) || shift.custom_project_name || shift.shift_type || 'Shift'
+  preview.textContent = count > 1 ? `Moving ${count} shifts` : shiftCellLabel(shift) || shift.custom_project_name || shift.shift_type || 'Shift'
   document.body.appendChild(preview)
   dragPreviewElement = preview
 
@@ -1776,13 +1893,20 @@ function onEmployeeCellDragStart(employee: string, date: string, event: DragEven
 
   clearHoverCard()
   suppressNextCellClick.value = true
+
+  if (selectedShiftCount() && !isSelectedShiftCell(employee, date)) {
+    clearSelectedShiftCells()
+  }
+
   draggedShift.value = { employee, date, shift }
   clearDropCell()
 
+  const dragCells = activeDragShiftCells()
+
   if (event.dataTransfer) {
-    const preview = createDragPreviewElement(shift)
+    const preview = createDragPreviewElement(shift, dragCells.length)
     event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', shift.name)
+    event.dataTransfer.setData('text/plain', dragCells.map((cell) => cell.shift.name).join(','))
     event.dataTransfer.setDragImage(preview, 18, 14)
   }
 }
@@ -1840,27 +1964,39 @@ function onEmployeeCellDrop(employee: string, date: string, event: DragEvent) {
   event.preventDefault()
   clearHoverCard()
 
-  const targetShift = getPrimaryShift(employee, date)
-  pendingSwapParams.value = {
-    src_shift: draggedShift.value.shift.name,
-    src_date: draggedShift.value.date,
-    tgt_employee: employee,
-    tgt_date: date,
-    tgt_shift: targetShift?.name || null,
+  const dragCells = activeDragShiftCells()
+  pendingBulkShiftWillSwap.value = targetRangeHasShift(employee, date)
+  pendingBulkShiftParams.value = {
+    shifts: dragCells.map((cell) => ({
+      shift: cell.shift.name,
+      employee: cell.employee,
+      date: cell.date,
+    })),
+    target_employee: employee,
+    target_date: date,
   }
 
   isDroppingShift.value = true
   clearDragPreviewElement()
   loading.value = true
-  swapShift.submit()
+  bulkMoveOrSwapShifts.submit()
 }
 
-function openEmployeeCell(employee: string, date: string) {
+function openEmployeeCell(employee: string, date: string, event?: MouseEvent) {
   if (suppressNextCellClick.value || isDroppingShift.value) return
 
   clearHoverCard()
   const cell = getEmployeeCell(employee, date)
   if (cell?.type === 'holiday' || cell?.type === 'leave') return
+
+  if (event?.shiftKey) {
+    toggleSelectedShiftCell(employee, date)
+    return
+  }
+
+  if (selectedShiftCount()) {
+    clearSelectedShiftCells()
+  }
 
   selectedCell.value = { employee, date }
   shiftAssignment.value = cell?.type === 'shift' ? cell.shift.name : ''
@@ -2389,29 +2525,31 @@ const events = createResource({
   },
 })
 
-const swapShift = createResource({
-  url: 'verto.api.planner.swap_shift',
+const bulkMoveOrSwapShifts = createResource({
+  url: 'verto.api.planner.bulk_move_or_swap_shifts',
   makeParams() {
-    return pendingSwapParams.value || {
-      src_shift: '',
-      src_date: '',
-      tgt_employee: '',
-      tgt_date: '',
-      tgt_shift: null,
+    return pendingBulkShiftParams.value || {
+      shifts: [],
+      target_employee: '',
+      target_date: '',
     }
   },
   onSuccess() {
-    const wasSwap = Boolean(pendingSwapParams.value?.tgt_shift)
-    raiseToast('success', `Shift ${wasSwap ? 'swapped' : 'moved'} successfully!`)
-    pendingSwapParams.value = null
+    const count = pendingBulkShiftParams.value?.shifts?.length || 1
+    const action = pendingBulkShiftWillSwap.value ? 'swapped' : 'moved'
+    raiseToast('success', `${count} shift${count === 1 ? '' : 's'} ${action} successfully!`)
+    pendingBulkShiftParams.value = null
+    pendingBulkShiftWillSwap.value = false
+    clearSelectedShiftCells()
     clearDragState()
     events.fetch()
   },
   onError(error: { messages?: string[]; message?: string }) {
     loading.value = false
-    pendingSwapParams.value = null
+    pendingBulkShiftParams.value = null
+    pendingBulkShiftWillSwap.value = false
     clearDragState()
-    raiseToast('error', error?.messages?.[0] || error?.message || 'Failed to move shift')
+    raiseToast('error', error?.messages?.[0] || error?.message || 'Failed to move shifts')
   },
 })
 
@@ -2652,6 +2790,24 @@ defineExpose({ events, scrollToToday })
   line-height: 1;
   white-space: nowrap;
   box-shadow: 0 8px 20px rgb(15 23 42 / 0.18);
+  pointer-events: none;
+}
+
+.year-employee-shift-selected {
+  outline: 2px solid rgb(37 99 235 / 0.95) !important;
+  outline-offset: -2px;
+  box-shadow:
+    inset 0 0 0 2px rgb(37 99 235 / 0.38),
+    var(--tw-ring-shadow, 0 0 #0000) !important;
+  position: relative;
+}
+
+.year-employee-shift-selected::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 3px;
+  background: rgb(37 99 235 / 0.1);
   pointer-events: none;
 }
 

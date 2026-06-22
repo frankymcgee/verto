@@ -904,6 +904,243 @@ def delete_shift_schedule_assignment(shift_schedule_assignment: str) -> None:
 	frappe.delete_doc("Shift Schedule Assignment", shift_schedule_assignment)
 
 
+def _normalise_bulk_shift_items(shifts) -> list[dict]:
+	if isinstance(shifts, str):
+		shifts = frappe.parse_json(shifts) or []
+
+	if not isinstance(shifts, list) or not shifts:
+		frappe.throw(_("Please select at least one shift to move or swap."))
+
+	items = []
+	seen_dates = set()
+	for row in shifts:
+		if not isinstance(row, dict):
+			continue
+
+		employee = row.get("employee")
+		date = _to_date_str(row.get("date"))
+		shift = row.get("shift") or row.get("shift_assignment") or row.get("name")
+
+		if not employee or not date:
+			continue
+
+		# One selected daily cell per employee/date is enough. Multiple shifts in the
+		# same cell are intentionally represented by the primary visible shift.
+		key = (employee, date)
+		if key in seen_dates:
+			continue
+		seen_dates.add(key)
+
+		items.append({"employee": employee, "date": date, "shift": shift})
+
+	if not items:
+		frappe.throw(_("Please select at least one valid shift to move or swap."))
+
+	employees = {row["employee"] for row in items}
+	if len(employees) > 1:
+		frappe.throw(_("Bulk shift move/swap can only be used for one employee at a time."))
+
+	return sorted(items, key=lambda row: getdate(row["date"]))
+
+
+def _find_shift_assignment_for_date(employee: str, date: str, preferred_shift: str | None = None):
+	date = _to_date_str(date)
+	rows = frappe.get_all(
+		"Shift Assignment",
+		filters={
+			"employee": employee,
+			"docstatus": 1,
+			"start_date": ["<=", date],
+		},
+		fields=[
+			"name",
+			"employee",
+			"company",
+			"shift_type",
+			"start_date",
+			"end_date",
+			"status",
+			"shift_location",
+			"custom_project",
+			"note",
+		],
+		order_by="start_date desc, creation desc",
+		limit_start=0,
+		limit_page_length=50,
+		limit=50,
+	)
+
+	matching = []
+	for row in rows:
+		if row.get("end_date") and date_diff(row.get("end_date"), date) < 0:
+			continue
+		matching.append(row)
+
+	if not matching:
+		return None
+
+	if preferred_shift:
+		for row in matching:
+			if row.get("name") == preferred_shift:
+				return row
+
+	return matching[0]
+
+
+def _shift_snapshot(row, date: str) -> dict:
+	return {
+		"name": row.get("name"),
+		"employee": row.get("employee"),
+		"company": row.get("company"),
+		"shift_type": row.get("shift_type"),
+		"date": _to_date_str(date),
+		"status": row.get("status"),
+		"shift_location": row.get("shift_location"),
+		"custom_project": row.get("custom_project"),
+		"note": row.get("note"),
+	}
+
+
+def _target_dates_for_bulk_shift_items(items: list[dict], target_date: str) -> list[str]:
+	first_source_date = getdate(items[0]["date"])
+	target_start = getdate(target_date)
+
+	return [
+		_to_date_str(add_days(target_start, date_diff(getdate(row["date"]), first_source_date)))
+		for row in items
+	]
+
+
+def _validate_bulk_shift_targets(target_employee: str, target_dates: list[str]) -> None:
+	if not target_dates:
+		return
+
+	LeaveApplication = frappe.qb.DocType("Leave Application")
+	rows = (
+		frappe.qb.from_(LeaveApplication)
+		.select(LeaveApplication.name, LeaveApplication.leave_type, LeaveApplication.from_date, LeaveApplication.to_date)
+		.where(
+			(LeaveApplication.docstatus == 1)
+			& (LeaveApplication.status == "Approved")
+			& (LeaveApplication.employee == target_employee)
+			& (LeaveApplication.from_date <= max(target_dates))
+			& (LeaveApplication.to_date >= min(target_dates))
+		)
+	).run(as_dict=True)
+
+	for date in target_dates:
+		day = getdate(date)
+		for leave in rows:
+			if getdate(leave.from_date) <= day <= getdate(leave.to_date):
+				frappe.throw(
+					_("Cannot move shifts onto approved leave for {0} on {1}.").format(
+						target_employee,
+						date,
+					)
+				)
+
+
+@frappe.whitelist()
+def bulk_move_or_swap_shifts(shifts, target_employee: str, target_date: str) -> None:
+	"""Move or swap multiple selected daily shift cells.
+
+	The annual planner sends selected daily cells for a single employee. The first
+	selected date is aligned to target_date, then the remaining selected cells keep
+	the same date offsets. Existing target shifts are swapped back to the original
+	source dates. Empty target dates become normal moves.
+	"""
+	items = _normalise_bulk_shift_items(shifts)
+	target_date = _to_date_str(target_date)
+
+	if not target_employee or not target_date:
+		frappe.throw(_("Target employee and target date are required."))
+
+	source_employee = items[0]["employee"]
+	target_dates = _target_dates_for_bulk_shift_items(items, target_date)
+	source_dates = [row["date"] for row in items]
+
+	if source_employee == target_employee and set(source_dates).intersection(target_dates):
+		frappe.throw(_("Please drop the selected shifts onto a different date range."))
+
+	_validate_bulk_shift_targets(target_employee, target_dates)
+
+	source_snapshots = []
+	for row in items:
+		shift_row = _find_shift_assignment_for_date(row["employee"], row["date"], row.get("shift"))
+		if not shift_row:
+			frappe.throw(_("Could not find the source shift for {0} on {1}.").format(row["employee"], row["date"]))
+		source_snapshots.append(_shift_snapshot(shift_row, row["date"]))
+
+	target_snapshots = []
+	for date in target_dates:
+		target_shift = _find_shift_assignment_for_date(target_employee, date)
+		target_snapshots.append(_shift_snapshot(target_shift, date) if target_shift else None)
+
+	target_employee_company = frappe.db.get_value("Employee", target_employee, "company")
+	source_employee_company = frappe.db.get_value("Employee", source_employee, "company")
+	if not target_employee_company:
+		frappe.throw(_("Could not determine company for target employee {0}.").format(target_employee))
+	if not source_employee_company:
+		frappe.throw(_("Could not determine company for source employee {0}.").format(source_employee))
+
+	savepoint = "before_bulk_shift_move"
+	frappe.db.savepoint(savepoint)
+
+	try:
+		# Remove selected source daily cells from latest to earliest so splitting a
+		# longer assignment cannot invalidate the remaining selected source dates.
+		for snapshot in sorted(source_snapshots, key=lambda row: getdate(row["date"]), reverse=True):
+			current_shift = _find_shift_assignment_for_date(source_employee, snapshot["date"], snapshot.get("name"))
+			if not current_shift:
+				frappe.throw(_("Could not remove source shift for {0} on {1}.").format(source_employee, snapshot["date"]))
+			break_shift(current_shift.get("name"), snapshot["date"])
+
+		# Remove any target daily cells that will be swapped back. Again, work from
+		# latest to earliest to keep splits predictable.
+		for snapshot in sorted(
+			[row for row in target_snapshots if row],
+			key=lambda row: getdate(row["date"]),
+			reverse=True,
+		):
+			current_shift = _find_shift_assignment_for_date(target_employee, snapshot["date"], snapshot.get("name"))
+			if not current_shift:
+				continue
+			break_shift(current_shift.get("name"), snapshot["date"])
+
+		# Insert the selected source shifts into the target date range.
+		for source, target_day in zip(source_snapshots, target_dates, strict=False):
+			insert_shift(
+				employee=target_employee,
+				company=target_employee_company,
+				shift_type=source.get("shift_type"),
+				start_date=target_day,
+				end_date=target_day,
+				status=source.get("status"),
+				shift_location=source.get("shift_location"),
+				custom_project=source.get("custom_project"),
+				note=source.get("note"),
+			)
+
+		# Swap existing target shifts back to the original source dates.
+		for source, target in zip(source_snapshots, target_snapshots, strict=False):
+			if not target:
+				continue
+			insert_shift(
+				employee=source_employee,
+				company=source_employee_company,
+				shift_type=target.get("shift_type"),
+				start_date=source.get("date"),
+				end_date=source.get("date"),
+				status=target.get("status"),
+				shift_location=target.get("shift_location"),
+				custom_project=target.get("custom_project"),
+				note=target.get("note"),
+			)
+	except Exception:
+		frappe.db.rollback(save_point=savepoint)
+		raise
+
+
 @frappe.whitelist()
 def swap_shift(
 	src_shift: str, src_date: str, tgt_employee: str, tgt_date: str, tgt_shift: str | None

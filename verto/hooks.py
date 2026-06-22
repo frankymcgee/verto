@@ -173,7 +173,8 @@ doc_events = {
 	# 	"on_trash": "method"
 	# }
     "Project": {
-        "after_insert": "verto.api.hooks.create_project_handover_records"
+        "after_insert": "verto.api.hooks.create_project_handover_records",
+        # "on_update": "verto.api.hooks.create_project_handover_records",
     },
     "Raven Message": {
         "on_update": "verto.api.mobile.raven_realtime_bridge.publish_raven_message_upsert",
