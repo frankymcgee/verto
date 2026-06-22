@@ -32,7 +32,8 @@
   "planner_tab",
   "planner_app_name",
   "desk_icon",
-  "planner_icon"
+  "planner_icon",
+  "planner_view_default"
  ],
  "fields": [
   {
@@ -184,14 +185,21 @@
    "fieldname": "short_name",
    "fieldtype": "Data",
    "label": "Short Name"
+  },
+  {
+   "default": "Month",
+   "fieldname": "planner_view_default",
+   "fieldtype": "Select",
+   "label": "Planner View Default",
+   "options": "\nMonth\nAnnual"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-06-22 11:26:54.826611",
- "modified_by": "Administrator",
+ "modified": "2026-06-22 15:25:15.442292",
+ "modified_by": "sean@minesitesupport.com.au",
  "module": "Verto",
  "name": "Verto Mobile Settings",
  "owner": "Administrator",

@@ -6,7 +6,7 @@
   >
     <!-- Toolbar / Title row -->
     <div ref="toolbarRef" class="px-6 py-4 pb-4">
-      <div class="flex items-center">
+      <div v-if="plannerViewReady" class="flex items-center">
         <FeatherIcon name="calendar" class="h-7 w-7 text-gray-500 mr-2.5" />
         <span class="font-semibold text-2xl text-gray-500 mr-2">Roster:</span>
         <span class="font-semibold text-2xl">{{ activeViewLabel }}</span>
@@ -60,6 +60,7 @@
     <!-- Filters header -->
     <div ref="filtersRef" class="px-6 pb-4">
       <MonthViewHeader
+        v-if="plannerViewReady"
         :firstOfMonth="firstOfMonth"
         :viewMode="viewMode"
         @updateFilters="updateFilters"
@@ -70,7 +71,7 @@
     </div>
 
     <!-- Projects timeline (collapsible) - month view only -->
-    <div v-show="viewMode === 'month'" ref="timelineRef" class="px-6 pb-4">
+    <div v-show="plannerViewReady && viewMode === 'month'" ref="timelineRef" class="px-6 pb-4">
       <ProjectTimelineRow
         v-model:collapsed="projectsCollapsed"
         :firstOfMonth="firstOfMonth"
@@ -84,30 +85,32 @@
 
     <!-- Table area fills remaining height -->
     <div ref="tableAreaRef" class="px-6 pb-8 flex-1 min-h-0 mt-px">
-      <MonthViewTable
-        v-if="isCompanySelected && viewMode === 'month'"
-        ref="monthViewTable"
-        :firstOfMonth="firstOfMonth"
-        :employees="availableEmployees"
-        :employeeFilters="employeeFilters"
-        :shiftFilters="shiftFilters"
-        :maxHeightPx="tableHeight"
-        @hscroll="hScroll = $event"
-      />
+      <template v-if="plannerViewReady">
+        <MonthViewTable
+          v-if="isCompanySelected && viewMode === 'month'"
+          ref="monthViewTable"
+          :firstOfMonth="firstOfMonth"
+          :employees="availableEmployees"
+          :employeeFilters="employeeFilters"
+          :shiftFilters="shiftFilters"
+          :maxHeightPx="tableHeight"
+          @hscroll="hScroll = $event"
+        />
 
-      <YearViewTable
-        v-else-if="isCompanySelected && viewMode === 'year'"
-        ref="yearViewTable"
-        :firstOfMonth="firstOfMonth"
-        :employees="availableEmployees"
-        :employeeFilters="employeeFilters"
-        :shiftFilters="shiftFilters"
-        :projectFilters="projectFilters"
-        :maxHeightPx="tableHeight"
-        @hscroll="hScroll = $event"
-      />
+        <YearViewTable
+          v-else-if="isCompanySelected && viewMode === 'year'"
+          ref="yearViewTable"
+          :firstOfMonth="firstOfMonth"
+          :employees="availableEmployees"
+          :employeeFilters="employeeFilters"
+          :shiftFilters="shiftFilters"
+          :maxHeightPx="tableHeight"
+          @hscroll="hScroll = $event"
+        />
 
-      <div v-else class="py-40 text-center">Please select a company.</div>
+        <div v-else class="py-40 text-center">Please select a company.</div>
+      </template>
+      <div v-else class="py-40 text-center text-gray-500">Loading planner...</div>
     </div>
   </div>
 
@@ -150,6 +153,8 @@ const isCompanySelected = ref(false)
 const showShiftAssignmentDialog = ref(false)
 const firstOfMonth = ref(dayjs().date(1).startOf('D'))
 const viewMode = ref<ViewMode>('month')
+const plannerDefaultViewApplied = ref(false)
+const plannerViewReady = ref(false)
 const employeeFilters = reactive<EmployeeFilters>({ status: 'Active' })
 const shiftFilters = reactive<ShiftFilters>({})
 const dateRange = reactive<{ from: string | null; to: string | null }>({ from: null, to: null })
@@ -168,8 +173,12 @@ const projectFilters = reactive<{ company?: string; shifts_filled?: 0 | 1 }>({})
 let roToolbar: ResizeObserver | null = null
 let roFilters: ResizeObserver | null = null
 let roTimeline: ResizeObserver | null = null
+let todayScrollTimers: number[] = []
 
-const activeViewLabel = computed(() => viewMode.value === 'month' ? 'Month View' : 'Annual View')
+const activeViewLabel = computed(() => {
+  if (!plannerViewReady.value) return 'Loading...'
+  return viewMode.value === 'month' ? 'Month View' : 'Annual View'
+})
 
 const VIEW_OPTIONS = [
   'Shift Type',
@@ -188,8 +197,37 @@ function setViewMode(mode: ViewMode) {
     return
   }
 
+  clearTodayScrollTimers()
   viewMode.value = mode
   hScroll.value = 0
+}
+
+function clearTodayScrollTimers() {
+  todayScrollTimers.forEach((timer) => window.clearTimeout(timer))
+  todayScrollTimers = []
+}
+
+async function scrollYearViewToToday() {
+  await nextTick()
+  clearTodayScrollTimers()
+
+  const runScroll = () => {
+    if (viewMode.value !== 'year') return
+    yearViewTable.value?.scrollToToday?.()
+  }
+
+  window.requestAnimationFrame(() => {
+    runScroll()
+    updateLayoutMeasurements()
+  })
+
+  ;[80, 180, 350, 700, 1200, 2000].forEach((delay) => {
+    const timer = window.setTimeout(() => {
+      runScroll()
+      updateLayoutMeasurements()
+    }, delay)
+    todayScrollTimers.push(timer)
+  })
 }
 
 async function goToToday() {
@@ -197,18 +235,41 @@ async function goToToday() {
   firstOfMonth.value = dayjs().date(1).startOf('D')
   hScroll.value = 0
 
+  await scrollYearViewToToday()
+}
+
+function normalisePlannerDefaultView(value: unknown): ViewMode {
+  const selected = String(value || '').trim().toLowerCase()
+  return selected === 'annual' || selected === 'year' ? 'year' : 'month'
+}
+
+async function applyPlannerDefaultView(value: unknown) {
+  if (plannerDefaultViewApplied.value) return
+
+  const defaultView = normalisePlannerDefaultView(value)
+
+  if (defaultView === 'year') {
+    viewMode.value = 'year'
+    firstOfMonth.value = dayjs().date(1).startOf('D')
+  } else {
+    viewMode.value = 'month'
+  }
+
+  hScroll.value = 0
+  plannerDefaultViewApplied.value = true
+  plannerViewReady.value = true
+
   await nextTick()
+  updateLayoutMeasurements()
+  window.requestAnimationFrame(updateLayoutMeasurements)
 
-  const runScroll = () => yearViewTable.value?.scrollToToday?.()
-
-  window.requestAnimationFrame(() => {
-    runScroll()
-    window.setTimeout(runScroll, 80)
-    window.setTimeout(runScroll, 250)
-  })
+  if (defaultView === 'year') {
+    await scrollYearViewToToday()
+  }
 }
 
 function fetchActiveEvents() {
+  if (!plannerViewReady.value) return
   if (viewMode.value === 'month') monthViewTable.value?.events.fetch()
   else yearViewTable.value?.events.fetch()
 }
@@ -325,18 +386,42 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  clearTodayScrollTimers()
   unobserveHeights()
   window.removeEventListener('resize', onWindowResize)
 })
 
 watch(
-  () => [viewMode.value, firstOfMonth.value?.valueOf?.(), projectsCollapsed.value, isCompanySelected.value],
+  () => [plannerViewReady.value, viewMode.value, firstOfMonth.value?.valueOf?.(), projectsCollapsed.value, isCompanySelected.value],
   async () => {
+    if (!plannerViewReady.value) return
+
     await nextTick()
     updateLayoutMeasurements()
     window.requestAnimationFrame(updateLayoutMeasurements)
+
+    if (viewMode.value === 'year' && isCompanySelected.value) {
+      scrollYearViewToToday()
+    }
   },
 )
+
+const plannerSettings = createResource({
+  url: 'frappe.client.get',
+  auto: true,
+  makeParams() {
+    return {
+      doctype: 'Verto Mobile Settings',
+      name: 'Verto Mobile Settings',
+    }
+  },
+  onSuccess(data: { planner_view_default?: string } | undefined) {
+    applyPlannerDefaultView(data?.planner_view_default)
+  },
+  onError() {
+    applyPlannerDefaultView('Month')
+  },
+})
 
 const employees = createListResource({
   doctype: 'Employee',
