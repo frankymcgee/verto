@@ -184,39 +184,43 @@
                 @mouseleave="() => scheduleClearHoverCard()"
               >
                 <div v-if="segment.active" class="year-project-span-content">
-                  <span
-                    class="year-project-status-icon"
-                    :class="segment.poEntered ? 'year-project-po-entered' : 'year-project-po-missing'"
-                    :title="segment.poEntered ? 'PO Entered' : 'PO Missing'"
-                  >
-                    <FeatherIcon :name="segment.poEntered ? 'check-circle' : 'x-circle'" class="year-project-inline-icon" />
-                  </span>
+                  <div class="year-project-span-title-row">
+                    <span class="year-project-span-name truncate">
+                      {{ segment.label }}
+                    </span>
+                  </div>
 
-                  <span
-                    class="year-project-gantt-status-icon"
-                    :class="projectHasGantt(segment.project) ? 'year-project-gantt-available' : 'year-project-gantt-missing'"
-                    :title="projectGanttStatusLabel(segment.project)"
-                  >
-                    <FeatherIcon :name="projectHasGantt(segment.project) ? 'bar-chart-2' : 'alert-triangle'" class="year-project-inline-icon" />
-                  </span>
+                  <div class="year-project-span-meta-row">
+                    <span
+                      class="year-project-gantt-status-icon"
+                      :class="projectHasGantt(segment.project) ? 'year-project-gantt-available' : 'year-project-gantt-missing'"
+                      :title="projectGanttStatusLabel(segment.project)"
+                    >
+                      <FeatherIcon :name="projectHasGantt(segment.project) ? 'bar-chart-2' : 'alert-triangle'" class="year-project-inline-icon" />
+                    </span>
 
-                  <span class="year-project-span-name truncate">
-                    {{ segment.label }}
-                  </span>
+                    <span
+                      class="year-project-status-icon"
+                      :class="segment.poEntered ? 'year-project-po-entered' : 'year-project-po-missing'"
+                      :title="segment.poEntered ? 'PO Entered' : 'PO Missing'"
+                    >
+                      <FeatherIcon :name="segment.poEntered ? 'check-circle' : 'x-circle'" class="year-project-inline-icon" />
+                    </span>
 
-                  <span class="year-project-span-date">
-                    {{ segment.subline }}
-                  </span>
+                    <span class="year-project-request-group" title="# DS Requested">
+                      <span class="year-project-request year-project-request-ds">
+                        <FeatherIcon name="sun" class="year-project-request-icon" />
+                      </span>
+                      <span class="year-project-request-count">{{ segment.dsRequested || 0 }}</span>
+                    </span>
 
-                  <span class="year-project-request year-project-request-ds" title="# DS Requested">
-                    <FeatherIcon name="sun" class="year-project-request-icon" />
-                  </span>
-                  <span class="year-project-request-count">{{ segment.dsRequested || 0 }}</span>
-
-                  <span class="year-project-request year-project-request-ns" title="# NS Requested">
-                    <FeatherIcon name="moon" class="year-project-request-icon" />
-                  </span>
-                  <span class="year-project-request-count">{{ segment.nsRequested || 0 }}</span>
+                    <span class="year-project-request-group" title="# NS Requested">
+                      <span class="year-project-request year-project-request-ns">
+                        <FeatherIcon name="moon" class="year-project-request-icon" />
+                      </span>
+                      <span class="year-project-request-count">{{ segment.nsRequested || 0 }}</span>
+                    </span>
+                  </div>
                 </div>
               </td>
             </tr>
@@ -614,7 +618,7 @@ const DAY_COLUMN_WIDTH = 28
 const RESIZER_HEIGHT = 18
 const PROJECT_TABLE_MIN_HEIGHT = 132
 const PROJECT_TABLE_HEADER_HEIGHT = 112
-const PROJECT_TABLE_ROW_HEIGHT = 30
+const PROJECT_TABLE_ROW_HEIGHT = 36
 const EMPLOYEE_TABLE_MIN_HEIGHT = 220
 
 const projectTableHeight = ref<number | null>(null)
@@ -2028,7 +2032,7 @@ defineExpose({ events, scrollToToday })
 }
 
 .year-project-row td {
-  height: 30px;
+  height: 36px;
 }
 
 .year-project-cell {
@@ -2050,12 +2054,31 @@ defineExpose({ events, scrollToToday })
   display: flex;
   min-width: 0;
   height: 100%;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 2px;
   overflow: hidden;
-  text-align: left;
+  text-align: center;
   white-space: nowrap;
+}
+
+.year-project-span-title-row,
+.year-project-span-meta-row {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.year-project-span-title-row {
+  width: 100%;
+}
+
+.year-project-span-meta-row {
+  gap: 5px;
+  line-height: 1;
 }
 
 .year-project-status-icon,
@@ -2063,16 +2086,16 @@ defineExpose({ events, scrollToToday })
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  min-width: 14px;
-  height: 14px;
+  width: 13px;
+  min-width: 13px;
+  height: 13px;
   border-radius: 9999px;
   line-height: 1;
 }
 
 .year-project-inline-icon {
-  width: 13px;
-  height: 13px;
+  width: 12px;
+  height: 12px;
   stroke-width: 2.1;
 }
 
@@ -2094,11 +2117,11 @@ defineExpose({ events, scrollToToday })
 
 .year-project-span-name {
   min-width: 0;
-  max-width: 52%;
+  max-width: 100%;
   color: var(--year-project-span-text, rgb(31 41 55));
   font-size: 10px;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.05;
 }
 
 .year-project-span-date {
@@ -2109,19 +2132,27 @@ defineExpose({ events, scrollToToday })
   line-height: 1;
 }
 
+.year-project-request-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  min-width: max-content;
+  line-height: 1;
+}
+
 .year-project-request {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 13px;
-  min-width: 13px;
-  height: 13px;
+  width: 12px;
+  min-width: 12px;
+  height: 12px;
   line-height: 1;
 }
 
 .year-project-request-icon {
-  width: 12px;
-  height: 12px;
+  width: 11px;
+  height: 11px;
   stroke-width: 2;
 }
 
@@ -2137,7 +2168,7 @@ defineExpose({ events, scrollToToday })
   min-width: max-content;
   color: var(--year-project-span-muted, rgb(55 65 81));
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1;
 }
 
