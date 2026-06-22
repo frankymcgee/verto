@@ -7,7 +7,7 @@
     "dev": "vite",
     "serve": "vite preview",
     "build": "vite build --base=/assets/verto/planner/ && yarn copy-html-entry",
-    "copy-html-entry": "cp ../verto/public/planner/index.html ../verto/www/planner.html"
+    "copy-html-entry": "mkdir -p ../verto/www && cp ../verto/public/planner/index.html ../verto/www/planner.html"
   },
   "dependencies": {
     "@vitejs/plugin-vue": "^4.4.0",
