@@ -1,6 +1,6 @@
 <template>
   <div
-    class="year-roster-shell flex flex-col gap-4"
+    class="year-roster-shell flex flex-col gap-0"
     :class="[
       loading && 'animate-pulse pointer-events-none',
       showShiftAssignmentDialog && 'year-dialog-open',
@@ -570,6 +570,8 @@ type ProjectDayCell = {
   color?: string
   shift_types?: string[]
   employees?: string[]
+  ds_personnel?: string[]
+  ns_personnel?: string[]
 }
 
 type ProjectRow = {
@@ -584,6 +586,9 @@ type ProjectRow = {
   task_count?: number | string | null
   has_tasks?: boolean | number | string | null
   shifts_filled?: boolean | number | string | null
+  is_active?: boolean | number | string | null
+  ds_personnel?: string[]
+  ns_personnel?: string[]
   po_entered?: boolean
   ds_requested?: number
   ns_requested?: number
@@ -911,6 +916,11 @@ function projectShiftsFilledValue(value: ProjectRow['shifts_filled']) {
   return Boolean(value)
 }
 
+function projectActiveValue(project: ProjectRow) {
+  const active = projectShiftsFilledValue(project.is_active as ProjectRow['shifts_filled'])
+  return active === null ? true : active
+}
+
 function projectIsFilled(project: ProjectRow) {
   // Prefer the Project checkbox field from ERPNext. This matches the monthly
   // roster behaviour and avoids trying to infer filled status from allocations.
@@ -935,6 +945,11 @@ function projectTaskCount(project: ProjectRow) {
 function projectTaskSummary(project: ProjectRow) {
   const count = projectTaskCount(project)
   return count > 0 ? `Yes (${count})` : 'No'
+}
+
+function projectPersonnelSummary(personnel?: string[]) {
+  const people = Array.from(new Set((personnel || []).filter(Boolean))).sort()
+  return people.length ? people.join(', ') : 'None'
 }
 
 function projectHasGantt(project?: ProjectRow | null) {
@@ -976,6 +991,7 @@ type ProjectSpan = {
   poEntered: boolean
   dsRequested: number
   nsRequested: number
+  isActive: boolean
 }
 
 type ProjectSegment = {
@@ -995,6 +1011,7 @@ type ProjectSegment = {
   poEntered?: boolean
   dsRequested?: number
   nsRequested?: number
+  isActive?: boolean
 }
 
 function projectKey(project: ProjectRow) {
@@ -1040,6 +1057,7 @@ const projectSpans = computed<Record<string, ProjectSpan>>(() => {
       poEntered: project.po_entered !== false,
       dsRequested: Number(project.ds_requested || 0),
       nsRequested: Number(project.ns_requested || 0),
+      isActive: projectActiveValue(project),
     }
   }
 
@@ -1215,6 +1233,7 @@ function projectLaneSegments(lane: ProjectLane): ProjectSegment[] {
         poEntered: span.poEntered,
         dsRequested: span.dsRequested,
         nsRequested: span.nsRequested,
+        isActive: span.isActive,
       })
       index += span.days - 1
       continue
@@ -1404,6 +1423,16 @@ function darkenHexColor(hex: string, amount = 0.28) {
   const toHex = (value: number) => clamp(value).toString(16).padStart(2, '0')
 
   return `#${toHex(rgb.r * (1 - amount))}${toHex(rgb.g * (1 - amount))}${toHex(rgb.b * (1 - amount))}`
+}
+
+function lightenHexColor(hex: string, amount = 0.62) {
+  const rgb = hexToRgb(hex)
+  if (!rgb) return normaliseHexColor(hex)
+
+  const clamp = (value: number) => Math.max(0, Math.min(255, Math.round(value)))
+  const toHex = (value: number) => clamp(value).toString(16).padStart(2, '0')
+
+  return `#${toHex(rgb.r + (255 - rgb.r) * amount)}${toHex(rgb.g + (255 - rgb.g) * amount)}${toHex(rgb.b + (255 - rgb.b) * amount)}`
 }
 
 function formatShift(shift: ShiftAssignment): ShiftAssignment {
@@ -1841,6 +1870,7 @@ function openEmployeeCell(employee: string, date: string) {
 function projectSegmentClass(segment: ProjectSegment) {
   return {
     'year-project-span': segment.active,
+    'year-project-span-inactive': segment.active && segment.isActive === false,
     'year-month-start': segment.isMonthStart,
     'year-weekend': segment.isWeekend && !segment.active,
   }
@@ -1849,24 +1879,28 @@ function projectSegmentClass(segment: ProjectSegment) {
 function projectSegmentStyle(segment: ProjectSegment) {
   if (!segment.active) return {}
 
+  const isInactive = segment.isActive === false
   const customerColor = normaliseHexColor(segment.customerColor)
   if (customerColor) {
-    const borderColor = darkenHexColor(customerColor)
+    const displayColor = isInactive ? lightenHexColor(customerColor, 0.64) : customerColor
+    const borderColor = isInactive ? lightenHexColor(darkenHexColor(customerColor), 0.42) : darkenHexColor(customerColor)
     return {
-      backgroundColor: customerColor,
+      backgroundColor: displayColor,
       borderColor,
       boxShadow: `inset 0 0 0 1px ${borderColor}`,
-      color: contrastTextColor(customerColor),
-      '--year-project-span-text': contrastTextColor(customerColor),
-      '--year-project-span-muted': mutedContrastTextColor(customerColor),
+      color: contrastTextColor(displayColor),
+      '--year-project-span-text': contrastTextColor(displayColor),
+      '--year-project-span-muted': mutedContrastTextColor(displayColor),
     }
   }
 
   const color = palette(segment.poEntered === false ? 'red' : 'green')
   return {
     backgroundColor: color[50],
-    borderColor: color[300],
-    color: (colors as any).gray[800],
+    borderColor: isInactive ? color[200] : color[300],
+    color: isInactive ? (colors as any).gray[600] : (colors as any).gray[800],
+    '--year-project-span-text': isInactive ? (colors as any).gray[600] : (colors as any).gray[800],
+    '--year-project-span-muted': isInactive ? (colors as any).gray[500] : (colors as any).gray[600],
   }
 }
 
@@ -2114,12 +2148,15 @@ function showProjectHover(project: ProjectRow, segment: ProjectSegment, event: M
         { label: 'Customer', value: project.customer_name || project.customer },
         { label: 'Location', value: project.custom_project_location },
         { label: 'Status', value: project.status },
+        { label: 'Active', value: projectActiveValue(project) ? 'Yes' : 'No' },
         { label: 'Type', value: projectTypeLabel(project) },
         { label: 'Tasks', value: projectTaskSummary(project) },
         { label: 'Shifts Filled', value: projectShiftsFilledValue(project.shifts_filled) === true ? 'Yes' : 'No' },
         { label: 'Date Range', value: segment.subline },
         { label: 'DS Requested', value: segment.dsRequested || 0 },
         { label: 'NS Requested', value: segment.nsRequested || 0 },
+        { label: 'DS Personnel', value: projectPersonnelSummary(project.ds_personnel) },
+        { label: 'NS Personnel', value: projectPersonnelSummary(project.ns_personnel) },
       ],
       note: plainTextFromHtml(project.notes),
     },
@@ -2698,6 +2735,10 @@ defineExpose({ events, scrollToToday })
   border-radius: 6px;
 }
 
+.year-project-span-inactive {
+  font-weight: 500;
+}
+
 .year-project-span-content {
   display: flex;
   min-width: 0;
@@ -3160,6 +3201,12 @@ defineExpose({ events, scrollToToday })
   font-size: 11px;
   font-weight: 600;
   line-height: 1.2;
+}
+
+.year-hover-card-project .year-hover-card-value {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
 }
 
 .year-hover-card-note {

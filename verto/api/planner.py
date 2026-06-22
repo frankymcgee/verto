@@ -1139,6 +1139,7 @@ def get_shift_rows(
 		frappe.qb.select(
 			ShiftAssignment.name,
 			ShiftAssignment.employee,
+			Employee.employee_name.as_("employee_name"),
 			ShiftAssignment.shift_type,
 			ShiftAssignment.shift_location,
 			ShiftAssignment.start_date,
@@ -1343,6 +1344,7 @@ def get_active_project_meta(
 	project_notes_field = _first_existing_project_field(["notes"])
 	roster_or_shutdown_field = _first_existing_project_field(["roster_or_shutdown"])
 	shifts_filled_field = _first_existing_project_field(["shifts_filled"])
+	is_active_field = _first_existing_project_field(["is_active"])
 	start_field = _project_date_field([
 		"expected_start_date",
 		"custom_expected_start_date",
@@ -1372,6 +1374,7 @@ def get_active_project_meta(
 			project_notes_field,
 			roster_or_shutdown_field,
 			shifts_filled_field,
+			is_active_field,
 			start_field,
 			end_field,
 		]
@@ -1467,6 +1470,10 @@ def get_active_project_meta(
 		project["shifts_filled"] = (
 			_truthy_project_value(project.get(shifts_filled_field)) if shifts_filled_field else None
 		)
+		# Project.is_active is used by the annual view to show projects that are still
+		# waiting on confirmation with a lighter project span colour. If the field is
+		# not present on a site, treat projects as active so existing behaviour remains unchanged.
+		project["is_active"] = True if not is_active_field else _truthy_project_value(project.get(is_active_field))
 		project["_start_field"] = start_field
 		project["_end_field"] = end_field
 
@@ -1494,6 +1501,16 @@ def get_shift_project_bounds(shift_rows: list[dict], year_start_date, year_end_d
 			current["end"] = end_date
 
 	return bounds
+
+
+def _shift_employee_label(shift: dict) -> str:
+	employee_name = (shift.get("employee_name") or "").strip()
+	employee = (shift.get("employee") or "").strip()
+	return employee_name or employee
+
+
+def _shift_type_key(shift_type: str | None) -> str:
+	return (shift_type or "").strip().upper()
 
 
 def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str) -> list[dict]:
@@ -1532,6 +1549,8 @@ def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str
 					"color": None,
 					"_shift_types": [],
 					"_employees": [],
+					"_ds_personnel": [],
+					"_ns_personnel": [],
 				},
 			)
 			cell["count"] += 1
@@ -1541,6 +1560,14 @@ def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str
 				cell["_shift_types"].append(shift.get("shift_type"))
 			if shift.get("employee"):
 				cell["_employees"].append(shift.get("employee"))
+
+			employee_label = _shift_employee_label(shift)
+			shift_type_key = _shift_type_key(shift.get("shift_type"))
+			if employee_label and shift_type_key == "DS":
+				cell["_ds_personnel"].append(employee_label)
+			elif employee_label and shift_type_key == "NS":
+				cell["_ns_personnel"].append(employee_label)
+
 			current = getdate(add_days(current, 1))
 
 	for project, project_meta in active_projects.items():
@@ -1570,6 +1597,7 @@ def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str
 			"task_count": project_task_count,
 			"has_tasks": project_task_count > 0,
 			"shifts_filled": project_meta.get("shifts_filled"),
+			"is_active": project_meta.get("is_active"),
 			"po_entered": project_meta.get("po_entered"),
 			"ds_requested": _safe_int(project_meta.get("ds_requested")),
 			"ns_requested": _safe_int(project_meta.get("ns_requested")),
@@ -1587,6 +1615,8 @@ def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str
 					"color": None,
 					"_shift_types": [],
 					"_employees": [],
+					"_ds_personnel": [],
+					"_ns_personnel": [],
 				},
 			)
 
@@ -1596,20 +1626,34 @@ def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str
 				cell["color"] = shift_cell.get("color") or cell.get("color")
 				cell["_shift_types"].extend(shift_cell.get("_shift_types", []))
 				cell["_employees"].extend(shift_cell.get("_employees", []))
+				cell["_ds_personnel"].extend(shift_cell.get("_ds_personnel", []))
+				cell["_ns_personnel"].extend(shift_cell.get("_ns_personnel", []))
 
 			current = getdate(add_days(current, 1))
 
 	for project in projects.values():
+		project_ds_personnel = set()
+		project_ns_personnel = set()
+
 		for cell in project["assignments"].values():
 			shift_types = sorted(set(cell.pop("_shift_types", [])))
 			employees = sorted(set(cell.pop("_employees", [])))
+			ds_personnel = sorted(set(cell.pop("_ds_personnel", [])))
+			ns_personnel = sorted(set(cell.pop("_ns_personnel", [])))
+			project_ds_personnel.update(ds_personnel)
+			project_ns_personnel.update(ns_personnel)
 			cell["shift_types"] = shift_types
 			cell["employees"] = employees
+			cell["ds_personnel"] = ds_personnel
+			cell["ns_personnel"] = ns_personnel
 			cell["count"] = len(employees) or cell["count"]
 			if cell["count"] > 1:
 				cell["label"] = str(cell["count"])
 			else:
 				cell["label"] = shift_types[0] if shift_types else ""
+
+		project["ds_personnel"] = sorted(project_ds_personnel)
+		project["ns_personnel"] = sorted(project_ns_personnel)
 
 	return sorted(
 		projects.values(),
