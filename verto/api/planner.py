@@ -488,6 +488,117 @@ def _as_bool(value, default: bool = False) -> bool:
 	return bool(value)
 
 
+def _as_int(value, label: str, minimum: int = 0) -> int:
+	try:
+		int_value = int(value or 0)
+	except (TypeError, ValueError):
+		frappe.throw(_("{0} must be a whole number.").format(label))
+	if int_value < minimum:
+		frappe.throw(_("{0} must be at least {1}.").format(label, minimum))
+	return int_value
+
+
+def _normalise_roster_segments(roster_segments) -> list[dict]:
+	if isinstance(roster_segments, str):
+		roster_segments = frappe.parse_json(roster_segments) or []
+
+	if not isinstance(roster_segments, list) or not roster_segments:
+		frappe.throw(_("At least one dynamic rolling roster swing is required."))
+
+	normalised = []
+	for index, segment in enumerate(roster_segments, start=1):
+		if not isinstance(segment, dict):
+			frappe.throw(_("Dynamic rolling roster swing {0} is invalid.").format(index))
+
+		days_on_site = _as_int(
+			segment.get("days_on_site"),
+			_("Swing {0} Days On Site").format(index),
+			minimum=1,
+		)
+		days_off_site = _as_int(
+			segment.get("days_off_site"),
+			_("Swing {0} Days Off Site").format(index),
+			minimum=0,
+		)
+		normalised.append({"days_on_site": days_on_site, "days_off_site": days_off_site})
+
+	return normalised
+
+
+def _create_single_rolling_swing(
+	employee: str,
+	company: str,
+	shift_type: str,
+	status: str,
+	swing_start,
+	swing_end,
+	shift_location: str | None = None,
+	custom_project: str | None = None,
+	note: str | None = None,
+	include_fly_in_out: bool = True,
+	fly_in_shift_type: str = "FI",
+	fly_out_shift_type: str = "FO",
+	minimum_on_site_days_for_fi_fo: int = 2,
+	minimum_message: str | None = None,
+	main_shift_type_label: str | None = None,
+) -> None:
+	if not include_fly_in_out:
+		insert_shift(
+			employee=employee,
+			company=company,
+			shift_type=shift_type,
+			start_date=_to_date_str(swing_start),
+			end_date=_to_date_str(swing_end),
+			status=status,
+			shift_location=shift_location,
+			custom_project=custom_project,
+			note=note,
+		)
+		return
+
+	if date_diff(swing_end, swing_start) + 1 < minimum_on_site_days_for_fi_fo:
+		frappe.throw(minimum_message or _("Days on site must be at least 2 when fly in / fly out is enabled."))
+
+	insert_shift(
+		employee=employee,
+		company=company,
+		shift_type=fly_in_shift_type,
+		start_date=_to_date_str(swing_start),
+		end_date=_to_date_str(swing_start),
+		status=status,
+		shift_location=shift_location,
+		custom_project=custom_project,
+		note=note,
+	)
+
+	middle_start = getdate(add_days(swing_start, 1))
+	middle_end = getdate(add_days(swing_end, -1))
+	if middle_start <= middle_end:
+		insert_shift(
+			employee=employee,
+			company=company,
+			shift_type=shift_type,
+			start_date=_to_date_str(middle_start),
+			end_date=_to_date_str(middle_end),
+			status=status,
+			shift_location=shift_location,
+			custom_project=custom_project,
+			note=note,
+		)
+
+	insert_shift(
+		employee=employee,
+		company=company,
+		shift_type=fly_out_shift_type,
+		start_date=_to_date_str(swing_end),
+		end_date=_to_date_str(swing_end),
+		status=status,
+		shift_location=shift_location,
+		custom_project=custom_project,
+		note=note,
+	)
+
+
 @frappe.whitelist()
 def create_rolling_roster_assignment(
 	employee: str,
@@ -602,6 +713,80 @@ def create_rolling_roster_assignment(
 			)
 
 		current = getdate(add_days(swing_start, days_on_site + days_off_site))
+
+
+@frappe.whitelist()
+def create_dynamic_rolling_roster_assignment(
+	employee: str,
+	company: str,
+	shift_type: str,
+	status: str,
+	start_date: str,
+	end_date: str,
+	roster_segments: list[dict] | str,
+	shift_location: str | None = None,
+	custom_project: str | None = None,
+	note: str | None = None,
+	include_fly_in_out: bool | int | str = True,
+	fly_in_shift_type: str = "FI",
+	fly_out_shift_type: str = "FO",
+) -> None:
+	"""Create a dynamic rolling roster pattern across a date range.
+
+	Example: [{8:6}, {4:3}, {7:7}] will create an 8-on/6-off swing,
+	then 4-on/3-off, then 7-on/7-off, then repeat that sequence until
+	the end date is reached. Each on-site swing uses the selected shift type,
+	with optional FI/FO on the first and last days of each swing.
+	"""
+	segments = _normalise_roster_segments(roster_segments)
+	include_fly_in_out = _as_bool(include_fly_in_out, default=True)
+
+	if not start_date or not end_date:
+		frappe.throw(_("Start Date and End Date are required for a Dynamic Rolling Roster."))
+
+	_validate_shift_type_exists(shift_type, shift_type)
+	if include_fly_in_out:
+		_validate_shift_type_exists(fly_in_shift_type, fly_in_shift_type)
+		_validate_shift_type_exists(fly_out_shift_type, fly_out_shift_type)
+		for index, segment in enumerate(segments, start=1):
+			if segment["days_on_site"] < 2:
+				frappe.throw(_("Swing {0} Days On Site must be at least 2 when fly in / fly out is enabled.").format(index))
+
+	current = getdate(start_date)
+	final_date = getdate(end_date)
+
+	if current > final_date:
+		frappe.throw(_("End Date cannot be before Start Date."))
+
+	segment_index = 0
+	while current <= final_date:
+		segment = segments[segment_index % len(segments)]
+		days_on_site = segment["days_on_site"]
+		days_off_site = segment["days_off_site"]
+
+		swing_start = current
+		swing_end = getdate(add_days(swing_start, days_on_site - 1))
+		if swing_end > final_date:
+			swing_end = final_date
+
+		_create_single_rolling_swing(
+			employee=employee,
+			company=company,
+			shift_type=shift_type,
+			status=status,
+			swing_start=swing_start,
+			swing_end=swing_end,
+			shift_location=shift_location,
+			custom_project=custom_project,
+			note=note,
+			include_fly_in_out=include_fly_in_out,
+			fly_in_shift_type=fly_in_shift_type,
+			fly_out_shift_type=fly_out_shift_type,
+			minimum_message=_("Each dynamic rolling roster swing must have at least 2 days on site when fly in / fly out is enabled."),
+		)
+
+		current = getdate(add_days(swing_start, days_on_site + days_off_site))
+		segment_index += 1
 
 
 @frappe.whitelist()

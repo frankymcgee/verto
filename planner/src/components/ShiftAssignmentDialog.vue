@@ -163,6 +163,41 @@
 						:disabled="!!props.shiftAssignmentName"
 					/>
 
+					<FormControl
+						v-if="scheduleType === 'Dynamic Rolling Roster'"
+						type="number"
+						label="Number of Rolling Rosters"
+						v-model="dynamicRollingRoster.swing_count"
+						:disabled="!!props.shiftAssignmentName"
+					/>
+
+					<div
+						v-if="scheduleType === 'Dynamic Rolling Roster'"
+						class="col-span-2 space-y-3"
+					>
+						<div
+							v-for="(swing, index) in visibleDynamicRollingSwings"
+							:key="index"
+							class="rounded border bg-white p-3"
+						>
+							<div class="mb-3 text-sm font-medium text-gray-700">Swing {{ index + 1 }}</div>
+							<div class="grid grid-cols-2 gap-6">
+								<FormControl
+									type="number"
+									:label="`Swing ${index + 1} Days On Site`"
+									v-model="swing.days_on_site"
+									:disabled="!!props.shiftAssignmentName"
+								/>
+								<FormControl
+									type="number"
+									:label="`Swing ${index + 1} Days Off Site`"
+									v-model="swing.days_off_site"
+									:disabled="!!props.shiftAssignmentName"
+								/>
+							</div>
+						</div>
+					</div>
+
 					<div v-if="scheduleType === 'Repeat On Days'" class="space-y-1.5">
 						<div class="text-xs text-gray-600">Repeat On Days</div>
 						<div class="border rounded grid grid-flow-col h-7 justify-stretch overflow-clip">
@@ -197,13 +232,22 @@
 							Rolling roster will create each on-site swing using the selected Shift Type only.
 							FI and FO shifts will not be created.
 						</template>
-						<template v-else-if="includeFlyInFlyOut">
+						<template v-else-if="scheduleType === 'Rolling Day/Night Roster' && includeFlyInFlyOut">
 							Rolling Day/Night roster will create <b>FI</b> on the first day,
 							then <b>DS</b>, then <b>NS</b>, and <b>FO</b> on the final day of each swing.
 						</template>
-						<template v-else>
+						<template v-else-if="scheduleType === 'Rolling Day/Night Roster'">
 							Rolling Day/Night roster will create each swing using <b>DS</b> for the day-shift block
 							and <b>NS</b> for the night-shift block. FI and FO shifts will not be created.
+						</template>
+						<template v-else-if="includeFlyInFlyOut">
+							Dynamic rolling roster will cycle through each configured swing pattern. Each swing
+							will create <b>FI</b> on the first day, the selected Shift Type for the days in between,
+							and <b>FO</b> on the final day.
+						</template>
+						<template v-else>
+							Dynamic rolling roster will cycle through each configured swing pattern and create
+							each on-site day using the selected Shift Type only. FI and FO shifts will not be created.
 						</template>
 					</div>
 				</div>
@@ -313,13 +357,28 @@ const repeatOnDays = reactive({ ...repeatOnDaysObject });
 const shiftAssignment = ref<any>();
 const selectedDate = ref<string>();
 const frequency = ref("Every Week");
-type ScheduleType = "Repeat On Days" | "Rolling Roster" | "Rolling Day/Night Roster";
-const scheduleTypeOptions: ScheduleType[] = ["Repeat On Days", "Rolling Roster", "Rolling Day/Night Roster"];
+type ScheduleType = "Repeat On Days" | "Rolling Roster" | "Rolling Day/Night Roster" | "Dynamic Rolling Roster";
+const scheduleTypeOptions: ScheduleType[] = ["Repeat On Days", "Rolling Roster", "Rolling Day/Night Roster", "Dynamic Rolling Roster"];
 const scheduleType = ref<ScheduleType>("Repeat On Days");
 const includeFlyInFlyOut = ref(true);
 const rollingRoster = reactive({ days_on_site: 8, days_off_site: 6 });
 const rollingDayNightRoster = reactive({ days_on_site_ds: 8, days_on_site_ns: 8, days_off_site: 12 });
-const isRollingScheduleType = computed(() => scheduleType.value === "Rolling Roster" || scheduleType.value === "Rolling Day/Night Roster");
+const dynamicRollingRoster = reactive({
+	swing_count: 2,
+	swings: [
+		{ days_on_site: 8, days_off_site: 6 },
+		{ days_on_site: 4, days_off_site: 3 },
+	],
+});
+const isRollingScheduleType = computed(() =>
+	scheduleType.value === "Rolling Roster" ||
+	scheduleType.value === "Rolling Day/Night Roster" ||
+	scheduleType.value === "Dynamic Rolling Roster",
+);
+const visibleDynamicRollingSwings = computed(() => {
+	const count = Math.max(1, Math.min(20, Number(dynamicRollingRoster.swing_count) || 1));
+	return dynamicRollingRoster.swings.slice(0, count);
+});
 const showDeleteDialog = ref(false);
 const deleteDialogOptions = ref<{ title: string; message: string; action: () => void }>({
 	title: "",
@@ -425,6 +484,11 @@ watch(
 			rollingDayNightRoster.days_on_site_ds = 8;
 			rollingDayNightRoster.days_on_site_ns = 8;
 			rollingDayNightRoster.days_off_site = 12;
+			dynamicRollingRoster.swing_count = 2;
+			dynamicRollingRoster.swings.splice(0, dynamicRollingRoster.swings.length,
+				{ days_on_site: 8, days_off_site: 6 },
+				{ days_on_site: 4, days_off_site: 3 },
+			);
 			Object.assign(repeatOnDays, repeatOnDaysObject);
 			if (!props.selectedCell) return;
 			form.employee = { value: props.selectedCell.employee };
@@ -458,6 +522,23 @@ watch(
 	{ immediate: true },
 );
 
+watch(
+	() => dynamicRollingRoster.swing_count,
+	() => {
+		let count = Number(dynamicRollingRoster.swing_count) || 1;
+		count = Math.max(1, Math.min(20, Math.floor(count)));
+		dynamicRollingRoster.swing_count = count;
+
+		while (dynamicRollingRoster.swings.length < count) {
+			dynamicRollingRoster.swings.push({ days_on_site: 8, days_off_site: 6 });
+		}
+
+		if (dynamicRollingRoster.swings.length > count) {
+			dynamicRollingRoster.swings.splice(count);
+		}
+	},
+);
+
 // --- Actions
 const updateShiftAssigment = () => {
 	shiftAssignment.value.setValue.submit({
@@ -476,6 +557,11 @@ const createShiftAssigment = () => {
 
 	if (showShiftScheduleSettings.value && scheduleType.value === "Rolling Day/Night Roster") {
 		createRollingDayNightRosterAssignment.submit();
+		return;
+	}
+
+	if (showShiftScheduleSettings.value && scheduleType.value === "Dynamic Rolling Roster") {
+		createDynamicRollingRosterAssignment.submit();
 		return;
 	}
 
@@ -712,6 +798,35 @@ const createRollingDayNightRosterAssignment = createResource({
 	},
 	onSuccess: () => {
 		raiseToast("success", "Rolling Day/Night Roster created successfully!");
+		emit("fetchEvents");
+	},
+	onError(error: { messages: string[] }) {
+		raiseToast("error", error.messages[0]);
+	},
+});
+
+const createDynamicRollingRosterAssignment = createResource({
+	url: "verto.api.planner.create_dynamic_rolling_roster_assignment",
+	makeParams() {
+		return {
+			employee: getId(form.employee),
+			shift_type: getId(form.shift_type),
+			company: form.company,
+			status: form.status,
+			start_date: form.start_date,
+			end_date: form.end_date,
+			note: form.note,
+			shift_location: getId(form.shift_location),
+			custom_project: getId(form.custom_project),
+			roster_segments: visibleDynamicRollingSwings.value.map((swing) => ({
+				days_on_site: swing.days_on_site,
+				days_off_site: swing.days_off_site,
+			})),
+			include_fly_in_out: includeFlyInFlyOut.value,
+		};
+	},
+	onSuccess: () => {
+		raiseToast("success", "Dynamic Rolling Roster created successfully!");
 		emit("fetchEvents");
 	},
 	onError(error: { messages: string[] }) {
