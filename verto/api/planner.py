@@ -5,7 +5,6 @@ from frappe.utils import add_days, date_diff, getdate, get_datetime_str
 from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
 
 from hrms.hr.doctype.shift_assignment.shift_assignment import ShiftAssignment
-from hrms.hr.doctype.shift_assignment_tool.shift_assignment_tool import create_shift_assignment
 from hrms.hr.doctype.shift_schedule.shift_schedule import get_or_insert_shift_schedule
 
 
@@ -32,6 +31,133 @@ def get_current_user_info():
 		"user_image": user.user_image,
 		"roles": frappe.get_roles(frappe.session.user),
 	}
+
+
+def _doctype_has_field(doctype: str, fieldname: str) -> bool:
+	try:
+		return frappe.get_meta(doctype).has_field(fieldname)
+	except Exception:
+		return False
+
+
+def _set_doc_field_if_exists(doc, fieldname: str, value) -> None:
+	if _doctype_has_field(doc.doctype, fieldname):
+		doc.set(fieldname, value)
+
+
+def _get_project_title(project: str | None) -> str | None:
+	if not project:
+		return None
+	return frappe.db.get_value("Project", project, "project_name") or project
+
+
+def create_planner_shift_assignment(
+	employee: str,
+	company: str,
+	shift_type: str,
+	start_date: str,
+	end_date: str | None,
+	status: str,
+	shift_location: str | None = None,
+	custom_project: str | None = None,
+	shift_schedule_assignment: str | None = None,
+	note: str | None = None,
+):
+	"""Create a Shift Assignment using Planner-owned custom fields.
+
+	Do not call HRMS' create_shift_assignment helper here. The upstream HRMS
+	helper only accepts standard HRMS fields, while Planner needs to set custom
+	fields like custom_project/custom_project_name before the document is saved
+	and submitted.
+	"""
+	assignment = frappe.new_doc("Shift Assignment")
+	assignment.employee = employee
+	assignment.company = company
+	assignment.shift_type = shift_type
+	assignment.start_date = _to_date_str(start_date)
+	assignment.end_date = _to_date_str(end_date)
+	assignment.status = status
+	assignment.shift_location = shift_location
+
+	if shift_schedule_assignment:
+		assignment.shift_schedule_assignment = shift_schedule_assignment
+
+	if custom_project:
+		_set_doc_field_if_exists(assignment, "custom_project", custom_project)
+		_set_doc_field_if_exists(assignment, "custom_project_name", _get_project_title(custom_project))
+
+	if note:
+		_set_doc_field_if_exists(assignment, "note", note)
+
+	assignment.save()
+	assignment.submit()
+	return assignment
+
+
+def apply_planner_project_to_shift_assignments(
+	shift_assignment_names: list[str] | tuple[str, ...] | None = None,
+	shift_schedule_assignment: str | None = None,
+	custom_project: str | None = None,
+) -> None:
+	"""Apply Planner project fields to already-created Shift Assignments.
+
+	This is used after HRMS creates shifts from a Shift Schedule Assignment,
+	because the upstream schedule code creates standard Shift Assignment records
+	and does not know about Planner's custom project fields.
+	"""
+	if not custom_project:
+		return
+
+	if not _doctype_has_field("Shift Assignment", "custom_project"):
+		return
+
+	if shift_assignment_names is None:
+		if not shift_schedule_assignment:
+			return
+		shift_assignment_names = frappe.get_all(
+			"Shift Assignment",
+			filters={"shift_schedule_assignment": shift_schedule_assignment},
+			pluck="name",
+			limit_start=0,
+			limit_page_length=ANNUAL_ROSTER_RESULT_LIMIT,
+			limit=ANNUAL_ROSTER_RESULT_LIMIT,
+		)
+
+	project_title = _get_project_title(custom_project)
+
+	for shift_assignment in shift_assignment_names or []:
+		frappe.db.set_value(
+			"Shift Assignment",
+			shift_assignment,
+			"custom_project",
+			custom_project,
+			update_modified=False,
+		)
+		if project_title and _doctype_has_field("Shift Assignment", "custom_project_name"):
+			frappe.db.set_value(
+				"Shift Assignment",
+				shift_assignment,
+				"custom_project_name",
+				project_title,
+				update_modified=False,
+			)
+
+
+def create_shift_schedule_shifts_with_planner_fields(
+	shift_schedule_assignment_name: str,
+	start_date: str,
+	end_date: str | None = None,
+	custom_project: str | None = None,
+) -> None:
+	shift_schedule_assignment = frappe.get_doc("Shift Schedule Assignment", shift_schedule_assignment_name)
+	shift_schedule_assignment.create_shifts(start_date, end_date)
+
+	if custom_project:
+		apply_planner_project_to_shift_assignments(
+			shift_schedule_assignment=shift_schedule_assignment_name,
+			custom_project=custom_project,
+		)
+
 
 @frappe.whitelist()
 def get_default_company() -> str:
@@ -129,24 +255,41 @@ def create_shift_schedule_assignment(
 	custom_project: str | None = None,
 ) -> None:
 	shift_schedule = get_or_insert_shift_schedule(shift_type, frequency, repeat_on_days)
-	shift_schedule_assignment = frappe.get_doc(
-		{
-			"doctype": "Shift Schedule Assignment",
-			"shift_schedule": shift_schedule,
-			"employee": employee,
-			"company": company,
-			"shift_status": status,
-			"shift_location": shift_location,
-			"custom_project": custom_project,
-			"enabled": 0 if end_date else 1,
-		}
-	).insert()
+
+	shift_schedule_assignment = frappe.new_doc("Shift Schedule Assignment")
+	shift_schedule_assignment.shift_schedule = shift_schedule
+	shift_schedule_assignment.employee = employee
+	shift_schedule_assignment.company = company
+	shift_schedule_assignment.shift_status = status
+	shift_schedule_assignment.shift_location = shift_location
+	shift_schedule_assignment.enabled = 0 if end_date else 1
+
+	if custom_project:
+		_set_doc_field_if_exists(shift_schedule_assignment, "custom_project", custom_project)
+		_set_doc_field_if_exists(
+			shift_schedule_assignment,
+			"custom_project_name",
+			_get_project_title(custom_project),
+		)
+
+	shift_schedule_assignment.insert()
 
 	if not end_date or date_diff(end_date, start_date) <= 90:
-		return shift_schedule_assignment.create_shifts(start_date, end_date)
+		create_shift_schedule_shifts_with_planner_fields(
+			shift_schedule_assignment.name,
+			start_date,
+			end_date,
+			custom_project,
+		)
+		return
 
 	frappe.enqueue(
-		shift_schedule_assignment.create_shifts, timeout=4500, start_date=start_date, end_date=end_date
+		create_shift_schedule_shifts_with_planner_fields,
+		timeout=4500,
+		shift_schedule_assignment_name=shift_schedule_assignment.name,
+		start_date=start_date,
+		end_date=end_date,
+		custom_project=custom_project,
 	)
 
 
@@ -186,7 +329,7 @@ def swap_shift(
 		tgt_date,
 		src_shift_doc.status,
 		src_shift_doc.shift_location,
-		src_shift_doc.custom_project,
+		src_shift_doc.get("custom_project"),
 	)
 
 	if tgt_shift:
@@ -198,7 +341,7 @@ def swap_shift(
 			src_date,
 			tgt_shift_doc.status,
 			tgt_shift_doc.shift_location,
-			tgt_shift_doc.custom_project,
+			tgt_shift_doc.get("custom_project"),
 		)
 
 
@@ -226,7 +369,8 @@ def break_shift(assignment: str | ShiftAssignment, date: str) -> None:
 	status = assignment.status
 	end_date = assignment.end_date
 	shift_location = assignment.shift_location
-	custom_project = assignment.custom_project
+	custom_project = assignment.get("custom_project")
+	note = assignment.get("note")
 
 	if date_diff(date, assignment.start_date) == 0:
 		assignment.cancel()
@@ -236,15 +380,16 @@ def break_shift(assignment: str | ShiftAssignment, date: str) -> None:
 		assignment.save()
 
 	if not end_date or date_diff(end_date, date) > 0:
-		create_shift_assignment(
-			employee,
-			company,
-			shift_type,
-			_to_date_str(add_days(date, 1)),
-			_to_date_str(end_date),
-			status,
-			custom_project,
-			shift_location,
+		create_planner_shift_assignment(
+			employee=employee,
+			company=company,
+			shift_type=shift_type,
+			start_date=_to_date_str(add_days(date, 1)),
+			end_date=_to_date_str(end_date),
+			status=status,
+			shift_location=shift_location,
+			custom_project=custom_project,
+			note=note,
 		)
 
 
@@ -269,8 +414,10 @@ def insert_shift(
 		"shift_type": shift_type,
 		"status": status,
 		"shift_location": shift_location,
-		"custom_project": custom_project,
 	}
+
+	if _doctype_has_field("Shift Assignment", "custom_project"):
+		filters["custom_project"] = custom_project
 
 	prev_shift = frappe.db.exists(dict({"end_date": add_days(start_date, -1)}, **filters))
 	next_shift = (
@@ -286,23 +433,23 @@ def insert_shift(
 		frappe.db.set_value("Shift Assignment", prev_shift, "end_date", end_date or None)
 		# ensure project sticks even if previous block had None
 		if custom_project:
-			frappe.db.set_value("Shift Assignment", prev_shift, "custom_project", custom_project)
+			apply_planner_project_to_shift_assignments([prev_shift], custom_project=custom_project)
 
 	elif next_shift:
 		frappe.db.set_value("Shift Assignment", next_shift, "start_date", start_date)
 		if custom_project:
-			frappe.db.set_value("Shift Assignment", next_shift, "custom_project", custom_project)
+			apply_planner_project_to_shift_assignments([next_shift], custom_project=custom_project)
 
 	else:
-		create_shift_assignment(
+		create_planner_shift_assignment(
 			employee=employee,
 			company=company,
 			shift_type=shift_type,
 			start_date=start_date,
 			end_date=end_date,
 			status=status,
-			custom_project=custom_project,
 			shift_location=shift_location,
+			custom_project=custom_project,
 		)
 
 
@@ -343,6 +490,11 @@ def get_leaves(month_start: str, month_end: str, employee_filters: dict[str, str
 			LeaveApplication.leave_type,
 			LeaveApplication.from_date,
 			LeaveApplication.to_date,
+			LeaveApplication.description.as_("reason"),
+			LeaveApplication.status,
+			LeaveApplication.total_leave_days,
+			LeaveApplication.half_day,
+			LeaveApplication.half_day_date,
 		)
 		.from_(LeaveApplication)
 		.left_join(Employee)

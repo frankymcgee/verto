@@ -496,6 +496,12 @@ interface LeaveApplication {
   leave_type: string
   from_date: string
   to_date: string
+  reason?: string | null
+  description?: string | null
+  status?: string | null
+  total_leave_days?: number | string | null
+  half_day?: 0 | 1 | boolean | null
+  half_day_date?: string | null
 }
 
 type ShiftAssignment = {
@@ -519,7 +525,7 @@ type Events = Record<string, RawEvent[]>
 
 type YearCell =
   | { type: 'holiday'; label: string; title: string }
-  | { type: 'leave'; label: string; title: string }
+  | { type: 'leave'; label: string; title: string; leave: LeaveApplication }
   | { type: 'shift'; label: string; title: string; shift: ShiftAssignment; shifts: ShiftAssignment[] }
 
 type MappedEvents = Record<string, Record<string, YearCell>>
@@ -584,7 +590,7 @@ type HoverCardRow = {
 }
 
 type HoverCard = {
-  type: 'shift' | 'project'
+  type: 'shift' | 'project' | 'leave'
   x?: number
   y?: number
   kicker: string
@@ -1425,6 +1431,7 @@ function mapEventsToYear(data: Events): MappedEvents {
             type: 'leave',
             label: 'L',
             title: event.leave_type,
+            leave: event,
           }
           break
         }
@@ -1593,7 +1600,7 @@ function applyHoverCardPosition(pointer: HoverPointer) {
   const padding = 12
   const cursorOffset = 14
   const fallbackCardWidth = 340
-  const fallbackCardHeight = hoverCard.value.type === 'project' ? 168 : 240
+  const fallbackCardHeight = hoverCard.value.type === 'project' ? 168 : hoverCard.value.type === 'leave' ? 210 : 240
   const cardWidth = hoverCardElement.value.offsetWidth || fallbackCardWidth
   const cardHeight = hoverCardElement.value.offsetHeight || fallbackCardHeight
   const maxLeft = Math.max(padding, window.innerWidth - cardWidth - padding)
@@ -1703,6 +1710,22 @@ function compactDateRange(startDate?: string | null, endDate?: string | null) {
   return `${dayjs(startDate).format('DD MMM YYYY')} - ${dayjs(endDate).format('DD MMM YYYY')}`
 }
 
+function leaveReason(leave: LeaveApplication) {
+  return plainTextFromHtml(leave.reason || leave.description || '')
+}
+
+function leaveDayCount(leave: LeaveApplication) {
+  const days = Number(leave.total_leave_days || 0)
+  if (!Number.isFinite(days) || days <= 0) return ''
+  return `${days} ${days === 1 ? 'day' : 'days'}`
+}
+
+function leaveHalfDayLabel(leave: LeaveApplication) {
+  if (!leave.half_day) return ''
+  if (leave.half_day_date) return `Yes · ${dayjs(leave.half_day_date).format('DD MMM YYYY')}`
+  return 'Yes'
+}
+
 function shiftTimeRange(shift: ShiftAssignment) {
   if (shift.start_time && shift.end_time) return `${shift.start_time} - ${shift.end_time}`
   if (shift.start_time) return shift.start_time
@@ -1711,6 +1734,37 @@ function shiftTimeRange(shift: ShiftAssignment) {
 
 function showEmployeeHover(employee: Employee, date: string, event: MouseEvent) {
   const cell = getEmployeeCell(employee.name, date)
+
+  if (cell?.type === 'leave') {
+    const leave = cell.leave
+    const reason = leaveReason(leave)
+
+    setHoverCard(
+      `leave:${employee.name}:${leave.leave}:${date}`,
+      {
+        type: 'leave',
+        kicker: 'Leave Application',
+        title: leave.leave_type,
+        subtitle: employeeDisplayName(employee),
+        badge: leave.status || 'Approved',
+        badgeTone: 'red',
+        accent: (colors as any).pink[500],
+        rows: [
+          { label: 'Employee', value: employeeDisplayName(employee) },
+          { label: 'Employee ID', value: employee.name },
+          { label: 'Leave Type', value: leave.leave_type },
+          { label: 'Date', value: dayjs(date).format('dddd, DD MMM YYYY') },
+          { label: 'Range', value: compactDateRange(leave.from_date, leave.to_date) },
+          { label: 'Days', value: leaveDayCount(leave) },
+          { label: 'Half Day', value: leaveHalfDayLabel(leave) },
+        ],
+        note: reason,
+      },
+      event,
+    )
+    return
+  }
+
   if (cell?.type !== 'shift') {
     scheduleClearHoverCard()
     return
@@ -2520,6 +2574,12 @@ defineExpose({ events, scrollToToday })
   font-weight: 500;
   line-height: 1.35;
   white-space: pre-line;
+}
+
+.year-hover-card-leave .year-hover-card-note {
+  border-color: rgb(251 207 232);
+  background: rgb(253 242 248);
+  color: rgb(157 23 77);
 }
 
 .year-project-span:hover {
