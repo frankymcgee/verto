@@ -6,6 +6,10 @@ tags
 node_modules
 __pycache__
 
+# Generated PWA manifest & Assets
+verto/public/verto-mobile/manifest.webmanifest
+verto/public/verto-mobile/assets/
+
 # Planner build output
 /verto/public/planner/assets/
 /verto/public/planner/index.html
