@@ -88,7 +88,7 @@
 					/>
 
 					<label
-						v-if="scheduleType === 'Rolling Roster'"
+						v-if="isRollingScheduleType"
 						class="flex items-start gap-2 rounded border bg-gray-50 px-3 py-2 text-sm text-gray-700"
 					>
 						<input
@@ -113,7 +113,7 @@
 			>
 				<hr />
 				<h4 class="font-semibold">Schedule Settings</h4>
-				<div class="grid grid-cols-2 gap-6">
+				<div :class="scheduleType === 'Rolling Day/Night Roster' ? 'grid grid-cols-3 gap-6' : 'grid grid-cols-2 gap-6'">
 					<FormControl
 						v-if="scheduleType === 'Repeat On Days'"
 						type="select"
@@ -139,6 +139,30 @@
 						:disabled="!!props.shiftAssignmentName"
 					/>
 
+					<FormControl
+						v-if="scheduleType === 'Rolling Day/Night Roster'"
+						type="number"
+						label="Days On Site DS"
+						v-model="rollingDayNightRoster.days_on_site_ds"
+						:disabled="!!props.shiftAssignmentName"
+					/>
+
+					<FormControl
+						v-if="scheduleType === 'Rolling Day/Night Roster'"
+						type="number"
+						label="Days On Site NS"
+						v-model="rollingDayNightRoster.days_on_site_ns"
+						:disabled="!!props.shiftAssignmentName"
+					/>
+
+					<FormControl
+						v-if="scheduleType === 'Rolling Day/Night Roster'"
+						type="number"
+						label="Days Off Site"
+						v-model="rollingDayNightRoster.days_off_site"
+						:disabled="!!props.shiftAssignmentName"
+					/>
+
 					<div v-if="scheduleType === 'Repeat On Days'" class="space-y-1.5">
 						<div class="text-xs text-gray-600">Repeat On Days</div>
 						<div class="border rounded grid grid-flow-col h-7 justify-stretch overflow-clip">
@@ -160,14 +184,26 @@
 						</div>
 					</div>
 
-					<div v-if="scheduleType === 'Rolling Roster'" class="col-span-2 rounded border bg-gray-50 px-3 py-2 text-xs text-gray-600">
-						<template v-if="includeFlyInFlyOut">
+					<div
+						v-if="isRollingScheduleType"
+						:class="scheduleType === 'Rolling Day/Night Roster' ? 'col-span-3' : 'col-span-2'"
+						class="rounded border bg-gray-50 px-3 py-2 text-xs text-gray-600"
+					>
+						<template v-if="scheduleType === 'Rolling Roster' && includeFlyInFlyOut">
 							Rolling roster will create each swing using <b>FI</b> on the first day,
 							the selected Shift Type for the days in between, and <b>FO</b> on the final day.
 						</template>
-						<template v-else>
+						<template v-else-if="scheduleType === 'Rolling Roster'">
 							Rolling roster will create each on-site swing using the selected Shift Type only.
 							FI and FO shifts will not be created.
+						</template>
+						<template v-else-if="includeFlyInFlyOut">
+							Rolling Day/Night roster will create <b>FI</b> on the first day,
+							then <b>DS</b>, then <b>NS</b>, and <b>FO</b> on the final day of each swing.
+						</template>
+						<template v-else>
+							Rolling Day/Night roster will create each swing using <b>DS</b> for the day-shift block
+							and <b>NS</b> for the night-shift block. FI and FO shifts will not be created.
 						</template>
 					</div>
 				</div>
@@ -277,10 +313,13 @@ const repeatOnDays = reactive({ ...repeatOnDaysObject });
 const shiftAssignment = ref<any>();
 const selectedDate = ref<string>();
 const frequency = ref("Every Week");
-const scheduleTypeOptions = ["Repeat On Days", "Rolling Roster"];
-const scheduleType = ref<"Repeat On Days" | "Rolling Roster">("Repeat On Days");
+type ScheduleType = "Repeat On Days" | "Rolling Roster" | "Rolling Day/Night Roster";
+const scheduleTypeOptions: ScheduleType[] = ["Repeat On Days", "Rolling Roster", "Rolling Day/Night Roster"];
+const scheduleType = ref<ScheduleType>("Repeat On Days");
 const includeFlyInFlyOut = ref(true);
 const rollingRoster = reactive({ days_on_site: 8, days_off_site: 6 });
+const rollingDayNightRoster = reactive({ days_on_site_ds: 8, days_on_site_ns: 8, days_off_site: 12 });
+const isRollingScheduleType = computed(() => scheduleType.value === "Rolling Roster" || scheduleType.value === "Rolling Day/Night Roster");
 const showDeleteDialog = ref(false);
 const deleteDialogOptions = ref<{ title: string; message: string; action: () => void }>({
 	title: "",
@@ -383,6 +422,9 @@ watch(
 			includeFlyInFlyOut.value = true;
 			rollingRoster.days_on_site = 8;
 			rollingRoster.days_off_site = 6;
+			rollingDayNightRoster.days_on_site_ds = 8;
+			rollingDayNightRoster.days_on_site_ns = 8;
+			rollingDayNightRoster.days_off_site = 12;
 			Object.assign(repeatOnDays, repeatOnDaysObject);
 			if (!props.selectedCell) return;
 			form.employee = { value: props.selectedCell.employee };
@@ -429,6 +471,11 @@ const updateShiftAssigment = () => {
 const createShiftAssigment = () => {
 	if (showShiftScheduleSettings.value && scheduleType.value === "Rolling Roster") {
 		createRollingRosterAssignment.submit();
+		return;
+	}
+
+	if (showShiftScheduleSettings.value && scheduleType.value === "Rolling Day/Night Roster") {
+		createRollingDayNightRosterAssignment.submit();
 		return;
 	}
 
@@ -636,6 +683,35 @@ const createRollingRosterAssignment = createResource({
 	},
 	onSuccess: () => {
 		raiseToast("success", "Rolling Roster created successfully!");
+		emit("fetchEvents");
+	},
+	onError(error: { messages: string[] }) {
+		raiseToast("error", error.messages[0]);
+	},
+});
+
+const createRollingDayNightRosterAssignment = createResource({
+	url: "verto.api.planner.create_rolling_day_night_roster_assignment",
+	makeParams() {
+		return {
+			employee: getId(form.employee),
+			company: form.company,
+			status: form.status,
+			start_date: form.start_date,
+			end_date: form.end_date,
+			note: form.note,
+			shift_location: getId(form.shift_location),
+			custom_project: getId(form.custom_project),
+			days_on_site_ds: rollingDayNightRoster.days_on_site_ds,
+			days_on_site_ns: rollingDayNightRoster.days_on_site_ns,
+			days_off_site: rollingDayNightRoster.days_off_site,
+			include_fly_in_out: includeFlyInFlyOut.value,
+			day_shift_type: "DS",
+			night_shift_type: "NS",
+		};
+	},
+	onSuccess: () => {
+		raiseToast("success", "Rolling Day/Night Roster created successfully!");
 		emit("fetchEvents");
 	},
 	onError(error: { messages: string[] }) {

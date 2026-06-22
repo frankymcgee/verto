@@ -605,6 +605,109 @@ def create_rolling_roster_assignment(
 
 
 @frappe.whitelist()
+def create_rolling_day_night_roster_assignment(
+	employee: str,
+	company: str,
+	status: str,
+	start_date: str,
+	end_date: str,
+	days_on_site_ds: int | str,
+	days_on_site_ns: int | str,
+	days_off_site: int | str,
+	shift_location: str | None = None,
+	custom_project: str | None = None,
+	note: str | None = None,
+	include_fly_in_out: bool | int | str = True,
+	day_shift_type: str = "DS",
+	night_shift_type: str = "NS",
+	fly_in_shift_type: str = "FI",
+	fly_out_shift_type: str = "FO",
+) -> None:
+	"""Create a rolling day/night roster pattern across a date range.
+
+	Example: a 16:12 roster can be created by setting 8 days on DS,
+	8 days on NS and 12 days off site. When include_fly_in_out is enabled,
+	the first working day is assigned to FI and the final working day is
+	assigned to FO. The remaining working days are assigned to DS or NS
+	based on the day/night split.
+	"""
+	days_on_site_ds = int(days_on_site_ds or 0)
+	days_on_site_ns = int(days_on_site_ns or 0)
+	days_off_site = int(days_off_site or 0)
+	include_fly_in_out = _as_bool(include_fly_in_out, default=True)
+
+	if days_on_site_ds < 1:
+		frappe.throw(_("Days on site for DS must be at least 1."))
+	if days_on_site_ns < 1:
+		frappe.throw(_("Days on site for NS must be at least 1."))
+	if days_off_site < 0:
+		frappe.throw(_("Days off site cannot be negative."))
+	if not start_date or not end_date:
+		frappe.throw(_("Start Date and End Date are required for a Rolling Day/Night Roster."))
+
+	total_on_site_days = days_on_site_ds + days_on_site_ns
+	if include_fly_in_out and total_on_site_days < 2:
+		frappe.throw(_("Total days on site must be at least 2 when fly in / fly out is enabled."))
+
+	_validate_shift_type_exists(day_shift_type, day_shift_type)
+	_validate_shift_type_exists(night_shift_type, night_shift_type)
+	if include_fly_in_out:
+		_validate_shift_type_exists(fly_in_shift_type, fly_in_shift_type)
+		_validate_shift_type_exists(fly_out_shift_type, fly_out_shift_type)
+
+	current = getdate(start_date)
+	final_date = getdate(end_date)
+
+	if current > final_date:
+		frappe.throw(_("End Date cannot be before Start Date."))
+
+	def queue_segment(segments: list[dict], shift_type_name: str, shift_date) -> None:
+		shift_date = getdate(shift_date)
+		if segments and segments[-1]["shift_type"] == shift_type_name and getdate(add_days(segments[-1]["end_date"], 1)) == shift_date:
+			segments[-1]["end_date"] = shift_date
+		else:
+			segments.append({"shift_type": shift_type_name, "start_date": shift_date, "end_date": shift_date})
+
+	while current <= final_date:
+		swing_start = current
+		swing_end = getdate(add_days(swing_start, total_on_site_days - 1))
+		if swing_end > final_date:
+			swing_end = final_date
+
+		segments: list[dict] = []
+		offset = 0
+		shift_date = swing_start
+		while shift_date <= swing_end:
+			if include_fly_in_out and offset == 0:
+				shift_type_for_day = fly_in_shift_type
+			elif include_fly_in_out and shift_date == swing_end:
+				shift_type_for_day = fly_out_shift_type
+			elif offset < days_on_site_ds:
+				shift_type_for_day = day_shift_type
+			else:
+				shift_type_for_day = night_shift_type
+
+			queue_segment(segments, shift_type_for_day, shift_date)
+			offset += 1
+			shift_date = getdate(add_days(shift_date, 1))
+
+		for segment in segments:
+			insert_shift(
+				employee=employee,
+				company=company,
+				shift_type=segment["shift_type"],
+				start_date=_to_date_str(segment["start_date"]),
+				end_date=_to_date_str(segment["end_date"]),
+				status=status,
+				shift_location=shift_location,
+				custom_project=custom_project,
+				note=note,
+			)
+
+		current = getdate(add_days(swing_start, total_on_site_days + days_off_site))
+
+
+@frappe.whitelist()
 def delete_shift_schedule_assignment(shift_schedule_assignment: str) -> None:
 	for shift_assignment in frappe.get_all(
 		"Shift Assignment", {"shift_schedule_assignment": shift_schedule_assignment}, pluck="name"
