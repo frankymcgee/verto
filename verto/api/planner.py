@@ -205,10 +205,14 @@ def get_year_events(
 	leaves = get_leaves(year_start, year_end, employee_filters)
 	shift_rows = get_shift_rows(year_start, year_end, employee_filters, shift_filters)
 	shifts = group_by_employee(shift_rows)
+	day_markers = get_year_day_markers(year_start, year_end, holidays)
 
 	return {
-		"events": merge_employee_events(holidays, leaves, shifts),
+		# Holidays and calendar Events are shown as top date-header markers only in
+		# the annual Planner. They are intentionally not merged into employee cells.
+		"events": merge_employee_events(leaves, shifts),
 		"project_rows": get_year_project_rows(shift_rows, year_start, year_end),
+		"day_markers": day_markers,
 	}
 
 
@@ -229,6 +233,165 @@ def merge_employee_events(*event_groups: dict[str, list[dict]]) -> dict[str, lis
 			else:
 				events[key] = value
 	return events
+
+
+def _append_day_marker(markers: dict[str, list[dict]], date, marker: dict) -> None:
+	if not date:
+		return
+	markers.setdefault(str(getdate(date)), []).append(marker)
+
+
+def _safe_date(value):
+	if not value:
+		return None
+	try:
+		return getdate(value)
+	except Exception:
+		return None
+
+
+def add_holiday_day_markers(markers: dict[str, list[dict]], holidays: dict[str, list[dict]] | None) -> None:
+	"""Add non-weekly-off holidays to the annual header markers.
+
+	Employee holiday lists often contain weekly-off rows for every weekend. The
+	header marker is intended for actual holidays and special days, so weekly off
+	rows remain visible in employee cells but are not highlighted across the top.
+	"""
+	seen = set()
+
+	for employee_holidays in (holidays or {}).values():
+		for holiday in employee_holidays or []:
+			if holiday.get("weekly_off"):
+				continue
+
+			holiday_date = holiday.get("holiday_date")
+			if not holiday_date:
+				continue
+
+			title = holiday.get("description") or "Holiday"
+			key = (str(getdate(holiday_date)), holiday.get("holiday") or title)
+			if key in seen:
+				continue
+			seen.add(key)
+
+			_append_day_marker(
+				markers,
+				holiday_date,
+				{
+					"type": "holiday",
+					"name": holiday.get("holiday"),
+					"title": title,
+					"description": title,
+					"date": str(getdate(holiday_date)),
+					"weekly_off": 0,
+				},
+			)
+
+
+def _event_field(meta, candidates: list[str]) -> str | None:
+	for field in candidates:
+		if meta.has_field(field):
+			return field
+	return None
+
+
+def get_calendar_events_for_year(year_start: str, year_end: str) -> list[dict]:
+	try:
+		event_meta = frappe.get_meta("Event")
+	except Exception:
+		return []
+
+	starts_field = _event_field(event_meta, ["starts_on", "start_date", "from_date"])
+	if not starts_field:
+		return []
+
+	ends_field = _event_field(event_meta, ["ends_on", "end_date", "to_date"])
+	subject_field = _event_field(event_meta, ["subject", "title", "event_name"])
+	description_field = _event_field(event_meta, ["description", "notes"])
+	event_type_field = _event_field(event_meta, ["event_type", "type"])
+	color_field = _event_field(event_meta, ["color"])
+	all_day_field = _event_field(event_meta, ["all_day", "all_day_event"])
+
+	fields = ["name", starts_field]
+	for field in [ends_field, subject_field, description_field, event_type_field, color_field, all_day_field]:
+		if field and field not in fields:
+			fields.append(field)
+
+	try:
+		rows = frappe.get_all(
+			"Event",
+			filters={starts_field: ["<=", f"{year_end} 23:59:59"]},
+			fields=fields,
+			limit_start=0,
+			limit_page_length=ANNUAL_ROSTER_RESULT_LIMIT,
+			limit=ANNUAL_ROSTER_RESULT_LIMIT,
+		)
+	except Exception:
+		return []
+
+	start_boundary = getdate(year_start)
+	end_boundary = getdate(year_end)
+	events = []
+
+	for row in rows:
+		start_date = _safe_date(row.get(starts_field))
+		if not start_date:
+			continue
+
+		end_date = _safe_date(row.get(ends_field)) if ends_field else None
+		if not end_date:
+			end_date = start_date
+
+		if start_date > end_boundary or end_date < start_boundary:
+			continue
+
+		title = row.get(subject_field) if subject_field else None
+		events.append(
+			{
+				"name": row.get("name"),
+				"title": title or row.get("name"),
+				"description": row.get(description_field) if description_field else None,
+				"event_type": row.get(event_type_field) if event_type_field else None,
+				"color": row.get(color_field) if color_field else None,
+				"all_day": row.get(all_day_field) if all_day_field else None,
+				"start_date": str(max(start_date, start_boundary)),
+				"end_date": str(min(end_date, end_boundary)),
+			}
+		)
+
+	return events
+
+
+def add_calendar_event_day_markers(markers: dict[str, list[dict]], year_start: str, year_end: str) -> None:
+	for event in get_calendar_events_for_year(year_start, year_end):
+		start_date = getdate(event.get("start_date"))
+		end_date = getdate(event.get("end_date"))
+		current = start_date
+
+		while current <= end_date:
+			_append_day_marker(
+				markers,
+				current,
+				{
+					"type": "event",
+					"name": event.get("name"),
+					"title": event.get("title"),
+					"description": event.get("description"),
+					"event_type": event.get("event_type"),
+					"color": event.get("color"),
+					"all_day": event.get("all_day"),
+					"start_date": event.get("start_date"),
+					"end_date": event.get("end_date"),
+				},
+			)
+			current = getdate(add_days(current, 1))
+
+
+def get_year_day_markers(year_start: str, year_end: str, holidays: dict[str, list[dict]] | None = None) -> dict[str, list[dict]]:
+	markers: dict[str, list[dict]] = {}
+	add_holiday_day_markers(markers, holidays)
+	add_calendar_event_day_markers(markers, year_start, year_end)
+	return markers
 
 
 @frappe.whitelist()

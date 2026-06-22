@@ -128,8 +128,12 @@
                 :class="{
                   'year-month-start': day.isMonthStart,
                   'year-weekend': day.isWeekend,
+                  ...dayHeaderMarkerClass(day.date),
                 }"
-                :title="dayjs(day.date).format('dddd, DD MMMM YYYY')"
+                :title="dayHeaderTitle(day.date)"
+                @mouseenter="showDayMarkerHover(day.date, $event)"
+                @mousemove="moveHoverCard"
+                @mouseleave="() => scheduleClearHoverCard()"
               >
                 <div class="text-[10px] leading-none text-gray-500">{{ day.weekday }}</div>
                 <div class="mt-0.5 text-[11px] leading-none">{{ day.day }}</div>
@@ -333,8 +337,12 @@
                 :class="{
                   'year-month-start': day.isMonthStart,
                   'year-weekend': day.isWeekend,
+                  ...dayHeaderMarkerClass(day.date),
                 }"
-                :title="dayjs(day.date).format('dddd, DD MMMM YYYY')"
+                :title="dayHeaderTitle(day.date)"
+                @mouseenter="showDayMarkerHover(day.date, $event)"
+                @mousemove="moveHoverCard"
+                @mouseleave="() => scheduleClearHoverCard()"
               >
                 <div class="text-[10px] leading-none text-gray-500">{{ day.weekday }}</div>
                 <div class="mt-0.5 text-[11px] leading-none">{{ day.day }}</div>
@@ -504,6 +512,24 @@ interface LeaveApplication {
   half_day_date?: string | null
 }
 
+type DayMarkerType = 'holiday' | 'event' | 'today'
+
+interface DayMarker {
+  type: DayMarkerType
+  name?: string | null
+  title: string
+  description?: string | null
+  date?: string | null
+  start_date?: string | null
+  end_date?: string | null
+  event_type?: string | null
+  color?: string | null
+  all_day?: 0 | 1 | boolean | null
+  weekly_off?: 0 | 1 | boolean | null
+}
+
+type DayMarkers = Record<string, DayMarker[]>
+
 type ShiftAssignment = {
   name: string
   shift_type: string
@@ -560,6 +586,7 @@ type ProjectRow = {
 type YearEventsResponse = {
   events?: Events
   project_rows?: ProjectRow[]
+  day_markers?: DayMarkers
 }
 
 const emit = defineEmits<{ (e: 'hscroll', left: number): void }>()
@@ -590,16 +617,16 @@ type HoverCardRow = {
 }
 
 type HoverCard = {
-  type: 'shift' | 'project' | 'leave'
+  type: 'shift' | 'project' | 'leave' | 'day-marker'
   x?: number
   y?: number
   kicker: string
   title: string
   subtitle?: string
   badge?: string
-  badgeTone?: 'green' | 'red' | 'gray' | 'blue'
+  badgeTone?: 'green' | 'red' | 'gray' | 'blue' | 'yellow'
   secondaryBadge?: string
-  secondaryBadgeTone?: 'green' | 'red' | 'gray' | 'blue'
+  secondaryBadgeTone?: 'green' | 'red' | 'gray' | 'blue' | 'yellow'
   accent?: string
   rows: HoverCardRow[]
   note?: string
@@ -751,6 +778,8 @@ const monthGroups = computed(() => {
   }
   return groups
 })
+
+const dayMarkers = computed<DayMarkers>(() => events.data?.dayMarkers || {})
 
 const todayIndex = computed(() => {
   const today = dayjs().format('YYYY-MM-DD')
@@ -1418,12 +1447,9 @@ function mapEventsToYear(data: Events): MappedEvents {
 
       for (const event of data[employee] || []) {
         if (isHoliday(event) && date.isSame(event.holiday_date, 'day')) {
-          blockedCell = {
-            type: 'holiday',
-            label: event.weekly_off ? 'WO' : 'H',
-            title: event.weekly_off ? 'Weekly Off' : event.description,
-          }
-          break
+          // Annual holidays are displayed in the date header only. Do not block
+          // or populate employee cells with holiday markers.
+          continue
         }
 
         if (isLeave(event) && overlaps(date, event.from_date, event.to_date)) {
@@ -1843,6 +1869,180 @@ function showProjectHover(project: ProjectRow, segment: ProjectSegment, event: M
   )
 }
 
+function isTodayDate(date: string) {
+  return dayjs(date).isSame(dayjs(), 'day')
+}
+
+function todayMarker(date: string): DayMarker {
+  return {
+    type: 'today',
+    title: 'Today',
+    date,
+  }
+}
+
+function getDayMarkers(date: string) {
+  const markers = [...(dayMarkers.value[date] || [])]
+
+  if (isTodayDate(date)) {
+    markers.unshift(todayMarker(date))
+  }
+
+  return markers
+}
+
+function hasHolidayMarker(date: string) {
+  return getDayMarkers(date).some((marker) => marker.type === 'holiday')
+}
+
+function hasCalendarEventMarker(date: string) {
+  return getDayMarkers(date).some((marker) => marker.type === 'event')
+}
+
+function hasTodayMarker(date: string) {
+  return isTodayDate(date)
+}
+
+function dayHeaderMarkerClass(date: string) {
+  const hasHoliday = hasHolidayMarker(date)
+  const hasEvent = hasCalendarEventMarker(date)
+  const hasToday = hasTodayMarker(date)
+
+  return {
+    'year-day-marker': hasHoliday || hasEvent || hasToday,
+    'year-day-marker-holiday': hasHoliday && !hasEvent && !hasToday,
+    'year-day-marker-event': hasEvent && !hasHoliday && !hasToday,
+    'year-day-marker-mixed': hasHoliday && hasEvent && !hasToday,
+    'year-day-marker-today': hasToday,
+  }
+}
+
+function dayHeaderTitle(date: string) {
+  const markers = getDayMarkers(date)
+  const formattedDate = dayjs(date).format('dddd, DD MMMM YYYY')
+
+  if (!markers.length) return formattedDate
+
+  return [
+    formattedDate,
+    ...markers.map((marker) => marker.title || marker.name || (marker.type === 'holiday' ? 'Holiday' : 'Event')),
+  ].join(' | ')
+}
+
+function markerDateRange(marker: DayMarker) {
+  if (marker.type === 'holiday' || marker.type === 'today') {
+    return marker.date ? dayjs(marker.date).format('DD MMM YYYY') : ''
+  }
+
+  return compactDateRange(marker.start_date, marker.end_date)
+}
+
+function markerRowLabel(marker: DayMarker, eventNumber: number, holidayNumber: number) {
+  if (marker.type === 'today') return 'Today'
+  if (marker.type === 'holiday') return holidayNumber > 1 ? `Holiday ${holidayNumber}` : 'Holiday'
+  return eventNumber > 1 ? `Event ${eventNumber}` : 'Event'
+}
+
+function dayMarkerSummary(markers: DayMarker[]) {
+  const todayCount = markers.filter((marker) => marker.type === 'today').length
+  const holidayCount = markers.filter((marker) => marker.type === 'holiday').length
+  const eventCount = markers.filter((marker) => marker.type === 'event').length
+  const parts = []
+
+  if (todayCount) parts.push('Today')
+  if (holidayCount) parts.push(`${holidayCount} holiday${holidayCount === 1 ? '' : 's'}`)
+  if (eventCount) parts.push(`${eventCount} event${eventCount === 1 ? '' : 's'}`)
+
+  return parts.join(' · ')
+}
+
+function dayMarkerRows(date: string, markers: DayMarker[]): HoverCardRow[] {
+  const rows: HoverCardRow[] = [{ label: 'Date', value: dayjs(date).format('dddd, DD MMM YYYY') }]
+  let eventNumber = 0
+  let holidayNumber = 0
+
+  for (const marker of markers) {
+    if (marker.type === 'event') eventNumber += 1
+    if (marker.type === 'holiday') holidayNumber += 1
+
+    rows.push({
+      label: markerRowLabel(marker, eventNumber, holidayNumber),
+      value: [marker.title || marker.name, markerDateRange(marker)].filter(Boolean).join(' · '),
+    })
+
+    if (marker.type === 'event' && marker.event_type) {
+      rows.push({
+        label: eventNumber > 1 ? `Event ${eventNumber} Type` : 'Event Type',
+        value: marker.event_type,
+      })
+    }
+  }
+
+  return rows
+}
+
+function dayMarkerNote(markers: DayMarker[]) {
+  const notes = markers
+    .map((marker) => {
+      const description = plainTextFromHtml(marker.description)
+      if (!description) return ''
+
+      const title = marker.title || marker.name || (marker.type === 'holiday' ? 'Holiday' : 'Event')
+      return description === title ? description : `${title}: ${description}`
+    })
+    .filter(Boolean)
+
+  return notes.join('\n\n')
+}
+
+function dayMarkerBadge(markers: DayMarker[]) {
+  const hasToday = markers.some((marker) => marker.type === 'today')
+  const hasHoliday = markers.some((marker) => marker.type === 'holiday')
+  const hasEvent = markers.some((marker) => marker.type === 'event')
+  const labels = []
+
+  if (hasToday) labels.push('Today')
+  if (hasHoliday) labels.push('Holiday')
+  if (hasEvent) labels.push('Event')
+
+  return labels.join(' + ')
+}
+
+function showDayMarkerHover(date: string, event: MouseEvent) {
+  const markers = getDayMarkers(date)
+  if (!markers.length) {
+    scheduleClearHoverCard()
+    return
+  }
+
+  const hasToday = markers.some((marker) => marker.type === 'today')
+  const hasHoliday = markers.some((marker) => marker.type === 'holiday')
+  const hasEvent = markers.some((marker) => marker.type === 'event')
+  const accent = hasToday
+    ? (colors as any).yellow[500]
+    : hasHoliday && hasEvent
+      ? (colors as any).violet[500]
+      : hasHoliday
+        ? (colors as any).blue[500]
+        : (colors as any).emerald[500]
+
+  setHoverCard(
+    `day-marker:${date}:${markers.map((marker) => `${marker.type}:${marker.name || marker.title}`).join('|')}`,
+    {
+      type: 'day-marker',
+      kicker: hasToday ? 'Current Day' : 'Calendar Highlight',
+      title: dayjs(date).format('dddd, DD MMMM YYYY'),
+      subtitle: dayMarkerSummary(markers),
+      badge: dayMarkerBadge(markers),
+      badgeTone: hasToday ? 'yellow' : hasHoliday ? 'blue' : 'green',
+      accent,
+      rows: dayMarkerRows(date, markers),
+      note: dayMarkerNote(markers),
+    },
+    event,
+  )
+}
+
 function scrollToToday() {
   const today = dayjs().format('YYYY-MM-DD')
   const targetTodayIndex = daysOfYear.value.findIndex((day) => day.date === today)
@@ -1882,6 +2082,7 @@ const events = createResource({
     return {
       mappedEvents: mapEventsToYear(data?.events || {}),
       projectRows: (data?.project_rows || []).sort((a, b) => naturalCompare(a.customer_name || a.customer || '', b.customer_name || b.customer || '') || naturalCompare(a.project_name, b.project_name)),
+      dayMarkers: data?.day_markers || {},
     }
   },
   onSuccess() {
@@ -2001,11 +2202,12 @@ defineExpose({ events, scrollToToday })
   position: absolute;
   top: 0;
   bottom: 0;
-  z-index: 1;
+  z-index: 5;
   pointer-events: none;
-  background: transparent;
-  border-left: 2px solid rgb(31 41 55);
-  border-right: 2px solid rgb(31 41 55);
+  background: rgb(250 204 21 / 0.18);
+  border-left: 2px solid rgb(202 138 4 / 0.8);
+  border-right: 2px solid rgb(202 138 4 / 0.8);
+  box-shadow: inset 0 0 0 1px rgb(234 179 8 / 0.28);
   box-sizing: border-box;
 }
 
@@ -2066,6 +2268,34 @@ defineExpose({ events, scrollToToday })
   top: 24px;
   z-index: 6;
   height: 28px;
+}
+
+.year-day-marker {
+  cursor: help;
+  box-shadow: inset 0 -3px 0 rgb(59 130 246 / 0.75);
+}
+
+.year-day-marker-holiday {
+  background: rgb(239 246 255) !important;
+  color: rgb(30 64 175);
+}
+
+.year-day-marker-event {
+  background: rgb(236 253 245) !important;
+  color: rgb(6 95 70);
+  box-shadow: inset 0 -3px 0 rgb(16 185 129 / 0.78);
+}
+
+.year-day-marker-mixed {
+  background: linear-gradient(135deg, rgb(239 246 255) 0%, rgb(239 246 255) 50%, rgb(236 253 245) 50%, rgb(236 253 245) 100%) !important;
+  color: rgb(88 28 135);
+  box-shadow: inset 0 -3px 0 rgb(139 92 246 / 0.78);
+}
+
+.year-day-marker-today {
+  background: rgb(254 249 195) !important;
+  color: rgb(113 63 18);
+  box-shadow: inset 0 -3px 0 rgb(234 179 8 / 0.9);
 }
 
 .year-cell {
@@ -2536,6 +2766,11 @@ defineExpose({ events, scrollToToday })
   color: rgb(30 64 175);
 }
 
+.year-hover-card-badge-yellow {
+  background: rgb(254 249 195);
+  color: rgb(113 63 18);
+}
+
 .year-hover-card-badge-gray {
   background: rgb(243 244 246);
   color: rgb(55 65 81);
@@ -2580,6 +2815,12 @@ defineExpose({ events, scrollToToday })
   border-color: rgb(251 207 232);
   background: rgb(253 242 248);
   color: rgb(157 23 77);
+}
+
+.year-hover-card-day-marker .year-hover-card-note {
+  border-color: rgb(191 219 254);
+  background: rgb(239 246 255);
+  color: rgb(30 64 175);
 }
 
 .year-project-span:hover {
