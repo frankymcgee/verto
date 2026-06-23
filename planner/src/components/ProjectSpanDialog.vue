@@ -104,6 +104,22 @@
                     :disabled="!form.can_update_project_dates"
                   />
                 </template>
+
+                <div class="col-span-2">
+                  <label class="mb-1.5 block text-sm text-gray-700">
+                    Project Notes
+                  </label>
+                  <textarea
+                    v-model="form.project_notes"
+                    rows="5"
+                    class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm transition focus:border-gray-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+                    placeholder="Add project notes..."
+                    :disabled="!form.can_update_notes"
+                  />
+                  <p v-if="!form.can_update_notes" class="mt-1 text-xs text-gray-500">
+                    Project notes cannot be edited because the matching Project notes field was not found.
+                  </p>
+                </div>
               </div>
 
               <div
@@ -222,6 +238,8 @@ type ProjectDetails = {
   is_active?: boolean | number | string | null
   project_start_date?: string | null
   project_end_date?: string | null
+  notes_field?: string | null
+  notes?: string | null
   task_count?: number | string | null
   has_tasks?: boolean | number | string | null
   can_update_po?: boolean
@@ -229,6 +247,7 @@ type ProjectDetails = {
   can_update_ns?: boolean
   can_update_is_active?: boolean
   can_update_project_dates?: boolean
+  can_update_notes?: boolean
 }
 
 const props = defineProps<{
@@ -261,6 +280,7 @@ const form = reactive({
   is_active: true,
   project_start_date: '',
   project_end_date: '',
+  project_notes: '',
   task_count: 0,
   has_tasks: false,
   can_update_po: false,
@@ -268,6 +288,7 @@ const form = reactive({
   can_update_ns: false,
   can_update_is_active: false,
   can_update_project_dates: false,
+  can_update_notes: false,
 })
 
 const dialogTitle = computed(() => {
@@ -299,6 +320,7 @@ const missingEditableFieldMessage = computed(() => {
   if (!form.can_update_ds) missing.push('DS Personnel Required')
   if (!form.can_update_ns) missing.push('NS Personnel Required')
   if (!form.can_update_is_active) missing.push('Active')
+  if (!form.can_update_notes) missing.push('Project Notes')
 
   if (!missing.length) return ''
   return `Some fields cannot be edited because the matching Project fields were not found: ${missing.join(', ')}.`
@@ -335,6 +357,7 @@ function resetForm() {
   form.is_active = true
   form.project_start_date = ''
   form.project_end_date = ''
+  form.project_notes = ''
   form.task_count = 0
   form.has_tasks = false
   form.can_update_po = false
@@ -342,6 +365,7 @@ function resetForm() {
   form.can_update_ns = false
   form.can_update_is_active = false
   form.can_update_project_dates = false
+  form.can_update_notes = false
 }
 
 function applyDetails(data: ProjectDetails | undefined) {
@@ -360,6 +384,7 @@ function applyDetails(data: ProjectDetails | undefined) {
   form.is_active = boolValue(data.is_active, true)
   form.project_start_date = data.project_start_date || ''
   form.project_end_date = data.project_end_date || ''
+  form.project_notes = data.notes || ''
   form.task_count = intValue(data.task_count)
   form.has_tasks = boolValue(data.has_tasks)
   form.can_update_po = Boolean(data.can_update_po)
@@ -367,6 +392,7 @@ function applyDetails(data: ProjectDetails | undefined) {
   form.can_update_ns = Boolean(data.can_update_ns)
   form.can_update_is_active = Boolean(data.can_update_is_active)
   form.can_update_project_dates = Boolean(data.can_update_project_dates)
+  form.can_update_notes = Boolean(data.can_update_notes)
 }
 
 function closeDialog() {
@@ -402,6 +428,7 @@ const updateProject = createResource({
       is_active: form.is_active ? 1 : 0,
       project_start_date: form.project_start_date,
       project_end_date: form.project_end_date,
+      project_notes: form.project_notes,
     }
   },
   onSuccess(data: ProjectDetails | undefined) {

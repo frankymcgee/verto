@@ -1834,6 +1834,13 @@ PROJECT_END_DATE_FIELD_CANDIDATES = [
 	"custom_planned_end_date",
 ]
 
+PROJECT_NOTES_FIELD_CANDIDATES = [
+	"notes",
+	"project_notes",
+	"custom_project_notes",
+	"custom_notes",
+]
+
 
 def _project_meta_fieldtype(fieldname: str | None) -> str | None:
 	if not fieldname:
@@ -1860,6 +1867,7 @@ def _project_planner_edit_fields() -> dict[str, str | None]:
 		"is_active_field": _first_existing_project_field(["is_active"]),
 		"start_date_field": _first_existing_project_field(PROJECT_START_DATE_FIELD_CANDIDATES),
 		"end_date_field": _first_existing_project_field(PROJECT_END_DATE_FIELD_CANDIDATES),
+		"notes_field": _first_existing_project_field(PROJECT_NOTES_FIELD_CANDIDATES),
 	}
 
 
@@ -1912,6 +1920,7 @@ def get_project_planner_details(project: str) -> dict:
 	is_active_field = fields.get("is_active_field")
 	start_date_field = fields.get("start_date_field")
 	end_date_field = fields.get("end_date_field")
+	notes_field = fields.get("notes_field")
 	task_count = get_project_task_counts([project]).get(project, 0)
 	has_tasks = task_count > 0
 
@@ -1938,6 +1947,8 @@ def get_project_planner_details(project: str) -> dict:
 		"end_date_field": end_date_field,
 		"project_start_date": _normalise_project_date_for_update(doc.get(start_date_field)) if start_date_field else None,
 		"project_end_date": _normalise_project_date_for_update(doc.get(end_date_field)) if end_date_field else None,
+		"notes_field": notes_field,
+		"notes": doc.get(notes_field) if notes_field else "",
 		"task_count": task_count,
 		"has_tasks": has_tasks,
 		"can_update_po": bool(po_field),
@@ -1945,6 +1956,7 @@ def get_project_planner_details(project: str) -> dict:
 		"can_update_ns": bool(ns_field),
 		"can_update_is_active": bool(is_active_field),
 		"can_update_project_dates": bool(start_date_field and end_date_field) and not has_tasks,
+		"can_update_notes": bool(notes_field),
 	}
 
 
@@ -1958,6 +1970,7 @@ def update_project_planner_details(
 	is_active: bool | int | str | None = None,
 	project_start_date: str | None = None,
 	project_end_date: str | None = None,
+	project_notes: str | None = None,
 ) -> dict:
 	"""Update the Project fields exposed by the annual project span dialog."""
 	if not project:
@@ -1987,6 +2000,10 @@ def update_project_planner_details(
 		is_active_value = _as_bool(is_active, default=True)
 		is_active_fieldtype = _project_meta_fieldtype(is_active_field)
 		doc.set(is_active_field, 1 if is_active_fieldtype == "Check" and is_active_value else (0 if is_active_fieldtype == "Check" else ("Yes" if is_active_value else "No")))
+
+	notes_field = fields.get("notes_field")
+	if notes_field:
+		doc.set(notes_field, project_notes or "")
 
 	start_date_field = fields.get("start_date_field")
 	end_date_field = fields.get("end_date_field")
@@ -2186,7 +2203,7 @@ def get_active_project_meta(
 	customer_abbreviation_field = _first_existing_project_field(["customer_abbreviation"])
 	customer_field = _first_existing_project_field(["customer"])
 	project_location_field = _first_existing_project_field(["custom_project_location"])
-	project_notes_field = _first_existing_project_field(["notes"])
+	project_notes_field = _first_existing_project_field(PROJECT_NOTES_FIELD_CANDIDATES)
 	roster_or_shutdown_field = _first_existing_project_field(["roster_or_shutdown"])
 	shifts_filled_field = _first_existing_project_field(["shifts_filled"])
 	is_active_field = _first_existing_project_field(["is_active"])
