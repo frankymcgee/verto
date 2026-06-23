@@ -193,11 +193,11 @@
             <tr v-for="lane in projectLanes" :key="lane.key" class="year-project-row">
               <td class="year-left-col border-b border-r bg-white">
                 <div class="px-2 leading-tight">
-                  <div class="year-project-lane-label truncate text-xs font-semibold text-gray-800" :title="lane.groupLabel">
-                    {{ lane.groupLabel }}
+                  <div class="year-project-lane-label truncate text-xs font-semibold text-gray-800" :title="lane.customerLabel">
+                    {{ lane.customerLabel }}
                   </div>
-                  <div class="year-project-lane-subline truncate text-[10px] text-gray-500" :title="projectLaneSubline(lane)">
-                    {{ projectLaneSubline(lane) }}
+                  <div class="year-project-lane-subline truncate text-[10px] text-gray-500" :title="lane.locationLabel">
+                    {{ lane.locationLabel }}
                   </div>
                 </div>
               </td>
