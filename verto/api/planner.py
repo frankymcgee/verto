@@ -1,6 +1,7 @@
 import frappe
 from frappe import _
 from frappe.utils import add_days, date_diff, getdate, get_datetime_str
+from frappe.desk.search import search_link
 
 from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
 
@@ -440,6 +441,69 @@ def get_project_create_meta() -> dict:
 		"title": meta.get("title_field") or "project_name",
 		"fields": fields,
 	}
+
+
+def _is_allowed_project_link_field(fieldname: str | None, link_doctype: str | None) -> bool:
+	"""Only allow link searches for Link/Dynamic Link fields exposed in the Project dialog."""
+	if not fieldname or not link_doctype:
+		return False
+
+	meta = frappe.get_meta("Project")
+	df = meta.get_field(fieldname)
+	if not df or df.hidden or df.read_only:
+		return False
+
+	if df.fieldtype == "Link":
+		return df.options == link_doctype
+
+	if df.fieldtype == "Dynamic Link":
+		return True
+
+	return False
+
+
+@frappe.whitelist()
+def search_project_link_options(link_doctype: str, txt: str = "", fieldname: str | None = None) -> list[dict]:
+	"""Return Frappe-style link options for the dynamic Project create dialog."""
+	if not frappe.has_permission("Project", ptype="create"):
+		frappe.throw(_("You do not have permission to create Projects."), frappe.PermissionError)
+
+	link_doctype = (link_doctype or "").strip()
+	fieldname = (fieldname or "").strip()
+	if not _is_allowed_project_link_field(fieldname, link_doctype):
+		frappe.throw(_("This link field is not allowed for Project creation."), frappe.PermissionError)
+
+	if not frappe.db.exists("DocType", link_doctype):
+		frappe.throw(_("Invalid linked DocType: {0}").format(link_doctype))
+
+	results = search_link(
+		doctype=link_doctype,
+		txt=txt or "",
+		page_length=20,
+		reference_doctype="Project",
+	)
+
+	options = []
+	for row in results or []:
+		if isinstance(row, dict):
+			value = row.get("value") or row.get("name") or ""
+			label = row.get("label") or value
+			description = row.get("description") or ""
+		else:
+			value = str(row)
+			label = value
+			description = ""
+
+		if not value:
+			continue
+
+		options.append({
+			"value": value,
+			"label": label,
+			"description": description,
+		})
+
+	return options
 
 
 def _project_create_fields_by_name() -> dict:

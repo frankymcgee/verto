@@ -91,6 +91,64 @@
                 </option>
               </select>
 
+              <div v-else-if="isLinkField(field)" class="relative">
+                <input
+                  :value="linkSearch[field.fieldname] ?? ''"
+                  :placeholder="placeholderText(field)"
+                  autocomplete="off"
+                  class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 pr-9 text-sm text-gray-900 shadow-sm focus:border-gray-500 focus:outline-none"
+                  @focus="openLinkField(field)"
+                  @input="onLinkInputEvent(field, $event)"
+                  @blur="closeLinkFieldSoon(field)"
+                />
+                <button
+                  v-if="form[field.fieldname]"
+                  type="button"
+                  class="absolute right-2 top-1/2 -translate-y-1/2 rounded px-1 text-xs text-gray-400 hover:text-gray-700"
+                  title="Clear"
+                  @mousedown.prevent
+                  @click="clearLinkField(field)"
+                >
+                  ✕
+                </button>
+
+                <div
+                  v-if="activeLinkField === field.fieldname"
+                  class="absolute left-0 right-0 top-full z-[10020] mt-1 max-h-56 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 text-sm shadow-xl"
+                  @mousedown.prevent
+                >
+                  <div v-if="!resolveLinkDoctype(field)" class="px-3 py-2 text-xs text-gray-500">
+                    Select {{ linkTargetFieldLabel(field) }} first.
+                  </div>
+                  <div v-else-if="linkLoading[field.fieldname]" class="px-3 py-2 text-xs text-gray-500">
+                    Searching {{ resolveLinkDoctype(field) }}...
+                  </div>
+                  <div
+                    v-else-if="(linkOptions[field.fieldname] || []).length === 0"
+                    class="px-3 py-2 text-xs text-gray-500"
+                  >
+                    No {{ resolveLinkDoctype(field) }} records found.
+                  </div>
+                  <button
+                    v-for="option in linkOptions[field.fieldname] || []"
+                    :key="option.value"
+                    type="button"
+                    class="block w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                    @mousedown.prevent="selectLinkOption(field, option)"
+                  >
+                    <div class="font-medium text-gray-900">
+                      {{ option.label || option.value }}
+                    </div>
+                    <div v-if="option.description && option.description !== option.label" class="mt-0.5 truncate text-xs text-gray-500">
+                      {{ option.description }}
+                    </div>
+                    <div v-if="option.label && option.label !== option.value" class="mt-0.5 truncate text-[11px] text-gray-400">
+                      {{ option.value }}
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               <textarea
                 v-else-if="isTextareaField(field)"
                 v-model="form[field.fieldname]"
@@ -133,7 +191,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { Button, createResource } from 'frappe-ui'
 import { raiseToast } from '../utils'
 
@@ -156,6 +214,12 @@ type ProjectMetaResponse = {
   fields: ProjectField[]
 }
 
+type LinkOption = {
+  value: string
+  label?: string
+  description?: string
+}
+
 const props = defineProps<{
   modelValue?: boolean
   isDialogOpen: boolean
@@ -168,6 +232,11 @@ const emit = defineEmits<{
 }>()
 
 const form = reactive<Record<string, any>>({})
+const linkSearch = reactive<Record<string, string>>({})
+const linkOptions = reactive<Record<string, LinkOption[]>>({})
+const linkLoading = reactive<Record<string, boolean>>({})
+const activeLinkField = ref<string | null>(null)
+const linkSearchTimers: Record<string, ReturnType<typeof window.setTimeout>> = {}
 
 const dialogOpen = computed({
   get: () => props.modelValue ?? props.isDialogOpen,
@@ -223,10 +292,16 @@ watch(
 
 function initialiseForm(inputFields: ProjectField[]) {
   Object.keys(form).forEach((key) => delete form[key])
+  Object.keys(linkSearch).forEach((key) => delete linkSearch[key])
+  Object.keys(linkOptions).forEach((key) => delete linkOptions[key])
+  Object.keys(linkLoading).forEach((key) => delete linkLoading[key])
+  activeLinkField.value = null
 
   for (const field of inputFields) {
     if (!field.fieldname || isSectionField(field) || field.fieldtype === 'Column Break' || field.unsupported) continue
-    form[field.fieldname] = defaultValue(field)
+    const value = defaultValue(field)
+    form[field.fieldname] = value
+    if (isLinkField(field)) linkSearch[field.fieldname] = value ? String(value) : ''
   }
 
   if ('project_name' in form) form.project_name = ''
@@ -236,7 +311,10 @@ function initialiseForm(inputFields: ProjectField[]) {
     form.is_active = isActiveField?.fieldtype === 'Check' ? true : 'Yes'
   }
   if ('percent_complete_method' in form && !form.percent_complete_method) form.percent_complete_method = 'Task Completion'
-  if ('company' in form && props.company) form.company = props.company
+  if ('company' in form && props.company) {
+    form.company = props.company
+    linkSearch.company = props.company
+  }
 }
 
 function defaultValue(field: ProjectField) {
@@ -282,6 +360,122 @@ function submitProject() {
 
 function closeDialog() {
   emit('update:modelValue', false)
+}
+
+function isLinkField(field: ProjectField) {
+  return field.fieldtype === 'Link' || field.fieldtype === 'Dynamic Link'
+}
+
+function resolveLinkDoctype(field: ProjectField) {
+  if (field.fieldtype === 'Link') return field.options || ''
+  if (field.fieldtype === 'Dynamic Link' && field.options) return form[field.options] || ''
+  return ''
+}
+
+function linkTargetFieldLabel(field: ProjectField) {
+  if (field.fieldtype !== 'Dynamic Link' || !field.options) return 'document type'
+  const targetField = fields.value.find((item) => item.fieldname === field.options)
+  return targetField?.label || field.options
+}
+
+function openLinkField(field: ProjectField) {
+  activeLinkField.value = field.fieldname
+  if (!(field.fieldname in linkSearch)) {
+    linkSearch[field.fieldname] = form[field.fieldname] ? String(form[field.fieldname]) : ''
+  }
+  fetchLinkOptions(field)
+}
+
+function closeLinkFieldSoon(field: ProjectField) {
+  window.setTimeout(() => {
+    if (activeLinkField.value === field.fieldname) activeLinkField.value = null
+  }, 160)
+}
+
+function onLinkInputEvent(field: ProjectField, event: Event) {
+  onLinkInput(field, (event.target as HTMLInputElement).value)
+}
+
+function onLinkInput(field: ProjectField, value: string) {
+  linkSearch[field.fieldname] = value
+  form[field.fieldname] = value
+
+  if (linkSearchTimers[field.fieldname]) window.clearTimeout(linkSearchTimers[field.fieldname])
+  linkSearchTimers[field.fieldname] = window.setTimeout(() => fetchLinkOptions(field), 220)
+}
+
+function clearLinkField(field: ProjectField) {
+  form[field.fieldname] = ''
+  linkSearch[field.fieldname] = ''
+  linkOptions[field.fieldname] = []
+  activeLinkField.value = null
+}
+
+function selectLinkOption(field: ProjectField, option: LinkOption) {
+  form[field.fieldname] = option.value
+  linkSearch[field.fieldname] = option.label || option.value
+  activeLinkField.value = null
+}
+
+async function fetchLinkOptions(field: ProjectField) {
+  const linkDoctype = resolveLinkDoctype(field)
+  if (!linkDoctype) {
+    linkOptions[field.fieldname] = []
+    return
+  }
+
+  linkLoading[field.fieldname] = true
+
+  try {
+    const data = await callPlannerMethod<LinkOption[]>('verto.api.planner.search_project_link_options', {
+      link_doctype: linkDoctype,
+      txt: linkSearch[field.fieldname] || '',
+      fieldname: field.fieldname,
+    })
+    linkOptions[field.fieldname] = data || []
+  } catch (error: any) {
+    linkOptions[field.fieldname] = []
+    raiseToast('error', error?.message || `Failed to search ${linkDoctype}`)
+  } finally {
+    linkLoading[field.fieldname] = false
+  }
+}
+
+async function callPlannerMethod<T>(method: string, params: Record<string, any>): Promise<T> {
+  const response = await fetch(`/api/method/${method}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Frappe-CSRF-Token': getCsrfToken(),
+    },
+    body: JSON.stringify(params),
+  })
+
+  const payload = await response.json().catch(() => ({}))
+
+  if (!response.ok || payload.exc || payload.exception) {
+    const messages = parseServerMessages(payload)
+    throw new Error(messages[0] || payload._error_message || payload.message || 'Request failed')
+  }
+
+  return payload.message as T
+}
+
+function getCsrfToken() {
+  const win = window as any
+  return win.csrf_token || win.frappe?.csrf_token || ''
+}
+
+function parseServerMessages(payload: any) {
+  try {
+    if (!payload?._server_messages) return []
+    return JSON.parse(payload._server_messages)
+      .map((message: string) => JSON.parse(message)?.message)
+      .filter(Boolean)
+  } catch {
+    return []
+  }
 }
 
 function isSectionField(field: ProjectField) {
