@@ -1,4 +1,4 @@
-<!-- VERTO_APP_HEADER_APP_BROWSER_DRAWER_2026_06_11 -->
+<!-- VERTO_APP_HEADER_LEARNING_DRAWER_2026_06_23 -->
 <template>
   <header class="app-header-safe z-40 shrink-0 border-b border-outline-gray-1 bg-surface-white/95 backdrop-blur">
     <div class="mx-auto flex w-full max-w-[var(--verto-shell-max-width,28rem)] items-center justify-between gap-3 px-[var(--verto-page-x,0.75rem)] py-2">
@@ -109,6 +109,14 @@
             @click="openProfile"
           >
             My profile
+          </button>
+
+          <button
+            type="button"
+            class="block w-full px-3 py-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1"
+            @click="openLearning"
+          >
+            Learning
           </button>
 
           <button
@@ -269,6 +277,14 @@ function openProfile() {
   openAppBrowser({
     url: '/app/user-profile',
     title: 'My profile',
+  })
+}
+
+function openLearning() {
+  menuOpen.value = false
+  openAppBrowser({
+    url: '/lms/',
+    title: 'Learning',
   })
 }
 
