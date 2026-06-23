@@ -1,297 +1,329 @@
 <template>
-	<Dialog :options="{ title: dialog.title, size: '4xl' }">
-		<template #body-content>
-			<div class="grid grid-cols-2 gap-6">
-				<FormControl
-					type="autocomplete"
-					label="Employee"
-					v-model="form.employee"
-					:disabled="!!props.shiftAssignmentName"
-					:options="employees"
-				/>
-				<FormControl type="text" label="Company" v-model="form.company" :disabled="true" />
+	<Teleport to="body">
+		<div
+			v-if="dialogOpen"
+			class="fixed inset-0 z-[9998] bg-black/50"
+			@click.self="closeDialog"
+		/>
 
-				<FormControl
-					type="text"
-					label="Employee Name"
-					v-model="form.employee_name"
-					:disabled="true"
-				/>
-				<FormControl
-					type="text"
-					label="Department"
-					v-model="form.department"
-					:disabled="true"
-				/>
-
-				<!-- Project (Open only) -->
-				<FormControl
-					type="autocomplete"
-					label="Project"
-					placeholder="Select Project"
-					v-model="form.custom_project"
-					:options="projectOptions"
-				/>
-
-				<FormControl
-					type="autocomplete"
-					label="Shift Type"
-					v-model="form.shift_type"
-					:disabled="!!props.shiftAssignmentName"
-					:options="shiftTypes.data"
-				/>
-
-				<!-- Start / End Dates -->
-				<FormControl
-					type="date"
-					label="Start Date"
-					v-model="form.start_date"
-					:disabled="!!props.shiftAssignmentName"
-				/>				
-				<FormControl
-					type="date"
-					label="End Date"
-					v-model="form.end_date"
-				/>	
-				
-				<!-- Shift Location -->
-				<FormControl
-					type="autocomplete"
-					label="Shift Location"
-					v-model="form.shift_location"
-					:disabled="!!props.shiftAssignmentName"
-					:options="shiftLocations.data"
-				/>
-
-				<!-- Status -->
-				<FormControl
-					type="select"
-					:options="['Active', 'Inactive']"
-					label="Status"
-					v-model="form.status"
-				/>
-
-				<!-- Notes -->
-				<FormControl
-					type="textarea"
-					label="Note"
-					v-model="form.note"
-				/>
-
-				<div v-if="!props.shiftAssignmentName && showShiftScheduleSettings" class="space-y-3">
-					<FormControl
-						type="select"
-						:options="scheduleTypeOptions"
-						label="Schedule Type"
-						v-model="scheduleType"
-						:disabled="!!form.shift_schedule_assignment"
-					/>
-
-					<label
-						v-if="isRollingScheduleType"
-						class="flex items-start gap-2 rounded border bg-gray-50 px-3 py-2 text-sm text-gray-700"
-					>
-						<input
-							type="checkbox"
-							class="mt-0.5"
-							v-model="includeFlyInFlyOut"
-						/>
-						<span>
-							<span class="block font-medium text-gray-800">Add fly in / fly out</span>
-							<span class="block text-xs text-gray-500">
-								Creates FI on the first day and FO on the last day of each swing.
-							</span>
-						</span>
-					</label>
-				</div>
-			</div>
-
-			<!-- Schedule Settings -->
+		<div
+			v-if="dialogOpen"
+			class="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto px-4 py-10"
+			@click.self="closeDialog"
+		>
 			<div
-				v-if="(!props.shiftAssignmentName && showShiftScheduleSettings) || form.shift_schedule_assignment"
-				class="mt-6 space-y-6"
+				class="w-full max-w-5xl overflow-hidden rounded-lg bg-white shadow-2xl"
+				role="dialog"
+				aria-modal="true"
+				:aria-label="dialog.title"
+				@click.stop
 			>
-				<hr />
-				<h4 class="font-semibold">Schedule Settings</h4>
-				<div :class="scheduleType === 'Rolling Day/Night Roster' ? 'grid grid-cols-3 gap-6' : 'grid grid-cols-2 gap-6'">
-					<FormControl
-						v-if="scheduleType === 'Repeat On Days'"
-						type="select"
-						:options="['Every Week', 'Every 2 Weeks', 'Every 3 Weeks', 'Every 4 Weeks']"
-						label="Frequency"
-						v-model="frequency"
-						:disabled="!!props.shiftAssignmentName"
-					/>
-
-					<FormControl
-						v-if="scheduleType === 'Rolling Roster'"
-						type="number"
-						label="Days On Site"
-						v-model="rollingRoster.days_on_site"
-						:disabled="!!props.shiftAssignmentName"
-					/>
-
-					<FormControl
-						v-if="scheduleType === 'Rolling Roster'"
-						type="number"
-						label="Days Off Site"
-						v-model="rollingRoster.days_off_site"
-						:disabled="!!props.shiftAssignmentName"
-					/>
-
-					<FormControl
-						v-if="scheduleType === 'Rolling Day/Night Roster'"
-						type="number"
-						label="Days On Site DS"
-						v-model="rollingDayNightRoster.days_on_site_ds"
-						:disabled="!!props.shiftAssignmentName"
-					/>
-
-					<FormControl
-						v-if="scheduleType === 'Rolling Day/Night Roster'"
-						type="number"
-						label="Days On Site NS"
-						v-model="rollingDayNightRoster.days_on_site_ns"
-						:disabled="!!props.shiftAssignmentName"
-					/>
-
-					<FormControl
-						v-if="scheduleType === 'Rolling Day/Night Roster'"
-						type="number"
-						label="Days Off Site"
-						v-model="rollingDayNightRoster.days_off_site"
-						:disabled="!!props.shiftAssignmentName"
-					/>
-
-					<FormControl
-						v-if="scheduleType === 'Dynamic Rolling Roster'"
-						type="number"
-						label="Number of Rolling Rosters"
-						v-model="dynamicRollingRoster.swing_count"
-						:disabled="!!props.shiftAssignmentName"
-					/>
-
-					<div
-						v-if="scheduleType === 'Dynamic Rolling Roster'"
-						class="col-span-2 space-y-3"
+				<div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+					<h2 class="text-xl font-semibold text-gray-900">{{ dialog.title }}</h2>
+					<button
+						type="button"
+						class="rounded-md p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+						aria-label="Close"
+						@click="closeDialog"
 					>
-						<div
-							v-for="(swing, index) in visibleDynamicRollingSwings"
-							:key="index"
-							class="rounded border bg-white p-3"
-						>
-							<div class="mb-3 text-sm font-medium text-gray-700">Swing {{ index + 1 }}</div>
-							<div class="grid grid-cols-2 gap-6">
-								<FormControl
-									type="number"
-									:label="`Swing ${index + 1} Days On Site`"
-									v-model="swing.days_on_site"
-									:disabled="!!props.shiftAssignmentName"
+						✕
+					</button>
+				</div>
+
+				<div class="max-h-[calc(100vh-13rem)] overflow-y-auto px-6 py-5">
+					<div class="grid grid-cols-2 gap-6">
+						<FormControl
+							type="autocomplete"
+							label="Employee"
+							v-model="form.employee"
+							:disabled="!!props.shiftAssignmentName"
+							:options="employees"
+						/>
+						<FormControl type="text" label="Company" v-model="form.company" :disabled="true" />
+
+						<FormControl
+							type="text"
+							label="Employee Name"
+							v-model="form.employee_name"
+							:disabled="true"
+						/>
+						<FormControl
+							type="text"
+							label="Department"
+							v-model="form.department"
+							:disabled="true"
+						/>
+
+						<FormControl
+							type="autocomplete"
+							label="Project"
+							placeholder="Select Project"
+							v-model="form.custom_project"
+							:options="projectOptions"
+						/>
+
+						<FormControl
+							type="autocomplete"
+							label="Shift Type"
+							v-model="form.shift_type"
+							:disabled="!!props.shiftAssignmentName"
+							:options="shiftTypes.data"
+						/>
+
+						<FormControl
+							type="date"
+							label="Start Date"
+							v-model="form.start_date"
+							:disabled="!!props.shiftAssignmentName"
+						/>
+						<FormControl
+							type="date"
+							label="End Date"
+							v-model="form.end_date"
+						/>
+
+						<FormControl
+							type="autocomplete"
+							label="Shift Location"
+							v-model="form.shift_location"
+							:disabled="!!props.shiftAssignmentName"
+							:options="shiftLocations.data"
+						/>
+
+						<FormControl
+							type="select"
+							:options="['Active', 'Inactive']"
+							label="Status"
+							v-model="form.status"
+						/>
+
+						<FormControl
+							type="textarea"
+							label="Note"
+							v-model="form.note"
+						/>
+
+						<div v-if="!props.shiftAssignmentName && showShiftScheduleSettings" class="space-y-3">
+							<FormControl
+								type="select"
+								:options="scheduleTypeOptions"
+								label="Schedule Type"
+								v-model="scheduleType"
+								:disabled="!!form.shift_schedule_assignment"
+							/>
+
+							<label
+								v-if="isRollingScheduleType"
+								class="flex items-start gap-2 rounded border bg-gray-50 px-3 py-2 text-sm text-gray-700"
+							>
+								<input
+									type="checkbox"
+									class="mt-0.5"
+									v-model="includeFlyInFlyOut"
 								/>
-								<FormControl
-									type="number"
-									:label="`Swing ${index + 1} Days Off Site`"
-									v-model="swing.days_off_site"
-									:disabled="!!props.shiftAssignmentName"
-								/>
-							</div>
+								<span>
+									<span class="block font-medium text-gray-800">Add fly in / fly out</span>
+									<span class="block text-xs text-gray-500">
+										Creates FI on the first day and FO on the last day of each swing.
+									</span>
+								</span>
+							</label>
 						</div>
 					</div>
 
-					<div v-if="scheduleType === 'Repeat On Days'" class="space-y-1.5">
-						<div class="text-xs text-gray-600">Repeat On Days</div>
-						<div class="border rounded grid grid-flow-col h-7 justify-stretch overflow-clip">
+					<div
+						v-if="(!props.shiftAssignmentName && showShiftScheduleSettings) || form.shift_schedule_assignment"
+						class="mt-6 space-y-6"
+					>
+						<hr />
+						<h4 class="font-semibold">Schedule Settings</h4>
+						<div :class="scheduleType === 'Rolling Day/Night Roster' ? 'grid grid-cols-3 gap-6' : 'grid grid-cols-2 gap-6'">
+							<FormControl
+								v-if="scheduleType === 'Repeat On Days'"
+								type="select"
+								:options="['Every Week', 'Every 2 Weeks', 'Every 3 Weeks', 'Every 4 Weeks']"
+								label="Frequency"
+								v-model="frequency"
+								:disabled="!!props.shiftAssignmentName"
+							/>
+
+							<FormControl
+								v-if="scheduleType === 'Rolling Roster'"
+								type="number"
+								label="Days On Site"
+								v-model="rollingRoster.days_on_site"
+								:disabled="!!props.shiftAssignmentName"
+							/>
+
+							<FormControl
+								v-if="scheduleType === 'Rolling Roster'"
+								type="number"
+								label="Days Off Site"
+								v-model="rollingRoster.days_off_site"
+								:disabled="!!props.shiftAssignmentName"
+							/>
+
+							<FormControl
+								v-if="scheduleType === 'Rolling Day/Night Roster'"
+								type="number"
+								label="Days On Site DS"
+								v-model="rollingDayNightRoster.days_on_site_ds"
+								:disabled="!!props.shiftAssignmentName"
+							/>
+
+							<FormControl
+								v-if="scheduleType === 'Rolling Day/Night Roster'"
+								type="number"
+								label="Days On Site NS"
+								v-model="rollingDayNightRoster.days_on_site_ns"
+								:disabled="!!props.shiftAssignmentName"
+							/>
+
+							<FormControl
+								v-if="scheduleType === 'Rolling Day/Night Roster'"
+								type="number"
+								label="Days Off Site"
+								v-model="rollingDayNightRoster.days_off_site"
+								:disabled="!!props.shiftAssignmentName"
+							/>
+
+							<FormControl
+								v-if="scheduleType === 'Dynamic Rolling Roster'"
+								type="number"
+								label="Number of Rolling Rosters"
+								v-model="dynamicRollingRoster.swing_count"
+								:disabled="!!props.shiftAssignmentName"
+							/>
+
 							<div
-								v-for="(isSelected, day) of repeatOnDays"
-								:key="day"
-								class="cursor-pointer flex flex-col"
-								:class="{
-									'border-r': day !== 'Sunday',
-									'bg-gray-100 text-gray-500': !isSelected,
-									'pointer-events-none': !!props.shiftAssignmentName,
-								}"
-								@click="repeatOnDays[day] = !repeatOnDays[day]"
+								v-if="scheduleType === 'Dynamic Rolling Roster'"
+								class="col-span-2 space-y-3"
 							>
-								<div class="text-center text-sm my-auto">
-									{{ day.substring(0, 3) }}
+								<div
+									v-for="(swing, index) in visibleDynamicRollingSwings"
+									:key="index"
+									class="rounded border bg-white p-3"
+								>
+									<div class="mb-3 text-sm font-medium text-gray-700">Swing {{ index + 1 }}</div>
+									<div class="grid grid-cols-2 gap-6">
+										<FormControl
+											type="number"
+											:label="`Swing ${index + 1} Days On Site`"
+											v-model="swing.days_on_site"
+											:disabled="!!props.shiftAssignmentName"
+										/>
+										<FormControl
+											type="number"
+											:label="`Swing ${index + 1} Days Off Site`"
+											v-model="swing.days_off_site"
+											:disabled="!!props.shiftAssignmentName"
+										/>
+									</div>
 								</div>
 							</div>
+
+							<div v-if="scheduleType === 'Repeat On Days'" class="space-y-1.5">
+								<div class="text-xs text-gray-600">Repeat On Days</div>
+								<div class="border rounded grid grid-flow-col h-7 justify-stretch overflow-clip">
+									<div
+										v-for="(isSelected, day) of repeatOnDays"
+										:key="day"
+										class="cursor-pointer flex flex-col"
+										:class="{
+											'border-r': day !== 'Sunday',
+											'bg-gray-100 text-gray-500': !isSelected,
+											'pointer-events-none': !!props.shiftAssignmentName,
+										}"
+										@click="repeatOnDays[day] = !repeatOnDays[day]"
+									>
+										<div class="text-center text-sm my-auto">
+											{{ day.substring(0, 3) }}
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<div
+								v-if="isRollingScheduleType"
+								:class="scheduleType === 'Rolling Day/Night Roster' ? 'col-span-3' : 'col-span-2'"
+								class="rounded border bg-gray-50 px-3 py-2 text-xs text-gray-600"
+							>
+								<template v-if="scheduleType === 'Rolling Roster' && includeFlyInFlyOut">
+									Rolling roster will create each swing using <b>FI</b> on the first day,
+									the selected Shift Type for the days in between, and <b>FO</b> on the final day.
+								</template>
+								<template v-else-if="scheduleType === 'Rolling Roster'">
+									Rolling roster will create each on-site swing using the selected Shift Type only.
+									FI and FO shifts will not be created.
+								</template>
+								<template v-else-if="scheduleType === 'Rolling Day/Night Roster' && includeFlyInFlyOut">
+									Rolling Day/Night roster will create <b>FI</b> on the first day,
+									then <b>DS</b>, then <b>NS</b>, and <b>FO</b> on the final day of each swing.
+								</template>
+								<template v-else-if="scheduleType === 'Rolling Day/Night Roster'">
+									Rolling Day/Night roster will create each swing using <b>DS</b> for the day-shift block
+									and <b>NS</b> for the night-shift block. FI and FO shifts will not be created.
+								</template>
+								<template v-else-if="includeFlyInFlyOut">
+									Dynamic rolling roster will cycle through each configured swing pattern. Each swing
+									will create <b>FI</b> on the first day, the selected Shift Type for the days in between,
+									and <b>FO</b> on the final day.
+								</template>
+								<template v-else>
+									Dynamic rolling roster will cycle through each configured swing pattern and create
+									each on-site day using the selected Shift Type only. FI and FO shifts will not be created.
+								</template>
+							</div>
 						</div>
 					</div>
+				</div>
 
-					<div
-						v-if="isRollingScheduleType"
-						:class="scheduleType === 'Rolling Day/Night Roster' ? 'col-span-3' : 'col-span-2'"
-						class="rounded border bg-gray-50 px-3 py-2 text-xs text-gray-600"
-					>
-						<template v-if="scheduleType === 'Rolling Roster' && includeFlyInFlyOut">
-							Rolling roster will create each swing using <b>FI</b> on the first day,
-							the selected Shift Type for the days in between, and <b>FO</b> on the final day.
-						</template>
-						<template v-else-if="scheduleType === 'Rolling Roster'">
-							Rolling roster will create each on-site swing using the selected Shift Type only.
-							FI and FO shifts will not be created.
-						</template>
-						<template v-else-if="scheduleType === 'Rolling Day/Night Roster' && includeFlyInFlyOut">
-							Rolling Day/Night roster will create <b>FI</b> on the first day,
-							then <b>DS</b>, then <b>NS</b>, and <b>FO</b> on the final day of each swing.
-						</template>
-						<template v-else-if="scheduleType === 'Rolling Day/Night Roster'">
-							Rolling Day/Night roster will create each swing using <b>DS</b> for the day-shift block
-							and <b>NS</b> for the night-shift block. FI and FO shifts will not be created.
-						</template>
-						<template v-else-if="includeFlyInFlyOut">
-							Dynamic rolling roster will cycle through each configured swing pattern. Each swing
-							will create <b>FI</b> on the first day, the selected Shift Type for the days in between,
-							and <b>FO</b> on the final day.
-						</template>
-						<template v-else>
-							Dynamic rolling roster will cycle through each configured swing pattern and create
-							each on-site day using the selected Shift Type only. FI and FO shifts will not be created.
-						</template>
+				<div class="border-t border-gray-200 bg-gray-50 px-6 py-4">
+					<div class="flex space-x-3 justify-end">
+						<Button size="md" variant="subtle" class="w-28" @click="closeDialog">
+							Cancel
+						</Button>
+						<Dropdown v-if="props.shiftAssignmentName" :options="actions">
+							<Button size="md" label="Delete" class="w-28 text-red-600" />
+						</Dropdown>
+						<Button
+							size="md"
+							variant="solid"
+							:disabled="dialog.actionDisabled"
+							class="w-28"
+							@click="dialog.action"
+						>
+							{{ dialog.button }}
+						</Button>
 					</div>
 				</div>
 			</div>
+		</div>
 
-			<Dialog
-				v-model="showDeleteDialog"
-				:options="{
-					title: deleteDialogOptions.title,
-					actions: [
-						{ label: 'Confirm', variant: 'solid', onClick: deleteDialogOptions.action },
-					],
-				}"
-			>
-				<template #body-content>
+		<div
+			v-if="dialogOpen && showDeleteDialog"
+			class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 px-4"
+			@click.self="showDeleteDialog = false"
+		>
+			<div class="w-full max-w-md overflow-hidden rounded-lg bg-white shadow-2xl" role="dialog" aria-modal="true" @click.stop>
+				<div class="border-b border-gray-200 px-5 py-4">
+					<h3 class="text-lg font-semibold text-gray-900">{{ deleteDialogOptions.title }}</h3>
+				</div>
+				<div class="px-5 py-4 text-sm text-gray-700">
 					<div v-html="deleteDialogOptions.message" />
-				</template>
-			</Dialog>
-		</template>
-
-		<template #actions>
-			<div class="flex space-x-3 justify-end">
-				<Dropdown v-if="props.shiftAssignmentName" :options="actions">
-					<Button size="md" label="Delete" class="w-28 text-red-600" />
-				</Dropdown>
-				<Button
-					size="md"
-					variant="solid"
-					:disabled="dialog.actionDisabled"
-					class="w-28"
-					@click="dialog.action"
-				>
-					{{ dialog.button }}
-				</Button>
+				</div>
+				<div class="flex justify-end gap-2 border-t border-gray-200 bg-gray-50 px-5 py-4">
+					<Button variant="subtle" @click="showDeleteDialog = false">Cancel</Button>
+					<Button variant="solid" @click="confirmDelete">Confirm</Button>
+				</div>
 			</div>
-		</template>
-	</Dialog>
+		</div>
+	</Teleport>
 </template>
 
 <script setup lang="ts">
 import { reactive, ref, computed, watch } from "vue";
 import {
-	DatePicker,
-	Dialog,
 	FormControl,
 	Dropdown,
 	Button,
@@ -322,6 +354,7 @@ type Form = {
 };
 
 interface Props {
+	modelValue?: boolean;
 	isDialogOpen: boolean;
 	shiftAssignmentName?: string;
 	selectedCell?: { employee: string; date: string };
@@ -329,7 +362,10 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), { employees: () => [] });
-const emit = defineEmits<{ (e: "fetchEvents"): void }>();
+const emit = defineEmits<{
+	(e: "update:modelValue", value: boolean): void;
+	(e: "fetchEvents"): void;
+}>();
 
 const formObject: Form = {
 	employee: "",
@@ -385,6 +421,22 @@ const deleteDialogOptions = ref<{ title: string; message: string; action: () => 
 	message: "",
 	action: () => {},
 });
+
+const dialogOpen = computed({
+	get: () => props.modelValue ?? props.isDialogOpen,
+	set: (value: boolean) => emit("update:modelValue", value),
+});
+
+const closeDialog = () => {
+	dialogOpen.value = false;
+	showDeleteDialog.value = false;
+};
+
+const confirmDelete = () => {
+	const action = deleteDialogOptions.value.action;
+	showDeleteDialog.value = false;
+	action();
+};
 
 const dialog = computed(() => {
 	if (props.shiftAssignmentName) {
@@ -466,7 +518,7 @@ const getId = (val: Selectish) => (val && typeof val === "object" ? (val as any)
 
 // --- Watchers
 watch(
-	() => props.isDialogOpen,
+	() => dialogOpen.value,
 	(val) => {
 		if (!val) return;
 		showDeleteDialog.value = false;

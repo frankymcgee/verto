@@ -1,6 +1,36 @@
 <template>
-  <Dialog v-model="dialogOpen" :options="{ title: 'Create Project', size: '4xl' }">
-    <template #body-content>
+  <Teleport to="body">
+    <div
+      v-if="dialogOpen"
+      class="fixed inset-0 z-[9998] bg-black/50"
+      @click.self="closeDialog"
+    />
+
+    <div
+      v-if="dialogOpen"
+      class="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto px-4 py-10"
+      @click.self="closeDialog"
+    >
+      <div
+        class="w-full max-w-5xl overflow-hidden rounded-lg bg-white shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Create Project"
+        @click.stop
+      >
+        <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <h2 class="text-xl font-semibold text-gray-900">Create Project</h2>
+          <button
+            type="button"
+            class="rounded-md p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+            aria-label="Close"
+            @click="closeDialog"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="max-h-[calc(100vh-13rem)] overflow-y-auto px-6 py-5">
       <div v-if="projectMeta.loading" class="py-8 text-center text-sm text-gray-500">
         Loading Project fields...
       </div>
@@ -83,9 +113,9 @@
           </template>
         </div>
       </div>
-    </template>
+        </div>
 
-    <template #actions>
+        <div class="border-t border-gray-200 bg-gray-50 px-6 py-4">
       <div class="flex items-center justify-end gap-2">
         <Button variant="subtle" @click="closeDialog">Cancel</Button>
         <Button
@@ -96,13 +126,15 @@
           Create Project
         </Button>
       </div>
-    </template>
-  </Dialog>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
-import { Button, Dialog, createResource } from 'frappe-ui'
+import { Button, createResource } from 'frappe-ui'
 import { raiseToast } from '../utils'
 
 type ProjectField = {
