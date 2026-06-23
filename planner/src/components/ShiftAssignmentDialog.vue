@@ -283,9 +283,30 @@
 						<Button size="md" variant="subtle" class="w-28" @click="closeDialog">
 							Cancel
 						</Button>
-						<Dropdown v-if="props.shiftAssignmentName" :options="actions">
-							<Button size="md" label="Delete" class="w-28 text-red-600" />
-						</Dropdown>
+						<div v-if="props.shiftAssignmentName" class="relative">
+							<Button
+								size="md"
+								label="Delete"
+								class="w-28 text-red-600"
+								@click.stop="showDeleteMenu = !showDeleteMenu"
+							/>
+
+							<div
+								v-if="showDeleteMenu"
+								class="absolute bottom-full right-0 z-[10050] mb-2 w-64 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-2xl ring-1 ring-black/5"
+								@click.stop
+							>
+								<button
+									v-for="option in actions"
+									:key="option.label"
+									type="button"
+									class="block w-full px-3 py-2 text-left text-gray-700 transition hover:bg-gray-50 hover:text-gray-900"
+									@click="runDeleteOption(option)"
+								>
+									{{ option.label }}
+								</button>
+							</div>
+						</div>
 						<Button
 							size="md"
 							variant="solid"
@@ -325,7 +346,6 @@
 import { reactive, ref, computed, watch } from "vue";
 import {
 	FormControl,
-	Dropdown,
 	Button,
 	createDocumentResource,
 	createResource,
@@ -416,6 +436,7 @@ const visibleDynamicRollingSwings = computed(() => {
 	return dynamicRollingRoster.swings.slice(0, count);
 });
 const showDeleteDialog = ref(false);
+const showDeleteMenu = ref(false);
 const deleteDialogOptions = ref<{ title: string; message: string; action: () => void }>({
 	title: "",
 	message: "",
@@ -430,12 +451,19 @@ const dialogOpen = computed({
 const closeDialog = () => {
 	dialogOpen.value = false;
 	showDeleteDialog.value = false;
+	showDeleteMenu.value = false;
 };
 
 const confirmDelete = () => {
 	const action = deleteDialogOptions.value.action;
 	showDeleteDialog.value = false;
+	showDeleteMenu.value = false;
 	action();
+};
+
+const runDeleteOption = (option: { onClick?: () => void }) => {
+	showDeleteMenu.value = false;
+	option.onClick?.();
 };
 
 const dialog = computed(() => {

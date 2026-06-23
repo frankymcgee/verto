@@ -259,18 +259,28 @@
                       <FeatherIcon :name="segment.poEntered ? 'check-circle' : 'x-circle'" class="year-project-inline-icon" />
                     </span>
 
-                    <span class="year-project-request-group" title="# DS Requested">
+                    <span class="year-project-request-group" :title="projectPersonnelCountTitle(segment, 'ds')">
                       <span class="year-project-request year-project-request-ds">
                         <FeatherIcon name="sun" class="year-project-request-icon" />
                       </span>
-                      <span class="year-project-request-count">{{ segment.dsRequested || 0 }}</span>
+                      <span
+                        class="year-project-request-count"
+                        :class="projectPersonnelCountClass(segment, 'ds')"
+                      >
+                        {{ segment.dsRequested || 0 }}
+                      </span>
                     </span>
 
-                    <span class="year-project-request-group" title="# NS Requested">
+                    <span class="year-project-request-group" :title="projectPersonnelCountTitle(segment, 'ns')">
                       <span class="year-project-request year-project-request-ns">
                         <FeatherIcon name="moon" class="year-project-request-icon" />
                       </span>
-                      <span class="year-project-request-count">{{ segment.nsRequested || 0 }}</span>
+                      <span
+                        class="year-project-request-count"
+                        :class="projectPersonnelCountClass(segment, 'ns')"
+                      >
+                        {{ segment.nsRequested || 0 }}
+                      </span>
                     </span>
                   </div>
                 </div>
@@ -1058,6 +1068,34 @@ function projectPersonnelSummary(personnel?: string[]) {
   return people.length ? people.join(', ') : 'None'
 }
 
+function projectPersonnelCount(personnel?: string[]) {
+  return Array.from(new Set((personnel || []).filter(Boolean))).length
+}
+
+function projectPersonnelCountMismatch(segment: ProjectSegment, type: 'ds' | 'ns') {
+  if (!segment.active) return false
+
+  const requested = Number(type === 'ds' ? segment.dsRequested || 0 : segment.nsRequested || 0)
+  const allocated = Number(type === 'ds' ? segment.dsAllocated || 0 : segment.nsAllocated || 0)
+
+  return requested !== allocated
+}
+
+function projectPersonnelCountClass(segment: ProjectSegment, type: 'ds' | 'ns') {
+  return {
+    'year-project-request-count-mismatch': projectPersonnelCountMismatch(segment, type),
+  }
+}
+
+function projectPersonnelCountTitle(segment: ProjectSegment, type: 'ds' | 'ns') {
+  const label = type === 'ds' ? 'DS' : 'NS'
+  const requested = Number(type === 'ds' ? segment.dsRequested || 0 : segment.nsRequested || 0)
+  const allocated = Number(type === 'ds' ? segment.dsAllocated || 0 : segment.nsAllocated || 0)
+  const status = requested === allocated ? 'Matched' : 'Mismatch'
+
+  return `${label} Requested: ${requested} | ${label} Allocated: ${allocated} | ${status}`
+}
+
 function projectHasGantt(project?: ProjectRow | null) {
   return project ? projectTaskCount(project) > 0 : false
 }
@@ -1097,6 +1135,8 @@ type ProjectSpan = {
   poEntered: boolean
   dsRequested: number
   nsRequested: number
+  dsAllocated: number
+  nsAllocated: number
   isActive: boolean
 }
 
@@ -1117,6 +1157,8 @@ type ProjectSegment = {
   poEntered?: boolean
   dsRequested?: number
   nsRequested?: number
+  dsAllocated?: number
+  nsAllocated?: number
   isActive?: boolean
 }
 
@@ -1163,6 +1205,8 @@ const projectSpans = computed<Record<string, ProjectSpan>>(() => {
       poEntered: project.po_entered !== false,
       dsRequested: Number(project.ds_requested || 0),
       nsRequested: Number(project.ns_requested || 0),
+      dsAllocated: projectPersonnelCount(project.ds_personnel),
+      nsAllocated: projectPersonnelCount(project.ns_personnel),
       isActive: projectActiveValue(project),
     }
   }
@@ -1187,7 +1231,9 @@ function projectSpanTitle(project: ProjectRow, span: ProjectSpan) {
     `${dayjs(span.start).format('DD MMM YYYY')} - ${dayjs(span.end).format('DD MMM YYYY')}`,
     span.poEntered ? 'PO Entered' : 'PO Missing',
     `${span.dsRequested || 0} DS Requested`,
+    `${span.dsAllocated || 0} DS Allocated`,
     `${span.nsRequested || 0} NS Requested`,
+    `${span.nsAllocated || 0} NS Allocated`,
   ].filter(Boolean).join(' | ')
 }
 
@@ -1339,6 +1385,8 @@ function projectLaneSegments(lane: ProjectLane): ProjectSegment[] {
         poEntered: span.poEntered,
         dsRequested: span.dsRequested,
         nsRequested: span.nsRequested,
+        dsAllocated: span.dsAllocated,
+        nsAllocated: span.nsAllocated,
         isActive: span.isActive,
       })
       index += span.days - 1
@@ -2681,7 +2729,9 @@ function showProjectHover(project: ProjectRow, segment: ProjectSegment, event: M
         { label: 'Shifts Filled', value: projectShiftsFilledValue(project.shifts_filled) === true ? 'Yes' : 'No' },
         { label: 'Date Range', value: segment.subline },
         { label: 'DS Requested', value: segment.dsRequested || 0 },
+        { label: 'DS Allocated', value: segment.dsAllocated || 0 },
         { label: 'NS Requested', value: segment.nsRequested || 0 },
+        { label: 'NS Allocated', value: segment.nsAllocated || 0 },
         { label: 'DS Personnel', value: projectPersonnelSummary(project.ds_personnel) },
         { label: 'NS Personnel', value: projectPersonnelSummary(project.ns_personnel) },
       ],
@@ -3601,6 +3651,14 @@ defineExpose({ events, scrollToToday })
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
+}
+
+.year-project-request-count-mismatch {
+  color: rgb(220 38 38) !important;
+  font-weight: 900;
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
 }
 
 .year-cell:hover {
