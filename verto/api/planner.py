@@ -358,6 +358,171 @@ def create_planner_event(values: dict | str | None = None) -> dict:
 	}
 
 
+PROJECT_UNSUPPORTED_CREATE_FIELD_TYPES = {
+	"Table",
+	"Table MultiSelect",
+	"HTML",
+	"Button",
+	"Image",
+	"Fold",
+	"Geolocation",
+	"Signature",
+}
+
+PROJECT_CREATE_ALLOWED_FIELD_TYPES = {
+	"Attach",
+	"Attach Image",
+	"Check",
+	"Code",
+	"Color",
+	"Currency",
+	"Data",
+	"Date",
+	"Datetime",
+	"Dynamic Link",
+	"Float",
+	"Int",
+	"Link",
+	"Long Text",
+	"Percent",
+	"Password",
+	"Phone",
+	"Rating",
+	"Select",
+	"Small Text",
+	"Text",
+	"Text Editor",
+	"Time",
+}
+
+
+def _project_create_field_to_dict(df) -> dict:
+	return {
+		"fieldname": df.fieldname,
+		"fieldtype": df.fieldtype,
+		"label": df.label,
+		"options": df.options,
+		"reqd": df.reqd,
+		"default": df.default,
+		"depends_on": df.depends_on,
+		"description": df.description,
+		"read_only": df.read_only,
+		"hidden": df.hidden,
+		"unsupported": df.fieldtype in PROJECT_UNSUPPORTED_CREATE_FIELD_TYPES,
+	}
+
+
+@frappe.whitelist()
+def get_project_create_meta() -> dict:
+	"""Return Project fields so the Planner create dialog can build dynamically."""
+	if not frappe.has_permission("Project", ptype="create"):
+		frappe.throw(_("You do not have permission to create Projects."), frappe.PermissionError)
+
+	meta = frappe.get_meta("Project")
+	fields = []
+
+	for df in meta.fields:
+		if not df.fieldtype:
+			continue
+
+		if df.hidden:
+			continue
+
+		# Keep layout fields so the dialog follows the Project DocType structure, but
+		# skip read-only data fields that cannot be saved from the planner.
+		if df.fieldtype not in EVENT_LAYOUT_FIELD_TYPES and df.read_only:
+			continue
+
+		fields.append(_project_create_field_to_dict(df))
+
+	return {
+		"doctype": "Project",
+		"title": meta.get("title_field") or "project_name",
+		"fields": fields,
+	}
+
+
+def _project_create_fields_by_name() -> dict:
+	meta = frappe.get_meta("Project")
+	return {
+		df.fieldname: df
+		for df in meta.fields
+		if df.fieldname
+		and not df.hidden
+		and not df.read_only
+		and df.fieldtype in PROJECT_CREATE_ALLOWED_FIELD_TYPES
+	}
+
+
+def _normalise_project_create_value(df, value):
+	if value == "":
+		return None
+
+	fieldtype = df.fieldtype
+
+	if fieldtype == "Check":
+		return 1 if _as_bool(value, default=False) else 0
+	if fieldtype == "Int":
+		return int(value or 0)
+	if fieldtype in ("Float", "Currency", "Percent", "Rating"):
+		return float(value or 0)
+	if fieldtype == "Datetime":
+		return _normalise_event_datetime(value)
+	if fieldtype == "Date":
+		return str(getdate(value)) if value else None
+
+	return value
+
+
+def _apply_project_create_defaults(values: dict, allowed_fields: dict) -> None:
+	"""Apply safe Project defaults only when the field exists and the user left it blank."""
+	if "status" in allowed_fields and not values.get("status"):
+		values["status"] = "Open"
+
+	if "is_active" in allowed_fields and values.get("is_active") in (None, ""):
+		is_active_df = allowed_fields["is_active"]
+		values["is_active"] = 1 if is_active_df.fieldtype == "Check" else "Yes"
+
+	if "percent_complete_method" in allowed_fields and not values.get("percent_complete_method"):
+		values["percent_complete_method"] = "Task Completion"
+
+	# Project uses naming_series autoname on many ERPNext sites. If the field is
+	# editable and has a default in the DocType, keep creation friction-free.
+	if "naming_series" in allowed_fields and not values.get("naming_series"):
+		default_series = allowed_fields["naming_series"].default
+		if default_series:
+			values["naming_series"] = default_series
+
+
+@frappe.whitelist()
+def create_planner_project(values: dict | str | None = None) -> dict:
+	"""Create a Project from the dynamically generated Planner Project dialog."""
+	if not frappe.has_permission("Project", ptype="create"):
+		frappe.throw(_("You do not have permission to create Projects."), frappe.PermissionError)
+
+	values = frappe.parse_json(values) if isinstance(values, str) else (values or {})
+	if not isinstance(values, dict):
+		frappe.throw(_("Invalid Project values."))
+
+	allowed_fields = _project_create_fields_by_name()
+	_apply_project_create_defaults(values, allowed_fields)
+
+	doc = frappe.new_doc("Project")
+
+	for fieldname, value in values.items():
+		df = allowed_fields.get(fieldname)
+		if not df:
+			continue
+		doc.set(fieldname, _normalise_project_create_value(df, value))
+
+	doc.insert()
+
+	return {
+		"name": doc.name,
+		"project_name": doc.get("project_name") or doc.name,
+	}
+
+
 @frappe.whitelist()
 def get_events(
 	month_start: str, month_end: str, employee_filters: dict[str, str], shift_filters: dict[str, str]
