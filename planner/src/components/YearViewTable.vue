@@ -26,11 +26,12 @@
           />
 
           <table
-            class="year-roster-table border-separate border-spacing-0"
+            class="year-roster-table year-project-table border-separate border-spacing-0"
             :class="[
               projectBirdsEye && 'year-project-birds-eye-table',
               projectBirdsEyeHideMeta && 'year-project-birds-eye-hide-meta',
               projectBirdsEyeTiny && 'year-project-birds-eye-tiny',
+              projectBirdsEyeMicro && 'year-project-birds-eye-micro',
             ]"
             :style="projectTableCssVars"
           >
@@ -312,7 +313,7 @@
             aria-hidden="true"
           />
 
-          <table class="year-roster-table border-separate border-spacing-0">
+          <table class="year-roster-table year-employee-table border-separate border-spacing-0">
             <colgroup>
               <col class="year-left-colgroup" />
               <col v-for="day in daysOfYear" :key="`employee-col-${day.date}`" class="year-day-colgroup" />
@@ -1371,6 +1372,10 @@ function toggleProjectCollapsed() {
   }
 
   projectCollapsed.value = !projectCollapsed.value
+
+  if (projectBirdsEye.value) {
+    projectTableHeight.value = null
+  }
 }
 
 function toggleEmployeeCollapsed() {
@@ -1380,6 +1385,13 @@ function toggleEmployeeCollapsed() {
   }
 
   employeeCollapsed.value = !employeeCollapsed.value
+
+  // Birds eye relies on the rendered project table height. When the employee
+  // section is hidden/shown, reset any manual split height so the project table
+  // returns to the correct available height and the employee table remains visible.
+  if (projectBirdsEye.value) {
+    projectTableHeight.value = null
+  }
 }
 
 const sectionGap = 0
@@ -1433,7 +1445,12 @@ const projectBirdsEyeRowHeight = computed(() => {
   if (!projectBirdsEye.value || projectCollapsed.value) return PROJECT_TABLE_ROW_HEIGHT
 
   const fittedHeight = projectBirdsEyeBodyHeight.value / projectVisibleRowCount.value
-  return Math.min(PROJECT_TABLE_ROW_HEIGHT, Math.max(1, fittedHeight))
+
+  // Birds eye mode must fit every visible project row into the available project
+  // body height. Do not clamp this to a visible minimum; fractional pixel heights
+  // are fine and prevent the table from clipping projects when there are a lot
+  // of project lanes in the current view.
+  return Math.min(PROJECT_TABLE_ROW_HEIGHT, fittedHeight)
 })
 
 const projectBirdsEyeHideMeta = computed(() => {
@@ -1444,8 +1461,14 @@ const projectBirdsEyeTiny = computed(() => {
   return projectBirdsEye.value && !projectCollapsed.value && projectBirdsEyeRowHeight.value < 16
 })
 
+const projectBirdsEyeMicro = computed(() => {
+  return projectBirdsEye.value && !projectCollapsed.value && projectBirdsEyeRowHeight.value < 8
+})
+
 const projectBirdsEyeScale = computed(() => {
   if (!projectBirdsEye.value) return 1
+  if (projectBirdsEyeRowHeight.value < 4) return 0.18
+  if (projectBirdsEyeRowHeight.value < 8) return 0.34
   if (projectBirdsEyeRowHeight.value < 10) return 0.46
   if (projectBirdsEyeRowHeight.value < 14) return 0.56
   if (projectBirdsEyeRowHeight.value < 18) return 0.68
@@ -3142,22 +3165,51 @@ defineExpose({ events, scrollToToday })
 
 .year-left-header {
   top: 0;
-  height: 52px;
+  height: var(--year-left-header-height, 52px) !important;
+  min-height: var(--year-left-header-height, 52px) !important;
+  max-height: var(--year-left-header-height, 52px) !important;
   z-index: 20;
+}
+
+.year-project-table {
+  --year-left-header-height: 112px;
+  --year-month-header-height: 56px;
+  --year-day-header-height: 56px;
+}
+
+.year-employee-table {
+  --year-left-header-height: 86px;
+  --year-month-header-height: 43px;
+  --year-day-header-height: 43px;
 }
 
 .year-month-header {
   position: sticky;
   top: 0;
   z-index: 6;
-  height: 24px;
+  height: var(--year-month-header-height, 24px) !important;
+  min-height: var(--year-month-header-height, 24px) !important;
+  max-height: var(--year-month-header-height, 24px) !important;
+  line-height: 1 !important;
+  vertical-align: middle;
 }
 
 .year-day-header {
   position: sticky;
-  top: 24px;
+  top: var(--year-month-header-height, 24px);
   z-index: 6;
-  height: 28px;
+  height: var(--year-day-header-height, 28px) !important;
+  min-height: var(--year-day-header-height, 28px) !important;
+  max-height: var(--year-day-header-height, 28px) !important;
+  line-height: 1 !important;
+  vertical-align: middle;
+}
+
+.year-month-header,
+.year-day-header {
+  box-sizing: border-box;
+  overflow: hidden;
+  background-clip: padding-box;
 }
 
 .year-day-marker {
@@ -3320,10 +3372,20 @@ defineExpose({ events, scrollToToday })
   overflow-y: hidden !important;
 }
 
-.year-project-birds-eye-table .year-project-row td {
+.year-project-birds-eye-table .year-project-row {
   height: var(--year-project-row-height, 36px) !important;
+  max-height: var(--year-project-row-height, 36px) !important;
+}
+
+.year-project-birds-eye-table tbody .year-project-row td {
+  height: var(--year-project-row-height, 36px) !important;
+  max-height: var(--year-project-row-height, 36px) !important;
   min-height: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
   overflow: hidden;
+  border-bottom-width: 0 !important;
+  box-sizing: border-box;
 }
 
 .year-project-birds-eye-table .year-project-row .year-left-col > div {
@@ -3385,6 +3447,27 @@ defineExpose({ events, scrollToToday })
 
 .year-project-birds-eye-tiny .year-project-span-drag-handle {
   width: 4px;
+}
+
+
+.year-project-birds-eye-micro .year-project-row td {
+  font-size: 0 !important;
+  line-height: 0 !important;
+}
+
+.year-project-birds-eye-micro .year-project-row .year-left-col > div,
+.year-project-birds-eye-micro .year-project-span-content {
+  display: none !important;
+}
+
+.year-project-birds-eye-micro .year-project-span {
+  padding: 0 !important;
+  border-radius: 1px;
+}
+
+.year-project-birds-eye-micro .year-project-cell,
+.year-project-birds-eye-micro .year-left-col {
+  vertical-align: top !important;
 }
 
 .year-project-span {
@@ -3544,7 +3627,9 @@ defineExpose({ events, scrollToToday })
 }
 
 .year-employee-search-header {
-  height: 86px;
+  height: var(--year-left-header-height, 86px) !important;
+  min-height: var(--year-left-header-height, 86px) !important;
+  max-height: var(--year-left-header-height, 86px) !important;
   vertical-align: top;
 }
 
@@ -3666,7 +3751,9 @@ defineExpose({ events, scrollToToday })
 }
 
 .year-project-legend-header {
-  height: 112px;
+  height: var(--year-left-header-height, 112px) !important;
+  min-height: var(--year-left-header-height, 112px) !important;
+  max-height: var(--year-left-header-height, 112px) !important;
   vertical-align: top;
 }
 
