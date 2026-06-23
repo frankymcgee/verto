@@ -1437,6 +1437,272 @@ def _safe_int(value) -> int:
 		return 0
 
 
+PROJECT_PO_NUMBER_FIELD_CANDIDATES = [
+	"custom_po_number",
+	"custom_purchase_order_number",
+	"custom_purchase_order",
+	"purchase_order_number",
+	"purchase_order",
+	"po_number",
+	"po_no",
+]
+
+PROJECT_PO_ENTERED_FIELD_CANDIDATES = [
+	"custom_po_entered",
+	"custom_purchase_order_entered",
+]
+
+PROJECT_DS_REQUESTED_FIELD_CANDIDATES = [
+	"ds_number",
+	"custom_ds_number",
+	"custom_ds_requested",
+	"custom_day_shift_requested",
+	"custom_day_shifts_requested",
+	"ds_requested",
+	"day_shift_requested",
+	"day_shifts_requested",
+]
+
+PROJECT_NS_REQUESTED_FIELD_CANDIDATES = [
+	"ns_number",
+	"custom_ns_number",
+	"custom_ns_requested",
+	"custom_night_shift_requested",
+	"custom_night_shifts_requested",
+	"ns_requested",
+	"night_shift_requested",
+	"night_shifts_requested",
+]
+
+PROJECT_START_DATE_FIELD_CANDIDATES = [
+	"expected_start_date",
+	"custom_expected_start_date",
+	"start_date",
+	"custom_start_date",
+	"planned_start_date",
+	"custom_planned_start_date",
+]
+
+PROJECT_END_DATE_FIELD_CANDIDATES = [
+	"expected_end_date",
+	"custom_expected_end_date",
+	"end_date",
+	"custom_end_date",
+	"planned_end_date",
+	"custom_planned_end_date",
+]
+
+
+def _project_meta_fieldtype(fieldname: str | None) -> str | None:
+	if not fieldname:
+		return None
+	try:
+		field = frappe.get_meta("Project").get_field(fieldname)
+	except Exception:
+		return None
+	return field.fieldtype if field else None
+
+
+def _project_planner_edit_fields() -> dict[str, str | None]:
+	po_number_field = _first_existing_project_field(PROJECT_PO_NUMBER_FIELD_CANDIDATES)
+	po_entered_field = _first_existing_project_field(PROJECT_PO_ENTERED_FIELD_CANDIDATES)
+	po_field = po_number_field or po_entered_field
+
+	return {
+		"po_field": po_field,
+		"po_fieldtype": _project_meta_fieldtype(po_field),
+		"po_number_field": po_number_field,
+		"po_entered_field": po_entered_field,
+		"ds_field": _first_existing_project_field(PROJECT_DS_REQUESTED_FIELD_CANDIDATES),
+		"ns_field": _first_existing_project_field(PROJECT_NS_REQUESTED_FIELD_CANDIDATES),
+		"is_active_field": _first_existing_project_field(["is_active"]),
+		"start_date_field": _first_existing_project_field(PROJECT_START_DATE_FIELD_CANDIDATES),
+		"end_date_field": _first_existing_project_field(PROJECT_END_DATE_FIELD_CANDIDATES),
+	}
+
+
+def _personnel_list(value) -> list[str]:
+	if not value:
+		return []
+	if isinstance(value, str):
+		return [item.strip() for item in value.split(",") if item.strip()]
+	try:
+		return [str(item).strip() for item in value if str(item).strip()]
+	except TypeError:
+		return []
+
+
+def _normalise_project_date_for_update(value):
+	if value in (None, ""):
+		return None
+	return _to_date_str(value)
+
+
+def _project_date_values_changed(doc, start_field: str | None, end_field: str | None, start_date, end_date) -> bool:
+	if not start_field or not end_field:
+		return False
+
+	current_start = _normalise_project_date_for_update(doc.get(start_field))
+	current_end = _normalise_project_date_for_update(doc.get(end_field))
+	incoming_start = _normalise_project_date_for_update(start_date)
+	incoming_end = _normalise_project_date_for_update(end_date)
+
+	return current_start != incoming_start or current_end != incoming_end
+
+
+def _validate_project_date_range(start_date, end_date) -> None:
+	if start_date and end_date and getdate(start_date) > getdate(end_date):
+		frappe.throw(_("Project Start Date cannot be after Project End Date."))
+
+
+@frappe.whitelist()
+def get_project_planner_details(project: str) -> dict:
+	"""Return editable annual-planner details for a Project span dialog."""
+	if not project:
+		frappe.throw(_("Project is required"))
+
+	doc = frappe.get_doc("Project", project)
+	fields = _project_planner_edit_fields()
+	po_field = fields.get("po_field")
+	po_fieldtype = fields.get("po_fieldtype")
+	ds_field = fields.get("ds_field")
+	ns_field = fields.get("ns_field")
+	is_active_field = fields.get("is_active_field")
+	start_date_field = fields.get("start_date_field")
+	end_date_field = fields.get("end_date_field")
+	task_count = get_project_task_counts([project]).get(project, 0)
+	has_tasks = task_count > 0
+
+	po_value = doc.get(po_field) if po_field else None
+	is_po_check = po_fieldtype == "Check"
+
+	return {
+		"project": doc.name,
+		"project_name": doc.project_name,
+		"customer": doc.get("customer") if doc.meta.has_field("customer") else None,
+		"custom_project_location": doc.get("custom_project_location") if doc.meta.has_field("custom_project_location") else None,
+		"status": doc.status,
+		"po_field": po_field,
+		"po_fieldtype": po_fieldtype,
+		"po_number": "" if is_po_check or po_value is None else str(po_value),
+		"po_entered": _truthy_project_value(po_value) if po_field else True,
+		"ds_field": ds_field,
+		"ds_requested": _safe_int(doc.get(ds_field)) if ds_field else 0,
+		"ns_field": ns_field,
+		"ns_requested": _safe_int(doc.get(ns_field)) if ns_field else 0,
+		"is_active_field": is_active_field,
+		"is_active": True if not is_active_field else _truthy_project_value(doc.get(is_active_field)),
+		"start_date_field": start_date_field,
+		"end_date_field": end_date_field,
+		"project_start_date": _normalise_project_date_for_update(doc.get(start_date_field)) if start_date_field else None,
+		"project_end_date": _normalise_project_date_for_update(doc.get(end_date_field)) if end_date_field else None,
+		"task_count": task_count,
+		"has_tasks": has_tasks,
+		"can_update_po": bool(po_field),
+		"can_update_ds": bool(ds_field),
+		"can_update_ns": bool(ns_field),
+		"can_update_is_active": bool(is_active_field),
+		"can_update_project_dates": bool(start_date_field and end_date_field) and not has_tasks,
+	}
+
+
+@frappe.whitelist()
+def update_project_planner_details(
+	project: str,
+	po_number: str | None = None,
+	po_entered: bool | int | str | None = None,
+	ds_requested: int | str | None = None,
+	ns_requested: int | str | None = None,
+	is_active: bool | int | str | None = None,
+	project_start_date: str | None = None,
+	project_end_date: str | None = None,
+) -> dict:
+	"""Update the Project fields exposed by the annual project span dialog."""
+	if not project:
+		frappe.throw(_("Project is required"))
+
+	doc = frappe.get_doc("Project", project)
+	fields = _project_planner_edit_fields()
+
+	po_field = fields.get("po_field")
+	po_fieldtype = fields.get("po_fieldtype")
+	if po_field:
+		if po_fieldtype == "Check":
+			doc.set(po_field, 1 if _as_bool(po_entered, default=False) else 0)
+		else:
+			doc.set(po_field, (po_number or "").strip())
+
+	ds_field = fields.get("ds_field")
+	if ds_field:
+		doc.set(ds_field, _safe_int(ds_requested))
+
+	ns_field = fields.get("ns_field")
+	if ns_field:
+		doc.set(ns_field, _safe_int(ns_requested))
+
+	is_active_field = fields.get("is_active_field")
+	if is_active_field:
+		is_active_value = _as_bool(is_active, default=True)
+		is_active_fieldtype = _project_meta_fieldtype(is_active_field)
+		doc.set(is_active_field, 1 if is_active_fieldtype == "Check" and is_active_value else (0 if is_active_fieldtype == "Check" else ("Yes" if is_active_value else "No")))
+
+	start_date_field = fields.get("start_date_field")
+	end_date_field = fields.get("end_date_field")
+	if start_date_field or end_date_field:
+		if not start_date_field or not end_date_field:
+			frappe.throw(_("Project date fields are not fully configured on this site."))
+
+		start_date = _normalise_project_date_for_update(project_start_date)
+		end_date = _normalise_project_date_for_update(project_end_date)
+		_validate_project_date_range(start_date, end_date)
+
+		if _project_date_values_changed(doc, start_date_field, end_date_field, start_date, end_date):
+			task_count = get_project_task_counts([project]).get(project, 0)
+			if task_count:
+				frappe.throw(_("Project dates cannot be changed because this project already has {0} task(s) assigned.").format(task_count))
+
+			doc.set(start_date_field, start_date)
+			doc.set(end_date_field, end_date)
+
+	doc.save()
+	return get_project_planner_details(project)
+
+
+@frappe.whitelist()
+def update_project_planner_dates(
+	project: str,
+	project_start_date: str | None = None,
+	project_end_date: str | None = None,
+) -> dict:
+	"""Update only the Project date range used by the annual planner span drag/resize."""
+	if not project:
+		frappe.throw(_("Project is required"))
+
+	fields = _project_planner_edit_fields()
+	start_date_field = fields.get("start_date_field")
+	end_date_field = fields.get("end_date_field")
+
+	if not start_date_field or not end_date_field:
+		frappe.throw(_("Project date fields are not fully configured on this site."))
+
+	start_date = _normalise_project_date_for_update(project_start_date)
+	end_date = _normalise_project_date_for_update(project_end_date)
+	_validate_project_date_range(start_date, end_date)
+
+	doc = frappe.get_doc("Project", project)
+
+	if _project_date_values_changed(doc, start_date_field, end_date_field, start_date, end_date):
+		task_count = get_project_task_counts([project]).get(project, 0)
+		if task_count:
+			frappe.throw(_("Project has tasks assigned, so project dates cannot be changed."))
+
+		doc.set(start_date_field, start_date)
+		doc.set(end_date_field, end_date)
+		doc.save()
+
+	return get_project_planner_details(project)
+
+
 def get_project_task_counts(project_names: set[str] | list[str] | tuple[str, ...]) -> dict[str, int]:
 	project_names = sorted({project for project in project_names if project})
 	if not project_names:
@@ -1582,22 +1848,8 @@ def get_active_project_meta(
 	roster_or_shutdown_field = _first_existing_project_field(["roster_or_shutdown"])
 	shifts_filled_field = _first_existing_project_field(["shifts_filled"])
 	is_active_field = _first_existing_project_field(["is_active"])
-	start_field = _project_date_field([
-		"expected_start_date",
-		"custom_expected_start_date",
-		"start_date",
-		"custom_start_date",
-		"planned_start_date",
-		"custom_planned_start_date",
-	])
-	end_field = _project_date_field([
-		"expected_end_date",
-		"custom_expected_end_date",
-		"end_date",
-		"custom_end_date",
-		"planned_end_date",
-		"custom_planned_end_date",
-	])
+	start_field = _project_date_field(PROJECT_START_DATE_FIELD_CANDIDATES)
+	end_field = _project_date_field(PROJECT_END_DATE_FIELD_CANDIDATES)
 
 	optional_fields = [
 		field

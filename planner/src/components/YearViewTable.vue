@@ -4,6 +4,7 @@
     :class="[
       loading && 'animate-pulse pointer-events-none',
       showShiftAssignmentDialog && 'year-dialog-open',
+      showProjectSpanDialog && 'year-dialog-open',
     ]"
     :style="maxHeightPx ? { height: maxHeightPx + 'px' } : {}"
   >
@@ -180,14 +181,35 @@
                 :key="segment.key"
                 class="year-cell year-project-cell border-b border-r text-center"
                 :class="projectSegmentClass(segment)"
-                :style="projectSegmentStyle(segment)"
+                :style="[projectSegmentStyle(segment), projectSegmentDragStyle(segment)]"
                 :aria-label="segment.title"
                 :colspan="segment.days"
                 @mouseenter="segment.project ? showProjectHover(segment.project, segment, $event) : scheduleClearHoverCard()"
                 @mousemove="moveHoverCard"
                 @mouseleave="() => scheduleClearHoverCard()"
+                @pointerdown="onProjectSegmentPointerDown(segment, $event)"
+                @click="onProjectSegmentClick(segment, $event)"
               >
-                <div v-if="segment.active" class="year-project-span-content">
+                <div
+                  v-if="segment.active"
+                  class="year-project-span-content"
+                  :style="projectSegmentContentDragStyle(segment)"
+                >
+                  <button
+                    type="button"
+                    class="year-project-span-drag-handle year-project-span-drag-start"
+                    title="Adjust project start date"
+                    aria-label="Adjust project start date"
+                    @pointerdown.stop.prevent="startProjectSpanDrag(segment, 'resize-start', $event)"
+                  />
+                  <button
+                    type="button"
+                    class="year-project-span-drag-handle year-project-span-drag-end"
+                    title="Adjust project end date"
+                    aria-label="Adjust project end date"
+                    @pointerdown.stop.prevent="startProjectSpanDrag(segment, 'resize-end', $event)"
+                  />
+
                   <div class="year-project-span-title-row">
                     <span class="year-project-span-name truncate">
                       {{ segment.label }}
@@ -465,6 +487,16 @@
       showShiftAssignmentDialog = false;
     "
   />
+
+  <ProjectSpanDialog
+    v-model="showProjectSpanDialog"
+    :isDialogOpen="showProjectSpanDialog"
+    :project="selectedProjectSpan"
+    @fetchEvents="
+      events.fetch();
+      showProjectSpanDialog = false;
+    "
+  />
 </template>
 
 <script setup lang="ts">
@@ -476,6 +508,7 @@ import type { Dayjs } from 'dayjs'
 import { dayjs, raiseToast } from '../utils'
 import type { EmployeeFilters, ShiftFilters } from '../views/MonthView.vue'
 import ShiftAssignmentDialog from './ShiftAssignmentDialog.vue'
+import ProjectSpanDialog from './ProjectSpanDialog.vue'
 
 type Color =
   | 'blue'
@@ -622,6 +655,8 @@ const employeeCollapsed = ref(false)
 const projectTypeFilter = ref<'all' | 'roster' | 'shutdown'>('all')
 const shiftAssignment = ref<string>('')
 const showShiftAssignmentDialog = ref(false)
+const showProjectSpanDialog = ref(false)
+const selectedProjectSpan = ref<ProjectRow | null>(null)
 const selectedCell = ref<{ employee: string; date: string }>({ employee: '', date: '' })
 
 type DraggedShift = {
@@ -706,6 +741,29 @@ const EMPLOYEE_TABLE_MIN_HEIGHT = 220
 const projectTableHeight = ref<number | null>(null)
 const isResizingTables = ref(false)
 
+type ProjectSpanDragMode = 'move' | 'resize-start' | 'resize-end'
+
+type ProjectSpanDateUpdateParams = {
+  project: string
+  project_start_date: string
+  project_end_date: string
+}
+
+type ProjectSpanDragState = {
+  mode: ProjectSpanDragMode
+  project: ProjectRow
+  projectKey: string
+  startX: number
+  originalStartIndex: number
+  originalEndIndex: number
+  deltaDays: number
+}
+
+const projectSpanDrag = ref<ProjectSpanDragState | null>(null)
+const projectSpanDragMoved = ref(false)
+const suppressNextProjectSpanClick = ref(false)
+const pendingProjectDateUpdate = ref<ProjectSpanDateUpdateParams | null>(null)
+
 let tableResizeStartY = 0
 let tableResizeStartProjectHeight = 0
 let syncingHorizontalScroll = false
@@ -782,6 +840,7 @@ function resetTableResize() {
 function onWindowKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     clearSelectedShiftCells()
+    clearProjectSpanDragState()
   }
 }
 
@@ -791,6 +850,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   stopTableResize()
+  clearProjectSpanDragState()
   window.removeEventListener('keydown', onWindowKeydown)
   if (suppressClickTimer !== null) {
     window.clearTimeout(suppressClickTimer)
@@ -2004,9 +2064,13 @@ function openEmployeeCell(employee: string, date: string, event?: MouseEvent) {
 }
 
 function projectSegmentClass(segment: ProjectSegment) {
+  const isDragTarget = isProjectSpanDragTarget(segment)
   return {
     'year-project-span': segment.active,
+    'cursor-pointer': segment.active,
     'year-project-span-inactive': segment.active && segment.isActive === false,
+    'year-project-span-date-dragging': isDragTarget,
+    'year-project-span-date-resizing': isDragTarget && projectSpanDrag.value?.mode !== 'move',
     'year-month-start': segment.isMonthStart,
     'year-weekend': segment.isWeekend && !segment.active,
   }
@@ -2038,6 +2102,223 @@ function projectSegmentStyle(segment: ProjectSegment) {
     '--year-project-span-text': isInactive ? (colors as any).gray[600] : (colors as any).gray[800],
     '--year-project-span-muted': isInactive ? (colors as any).gray[500] : (colors as any).gray[600],
   }
+}
+
+function isProjectSpanDragTarget(segment: ProjectSegment) {
+  const drag = projectSpanDrag.value
+  return Boolean(drag && segment.active && segment.project && projectKey(segment.project) === drag.projectKey)
+}
+
+function projectSpanDragPreview(drag: ProjectSpanDragState | null = projectSpanDrag.value) {
+  if (!drag) return null
+
+  const lastIndex = daysOfYear.value.length - 1
+  let startIndex = drag.originalStartIndex
+  let endIndex = drag.originalEndIndex
+
+  if (drag.mode === 'move') {
+    const spanLength = drag.originalEndIndex - drag.originalStartIndex + 1
+    const minDelta = -drag.originalStartIndex
+    const maxDelta = lastIndex - drag.originalEndIndex
+    const delta = Math.min(maxDelta, Math.max(minDelta, drag.deltaDays))
+    startIndex = drag.originalStartIndex + delta
+    endIndex = startIndex + spanLength - 1
+  } else if (drag.mode === 'resize-start') {
+    startIndex = Math.min(drag.originalEndIndex, Math.max(0, drag.originalStartIndex + drag.deltaDays))
+  } else if (drag.mode === 'resize-end') {
+    endIndex = Math.max(drag.originalStartIndex, Math.min(lastIndex, drag.originalEndIndex + drag.deltaDays))
+  }
+
+  const start = daysOfYear.value[startIndex]?.date || daysOfYear.value[drag.originalStartIndex]?.date
+  const end = daysOfYear.value[endIndex]?.date || daysOfYear.value[drag.originalEndIndex]?.date
+
+  return {
+    startIndex,
+    endIndex,
+    days: Math.max(1, endIndex - startIndex + 1),
+    start,
+    end,
+    deltaStart: startIndex - drag.originalStartIndex,
+    deltaEnd: endIndex - drag.originalEndIndex,
+  }
+}
+
+function projectSegmentDragStyle(segment: ProjectSegment) {
+  const drag = projectSpanDrag.value
+  if (!drag || !segment.active || !segment.project || projectKey(segment.project) !== drag.projectKey) return {}
+
+  const preview = projectSpanDragPreview(drag)
+  if (!preview) return {}
+
+  if (drag.mode === 'move') {
+    return {
+      transform: `translateX(${preview.deltaStart * DAY_COLUMN_WIDTH}px)`,
+      zIndex: 7,
+    }
+  }
+
+  return {
+    zIndex: 7,
+  }
+}
+
+function projectSegmentContentDragStyle(segment: ProjectSegment) {
+  const drag = projectSpanDrag.value
+  if (!drag || !segment.active || !segment.project || projectKey(segment.project) !== drag.projectKey) return {}
+
+  const preview = projectSpanDragPreview(drag)
+  if (!preview) return {}
+
+  if (drag.mode === 'resize-start') {
+    return {
+      transform: `translateX(${preview.deltaStart * DAY_COLUMN_WIDTH}px)`,
+      width: `${preview.days * DAY_COLUMN_WIDTH}px`,
+      minWidth: `${preview.days * DAY_COLUMN_WIDTH}px`,
+    }
+  }
+
+  if (drag.mode === 'resize-end') {
+    return {
+      width: `${preview.days * DAY_COLUMN_WIDTH}px`,
+      minWidth: `${preview.days * DAY_COLUMN_WIDTH}px`,
+    }
+  }
+
+  return {}
+}
+
+function projectSpanHasAssignedTasks(project?: ProjectRow | null) {
+  return projectHasGantt(project)
+}
+
+function notifyProjectSpanDateLocked(project?: ProjectRow | null) {
+  const taskCount = project ? projectTaskCount(project) : 0
+  const suffix = taskCount ? ` (${taskCount} task${taskCount === 1 ? '' : 's'})` : ''
+  raiseToast('error', `Project has tasks assigned${suffix}, so project dates cannot be changed.`)
+}
+
+function onProjectSegmentPointerDown(segment: ProjectSegment, event: PointerEvent) {
+  if (!segment.active || !segment.project) return
+
+  // Normal click should always open the project details dialog.
+  // Moving the whole project span now requires Shift + drag so it does not block details access.
+  if (!event.shiftKey) return
+
+  startProjectSpanDrag(segment, 'move', event)
+}
+
+function onProjectSegmentClick(segment: ProjectSegment, event: MouseEvent) {
+  if (!segment.active || !segment.project) return
+
+  if (suppressNextProjectSpanClick.value) {
+    suppressNextProjectSpanClick.value = false
+    return
+  }
+
+  // Shift is reserved for drag-moving the whole span.
+  if (event.shiftKey) return
+
+  openProjectSpanDialog(segment.project)
+}
+
+function startProjectSpanDrag(segment: ProjectSegment, mode: ProjectSpanDragMode, event: PointerEvent) {
+  if (event.button !== 0 || !segment.active || !segment.project) return
+
+  if (projectSpanHasAssignedTasks(segment.project)) {
+    notifyProjectSpanDateLocked(segment.project)
+    event.preventDefault()
+    return
+  }
+
+  const span = projectSpan(segment.project)
+  if (!span) return
+
+  scheduleClearHoverCard(0)
+  projectSpanDrag.value = {
+    mode,
+    project: segment.project,
+    projectKey: projectKey(segment.project),
+    startX: event.clientX,
+    originalStartIndex: span.startIndex,
+    originalEndIndex: span.startIndex + span.days - 1,
+    deltaDays: 0,
+  }
+  projectSpanDragMoved.value = false
+
+  window.addEventListener('pointermove', onProjectSpanDragPointerMove)
+  window.addEventListener('pointerup', stopProjectSpanDrag)
+  window.addEventListener('pointercancel', cancelProjectSpanDrag)
+  document.body.classList.add('year-project-span-is-dragging')
+
+  event.preventDefault()
+}
+
+function onProjectSpanDragPointerMove(event: PointerEvent) {
+  const drag = projectSpanDrag.value
+  if (!drag) return
+
+  const deltaPx = event.clientX - drag.startX
+  if (Math.abs(deltaPx) > 4) projectSpanDragMoved.value = true
+
+  drag.deltaDays = Math.round(deltaPx / DAY_COLUMN_WIDTH)
+}
+
+function clearProjectSpanDragState() {
+  window.removeEventListener('pointermove', onProjectSpanDragPointerMove)
+  window.removeEventListener('pointerup', stopProjectSpanDrag)
+  window.removeEventListener('pointercancel', cancelProjectSpanDrag)
+  document.body.classList.remove('year-project-span-is-dragging')
+  projectSpanDrag.value = null
+  projectSpanDragMoved.value = false
+}
+
+function cancelProjectSpanDrag() {
+  clearProjectSpanDragState()
+}
+
+function stopProjectSpanDrag() {
+  const drag = projectSpanDrag.value
+  if (!drag) return
+
+  const preview = projectSpanDragPreview(drag)
+  const moved = projectSpanDragMoved.value
+  const project = drag.project
+  const originalStart = daysOfYear.value[drag.originalStartIndex]?.date
+  const originalEnd = daysOfYear.value[drag.originalEndIndex]?.date
+
+  clearProjectSpanDragState()
+
+  if (!moved) {
+    if (drag.mode === 'move') {
+      suppressNextProjectSpanClick.value = true
+      window.setTimeout(() => {
+        suppressNextProjectSpanClick.value = false
+      }, 0)
+    }
+    return
+  }
+
+  suppressNextProjectSpanClick.value = true
+  window.setTimeout(() => {
+    suppressNextProjectSpanClick.value = false
+  }, 0)
+
+  if (!preview || !preview.start || !preview.end || (preview.start === originalStart && preview.end === originalEnd)) {
+    return
+  }
+
+  if (projectSpanHasAssignedTasks(project)) {
+    notifyProjectSpanDateLocked(project)
+    return
+  }
+
+  pendingProjectDateUpdate.value = {
+    project: project.project,
+    project_start_date: preview.start,
+    project_end_date: preview.end,
+  }
+  loading.value = true
+  updateProjectSpanDates.submit()
 }
 
 
@@ -2255,6 +2536,14 @@ function showEmployeeHover(employee: Employee, date: string, event: MouseEvent) 
     },
     event,
   )
+}
+
+function openProjectSpanDialog(project?: ProjectRow) {
+  if (!project) return
+
+  scheduleClearHoverCard(0)
+  selectedProjectSpan.value = project
+  showProjectSpanDialog.value = true
 }
 
 function showProjectHover(project: ProjectRow, segment: ProjectSegment, event: MouseEvent) {
@@ -2550,6 +2839,28 @@ const bulkMoveOrSwapShifts = createResource({
     pendingBulkShiftWillSwap.value = false
     clearDragState()
     raiseToast('error', error?.messages?.[0] || error?.message || 'Failed to move shifts')
+  },
+})
+
+
+const updateProjectSpanDates = createResource({
+  url: 'verto.api.planner.update_project_planner_dates',
+  makeParams() {
+    return pendingProjectDateUpdate.value || {
+      project: '',
+      project_start_date: '',
+      project_end_date: '',
+    }
+  },
+  onSuccess() {
+    raiseToast('success', 'Project dates updated successfully!')
+    pendingProjectDateUpdate.value = null
+    events.fetch()
+  },
+  onError(error: { messages?: string[]; message?: string }) {
+    loading.value = false
+    pendingProjectDateUpdate.value = null
+    raiseToast('error', error?.messages?.[0] || error?.message || 'Failed to update project dates')
   },
 })
 
@@ -3388,6 +3699,55 @@ defineExpose({ events, scrollToToday })
   border-color: rgb(191 219 254);
   background: rgb(239 246 255);
   color: rgb(30 64 175);
+}
+
+.year-project-span-date-dragging {
+  position: relative;
+  cursor: grabbing !important;
+  outline: 2px solid rgb(245 158 11);
+  outline-offset: -2px;
+}
+
+.year-project-span-date-resizing {
+  overflow: visible;
+}
+
+.year-project-span-drag-handle {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  z-index: 12;
+  width: 10px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  opacity: 0;
+  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.18);
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+.year-project-span:hover .year-project-span-drag-handle,
+.year-project-span-date-dragging .year-project-span-drag-handle {
+  opacity: 1;
+}
+
+.year-project-span-drag-handle:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.year-project-span-drag-start {
+  left: 3px;
+  cursor: ew-resize;
+}
+
+.year-project-span-drag-end {
+  right: 3px;
+  cursor: ew-resize;
+}
+
+.year-project-span-is-dragging,
+.year-project-span-is-dragging * {
+  user-select: none !important;
 }
 
 .year-project-span:hover {
