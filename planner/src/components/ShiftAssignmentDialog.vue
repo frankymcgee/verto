@@ -2,17 +2,19 @@
 	<Teleport to="body">
 		<div
 			v-if="dialogOpen"
-			class="fixed inset-0 z-[9998] bg-black/50"
+			class="fixed inset-0 bg-black/50"
+			style="z-index: 2147483000"
 			@click.self="closeDialog"
 		/>
 
 		<div
 			v-if="dialogOpen"
-			class="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto px-4 py-10"
+			class="fixed inset-0 flex items-start justify-center overflow-y-auto px-4 py-10"
+			style="z-index: 2147483100"
 			@click.self="closeDialog"
 		>
 			<div
-				class="w-full max-w-5xl overflow-hidden rounded-lg bg-white shadow-2xl"
+				class="planner-shift-assignment-dialog w-full max-w-5xl overflow-visible rounded-lg bg-white shadow-2xl"
 				role="dialog"
 				aria-modal="true"
 				:aria-label="dialog.title"
@@ -30,15 +32,25 @@
 					</button>
 				</div>
 
-				<div class="max-h-[calc(100vh-13rem)] overflow-y-auto px-6 py-5">
+				<div class="planner-shift-assignment-dialog-body overflow-visible px-6 py-5">
 					<div class="grid grid-cols-2 gap-6">
-						<FormControl
-							type="autocomplete"
-							label="Employee"
-							v-model="form.employee"
-							:disabled="!!props.shiftAssignmentName"
-							:options="employees"
-						/>
+						<div class="planner-native-field">
+							<label class="planner-native-label">Employee</label>
+							<select
+								v-model="form.employee"
+								:disabled="!!props.shiftAssignmentName"
+								class="planner-native-control"
+							>
+								<option value="">Select Employee</option>
+								<option
+									v-for="option in employees"
+									:key="option.value"
+									:value="option.value"
+								>
+									{{ option.label }}
+								</option>
+							</select>
+						</div>
 						<FormControl type="text" label="Company" v-model="form.company" :disabled="true" />
 
 						<FormControl
@@ -54,21 +66,33 @@
 							:disabled="true"
 						/>
 
-						<FormControl
-							type="autocomplete"
-							label="Project"
-							placeholder="Select Project"
-							v-model="form.custom_project"
-							:options="projectOptions"
-						/>
+						<div class="planner-native-field">
+							<label class="planner-native-label">Project</label>
+							<select v-model="form.custom_project" class="planner-native-control">
+								<option value="">Select Project</option>
+								<option
+									v-for="option in projectOptions"
+									:key="option.value"
+									:value="option.value"
+								>
+									{{ option.label }}
+								</option>
+							</select>
+						</div>
 
-						<FormControl
-							type="autocomplete"
-							label="Shift Type"
-							v-model="form.shift_type"
-							:disabled="!!props.shiftAssignmentName"
-							:options="shiftTypes.data"
-						/>
+						<div class="planner-native-field">
+							<label class="planner-native-label">Shift Type</label>
+							<select
+								v-model="form.shift_type"
+								:disabled="!!props.shiftAssignmentName"
+								class="planner-native-control"
+							>
+								<option value="">Select Shift Type</option>
+								<option v-for="shiftType in (shiftTypes.data || [])" :key="shiftType" :value="shiftType">
+									{{ shiftType }}
+								</option>
+							</select>
+						</div>
 
 						<FormControl
 							type="date"
@@ -82,20 +106,27 @@
 							v-model="form.end_date"
 						/>
 
-						<FormControl
-							type="autocomplete"
-							label="Shift Location"
-							v-model="form.shift_location"
-							:disabled="!!props.shiftAssignmentName"
-							:options="shiftLocations.data"
-						/>
+						<div class="planner-native-field">
+							<label class="planner-native-label">Shift Location</label>
+							<select
+								v-model="form.shift_location"
+								:disabled="!!props.shiftAssignmentName"
+								class="planner-native-control"
+							>
+								<option value="">Select Shift Location</option>
+								<option v-for="location in (shiftLocations.data || [])" :key="location" :value="location">
+									{{ location }}
+								</option>
+							</select>
+						</div>
 
-						<FormControl
-							type="select"
-							:options="['Active', 'Inactive']"
-							label="Status"
-							v-model="form.status"
-						/>
+						<div class="planner-native-field">
+							<label class="planner-native-label">Status</label>
+							<select v-model="form.status" class="planner-native-control">
+								<option value="Active">Active</option>
+								<option value="Inactive">Inactive</option>
+							</select>
+						</div>
 
 						<FormControl
 							type="textarea"
@@ -104,13 +135,16 @@
 						/>
 
 						<div v-if="!props.shiftAssignmentName && showShiftScheduleSettings" class="space-y-3">
-							<FormControl
-								type="select"
-								:options="scheduleTypeOptions"
-								label="Schedule Type"
-								v-model="scheduleType"
-								:disabled="!!form.shift_schedule_assignment"
-							/>
+							<div class="planner-native-field">
+								<label class="planner-native-label">Schedule Type</label>
+								<select
+									v-model="scheduleType"
+									:disabled="!!form.shift_schedule_assignment"
+									class="planner-native-control"
+								>
+									<option v-for="option in scheduleTypeOptions" :key="option" :value="option">{{ option }}</option>
+								</select>
+							</div>
 
 							<label
 								v-if="isRollingScheduleType"
@@ -138,14 +172,19 @@
 						<hr />
 						<h4 class="font-semibold">Schedule Settings</h4>
 						<div :class="scheduleType === 'Rolling Day/Night Roster' ? 'grid grid-cols-3 gap-6' : 'grid grid-cols-2 gap-6'">
-							<FormControl
-								v-if="scheduleType === 'Repeat On Days'"
-								type="select"
-								:options="['Every Week', 'Every 2 Weeks', 'Every 3 Weeks', 'Every 4 Weeks']"
-								label="Frequency"
-								v-model="frequency"
-								:disabled="!!props.shiftAssignmentName"
-							/>
+								<div v-if="scheduleType === 'Repeat On Days'" class="planner-native-field">
+									<label class="planner-native-label">Frequency</label>
+									<select
+										v-model="frequency"
+										:disabled="!!props.shiftAssignmentName"
+										class="planner-native-control"
+									>
+										<option value="Every Week">Every Week</option>
+										<option value="Every 2 Weeks">Every 2 Weeks</option>
+										<option value="Every 3 Weeks">Every 3 Weeks</option>
+										<option value="Every 4 Weeks">Every 4 Weeks</option>
+									</select>
+								</div>
 
 							<FormControl
 								v-if="scheduleType === 'Rolling Roster'"
@@ -293,7 +332,8 @@
 
 							<div
 								v-if="showDeleteMenu"
-								class="absolute bottom-full right-0 z-[10050] mb-2 w-64 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-2xl ring-1 ring-black/5"
+								class="absolute bottom-full right-0 mb-2 w-64 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-2xl ring-1 ring-black/5"
+								style="z-index: 2147483400"
 								@click.stop
 							>
 								<button
@@ -323,7 +363,8 @@
 
 		<div
 			v-if="dialogOpen && showDeleteDialog"
-			class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 px-4"
+			class="fixed inset-0 flex items-center justify-center bg-black/40 px-4"
+			style="z-index: 2147483300"
 			@click.self="showDeleteDialog = false"
 		>
 			<div class="w-full max-w-md overflow-hidden rounded-lg bg-white shadow-2xl" role="dialog" aria-modal="true" @click.stop>
@@ -343,7 +384,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, computed, watch } from "vue";
+import { reactive, ref, computed, watch, onBeforeUnmount } from "vue";
 import {
 	FormControl,
 	Button,
@@ -447,6 +488,19 @@ const dialogOpen = computed({
 	get: () => props.modelValue ?? props.isDialogOpen,
 	set: (value: boolean) => emit("update:modelValue", value),
 });
+
+const setDialogBodyClass = (isOpen: boolean) => {
+	if (typeof document === "undefined") return;
+	document.body.classList.toggle("planner-shift-assignment-dialog-open", isOpen);
+};
+
+watch(
+	() => dialogOpen.value,
+	(value) => setDialogBodyClass(value),
+	{ immediate: true },
+);
+
+onBeforeUnmount(() => setDialogBodyClass(false));
 
 const closeDialog = () => {
 	dialogOpen.value = false;
@@ -571,7 +625,7 @@ watch(
 			);
 			Object.assign(repeatOnDays, repeatOnDaysObject);
 			if (!props.selectedCell) return;
-			form.employee = { value: props.selectedCell.employee };
+			form.employee = props.selectedCell.employee;
 			form.start_date = props.selectedCell.date;
 			form.end_date = props.selectedCell.date;
 		}
@@ -665,8 +719,12 @@ const getShiftAssignment = (name: string) =>
 				// copy known fields if present on doc
 				if (k in data) (form as any)[k] = data[k];
 			});
-			// coerce custom_project to { value } model if present
-			if (data.custom_project) form.custom_project = { value: data.custom_project, label: data.custom_project_name || data.custom_project };
+			// native selects use plain string values
+			form.employee = data.employee || "";
+			form.shift_type = data.shift_type || "";
+			form.shift_location = data.shift_location || "";
+			form.custom_project = data.custom_project || "";
+			form.status = data.status || "Active";
 			if (form.shift_schedule_assignment) shiftSchedule.fetch();
 		},
 		onError(error: { messages: string[] }) {
@@ -926,3 +984,120 @@ const deleteShiftScheduleAssignment = createResource({
 	},
 });
 </script>
+
+<style>
+/*
+	Shift Assignment uses a fullscreen modal, but Frappe UI select/autocomplete menus
+	can render either inside the field wrapper or through a body-level portal.
+	This z-index block handles both cases while the dialog is open.
+*/
+body.planner-shift-assignment-dialog-open {
+	--planner-shift-dialog-z: 2147483100;
+	--planner-shift-field-z: 2147483400;
+}
+
+.planner-shift-assignment-dialog,
+.planner-shift-assignment-dialog * {
+	overflow-anchor: none;
+}
+
+.planner-shift-assignment-dialog {
+	isolation: isolate;
+	overflow: visible !important;
+}
+
+.planner-shift-assignment-dialog-body,
+.planner-shift-assignment-dialog-body *,
+.planner-shift-assignment-dialog .grid,
+.planner-shift-assignment-dialog .grid > * {
+	overflow: visible !important;
+}
+
+/* Raise whichever field is actively open so its option panel is above nearby fields. */
+.planner-shift-assignment-dialog .grid > *,
+.planner-shift-assignment-dialog .space-y-3 > *,
+.planner-shift-assignment-dialog .space-y-6 > *,
+.planner-shift-assignment-dialog .rounded.border.bg-white,
+.planner-shift-assignment-dialog .rounded.border.bg-white * {
+	position: relative;
+	z-index: 1;
+}
+
+.planner-shift-assignment-dialog .grid > *:focus-within,
+.planner-shift-assignment-dialog .space-y-3 > *:focus-within,
+.planner-shift-assignment-dialog .space-y-6 > *:focus-within,
+.planner-shift-assignment-dialog .rounded.border.bg-white:focus-within {
+	z-index: var(--planner-shift-field-z) !important;
+}
+
+/* Panels rendered inside the dialog. */
+.planner-shift-assignment-dialog [role="listbox"],
+.planner-shift-assignment-dialog [role="menu"],
+.planner-shift-assignment-dialog [data-headlessui-state],
+.planner-shift-assignment-dialog [data-popper-placement],
+.planner-shift-assignment-dialog [id^="headlessui-"],
+.planner-shift-assignment-dialog .dropdown-menu,
+.planner-shift-assignment-dialog .popover,
+.planner-shift-assignment-dialog .frappe-ui-popover,
+.planner-shift-assignment-dialog .frappe-ui-dropdown,
+.planner-shift-assignment-dialog .awesomplete > ul,
+.planner-shift-assignment-dialog .autocomplete-results,
+.planner-shift-assignment-dialog .absolute {
+	z-index: var(--planner-shift-field-z) !important;
+}
+
+/* Panels rendered through a body-level portal by Frappe UI / Headless UI. */
+body.planner-shift-assignment-dialog-open > [role="listbox"],
+body.planner-shift-assignment-dialog-open > [role="menu"],
+body.planner-shift-assignment-dialog-open > [data-headlessui-state],
+body.planner-shift-assignment-dialog-open > [data-popper-placement],
+body.planner-shift-assignment-dialog-open > [id^="headlessui-"],
+body.planner-shift-assignment-dialog-open .headlessui-portal-root,
+body.planner-shift-assignment-dialog-open .headlessui-portal-root *,
+body.planner-shift-assignment-dialog-open .frappe-ui-popover,
+body.planner-shift-assignment-dialog-open .frappe-ui-dropdown,
+body.planner-shift-assignment-dialog-open .dropdown-menu,
+body.planner-shift-assignment-dialog-open .popover,
+body.planner-shift-assignment-dialog-open .awesomplete > ul,
+body.planner-shift-assignment-dialog-open .autocomplete-results {
+	z-index: var(--planner-shift-field-z) !important;
+}
+
+.planner-native-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+}
+
+.planner-native-label {
+	font-size: 0.875rem;
+	font-weight: 500;
+	line-height: 1.25rem;
+	color: rgb(55 65 81);
+}
+
+.planner-native-control {
+	width: 100%;
+	height: 2.25rem;
+	border-radius: 0.375rem;
+	border: 1px solid rgb(209 213 219);
+	background-color: #fff;
+	padding: 0.375rem 0.75rem;
+	font-size: 0.875rem;
+	line-height: 1.25rem;
+	color: rgb(17 24 39);
+	outline: none;
+}
+
+.planner-native-control:focus {
+	border-color: rgb(99 102 241);
+	box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.planner-native-control:disabled {
+	cursor: not-allowed;
+	background-color: rgb(249 250 251);
+	color: rgb(107 114 128);
+}
+
+</style>
