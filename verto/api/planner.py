@@ -181,6 +181,183 @@ def get_values(doctype: str, name: str, fields: list) -> dict[str, str]:
 	return frappe.db.get_value(doctype, name, fields, as_dict=True)
 
 
+EVENT_LAYOUT_FIELD_TYPES = {
+	"Section Break",
+	"Column Break",
+	"Tab Break",
+}
+
+EVENT_UNSUPPORTED_CREATE_FIELD_TYPES = {
+	"Table",
+	"Table MultiSelect",
+	"HTML",
+	"Button",
+	"Image",
+	"Fold",
+	"Geolocation",
+	"Signature",
+}
+
+EVENT_CREATE_ALLOWED_FIELD_TYPES = {
+	"Attach",
+	"Attach Image",
+	"Check",
+	"Code",
+	"Color",
+	"Currency",
+	"Data",
+	"Date",
+	"Datetime",
+	"Dynamic Link",
+	"Float",
+	"Int",
+	"Link",
+	"Long Text",
+	"Percent",
+	"Password",
+	"Phone",
+	"Rating",
+	"Select",
+	"Small Text",
+	"Text",
+	"Text Editor",
+	"Time",
+}
+
+
+def _event_field_to_dict(df) -> dict:
+	return {
+		"fieldname": df.fieldname,
+		"fieldtype": df.fieldtype,
+		"label": df.label,
+		"options": df.options,
+		"reqd": df.reqd,
+		"default": df.default,
+		"depends_on": df.depends_on,
+		"description": df.description,
+		"read_only": df.read_only,
+		"hidden": df.hidden,
+		"unsupported": df.fieldtype in EVENT_UNSUPPORTED_CREATE_FIELD_TYPES,
+	}
+
+
+@frappe.whitelist()
+def get_event_planner_meta() -> dict:
+	"""Return Event fields so the Planner create dialog can build dynamically."""
+	if not frappe.has_permission("Event", ptype="create"):
+		frappe.throw(_("You do not have permission to create Events."), frappe.PermissionError)
+
+	meta = frappe.get_meta("Event")
+	fields = []
+
+	for df in meta.fields:
+		if not df.fieldtype:
+			continue
+
+		if df.hidden:
+			continue
+
+		# Keep layout fields so the dialog follows the Event DocType structure, but
+		# skip read-only data fields that cannot be saved from the planner.
+		if df.fieldtype not in EVENT_LAYOUT_FIELD_TYPES and df.read_only:
+			continue
+
+		fields.append(_event_field_to_dict(df))
+
+	return {
+		"doctype": "Event",
+		"title": meta.get("title_field") or "subject",
+		"fields": fields,
+	}
+
+
+def _event_create_fields_by_name() -> dict:
+	meta = frappe.get_meta("Event")
+	return {
+		df.fieldname: df
+		for df in meta.fields
+		if df.fieldname
+		and not df.hidden
+		and not df.read_only
+		and df.fieldtype in EVENT_CREATE_ALLOWED_FIELD_TYPES
+	}
+
+
+def _normalise_event_datetime(value, is_end: bool = False):
+	if value in (None, ""):
+		return None
+
+	text = str(value).strip()
+	if not text:
+		return None
+
+	text = text.replace("T", " ")
+	if len(text) == 10:
+		return f"{text} {'23:59:59' if is_end else '00:00:00'}"
+	if len(text) == 16:
+		return f"{text}:00"
+	return text
+
+
+def _normalise_event_create_value(df, value):
+	if value == "":
+		return None
+
+	fieldtype = df.fieldtype
+
+	if fieldtype == "Check":
+		return 1 if _as_bool(value, default=False) else 0
+	if fieldtype == "Int":
+		return int(value or 0)
+	if fieldtype in ("Float", "Currency", "Percent", "Rating"):
+		return float(value or 0)
+	if fieldtype == "Datetime":
+		return _normalise_event_datetime(value, is_end=df.fieldname == "ends_on")
+	if fieldtype == "Date":
+		return str(getdate(value)) if value else None
+
+	return value
+
+
+@frappe.whitelist()
+def create_planner_event(values: dict | str | None = None) -> dict:
+	"""Create an Event from the dynamically generated Planner Event dialog."""
+	if not frappe.has_permission("Event", ptype="create"):
+		frappe.throw(_("You do not have permission to create Events."), frappe.PermissionError)
+
+	values = frappe.parse_json(values) if isinstance(values, str) else (values or {})
+	if not isinstance(values, dict):
+		frappe.throw(_("Invalid Event values."))
+
+	allowed_fields = _event_create_fields_by_name()
+	doc = frappe.new_doc("Event")
+
+	# Sensible defaults for the standard Event DocType. These are only applied when
+	# the fields exist on the current site and the user has not supplied a value.
+	if "event_category" in allowed_fields and not values.get("event_category"):
+		values["event_category"] = "Event"
+	if "event_type" in allowed_fields and not values.get("event_type"):
+		values["event_type"] = "Public"
+	if "status" in allowed_fields and not values.get("status"):
+		values["status"] = "Open"
+
+	for fieldname, value in values.items():
+		df = allowed_fields.get(fieldname)
+		if not df:
+			continue
+		doc.set(fieldname, _normalise_event_create_value(df, value))
+
+	if doc.get("all_day") and doc.get("starts_on") and not doc.get("ends_on"):
+		doc.set("ends_on", _normalise_event_datetime(str(doc.get("starts_on"))[:10], is_end=True))
+
+	doc.insert()
+
+	return {
+		"name": doc.name,
+		"subject": doc.get("subject"),
+	}
+
+
 @frappe.whitelist()
 def get_events(
 	month_start: str, month_end: str, employee_filters: dict[str, str], shift_filters: dict[str, str]

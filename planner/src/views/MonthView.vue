@@ -50,6 +50,10 @@
                 label: 'Shift Assignment',
                 onClick: () => { showShiftAssignmentDialog = true },
               },
+              {
+                label: 'Event',
+                onClick: () => { showEventDialog = true },
+              },
             ]"
             :button="{ label: 'Create', variant: 'solid', iconRight: 'chevron-down', size: 'md' }"
           />
@@ -123,6 +127,15 @@
       showShiftAssignmentDialog = false;
     "
   />
+
+  <EventDialog
+    v-model="showEventDialog"
+    :isDialogOpen="showEventDialog"
+    @fetchEvents="
+      fetchActiveEvents();
+      showEventDialog = false;
+    "
+  />
 </template>
 
 <script setup lang="ts">
@@ -134,6 +147,7 @@ import YearViewTable from '../components/YearViewTable.vue'
 import ProjectTimelineRow from '../components/ProjectTimelineRow.vue'
 import MonthViewHeader from '../components/MonthViewHeader.vue'
 import ShiftAssignmentDialog from '../components/ShiftAssignmentDialog.vue'
+import EventDialog from '../components/EventDialog.vue'
 
 export type EmployeeFilters = {
   [K in 'status' | 'company' | 'department' | 'branch' | 'designation']?: string;
@@ -151,6 +165,7 @@ const monthViewTable = ref<InstanceType<typeof MonthViewTable>>()
 const yearViewTable = ref<InstanceType<typeof YearViewTable>>()
 const isCompanySelected = ref(false)
 const showShiftAssignmentDialog = ref(false)
+const showEventDialog = ref(false)
 const firstOfMonth = ref(dayjs().date(1).startOf('D'))
 const viewMode = ref<ViewMode>('month')
 const plannerDefaultViewApplied = ref(false)
