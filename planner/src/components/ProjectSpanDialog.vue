@@ -1,163 +1,199 @@
 <template>
-  <Dialog v-model="isOpen" :options="{ title: dialogTitle, size: '2xl' }">
-    <template #body-content>
-      <div class="space-y-6">
-        <div v-if="projectDetails.loading" class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-600">
-          Loading project details...
+  <Teleport to="body">
+    <div
+      v-if="isOpen"
+      class="fixed inset-0 z-[2147483000] bg-black/50"
+      @click.self="closeDialog"
+    />
+
+    <div
+      v-if="isOpen"
+      class="fixed inset-0 z-[2147483001] flex items-start justify-center overflow-y-auto px-4 py-10"
+      @click.self="closeDialog"
+    >
+      <div
+        class="w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="dialogTitle"
+        @click.stop
+      >
+        <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <h2 class="text-xl font-semibold text-gray-900">{{ dialogTitle }}</h2>
+          <button
+            type="button"
+            class="rounded-md p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+            aria-label="Close"
+            @click="closeDialog"
+          >
+            ✕
+          </button>
         </div>
 
-        <template v-else>
-          <div class="grid grid-cols-2 gap-4">
-            <FormControl type="text" label="Project" v-model="form.project_name" :disabled="true" />
-            <FormControl type="text" label="Project ID" v-model="form.project" :disabled="true" />
+        <div class="max-h-[calc(100vh-13rem)] overflow-y-auto px-6 py-5">
+          <div class="space-y-6">
+            <div
+              v-if="projectDetails.loading"
+              class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-600"
+            >
+              Loading project details...
+            </div>
 
-            <FormControl type="text" label="Customer" v-model="form.customer" :disabled="true" />
-            <FormControl type="text" label="Location" v-model="form.custom_project_location" :disabled="true" />
+            <template v-else>
+              <div class="grid grid-cols-2 gap-4">
+                <FormControl type="text" label="Project" v-model="form.project_name" :disabled="true" />
+                <FormControl type="text" label="Project ID" v-model="form.project" :disabled="true" />
 
-            <FormControl
-              v-if="isPoCheckField"
-              type="checkbox"
-              label="PO Entered"
-              v-model="form.po_entered"
-              :disabled="!form.can_update_po"
-            />
-            <FormControl
-              v-else
-              type="text"
-              label="PO Number"
-              placeholder="Enter PO number"
-              v-model="form.po_number"
-              :disabled="!form.can_update_po"
-            />
+                <FormControl type="text" label="Customer" v-model="form.customer" :disabled="true" />
+                <FormControl type="text" label="Location" v-model="form.custom_project_location" :disabled="true" />
 
-            <FormControl
-              type="checkbox"
-              label="Active"
-              v-model="form.is_active"
-              :disabled="!form.can_update_is_active"
-            />
+                <FormControl
+                  v-if="isPoCheckField"
+                  type="checkbox"
+                  label="PO Entered"
+                  v-model="form.po_entered"
+                  :disabled="!form.can_update_po"
+                />
+                <FormControl
+                  v-else
+                  type="text"
+                  label="PO Number"
+                  placeholder="Enter PO number"
+                  v-model="form.po_number"
+                  :disabled="!form.can_update_po"
+                />
 
-            <FormControl
-              type="number"
-              label="DS Personnel Required"
-              v-model="form.ds_requested"
-              :disabled="!form.can_update_ds"
-            />
-            <FormControl
-              type="number"
-              label="NS Personnel Required"
-              v-model="form.ns_requested"
-              :disabled="!form.can_update_ns"
-            />
+                <FormControl
+                  type="checkbox"
+                  label="Active"
+                  v-model="form.is_active"
+                  :disabled="!form.can_update_is_active"
+                />
 
-            <template v-if="showProjectDateFields">
-              <div
-                class="col-span-2 rounded-lg border px-3 py-2 text-xs"
-                :class="projectDateHelpClass"
-              >
-                {{ projectDateHelpMessage }}
+                <FormControl
+                  type="number"
+                  label="DS Personnel Required"
+                  v-model="form.ds_requested"
+                  :disabled="!form.can_update_ds"
+                />
+                <FormControl
+                  type="number"
+                  label="NS Personnel Required"
+                  v-model="form.ns_requested"
+                  :disabled="!form.can_update_ns"
+                />
+
+                <template v-if="showProjectDateFields">
+                  <div
+                    class="col-span-2 rounded-lg border px-3 py-2 text-xs"
+                    :class="projectDateHelpClass"
+                  >
+                    {{ projectDateHelpMessage }}
+                  </div>
+
+                  <FormControl
+                    type="date"
+                    label="Project Start Date"
+                    v-model="form.project_start_date"
+                    :disabled="!form.can_update_project_dates"
+                  />
+                  <FormControl
+                    type="date"
+                    label="Project End Date"
+                    v-model="form.project_end_date"
+                    :disabled="!form.can_update_project_dates"
+                  />
+                </template>
               </div>
 
-              <FormControl
-                type="date"
-                label="Project Start Date"
-                v-model="form.project_start_date"
-                :disabled="!form.can_update_project_dates"
-              />
-              <FormControl
-                type="date"
-                label="Project End Date"
-                v-model="form.project_end_date"
-                :disabled="!form.can_update_project_dates"
-              />
+              <div
+                v-if="missingEditableFieldMessage"
+                class="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-xs text-yellow-800"
+              >
+                {{ missingEditableFieldMessage }}
+              </div>
+
+              <div class="rounded-lg border border-gray-200 bg-white">
+                <div class="border-b border-gray-100 px-4 py-3">
+                  <div class="text-sm font-semibold text-gray-800">Personnel Assigned</div>
+                  <div class="mt-0.5 text-xs text-gray-500">
+                    Current annual view assignments split by DS and NS shift types.
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 divide-x divide-gray-100">
+                  <div class="p-4">
+                    <div class="mb-2 flex items-center justify-between gap-2">
+                      <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">DS</div>
+                      <div class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
+                        {{ dsPersonnel.length }}
+                      </div>
+                    </div>
+
+                    <div v-if="dsPersonnel.length" class="space-y-1.5">
+                      <div
+                        v-for="person in dsPersonnel"
+                        :key="`ds-${person}`"
+                        class="rounded-md bg-gray-50 px-2.5 py-1.5 text-sm text-gray-700"
+                      >
+                        {{ person }}
+                      </div>
+                    </div>
+                    <div v-else class="rounded-md bg-gray-50 px-2.5 py-4 text-center text-sm text-gray-500">
+                      No DS personnel assigned
+                    </div>
+                  </div>
+
+                  <div class="p-4">
+                    <div class="mb-2 flex items-center justify-between gap-2">
+                      <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">NS</div>
+                      <div class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
+                        {{ nsPersonnel.length }}
+                      </div>
+                    </div>
+
+                    <div v-if="nsPersonnel.length" class="space-y-1.5">
+                      <div
+                        v-for="person in nsPersonnel"
+                        :key="`ns-${person}`"
+                        class="rounded-md bg-gray-50 px-2.5 py-1.5 text-sm text-gray-700"
+                      >
+                        {{ person }}
+                      </div>
+                    </div>
+                    <div v-else class="rounded-md bg-gray-50 px-2.5 py-4 text-center text-sm text-gray-500">
+                      No NS personnel assigned
+                    </div>
+                  </div>
+                </div>
+              </div>
             </template>
           </div>
+        </div>
 
-          <div
-            v-if="missingEditableFieldMessage"
-            class="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-xs text-yellow-800"
-          >
-            {{ missingEditableFieldMessage }}
+        <div class="border-t border-gray-200 bg-gray-50 px-6 py-4">
+          <div class="flex justify-end gap-3">
+            <Button size="md" label="Cancel" class="w-28" @click="closeDialog" />
+            <Button
+              size="md"
+              variant="solid"
+              class="w-28"
+              :disabled="projectDetails.loading || updateProject.loading || !form.project"
+              :loading="updateProject.loading"
+              @click="updateProject.submit()"
+            >
+              Update
+            </Button>
           </div>
-
-          <div class="rounded-lg border border-gray-200 bg-white">
-            <div class="border-b border-gray-100 px-4 py-3">
-              <div class="text-sm font-semibold text-gray-800">Personnel Assigned</div>
-              <div class="mt-0.5 text-xs text-gray-500">
-                Current annual view assignments split by DS and NS shift types.
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 divide-x divide-gray-100">
-              <div class="p-4">
-                <div class="mb-2 flex items-center justify-between gap-2">
-                  <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">DS</div>
-                  <div class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
-                    {{ dsPersonnel.length }}
-                  </div>
-                </div>
-
-                <div v-if="dsPersonnel.length" class="space-y-1.5">
-                  <div
-                    v-for="person in dsPersonnel"
-                    :key="`ds-${person}`"
-                    class="rounded-md bg-gray-50 px-2.5 py-1.5 text-sm text-gray-700"
-                  >
-                    {{ person }}
-                  </div>
-                </div>
-                <div v-else class="rounded-md bg-gray-50 px-2.5 py-4 text-center text-sm text-gray-500">
-                  No DS personnel assigned
-                </div>
-              </div>
-
-              <div class="p-4">
-                <div class="mb-2 flex items-center justify-between gap-2">
-                  <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">NS</div>
-                  <div class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
-                    {{ nsPersonnel.length }}
-                  </div>
-                </div>
-
-                <div v-if="nsPersonnel.length" class="space-y-1.5">
-                  <div
-                    v-for="person in nsPersonnel"
-                    :key="`ns-${person}`"
-                    class="rounded-md bg-gray-50 px-2.5 py-1.5 text-sm text-gray-700"
-                  >
-                    {{ person }}
-                  </div>
-                </div>
-                <div v-else class="rounded-md bg-gray-50 px-2.5 py-4 text-center text-sm text-gray-500">
-                  No NS personnel assigned
-                </div>
-              </div>
-            </div>
-          </div>
-        </template>
+        </div>
       </div>
-    </template>
-
-    <template #actions>
-      <div class="flex justify-end gap-3">
-        <Button size="md" label="Cancel" class="w-28" @click="closeDialog" />
-        <Button
-          size="md"
-          variant="solid"
-          class="w-28"
-          :disabled="projectDetails.loading || updateProject.loading || !form.project"
-          @click="updateProject.submit()"
-        >
-          Update
-        </Button>
-      </div>
-    </template>
-  </Dialog>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
-import { Button, Dialog, FormControl, createResource } from 'frappe-ui'
+import { Button, FormControl, createResource } from 'frappe-ui'
 import { raiseToast } from '../utils'
 
 type ProjectDialogRow = {

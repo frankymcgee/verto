@@ -13,7 +13,8 @@
       <div
         ref="projectScroller"
         class="year-roster-scroller overflow-auto"
-        :style="{ maxHeight: projectTableMaxHeight + 'px' }"
+        :class="projectBirdsEye && 'year-project-birds-eye-scroller'"
+        :style="projectScrollerStyle"
         @scroll="onProjectScroll"
       >
         <div class="year-table-stage">
@@ -24,7 +25,15 @@
             aria-hidden="true"
           />
 
-          <table class="year-roster-table border-separate border-spacing-0">
+          <table
+            class="year-roster-table border-separate border-spacing-0"
+            :class="[
+              projectBirdsEye && 'year-project-birds-eye-table',
+              projectBirdsEyeHideMeta && 'year-project-birds-eye-hide-meta',
+              projectBirdsEyeTiny && 'year-project-birds-eye-tiny',
+            ]"
+            :style="projectTableCssVars"
+          >
             <colgroup>
               <col class="year-left-colgroup" />
               <col v-for="day in daysOfYear" :key="`project-col-${day.date}`" class="year-day-colgroup" />
@@ -39,16 +48,32 @@
                       <span>Projects</span>
                     </div>
 
-                    <button
-                      v-if="allProjectRows.length"
-                      type="button"
-                      class="year-section-toggle year-section-inline-toggle"
-                      :class="projectCollapsed && 'year-section-toggle-inactive'"
-                      @click.stop="toggleProjectCollapsed"
-                    >
-                      <span class="year-section-toggle-icon">{{ projectCollapsed ? '▸' : '▾' }}</span>
-                      <span>{{ projectCollapsed ? 'Show' : 'Hide' }}</span>
-                    </button>
+                    <div v-if="allProjectRows.length" class="year-project-header-actions">
+                      <label
+                        class="year-project-birds-eye-toggle"
+                        :class="projectBirdsEye && 'year-project-birds-eye-toggle-active'"
+                        title="Fit all visible project rows into the current project table height"
+                        @click.stop
+                      >
+                        <input
+                          v-model="projectBirdsEye"
+                          type="checkbox"
+                          class="year-project-birds-eye-checkbox"
+                          @click.stop
+                        />
+                        <span>Birds eye</span>
+                      </label>
+
+                      <button
+                        type="button"
+                        class="year-section-toggle year-section-inline-toggle"
+                        :class="projectCollapsed && 'year-section-toggle-inactive'"
+                        @click.stop="toggleProjectCollapsed"
+                      >
+                        <span class="year-section-toggle-icon">{{ projectCollapsed ? '▸' : '▾' }}</span>
+                        <span>{{ projectCollapsed ? 'Show' : 'Hide' }}</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div class="year-project-filter-row mt-1">
@@ -167,10 +192,10 @@
             <tr v-for="lane in projectLanes" :key="lane.key" class="year-project-row">
               <td class="year-left-col border-b border-r bg-white">
                 <div class="px-2 leading-tight">
-                  <div class="truncate text-xs font-semibold text-gray-800" :title="lane.groupLabel">
+                  <div class="year-project-lane-label truncate text-xs font-semibold text-gray-800" :title="lane.groupLabel">
                     {{ lane.groupLabel }}
                   </div>
-                  <div class="truncate text-[10px] text-gray-500" :title="projectLaneSubline(lane)">
+                  <div class="year-project-lane-subline truncate text-[10px] text-gray-500" :title="projectLaneSubline(lane)">
                     {{ projectLaneSubline(lane) }}
                   </div>
                 </div>
@@ -651,6 +676,7 @@ const props = defineProps<{
 const loading = ref(true)
 const employeeSearch = ref<{ value: string; label: string }[]>([])
 const projectCollapsed = ref(false)
+const projectBirdsEye = ref(false)
 const employeeCollapsed = ref(false)
 const projectTypeFilter = ref<'all' | 'roster' | 'shutdown'>('all')
 const shiftAssignment = ref<string>('')
@@ -1356,7 +1382,7 @@ function toggleEmployeeCollapsed() {
   employeeCollapsed.value = !employeeCollapsed.value
 }
 
-const sectionGap = 16
+const sectionGap = 0
 const PROJECT_COLLAPSED_HEIGHT = 98
 const EMPLOYEE_COLLAPSED_HEIGHT = 96
 
@@ -1396,10 +1422,63 @@ const projectTableMaxHeight = computed(() => {
   return naturalProjectTableHeight.value
 })
 
+const projectVisibleRowCount = computed(() => Math.max(1, projectLanes.value.length || 1))
+
+const projectBirdsEyeBodyHeight = computed(() => {
+  if (!projectBirdsEye.value || projectCollapsed.value) return 0
+  return Math.max(1, projectTableMaxHeight.value - PROJECT_TABLE_HEADER_HEIGHT)
+})
+
+const projectBirdsEyeRowHeight = computed(() => {
+  if (!projectBirdsEye.value || projectCollapsed.value) return PROJECT_TABLE_ROW_HEIGHT
+
+  const fittedHeight = projectBirdsEyeBodyHeight.value / projectVisibleRowCount.value
+  return Math.min(PROJECT_TABLE_ROW_HEIGHT, Math.max(1, fittedHeight))
+})
+
+const projectBirdsEyeHideMeta = computed(() => {
+  return projectBirdsEye.value && !projectCollapsed.value && projectBirdsEyeRowHeight.value < 24
+})
+
+const projectBirdsEyeTiny = computed(() => {
+  return projectBirdsEye.value && !projectCollapsed.value && projectBirdsEyeRowHeight.value < 16
+})
+
+const projectBirdsEyeScale = computed(() => {
+  if (!projectBirdsEye.value) return 1
+  if (projectBirdsEyeRowHeight.value < 10) return 0.46
+  if (projectBirdsEyeRowHeight.value < 14) return 0.56
+  if (projectBirdsEyeRowHeight.value < 18) return 0.68
+  if (projectBirdsEyeRowHeight.value < 24) return 0.82
+  return 1
+})
+
+const projectScrollerStyle = computed(() => {
+  const style: Record<string, string> = {
+    maxHeight: `${projectTableMaxHeight.value}px`,
+  }
+
+  if (projectBirdsEye.value && !projectCollapsed.value) {
+    style.height = `${projectTableMaxHeight.value}px`
+  }
+
+  return style
+})
+
+const projectTableCssVars = computed(() => {
+  if (!projectBirdsEye.value || projectCollapsed.value) return {}
+
+  return {
+    '--year-project-row-height': `${projectBirdsEyeRowHeight.value}px`,
+    '--year-project-span-scale': String(projectBirdsEyeScale.value),
+  }
+})
+
 const projectTableRenderedHeight = computed(() => {
   if (!showProjectsPanel.value) return 0
   if (projectCollapsed.value) return PROJECT_COLLAPSED_HEIGHT
   if (employeeCollapsed.value) return projectTableMaxHeight.value
+  if (projectBirdsEye.value) return projectTableMaxHeight.value
 
   return Math.min(projectTableMaxHeight.value, projectTableContentHeight.value)
 })
@@ -2907,6 +2986,47 @@ defineExpose({ events, scrollToToday })
   font-size: 10px;
 }
 
+.year-project-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: max-content;
+}
+
+.year-project-birds-eye-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  border-radius: 6px;
+  border: 1px solid rgb(209 213 219);
+  background: rgb(255 255 255);
+  padding: 3px 7px;
+  color: rgb(55 65 81);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.year-project-birds-eye-toggle:hover {
+  background: rgb(249 250 251);
+}
+
+.year-project-birds-eye-toggle-active {
+  border-color: rgb(37 99 235 / 0.55);
+  background: rgb(239 246 255);
+  color: rgb(30 64 175);
+}
+
+.year-project-birds-eye-checkbox {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  accent-color: rgb(37 99 235);
+}
+
 .year-table-resizer {
   display: flex;
   align-items: center;
@@ -3184,7 +3304,7 @@ defineExpose({ events, scrollToToday })
 }
 
 .year-project-row td {
-  height: 36px;
+  height: var(--year-project-row-height, 36px);
 }
 
 .year-project-cell {
@@ -3193,6 +3313,78 @@ defineExpose({ events, scrollToToday })
 
 .year-project-empty-cell {
   background: rgb(249 250 251);
+}
+
+.year-project-birds-eye-scroller {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+}
+
+.year-project-birds-eye-table .year-project-row td {
+  height: var(--year-project-row-height, 36px) !important;
+  min-height: 0 !important;
+  overflow: hidden;
+}
+
+.year-project-birds-eye-table .year-project-row .year-left-col > div {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.year-project-birds-eye-table .year-project-span {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.year-project-birds-eye-table .year-project-span-content {
+  gap: 0;
+  min-height: 0;
+  transform: scale(var(--year-project-span-scale, 1));
+  transform-origin: center center;
+}
+
+.year-project-birds-eye-table .year-project-span-title-row {
+  line-height: 1;
+}
+
+.year-project-birds-eye-table .year-project-span-meta-row {
+  margin-top: 1px;
+}
+
+.year-project-birds-eye-hide-meta .year-project-span-meta-row,
+.year-project-birds-eye-hide-meta .year-project-lane-subline {
+  display: none !important;
+}
+
+.year-project-birds-eye-table .year-project-span-name {
+  font-size: 9px;
+}
+
+.year-project-birds-eye-table .year-project-request-count {
+  font-size: 9px;
+}
+
+.year-project-birds-eye-tiny .year-project-span-name,
+.year-project-birds-eye-tiny .year-project-lane-label {
+  font-size: 8px !important;
+  line-height: 1 !important;
+}
+
+.year-project-birds-eye-tiny .year-project-span {
+  border-radius: 3px;
+  border-width: 1px !important;
+}
+
+.year-project-birds-eye-tiny .year-project-span-content {
+  justify-content: center;
+}
+
+.year-project-birds-eye-tiny .year-project-span-drag-handle {
+  width: 4px;
 }
 
 .year-project-span {
