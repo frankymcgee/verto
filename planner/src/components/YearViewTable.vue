@@ -1691,6 +1691,19 @@ function hasNote(note: string | null | undefined) {
   return typeof note === 'string' && note.trim().length > 0
 }
 
+function normaliseStatus(value: string | null | undefined) {
+  return String(value || '').trim().toLowerCase()
+}
+
+function isInactiveShiftStatus(status: string | null | undefined) {
+  const value = normaliseStatus(status)
+  return ['inactive', 'disabled', 'cancelled', 'canceled'].includes(value)
+}
+
+function isInactiveShift(shift: ShiftAssignment | null | undefined) {
+  return isInactiveShiftStatus(shift?.status)
+}
+
 function plainTextFromHtml(value: string | null | undefined) {
   const raw = typeof value === 'string' ? value.trim() : ''
   if (!raw) return ''
@@ -1824,10 +1837,13 @@ function employeeShiftContinuesRight(employee: string, date: string) {
 }
 
 function employeeCellClass(employee: string, date: string) {
-  const isShift = isEmployeeShiftCell(employee, date)
+  const cell = getEmployeeCell(employee, date)
+  const isShift = cell?.type === 'shift'
+  const inactive = isShift ? isInactiveShift(cell.shift) : false
 
   return {
     'year-employee-shift-cell': isShift,
+    'year-employee-shift-inactive': inactive,
     'year-employee-shift-continues-left': isShift && employeeShiftContinuesLeft(employee, date),
     'year-employee-shift-continues-right': isShift && employeeShiftContinuesRight(employee, date),
   }
@@ -1857,8 +1873,23 @@ function employeeCellStyle(employee: string, date: string) {
   }
 
   const color = palette(cell.shift.color)
-  const borderColor = hasNote(cell.shift.note) ? (colors as any).red[500] : color[300]
+  const inactive = isInactiveShift(cell.shift)
+  const borderColor = hasNote(cell.shift.note) ? (colors as any).red[500] : inactive ? color[400] : color[300]
   const continuesRight = employeeShiftContinuesRight(employee, date)
+
+  if (inactive) {
+    return {
+      '--year-shift-border-color': borderColor,
+      backgroundColor: color[50],
+      borderColor,
+      borderRightColor: borderColor,
+      borderStyle: 'dashed',
+      boxShadow: 'none',
+      color: (colors as any).gray[700],
+      outline: `1px dashed ${borderColor}`,
+      outlineOffset: '-1px',
+    }
+  }
 
   return {
     backgroundColor: color[100],
@@ -2657,7 +2688,8 @@ function showEmployeeHover(employee: Employee, date: string, event: MouseEvent) 
 
   const shift = cell.shift
   const color = palette(shift.color)
-  const accent = hasNote(shift.note) ? (colors as any).red[500] : color[500] || color[400]
+  const inactive = isInactiveShift(shift)
+  const accent = hasNote(shift.note) ? (colors as any).red[500] : inactive ? color[300] : color[500] || color[400]
   const customerLabel = shift.customer_abbreviation?.trim() || ''
 
   setHoverCard(
@@ -2668,7 +2700,7 @@ function showEmployeeHover(employee: Employee, date: string, event: MouseEvent) 
       title: customerLabel || shift.shift_type,
       subtitle: [shift.custom_project_name, shift.shift_location].filter(Boolean).join(' · '),
       badge: cell.shifts.length > 1 ? `${cell.shifts.length} shifts` : shift.status,
-      badgeTone: hasNote(shift.note) ? 'red' : 'blue',
+      badgeTone: hasNote(shift.note) ? 'red' : inactive ? 'gray' : 'blue',
       accent,
       rows: [
         { label: 'Employee', value: employeeDisplayName(employee) },
@@ -3299,6 +3331,10 @@ defineExpose({ events, scrollToToday })
   border-style: solid !important;
 }
 
+.year-employee-shift-inactive {
+  border-style: dashed !important;
+}
+
 .year-employee-shift-cell[draggable='true'] {
   cursor: grab;
 }
@@ -3403,6 +3439,10 @@ defineExpose({ events, scrollToToday })
 
 .year-employee-shift-continues-right {
   border-right-color: transparent !important;
+}
+
+.year-employee-shift-inactive.year-employee-shift-continues-right {
+  border-right-color: var(--year-shift-border-color, currentColor) !important;
 }
 
 .year-project-row td {
