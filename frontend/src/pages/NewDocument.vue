@@ -176,6 +176,7 @@
 
                   <Select
                     v-else-if="field.fieldtype === 'Select'"
+                    :key="getFieldRenderKey(field)"
                     :model-value="getSelectValue(field.fieldname)"
                     class="w-full"
                     variant="outline"
@@ -330,7 +331,7 @@ export type MobileField = {
   fieldname: string
   label: string
   fieldtype: string
-  options?: string
+  options?: string | string[]
   required?: boolean
   default?: any
   description?: string
@@ -345,6 +346,7 @@ export type MobileField = {
   idx?: number
   child_doctype?: string
   child_fields?: MobileField[]
+  [key: string]: any
 }
 
 type FormSchema = {
@@ -376,6 +378,20 @@ type CreateDocumentPayload = {
   doctype: string
   name: string
   route?: string
+}
+
+type DynamicFieldChangeResponse = {
+  values?: Record<string, any>
+  defaults?: Record<string, any>
+  messages?: string[]
+  warnings?: string[]
+  fields?: MobileField[]
+  schema?: Partial<FormSchema> & {
+    fields?: MobileField[]
+  }
+  field_updates?: Record<string, Partial<MobileField>>
+  field_options?: Record<string, string | string[]>
+  options?: Record<string, string | string[]>
 }
 
 const route = useRoute()
@@ -612,17 +628,48 @@ function updateSelectValue(field: MobileField, selected: SelectValue) {
   handleFieldChange(field)
 }
 
-function getSelectOptions(options?: string): SelectOption[] {
-  if (!options) return []
+function normaliseOptionsValue(options?: string | string[]) {
+  if (Array.isArray(options)) {
+    return options
+      .map((option) => String(option).trim())
+      .filter(Boolean)
+      .join('\n')
+  }
 
-  return options
+  return String(options || '')
+}
+
+function getSelectOptions(options?: string | string[]): SelectOption[] {
+  const seen = new Set<string>()
+
+  return normaliseOptionsValue(options)
     .split('\n')
     .map((option) => option.trim())
     .filter(Boolean)
+    .filter((option) => {
+      if (seen.has(option)) {
+        return false
+      }
+
+      seen.add(option)
+      return true
+    })
     .map((option) => ({
       label: option,
       value: option,
     }))
+}
+
+function getFieldRenderKey(field: MobileField) {
+  return [
+    field.fieldname,
+    field.fieldtype,
+    normaliseOptionsValue(field.options),
+    String(field.default ?? ''),
+    String(field.depends_on || ''),
+    String(field.mandatory_depends_on || ''),
+    String(field.read_only_depends_on || ''),
+  ].join('::')
 }
 
 function isFieldVisible(field: MobileField) {
@@ -646,6 +693,29 @@ function handleFiles(event: Event) {
   files.value = Array.from(input.files || [])
 }
 
+function isBlankValue(value: any) {
+  if (value === undefined || value === null) {
+    return true
+  }
+
+  if (typeof value === 'string') {
+    return value.trim() === ''
+  }
+
+  if (Array.isArray(value)) {
+    return value.length === 0
+  }
+
+  return false
+}
+
+function normaliseFieldDefinition(field: MobileField): MobileField {
+  return {
+    ...field,
+    options: normaliseOptionsValue(field.options),
+  }
+}
+
 function mergeUpdatedValues(updatedValues: Record<string, any>) {
   const schemaFieldnames = new Set(
     (schema.value?.fields || [])
@@ -653,15 +723,124 @@ function mergeUpdatedValues(updatedValues: Record<string, any>) {
       .map((field) => field.fieldname)
   )
 
+  const nextValues = {
+    ...values.value,
+  }
+
   for (const [fieldname, value] of Object.entries(updatedValues || {})) {
     if (schemaFieldnames.has(fieldname)) {
       const field = schema.value?.fields.find((item) => item.fieldname === fieldname)
 
-      values.value[fieldname] = field
+      nextValues[fieldname] = field
         ? normaliseValueForField(field, value)
         : value
     }
   }
+
+  values.value = nextValues
+}
+
+function mergeSchemaFields(updatedFields?: MobileField[]) {
+  if (!schema.value || !updatedFields?.length) {
+    return
+  }
+
+  const nextFields = [...schema.value.fields]
+
+  for (const updatedField of updatedFields) {
+    if (!updatedField?.fieldname) {
+      continue
+    }
+
+    const normalisedField = normaliseFieldDefinition(updatedField)
+    const index = nextFields.findIndex((field) => field.fieldname === normalisedField.fieldname)
+
+    if (index >= 0) {
+      nextFields[index] = {
+        ...nextFields[index],
+        ...normalisedField,
+      }
+    } else {
+      nextFields.push(normalisedField)
+    }
+  }
+
+  schema.value = {
+    ...schema.value,
+    fields: nextFields,
+  }
+}
+
+function mergeFieldUpdates(fieldUpdates?: Record<string, Partial<MobileField>>) {
+  if (!schema.value || !fieldUpdates || typeof fieldUpdates !== 'object') {
+    return
+  }
+
+  const patchFields = Object.entries(fieldUpdates)
+    .map(([fieldname, patch]) => ({
+      fieldname,
+      ...(patch || {}),
+    })) as MobileField[]
+
+  mergeSchemaFields(patchFields)
+}
+
+function mergeFieldOptions(fieldOptions?: Record<string, string | string[]>) {
+  if (!schema.value || !fieldOptions || typeof fieldOptions !== 'object') {
+    return
+  }
+
+  const patchFields = Object.entries(fieldOptions)
+    .map(([fieldname, options]) => ({
+      fieldname,
+      options,
+    })) as MobileField[]
+
+  mergeSchemaFields(patchFields)
+}
+
+function applyDefaultsForVisibleFields() {
+  const nextValues = {
+    ...values.value,
+  }
+
+  let hasChanges = false
+
+  for (const field of schema.value?.fields || []) {
+    if (isLayoutField(field) || !isFieldVisible(field)) {
+      continue
+    }
+
+    if (field.fieldtype === 'Table' && !Array.isArray(nextValues[field.fieldname])) {
+      nextValues[field.fieldname] = []
+      hasChanges = true
+      continue
+    }
+
+    if (!isBlankValue(field.default) && isBlankValue(nextValues[field.fieldname])) {
+      nextValues[field.fieldname] = getDefaultValue(field)
+      hasChanges = true
+    }
+  }
+
+  if (hasChanges) {
+    values.value = nextValues
+  }
+}
+
+function applyDynamicFieldResponse(message: DynamicFieldChangeResponse) {
+  mergeSchemaFields(message.schema?.fields || message.fields)
+  mergeFieldUpdates(message.field_updates)
+  mergeFieldOptions(message.field_options)
+
+  // Some backend helpers use "options" as a fieldname -> options map.
+  if (message.options && typeof message.options === 'object' && !Array.isArray(message.options)) {
+    mergeFieldOptions(message.options)
+  }
+
+  mergeUpdatedValues(message.values || {})
+  mergeUpdatedValues(message.defaults || {})
+  applyDefaultsForVisibleFields()
 }
 
 function getResponseMessage<T>(data: FrappeResponse<T> | any, fallback: T): T {
@@ -705,6 +884,20 @@ function getValueForSave(field: MobileField) {
   return value
 }
 
+function getAllValuesForFieldChange() {
+  const cleaned: Record<string, any> = {}
+
+  for (const field of schema.value?.fields || []) {
+    if (isLayoutField(field)) {
+      continue
+    }
+
+    cleaned[field.fieldname] = getValueForSave(field)
+  }
+
+  return cleaned
+}
+
 function getVisibleValues() {
   const cleaned: Record<string, any> = {}
 
@@ -728,9 +921,9 @@ async function applyFetchFrom(changedFieldname: string) {
 
   payload.append('mobile_doctype', mobileDoctype)
   payload.append('changed_fieldname', changedFieldname)
-  payload.append('values', JSON.stringify(getVisibleValues()))
+  payload.append('values', JSON.stringify(getAllValuesForFieldChange()))
 
-  const data = await apiRequest<FrappeResponse<{ values: Record<string, any> }>>(
+  const data = await apiRequest<FrappeResponse<DynamicFieldChangeResponse>>(
     '/api/method/verto.api.mobile.documents.apply_fetch_from',
     {
       method: 'POST',
@@ -740,7 +933,7 @@ async function applyFetchFrom(changedFieldname: string) {
 
   const message = getResponseMessage(data, { values: {} })
 
-  mergeUpdatedValues(message.values || {})
+  applyDynamicFieldResponse(message)
 }
 
 async function runFieldChange(changedFieldname: string) {
@@ -748,13 +941,9 @@ async function runFieldChange(changedFieldname: string) {
 
   payload.append('mobile_doctype', mobileDoctype)
   payload.append('changed_fieldname', changedFieldname)
-  payload.append('values', JSON.stringify(getVisibleValues()))
+  payload.append('values', JSON.stringify(getAllValuesForFieldChange()))
 
-  const data = await apiRequest<FrappeResponse<{
-    values: Record<string, any>
-    messages: string[]
-    warnings: string[]
-  }>>(
+  const data = await apiRequest<FrappeResponse<DynamicFieldChangeResponse>>(
     '/api/method/verto.api.mobile.documents.run_field_change',
     {
       method: 'POST',
@@ -768,7 +957,7 @@ async function runFieldChange(changedFieldname: string) {
     warnings: [],
   })
 
-  mergeUpdatedValues(message.values || {})
+  applyDynamicFieldResponse(message)
 
   messages.value = message.messages || []
   warnings.value = message.warnings || []
@@ -807,15 +996,20 @@ async function loadSchema() {
     `/api/method/verto.api.mobile.documents.get_form_schema?${params.toString()}`
   )
 
-  schema.value = data.message
+  schema.value = {
+    ...data.message,
+    fields: (data.message.fields || []).map((field) => normaliseFieldDefinition(field)),
+  }
 
-  for (const field of data.message.fields) {
+  for (const field of schema.value.fields) {
     if (isLayoutField(field)) {
       continue
     }
 
     values.value[field.fieldname] = getDefaultValue(field)
   }
+
+  applyDefaultsForVisibleFields()
 
   activeTab.value = formTabs.value[0]?.id || 'main'
 }
@@ -847,6 +1041,7 @@ async function loadPrefillValues() {
   )
 
   mergeUpdatedValues(data.message.values || {})
+  applyDefaultsForVisibleFields()
 }
 
 async function loadNewDocument() {

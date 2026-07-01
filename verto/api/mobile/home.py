@@ -2,6 +2,9 @@ import frappe
 from frappe.utils import add_to_date, now_datetime
 
 
+SETTINGS_DOCTYPE = "Verto Mobile Settings"
+
+
 GENERIC_FORM_BUTTONS = [
     {"label": "LV Pre-Start", "doctype": "LV Pre-Start"},
     {"label": "Take 5", "doctype": "Take 5"},
@@ -38,6 +41,32 @@ CCV_BUTTONS = [
 ]
 
 
+GENERIC_FORMS_FIELD_CANDIDATES = [
+    "generic_forms",
+    "generic_form_buttons",
+    "mobile_generic_forms",
+    "verto_generic_forms",
+]
+
+PROJECT_FORMS_FIELD_CANDIDATES = [
+    "project_forms",
+    "project_form_buttons",
+    "task_forms",
+    "task_form_buttons",
+    "mobile_project_forms",
+    "verto_project_forms",
+]
+
+PROJECT_CCVS_FIELD_CANDIDATES = [
+    "project_ccvs",
+    "project_ccv_buttons",
+    "ccv_forms",
+    "ccv_form_buttons",
+    "mobile_project_ccvs",
+    "verto_project_ccvs",
+]
+
+
 def require_login():
     if frappe.session.user == "Guest":
         frappe.throw("Login required", frappe.PermissionError)
@@ -51,8 +80,32 @@ def doctype_exists(doctype):
     return bool(frappe.db.exists("DocType", doctype))
 
 
+def get_button_doctype(button):
+    # Fallback hardcoded lists use "doctype".
+    # Verto Mobile Settings child tables use "doc_type" because "doctype" is reserved/problematic in child rows.
+    return (button.get("doc_type") or button.get("doctype") or "").strip()
+
+
+def is_enabled(value):
+    # Treat blank/missing enabled fields as enabled so older child tables do not
+    # accidentally hide every form. Explicit 0/false/no still disables the row.
+    if value in (None, ""):
+        return True
+
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, (int, float)):
+        return bool(value)
+
+    return str(value).strip().lower() not in {"0", "false", "no", "n", "off"}
+
+
 def allowed_button(button):
-    doctype = button.get("doctype")
+    doctype = get_button_doctype(button)
+
+    if not doctype:
+        return None
 
     if not doctype_exists(doctype):
         return None
@@ -67,6 +120,16 @@ def allowed_button(button):
     }
 
 
+def sort_buttons(buttons):
+    return sorted(
+        buttons,
+        key=lambda button: (
+            (button.get("label") or get_button_doctype(button) or "").lower(),
+            (get_button_doctype(button) or "").lower(),
+        ),
+    )
+
+
 def get_allowed_buttons(buttons):
     allowed = []
 
@@ -75,7 +138,92 @@ def get_allowed_buttons(buttons):
         if item:
             allowed.append(item)
 
-    return allowed
+    return sort_buttons(allowed)
+
+
+def has_settings_field(settings, fieldname):
+    return bool(settings.meta and settings.meta.has_field(fieldname))
+
+
+def get_settings_child_rows(settings, field_candidates):
+    for fieldname in field_candidates:
+        if not has_settings_field(settings, fieldname):
+            continue
+
+        rows = settings.get(fieldname) or []
+
+        if rows:
+            return rows
+
+    return []
+
+
+def get_buttons_from_settings(settings, field_candidates, fallback_buttons):
+    fallback_allowed_buttons = get_allowed_buttons(fallback_buttons)
+    rows = get_settings_child_rows(settings, field_candidates)
+
+    if not rows:
+        return fallback_allowed_buttons
+
+    configured_buttons = []
+
+    for row in rows:
+        if not is_enabled(row.get("enabled")):
+            continue
+
+        doctype = get_button_doctype(row)
+
+        if not doctype:
+            continue
+
+        configured_buttons.append({
+            "label": (row.get("label") or doctype).strip(),
+            "doc_type": doctype,
+        })
+
+    configured_allowed_buttons = get_allowed_buttons(configured_buttons)
+
+    # Safety fallback: if the settings table exists but no row is enabled,
+    # no row has a valid DocType, or no row passes create permission, do not
+    # blank the mobile app. Fall back to the original hardcoded list.
+    if not configured_allowed_buttons:
+        return fallback_allowed_buttons
+
+    return configured_allowed_buttons
+
+
+def get_mobile_form_buttons():
+    try:
+        settings = frappe.get_single(SETTINGS_DOCTYPE)
+    except Exception:
+        frappe.log_error(
+            title="Verto Mobile Settings lookup failed",
+            message=frappe.get_traceback(),
+        )
+
+        return {
+            "generic_forms": get_allowed_buttons(GENERIC_FORM_BUTTONS),
+            "task_forms": get_allowed_buttons(TASK_FORM_BUTTONS),
+            "ccv_forms": get_allowed_buttons(CCV_BUTTONS),
+        }
+
+    return {
+        "generic_forms": get_buttons_from_settings(
+            settings,
+            GENERIC_FORMS_FIELD_CANDIDATES,
+            GENERIC_FORM_BUTTONS,
+        ),
+        "task_forms": get_buttons_from_settings(
+            settings,
+            PROJECT_FORMS_FIELD_CANDIDATES,
+            TASK_FORM_BUTTONS,
+        ),
+        "ccv_forms": get_buttons_from_settings(
+            settings,
+            PROJECT_CCVS_FIELD_CANDIDATES,
+            CCV_BUTTONS,
+        ),
+    }
 
 
 def get_handover_base():
@@ -322,13 +470,14 @@ def get_home_summary():
     tasks = fetch_assigned_work_summary_tasks()
     project_map = fetch_projects_for_tasks(tasks)
     grouped_tasks = group_tasks(tasks, project_map)
+    mobile_form_buttons = get_mobile_form_buttons()
 
     return {
         "user": frappe.session.user,
         "handover_base": get_handover_base(),
         "grouped_tasks": grouped_tasks,
-        "generic_forms": get_allowed_buttons(GENERIC_FORM_BUTTONS),
-        "task_forms": get_allowed_buttons(TASK_FORM_BUTTONS),
-        "ccv_forms": get_allowed_buttons(CCV_BUTTONS),
+        "generic_forms": mobile_form_buttons["generic_forms"],
+        "task_forms": mobile_form_buttons["task_forms"],
+        "ccv_forms": mobile_form_buttons["ccv_forms"],
         "raven_base": "https://dashboard.minesitesupport.com.au/raven",
     }

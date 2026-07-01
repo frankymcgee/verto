@@ -84,7 +84,7 @@
         @click.self="closeDrawer"
       >
         <Card class="drawer-panel max-h-[88vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
-        <div class="flex items-center justify-between gap-3 border-b border-outline-gray-1 px-4 py-3">
+        <div class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-outline-gray-1 bg-surface-white px-4 py-3">
           <div class="min-w-0">
             <h2 class="truncate text-lg font-semibold text-ink-gray-9">
               {{ drawerTitle }}
@@ -104,7 +104,7 @@
           </Button>
         </div>
 
-        <div class="max-h-[calc(88vh-132px)] space-y-4 overflow-y-auto px-4 py-4">
+        <div class="max-h-[calc(88vh-132px)] space-y-4 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]">
           <template
             v-for="childField in visibleChildFields"
             :key="childField.fieldname"
@@ -158,6 +158,7 @@
 
               <Select
                 v-else-if="childField.fieldtype === 'Select'"
+                :key="getFieldRenderKey(childField)"
                 :model-value="getSelectValue(childField.fieldname)"
                 class="w-full"
                 variant="outline"
@@ -225,9 +226,14 @@
               No fields configured for this table.
             </p>
           </div>
+
+          <div
+            class="h-24 shrink-0"
+            aria-hidden="true"
+          />
         </div>
 
-        <div class="flex gap-2 border-t border-outline-gray-1 bg-surface-white px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+        <div class="sticky bottom-0 z-10 flex gap-2 border-t border-outline-gray-1 bg-surface-white px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
           <Button
             v-if="!disabled && editingIndex !== null"
             variant="subtle"
@@ -286,7 +292,7 @@ type MobileField = {
   fieldname: string
   label: string
   fieldtype: string
-  options?: string
+  options?: string | string[]
   required?: boolean
   default?: any
   description?: string
@@ -301,6 +307,7 @@ type MobileField = {
   idx?: number
   child_doctype?: string
   child_fields?: MobileField[]
+  [key: string]: any
 }
 
 type SelectOption = {
@@ -328,8 +335,16 @@ const rows = computed(() => {
   return Array.isArray(props.modelValue) ? props.modelValue : []
 })
 
+function normaliseFieldDefinition(field: MobileField): MobileField {
+  return {
+    ...field,
+    options: normaliseOptionsValue(field.options),
+  }
+}
+
 const childFields = computed(() => {
   return (props.field.child_fields || [])
+    .map((field) => normaliseFieldDefinition(field))
     .slice()
     .sort((a, b) => Number(a.idx || 0) - Number(b.idx || 0))
 })
@@ -633,17 +648,48 @@ function updateSelectValue(field: MobileField, selected: SelectValue) {
   draftRow.value[field.fieldname] = String(selected)
 }
 
-function getSelectOptions(options?: string): SelectOption[] {
-  if (!options) return []
+function normaliseOptionsValue(options?: string | string[]) {
+  if (Array.isArray(options)) {
+    return options
+      .map((option) => String(option).trim())
+      .filter(Boolean)
+      .join('\n')
+  }
 
-  return options
+  return String(options || '')
+}
+
+function getSelectOptions(options?: string | string[]): SelectOption[] {
+  const seen = new Set<string>()
+
+  return normaliseOptionsValue(options)
     .split('\n')
     .map((option) => option.trim())
     .filter(Boolean)
+    .filter((option) => {
+      if (seen.has(option)) {
+        return false
+      }
+
+      seen.add(option)
+      return true
+    })
     .map((option) => ({
       label: option,
       value: option,
     }))
+}
+
+function getFieldRenderKey(field: MobileField) {
+  return [
+    field.fieldname,
+    field.fieldtype,
+    normaliseOptionsValue(field.options),
+    String(field.default ?? ''),
+    String(field.depends_on || ''),
+    String(field.mandatory_depends_on || ''),
+    String(field.read_only_depends_on || ''),
+  ].join('::')
 }
 
 function isFieldVisible(field: MobileField) {

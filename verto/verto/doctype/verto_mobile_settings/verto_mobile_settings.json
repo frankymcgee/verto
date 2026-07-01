@@ -29,6 +29,12 @@
   "peri_bot_name",
   "peri_bot_user",
   "peri_bot_image",
+  "section_break_rtpg",
+  "generic_forms",
+  "column_break_ufwo",
+  "project_forms",
+  "column_break_uzjk",
+  "project_ccvs",
   "planner_tab",
   "planner_app_name",
   "desk_icon",
@@ -192,14 +198,44 @@
    "fieldtype": "Select",
    "label": "Planner View Default",
    "options": "\nMonth\nAnnual"
+  },
+  {
+   "fieldname": "section_break_rtpg",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "generic_forms",
+   "fieldtype": "Table",
+   "label": "Generic Forms",
+   "options": "Verto Mobile Form Shortcut"
+  },
+  {
+   "fieldname": "column_break_ufwo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_uzjk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "project_forms",
+   "fieldtype": "Table",
+   "label": "Project Forms",
+   "options": "Verto Mobile Form Shortcut"
+  },
+  {
+   "fieldname": "project_ccvs",
+   "fieldtype": "Table",
+   "label": "Project CCV's",
+   "options": "Verto Mobile Form Shortcut"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-06-22 15:25:15.442292",
- "modified_by": "sean@minesitesupport.com.au",
+ "modified": "2026-07-01 10:04:03.102218",
+ "modified_by": "Administrator",
  "module": "Verto",
  "name": "Verto Mobile Settings",
  "owner": "Administrator",

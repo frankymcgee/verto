@@ -1,4 +1,4 @@
-// VERTO_RAVEN_NATIVE_CLIENT_TEXT_FIELD_PRIORITY_FIX_2026_06_10
+// VERTO_RAVEN_CLIENT_DOCUMENT_PREVIEW_ENDPOINT_FIX_2026_07_01
 import { apiRequest } from './api'
 
 export type FrappeResponse<T> = {
@@ -36,6 +36,23 @@ export type RavenDocumentLink = {
   docname: string
 }
 
+export type RavenPreviewField = {
+  label: string
+  value: string | number | null
+}
+
+export type RavenDocumentPreview = {
+  doctype: string
+  docname: string
+  title?: string
+  subtitle?: string
+  route?: string
+  preview_image?: string | null
+  id?: string
+  fields?: RavenPreviewField[]
+  raw?: Record<string, any>
+}
+
 export type RavenMessage = {
   name: string
   owner: string
@@ -58,6 +75,9 @@ export type RavenMessage = {
   reply_count?: number
   replies_count?: number
   thread_replies_count?: number
+  total_replies?: number
+  reply_count_on_thread?: number
+  thread_reply_count?: number
   is_thread?: 0 | 1 | boolean
   is_reply?: 0 | 1 | boolean
   linked_message?: string | null
@@ -72,6 +92,7 @@ export type RavenMessage = {
   link_doctype?: string
   link_document?: string
   document_links?: RavenDocumentLink[]
+  document_preview?: RavenDocumentPreview | null
   linked_doctype?: string
   linked_docname?: string
   reference_doctype?: string
@@ -91,12 +112,14 @@ export type ChatBootstrap = {
   channels: RavenChannel[]
   active_channel?: RavenChannel | null
   messages?: RavenMessage[]
+  settings?: Record<string, any>
 }
 
 export type MessagesPayload = {
   messages: RavenMessage[]
   has_old_messages?: boolean
   has_new_messages?: boolean
+  [key: string]: any
 }
 
 export type ThreadPayload = {
@@ -111,6 +134,10 @@ export type PeriChannelPayload = {
   channel?: string | RavenChannel
   name?: string
   channel_id?: string
+  channel_name?: string
+  url?: string
+  peri_bot_name?: string
+  peri_bot_user?: string
   [key: string]: any
 }
 
@@ -129,7 +156,11 @@ export function sortMessagesOldestFirst(items: RavenMessage[]) {
 
 function getExtension(fileNameOrUrl?: string) {
   const value = String(fileNameOrUrl || '')
-  if (!value.includes('.')) return ''
+
+  if (!value.includes('.')) {
+    return ''
+  }
+
   return value.split('?')[0].split('#')[0].split('.').pop()?.toLowerCase() || ''
 }
 
@@ -166,39 +197,92 @@ function buildAttachmentFromRavenFile(message: RavenMessage): RavenAttachment[] 
   ]
 }
 
-function pickRavenTextField(message: RavenMessage) {
-  // Raven's source-of-truth display field is `text`.
-  // Use nullish checks instead of `||` so we do not accidentally replace a valid
-  // empty string with `content`, which is Raven's plain-text/search summary field.
-  if (message.text !== undefined && message.text !== null) {
-    return String(message.text)
+function normaliseDocumentLinks(message: RavenMessage): RavenDocumentLink[] {
+  const existingLinks = Array.isArray(message.document_links)
+    ? message.document_links
+        .map((link) => ({
+          doctype: String(link.doctype || '').trim(),
+          docname: String(link.docname || '').trim(),
+        }))
+        .filter((link) => link.doctype && link.docname)
+    : []
+
+  const preview = message.document_preview
+
+  const doctype = String(
+    message.link_doctype ||
+      message.linked_doctype ||
+      message.reference_doctype ||
+      message.document_type ||
+      preview?.doctype ||
+      ''
+  ).trim()
+
+  const docname = String(
+    message.link_document ||
+      message.linked_docname ||
+      message.reference_docname ||
+      message.document_name ||
+      preview?.docname ||
+      ''
+  ).trim()
+
+  if (doctype && docname && !existingLinks.some((link) => link.doctype === doctype && link.docname === docname)) {
+    existingLinks.unshift({
+      doctype,
+      docname,
+    })
   }
 
-  if (message.message !== undefined && message.message !== null) {
-    return String(message.message)
-  }
-
-  if (message.content !== undefined && message.content !== null) {
-    return String(message.content)
-  }
-
-  return ''
+  return existingLinks
 }
 
 export function normaliseRavenMessage(message: RavenMessage): RavenMessage {
-  const text = pickRavenTextField(message)
+  const text = message.text || message.message || message.content || ''
+  const documentLinks = normaliseDocumentLinks(message)
+  const primaryDocumentLink = documentLinks[0]
+
+  const linkDoctype = String(
+    message.link_doctype ||
+      message.linked_doctype ||
+      message.reference_doctype ||
+      message.document_type ||
+      primaryDocumentLink?.doctype ||
+      message.document_preview?.doctype ||
+      ''
+  ).trim()
+
+  const linkDocument = String(
+    message.link_document ||
+      message.linked_docname ||
+      message.reference_docname ||
+      message.document_name ||
+      primaryDocumentLink?.docname ||
+      message.document_preview?.docname ||
+      ''
+  ).trim()
 
   const normalised: RavenMessage = {
     ...message,
     owner: message.owner || message.sender || '',
     sender: message.sender || message.owner || '',
-    message: message.message ?? text,
-    content: message.content ?? message.message ?? text,
+    message: message.message || text,
+    content: message.content || message.message || text,
     text,
     channel_id: message.channel_id || message.channel || '',
     channel: message.channel || message.channel_id || '',
     is_bot_message: message.is_bot_message || Boolean(message.bot),
     bot: message.bot || null,
+    link_doctype: linkDoctype || undefined,
+    link_document: linkDocument || undefined,
+    linked_doctype: message.linked_doctype || linkDoctype || undefined,
+    linked_docname: message.linked_docname || linkDocument || undefined,
+    reference_doctype: message.reference_doctype || linkDoctype || undefined,
+    reference_docname: message.reference_docname || linkDocument || undefined,
+    document_type: message.document_type || linkDoctype || undefined,
+    document_name: message.document_name || linkDocument || undefined,
+    document_links: documentLinks,
+    document_preview: message.document_preview || null,
   }
 
   if (!normalised.attachments?.length) {
@@ -239,7 +323,10 @@ export async function getMobileChatBootstrap() {
     '/api/method/verto.api.mobile.raven.get_mobile_chat_bootstrap'
   )
 
-  return data.message
+  return {
+    ...data.message,
+    messages: normaliseRavenMessages(data.message.messages || []),
+  }
 }
 
 export async function getOrCreatePeriChannel() {
@@ -259,11 +346,11 @@ export async function getOrCreatePeriChannel() {
 
 export async function getMessages(channelId: string, limit = 50) {
   const payload = new FormData()
-  payload.append('channel_id', channelId)
+  payload.append('channel', channelId)
   payload.append('limit', String(limit))
 
   const data = await apiRequest<FrappeResponse<MessagesPayload>>(
-    '/api/method/raven.api.chat_stream.get_messages',
+    '/api/method/verto.api.mobile.raven.get_channel_messages',
     {
       method: 'POST',
       body: payload,
@@ -278,12 +365,12 @@ export async function getMessages(channelId: string, limit = 50) {
 
 export async function getOlderMessages(channelId: string, fromMessage: string, limit = 20) {
   const payload = new FormData()
-  payload.append('channel_id', channelId)
+  payload.append('channel', channelId)
   payload.append('from_message', fromMessage)
   payload.append('limit', String(limit))
 
   const data = await apiRequest<FrappeResponse<MessagesPayload>>(
-    '/api/method/raven.api.chat_stream.get_older_messages',
+    '/api/method/verto.api.mobile.raven.get_older_messages',
     {
       method: 'POST',
       body: payload,
@@ -298,12 +385,12 @@ export async function getOlderMessages(channelId: string, fromMessage: string, l
 
 export async function getNewerMessages(channelId: string, fromMessage: string, limit = 20) {
   const payload = new FormData()
-  payload.append('channel_id', channelId)
+  payload.append('channel', channelId)
   payload.append('from_message', fromMessage)
   payload.append('limit', String(limit))
 
   const data = await apiRequest<FrappeResponse<MessagesPayload>>(
-    '/api/method/raven.api.chat_stream.get_newer_messages',
+    '/api/method/verto.api.mobile.raven.get_newer_messages',
     {
       method: 'POST',
       body: payload,

@@ -350,7 +350,7 @@
         @click.self="closePicker"
       >
         <Card class="drawer-panel max-h-[75vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
-        <div class="flex items-center justify-between border-b border-outline-gray-1 px-4 py-3">
+        <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
           <div class="min-w-0">
             <h2 class="truncate text-lg font-semibold text-ink-gray-9">
               {{ pickerTitle }}
@@ -373,7 +373,7 @@
           </Button>
         </div>
 
-        <div class="max-h-[calc(75vh-72px)] space-y-2 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+        <div class="max-h-[calc(75vh-72px)] space-y-2 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]">
           <button
             v-for="button in pickerButtons"
             :key="button.mobile_doctype"
@@ -402,6 +402,11 @@
               Check the mobile form configuration for this action.
             </p>
           </div>
+          <div
+            data-picker-bottom-spacer="true"
+            class="h-24 shrink-0"
+            aria-hidden="true"
+          />
         </div>
         </Card>
       </div>

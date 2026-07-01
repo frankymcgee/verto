@@ -144,6 +144,95 @@
                 v-html="getVisibleMessageHtml(message)"
               />
 
+              <button
+                v-if="hasDocumentLink(message)"
+                type="button"
+                class="mt-2 block w-full rounded-xl border p-3 text-left transition active:scale-[0.99]"
+                :class="isOwnMessage(message)
+                  ? 'border-white/20 bg-white/15 text-white'
+                  : 'border-outline-gray-1 bg-surface-gray-1 text-ink-gray-9'"
+                @click="openDocumentPreview(message)"
+              >
+                <div class="flex items-start gap-3">
+                  <div
+                    v-if="getDocumentPreviewImage(message)"
+                    class="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-current/10"
+                  >
+                    <img
+                      :src="getDocumentPreviewImage(message)"
+                      :alt="getDocumentPreviewTitle(message)"
+                      class="h-full w-full object-cover"
+                      loading="lazy"
+                      @load="scrollToBottom"
+                    >
+                  </div>
+
+                  <div
+                    v-else
+                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
+                    :class="isOwnMessage(message)
+                      ? 'bg-white/20 text-white'
+                      : 'bg-surface-white text-ink-gray-7'"
+                  >
+                    DOC
+                  </div>
+
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-1">
+                      <span
+                        class="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                        :class="isOwnMessage(message)
+                          ? 'bg-white/20 text-white'
+                          : 'bg-surface-white text-ink-gray-7'"
+                      >
+                        {{ getDocumentPreviewDoctype(message) }}
+                      </span>
+
+                      <span
+                        class="truncate text-xs"
+                        :class="isOwnMessage(message) ? 'text-white/75' : 'text-ink-gray-5'"
+                      >
+                        {{ getDocumentPreviewId(message) }}
+                      </span>
+                    </div>
+
+                    <p class="mt-1 truncate text-sm font-semibold">
+                      {{ getDocumentPreviewTitle(message) }}
+                    </p>
+
+                    <dl
+                      v-if="getDocumentPreviewFields(message).length"
+                      class="mt-2 space-y-1"
+                    >
+                      <div
+                        v-for="field in getDocumentPreviewFields(message)"
+                        :key="`${message.name}-${field.label}`"
+                        class="grid grid-cols-[6rem_minmax(0,1fr)] gap-2 text-xs"
+                      >
+                        <dt
+                          class="truncate font-medium"
+                          :class="isOwnMessage(message) ? 'text-white/75' : 'text-ink-gray-5'"
+                        >
+                          {{ field.label }}
+                        </dt>
+
+                        <dd class="truncate">
+                          {{ field.value }}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    <p
+                      v-else
+                      class="mt-1 text-xs"
+                      :class="isOwnMessage(message) ? 'text-white/75' : 'text-ink-gray-5'"
+                    >
+                      Tap to open document
+                    </p>
+                  </div>
+                </div>
+              </button>
+
               <div
                 v-if="message.attachments?.length"
                 class="mt-2 space-y-2"
@@ -440,6 +529,69 @@
                 class="rich-message-html mt-1 break-words text-sm text-ink-gray-8"
                 v-html="getVisibleMessageHtml(threadParent)"
               />
+
+              <button
+                v-if="hasDocumentLink(threadParent)"
+                type="button"
+                class="mt-2 block w-full rounded-xl border border-outline-gray-1 bg-surface-gray-1 p-3 text-left text-ink-gray-9 transition active:scale-[0.99]"
+                @click="openDocumentPreview(threadParent)"
+              >
+                <div class="flex items-start gap-3">
+                  <div
+                    v-if="getDocumentPreviewImage(threadParent)"
+                    class="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-surface-gray-2"
+                  >
+                    <img
+                      :src="getDocumentPreviewImage(threadParent)"
+                      :alt="getDocumentPreviewTitle(threadParent)"
+                      class="h-full w-full object-cover"
+                      loading="lazy"
+                    >
+                  </div>
+
+                  <div
+                    v-else
+                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface-white text-xs font-semibold text-ink-gray-7"
+                  >
+                    DOC
+                  </div>
+
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-1">
+                      <span class="rounded-full bg-surface-white px-2 py-0.5 text-[10px] font-semibold text-ink-gray-7">
+                        {{ getDocumentPreviewDoctype(threadParent) }}
+                      </span>
+
+                      <span class="truncate text-xs text-ink-gray-5">
+                        {{ getDocumentPreviewId(threadParent) }}
+                      </span>
+                    </div>
+
+                    <p class="mt-1 truncate text-sm font-semibold">
+                      {{ getDocumentPreviewTitle(threadParent) }}
+                    </p>
+
+                    <dl
+                      v-if="getDocumentPreviewFields(threadParent).length"
+                      class="mt-2 space-y-1"
+                    >
+                      <div
+                        v-for="field in getDocumentPreviewFields(threadParent)"
+                        :key="`${threadParent.name}-${field.label}`"
+                        class="grid grid-cols-[6rem_minmax(0,1fr)] gap-2 text-xs"
+                      >
+                        <dt class="truncate font-medium text-ink-gray-5">
+                          {{ field.label }}
+                        </dt>
+
+                        <dd class="truncate">
+                          {{ field.value }}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                </div>
+              </button>
             </Card>
 
             <div
@@ -467,6 +619,64 @@
                   :class="isOwnMessage(reply) ? 'text-white' : 'text-ink-gray-8'"
                   v-html="getVisibleMessageHtml(reply)"
                 />
+
+                <button
+                  v-if="hasDocumentLink(reply)"
+                  type="button"
+                  class="mt-2 block w-full rounded-xl border p-3 text-left transition active:scale-[0.99]"
+                  :class="isOwnMessage(reply)
+                    ? 'border-white/20 bg-white/15 text-white'
+                    : 'border-outline-gray-1 bg-surface-gray-1 text-ink-gray-9'"
+                  @click="openDocumentPreview(reply)"
+                >
+                  <div class="flex items-start gap-3">
+                    <div
+                      v-if="getDocumentPreviewImage(reply)"
+                      class="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-current/10"
+                    >
+                      <img
+                        :src="getDocumentPreviewImage(reply)"
+                        :alt="getDocumentPreviewTitle(reply)"
+                        class="h-full w-full object-cover"
+                        loading="lazy"
+                      >
+                    </div>
+
+                    <div
+                      v-else
+                      class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
+                      :class="isOwnMessage(reply)
+                        ? 'bg-white/20 text-white'
+                        : 'bg-surface-white text-ink-gray-7'"
+                    >
+                      DOC
+                    </div>
+
+                    <div class="min-w-0 flex-1">
+                      <div class="flex flex-wrap items-center gap-1">
+                        <span
+                          class="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                          :class="isOwnMessage(reply)
+                            ? 'bg-white/20 text-white'
+                            : 'bg-surface-white text-ink-gray-7'"
+                        >
+                          {{ getDocumentPreviewDoctype(reply) }}
+                        </span>
+
+                        <span
+                          class="truncate text-xs"
+                          :class="isOwnMessage(reply) ? 'text-white/75' : 'text-ink-gray-5'"
+                        >
+                          {{ getDocumentPreviewId(reply) }}
+                        </span>
+                      </div>
+
+                      <p class="mt-1 truncate text-sm font-semibold">
+                        {{ getDocumentPreviewTitle(reply) }}
+                      </p>
+                    </div>
+                  </div>
+                </button>
 
                 <div
                   class="mt-1 text-[11px]"
@@ -553,6 +763,7 @@ import {
 } from '../lib/ravenClient'
 import { useRavenChat } from '../composables/useRavenChat'
 import { useRavenRealtime } from '../composables/useRavenRealtime'
+import { openAppBrowser } from '../lib/appBrowser'
 
 const route = useRoute()
 const router = useRouter()
@@ -767,11 +978,24 @@ function sanitiseMessageHtml(value: string) {
 }
 
 function getRawDisplayText(message: RavenMessage) {
-  // Raven's native chat_stream API returns the rich/HTML message body in `text`.
-  // Prefer `text` explicitly so AI formatting, links, mentions, and paragraphs render correctly.
-  // Only fall back to legacy/custom fields when Raven did not provide `text` at all.
-  if (message.text !== undefined && message.text !== null) {
-    return String(message.text)
+  // Raven messages can arrive with both a plain-text body and a rich/HTML body.
+  // Prefer whichever field contains actual HTML so formatting is preserved.
+  const candidates = [
+    message.message,
+    message.content,
+    message.text,
+  ]
+
+  const richCandidate = candidates.find((value) => {
+    if (value === undefined || value === null) {
+      return false
+    }
+
+    return containsHtml(String(value))
+  })
+
+  if (richCandidate !== undefined && richCandidate !== null) {
+    return String(richCandidate)
   }
 
   if (message.message !== undefined && message.message !== null) {
@@ -782,7 +1006,150 @@ function getRawDisplayText(message: RavenMessage) {
     return String(message.content)
   }
 
+  if (message.text !== undefined && message.text !== null) {
+    return String(message.text)
+  }
+
   return ''
+}
+
+
+type DocumentPreviewField = {
+  label: string
+  value: string
+}
+
+function getMessageDocumentPreview(message?: RavenMessage | null) {
+  return ((message as any)?.document_preview || null) as Record<string, any> | null
+}
+
+function getDocumentPreviewDoctype(message?: RavenMessage | null) {
+  const preview = getMessageDocumentPreview(message)
+
+  return String(
+    (message as any)?.link_doctype ||
+      (message as any)?.linked_doctype ||
+      (message as any)?.reference_doctype ||
+      (message as any)?.document_type ||
+      preview?.doctype ||
+      ''
+  ).trim()
+}
+
+function getDocumentPreviewDocname(message?: RavenMessage | null) {
+  const preview = getMessageDocumentPreview(message)
+
+  return String(
+    (message as any)?.link_document ||
+      (message as any)?.linked_docname ||
+      (message as any)?.reference_docname ||
+      (message as any)?.document_name ||
+      preview?.docname ||
+      preview?.id ||
+      ''
+  ).trim()
+}
+
+function hasDocumentLink(message?: RavenMessage | null) {
+  if (!message) {
+    return false
+  }
+
+  return Boolean(getDocumentPreviewDoctype(message) && getDocumentPreviewDocname(message))
+}
+
+function getDocumentPreviewTitle(message?: RavenMessage | null) {
+  const preview = getMessageDocumentPreview(message)
+  const raw = preview?.raw || {}
+
+  return String(
+    preview?.title ||
+      preview?.preview_title ||
+      raw.preview_title ||
+      getDocumentPreviewDocname(message)
+  ).trim()
+}
+
+function getDocumentPreviewId(message?: RavenMessage | null) {
+  const preview = getMessageDocumentPreview(message)
+
+  return String(
+    preview?.id ||
+      preview?.docname ||
+      getDocumentPreviewDocname(message)
+  ).trim()
+}
+
+function getDocumentPreviewImage(message?: RavenMessage | null) {
+  const preview = getMessageDocumentPreview(message)
+  const raw = preview?.raw || {}
+
+  return String(
+    preview?.preview_image ||
+      raw.preview_image ||
+      ''
+  ).trim()
+}
+
+function getDocumentPreviewRoute(message?: RavenMessage | null) {
+  const preview = getMessageDocumentPreview(message)
+  const raw = preview?.raw || {}
+  const route = String(preview?.route || raw.raven_document_link || '').trim()
+
+  if (route) {
+    return route
+  }
+
+  const doctype = getDocumentPreviewDoctype(message)
+  const docname = getDocumentPreviewDocname(message)
+  const slug = doctype
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+
+  return `/app/${encodeURIComponent(slug)}/${encodeURIComponent(docname)}`
+}
+
+function getDocumentPreviewFields(message?: RavenMessage | null): DocumentPreviewField[] {
+  const preview = getMessageDocumentPreview(message)
+  const fields = Array.isArray(preview?.fields) ? preview.fields : []
+
+  if (fields.length) {
+    return fields
+      .filter((field: Record<string, any>) => field?.label && field?.value !== undefined && field?.value !== null && String(field.value).trim() !== '')
+      .slice(0, 6)
+      .map((field: Record<string, any>) => ({
+        label: String(field.label),
+        value: String(field.value),
+      }))
+  }
+
+  const raw = preview?.raw || {}
+  const hiddenFields = new Set([
+    'preview_image',
+    'preview_title',
+    'id',
+    'raven_document_link',
+  ])
+
+  return Object.keys(raw)
+    .filter((key) => !hiddenFields.has(key) && raw[key] !== undefined && raw[key] !== null && String(raw[key]).trim() !== '')
+    .slice(0, 6)
+    .map((key) => ({
+      label: key,
+      value: String(raw[key]),
+    }))
+}
+
+function openDocumentPreview(message?: RavenMessage | null) {
+  if (!hasDocumentLink(message)) {
+    return
+  }
+
+  openAppBrowser({
+    url: getDocumentPreviewRoute(message),
+    title: getDocumentPreviewTitle(message) || getDocumentPreviewDocname(message),
+  })
 }
 
 function getVisibleMessageHtml(message: RavenMessage) {
