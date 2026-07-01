@@ -280,7 +280,7 @@
               </Button>
             </div>
 
-            <div class="grid grid-cols-3 gap-2">
+            <div class="grid grid-cols-2 gap-2">
               <Button
                 variant="subtle"
                 theme="gray"
@@ -288,6 +288,15 @@
                 @click="openProjectHandover(scope)"
               >
                 Handover
+              </Button>
+
+              <Button
+                variant="subtle"
+                theme="gray"
+                class="justify-center"
+                @click="openPersonnelDrawer(scope)"
+              >
+                Personnel
               </Button>
 
               <Button
@@ -397,6 +406,167 @@
         </Card>
       </div>
     </Transition>
+
+    <!-- Personnel Sheet -->
+    <Transition name="drawer-fade-slide">
+      <div
+        v-if="personnelOpen"
+        class="fixed inset-0 z-[60] flex items-end bg-black/40 px-0"
+        @click.self="closePersonnelDrawer"
+      >
+        <Card class="drawer-panel max-h-[80vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
+          <div class="flex items-center justify-between border-b border-outline-gray-1 px-4 py-3">
+            <div class="min-w-0">
+              <h2 class="truncate text-lg font-semibold text-ink-gray-9">
+                Project Personnel
+              </h2>
+
+              <p
+                v-if="personnelProjectTitle"
+                class="mt-1 truncate text-sm text-ink-gray-5"
+              >
+                {{ personnelProjectTitle }}
+              </p>
+            </div>
+
+            <Button
+              variant="subtle"
+              theme="gray"
+              @click="closePersonnelDrawer"
+            >
+              Close
+            </Button>
+          </div>
+
+          <div class="max-h-[calc(80vh-72px)] space-y-3 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+            <div
+              v-if="personnelLoading"
+              class="space-y-2"
+            >
+              <div class="h-20 rounded-xl bg-surface-gray-2" />
+              <div class="h-20 rounded-xl bg-surface-gray-2" />
+              <div class="h-20 rounded-xl bg-surface-gray-2" />
+            </div>
+
+            <div
+              v-else-if="personnelError"
+              class="rounded-xl border border-red-200 bg-red-50 px-4 py-3"
+            >
+              <p class="text-sm font-medium text-red-800">
+                Could not load project personnel.
+              </p>
+
+              <p class="mt-1 text-sm text-red-700">
+                {{ personnelError }}
+              </p>
+            </div>
+
+            <div
+              v-else-if="personnelRows.length === 0"
+              class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center"
+            >
+              <p class="text-sm font-medium text-ink-gray-7">
+                No personnel found.
+              </p>
+
+              <p class="mt-1 text-sm text-ink-gray-5">
+                No submitted shift allocations were found for this project.
+              </p>
+            </div>
+
+            <div
+              v-else
+              class="space-y-2"
+            >
+              <div
+                v-for="person in personnelRows"
+                :key="person.employee || person.employee_name || person.user_id"
+                class="rounded-xl border border-outline-gray-1 bg-surface-white p-3 shadow-sm"
+              >
+                <div class="flex items-start gap-3">
+                  <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-gray-2">
+                    <img
+                      v-if="person.image"
+                      :src="person.image"
+                      :alt="person.employee_name || 'Personnel'"
+                      class="h-full w-full object-cover"
+                      @error="hideBrokenImage"
+                    >
+
+                    <span
+                      v-else
+                      class="text-sm font-semibold text-ink-gray-7"
+                    >
+                      {{ getPersonnelInitials(person) }}
+                    </span>
+                  </div>
+
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-start justify-between gap-2">
+                      <div class="min-w-0">
+                        <p class="truncate text-sm font-semibold text-ink-gray-9">
+                          {{ person.employee_name || person.employee || 'Unknown personnel' }}
+                        </p>
+
+                        <p
+                          v-if="getPersonnelSubtitle(person)"
+                          class="mt-0.5 truncate text-xs text-ink-gray-5"
+                        >
+                          {{ getPersonnelSubtitle(person) }}
+                        </p>
+                      </div>
+
+                      <Badge
+                        v-if="person.shift_type"
+                        variant="subtle"
+                        class="shrink-0"
+                      >
+                        {{ person.shift_type }}
+                      </Badge>
+                    </div>
+
+                    <p
+                      v-if="formatPersonnelDateRange(person)"
+                      class="mt-2 text-xs text-ink-gray-5"
+                    >
+                      {{ formatPersonnelDateRange(person) }}
+                    </p>
+
+                    <div
+                      v-if="person.contact_number || person.email"
+                      class="mt-3 grid grid-cols-1 gap-2"
+                    >
+                      <a
+                        v-if="person.contact_number"
+                        :href="`tel:${normaliseTel(person.contact_number)}`"
+                        class="block rounded-lg border border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-sm font-medium text-ink-gray-8"
+                      >
+                        Call {{ person.contact_number }}
+                      </a>
+
+                      <a
+                        v-if="person.email"
+                        :href="`mailto:${person.email}`"
+                        class="block rounded-lg border border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-sm font-medium text-ink-gray-8"
+                      >
+                        {{ person.email }}
+                      </a>
+                    </div>
+
+                    <p
+                      v-else
+                      class="mt-3 text-xs text-ink-gray-5"
+                    >
+                      No contact details available.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </Transition>
   </section>
 </template>
 
@@ -495,6 +665,27 @@ type ProjectHandoverResponse = {
   handover_base?: string
 }
 
+type ProjectPersonnelItem = {
+  employee?: string
+  employee_name?: string
+  user_id?: string
+  email?: string
+  contact_number?: string
+  image?: string
+  designation?: string
+  department?: string
+  shift_type?: string
+  start_date?: string
+  end_date?: string
+}
+
+type ProjectPersonnelResponse = {
+  personnel: ProjectPersonnelItem[]
+  project?: string
+  project_name?: string
+  matched_shift_count?: number
+}
+
 const router = useRouter()
 
 const loading = ref(true)
@@ -507,6 +698,12 @@ const openParents = ref<Record<string, boolean>>({})
 const pickerOpen = ref(false)
 const pickerType = ref<'generic' | 'form' | 'ccv'>('generic')
 const pickerTask = ref<TaskItem | null>(null)
+
+const personnelOpen = ref(false)
+const personnelLoading = ref(false)
+const personnelError = ref('')
+const personnelProjectTitle = ref('')
+const personnelRows = ref<ProjectPersonnelItem[]>([])
 
 const groupedTasks = computed(() => {
   return home.value?.grouped_tasks || []
@@ -983,6 +1180,121 @@ async function openProjectHandover(scope: ScopeGroup) {
       ? err.message
       : 'Could not open the project handover.'
   }
+}
+
+function getProjectIdForPersonnel(scope: ScopeGroup) {
+  const project = scope.project_details || {}
+
+  return (
+    scope.project ||
+    project.name ||
+    project.project ||
+    project.project_name ||
+    scope.scope_name ||
+    ''
+  )
+}
+
+function closePersonnelDrawer() {
+  personnelOpen.value = false
+  personnelRows.value = []
+  personnelError.value = ''
+  personnelProjectTitle.value = ''
+}
+
+async function openPersonnelDrawer(scope: ScopeGroup) {
+  const project = getProjectIdForPersonnel(scope)
+  const projectName = getProjectDisplayName(scope) || scope.scope_name || project
+
+  if (!project && !projectName) {
+    error.value = 'Could not determine the project for personnel.'
+    return
+  }
+
+  personnelOpen.value = true
+  personnelLoading.value = true
+  personnelError.value = ''
+  personnelRows.value = []
+  personnelProjectTitle.value = projectName || 'Project'
+
+  try {
+    const payload = new FormData()
+
+    if (project) {
+      payload.append('project', project)
+    }
+
+    if (projectName) {
+      payload.append('project_name', projectName)
+    }
+
+    if (scope.scope_name) {
+      payload.append('scope_name', scope.scope_name)
+    }
+
+    const data = await apiRequest<FrappeResponse<ProjectPersonnelResponse>>(
+      '/api/method/verto.api.mobile.project_personnel.get_project_personnel',
+      {
+        method: 'POST',
+        body: payload,
+      }
+    )
+
+    personnelRows.value = data.message?.personnel || []
+  } catch (err) {
+    if (err instanceof Error && err.message === 'Login required') {
+      return
+    }
+
+    personnelError.value = err instanceof Error
+      ? err.message
+      : 'Could not load project personnel.'
+  } finally {
+    personnelLoading.value = false
+  }
+}
+
+function getPersonnelInitials(person: ProjectPersonnelItem) {
+  const value = person.employee_name || person.employee || person.email || '?'
+
+  const words = String(value)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  if (!words.length) {
+    return '?'
+  }
+
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase()
+  }
+
+  return `${words[0][0]}${words[1][0]}`.toUpperCase()
+}
+
+function getPersonnelSubtitle(person: ProjectPersonnelItem) {
+  return [
+    person.designation,
+    person.department,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+function formatPersonnelDateRange(person: ProjectPersonnelItem) {
+  const startDate = formatDate(person.start_date)
+  const endDate = formatDate(person.end_date)
+
+  if (startDate && endDate) {
+    return `${startDate} - ${endDate}`
+  }
+
+  return startDate || endDate || ''
+}
+
+function normaliseTel(value?: string) {
+  return String(value || '').replace(/[^+0-9]/g, '')
 }
 
 function getGameplanUrl(scope: ScopeGroup) {
