@@ -415,7 +415,7 @@
         @click.self="closePersonnelDrawer"
       >
         <Card class="drawer-panel max-h-[80vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
-          <div class="flex items-center justify-between border-b border-outline-gray-1 px-4 py-3">
+          <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
             <div class="min-w-0">
               <h2 class="truncate text-lg font-semibold text-ink-gray-9">
                 Project Personnel
@@ -438,7 +438,7 @@
             </Button>
           </div>
 
-          <div class="max-h-[calc(80vh-72px)] space-y-3 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+          <div class="max-h-[calc(80vh-72px)] space-y-3 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]">
             <div
               v-if="personnelLoading"
               class="space-y-2"
@@ -516,13 +516,12 @@
                         </p>
                       </div>
 
-                      <Badge
-                        v-if="person.shift_type"
-                        variant="subtle"
-                        class="shrink-0"
+                      <span
+                        v-if="getPersonnelShiftLabel(person)"
+                        :class="getPersonnelShiftBadgeClass(person)"
                       >
-                        {{ person.shift_type }}
-                      </Badge>
+                        {{ getPersonnelShiftLabel(person) }}
+                      </span>
                     </div>
 
                     <p
@@ -563,6 +562,11 @@
                 </div>
               </div>
             </div>
+
+            <div
+              class="h-24 shrink-0"
+              aria-hidden="true"
+            />
           </div>
         </Card>
       </div>
@@ -675,6 +679,8 @@ type ProjectPersonnelItem = {
   designation?: string
   department?: string
   shift_type?: string
+  shift_label?: string
+  shift_kind?: 'day' | 'night' | 'mixed' | ''
   start_date?: string
   end_date?: string
 }
@@ -1271,6 +1277,82 @@ function getPersonnelInitials(person: ProjectPersonnelItem) {
   }
 
   return `${words[0][0]}${words[1][0]}`.toUpperCase()
+}
+
+function getPersonnelShiftLabel(person: ProjectPersonnelItem) {
+  return person.shift_label || normalisePersonnelShiftLabel(person.shift_type)
+}
+
+function normalisePersonnelShiftLabel(value?: string) {
+  const cleaned = String(value || '').trim()
+
+  if (!cleaned) {
+    return ''
+  }
+
+  const normalised = cleaned
+    .toUpperCase()
+    .replace(/^(FG|RH)[\s_-]*/i, '')
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim()
+
+  const tokens = normalised.split(/\s+/).filter(Boolean)
+
+  if (
+    tokens.includes('DS') ||
+    tokens.includes('D') ||
+    normalised.includes('DAY')
+  ) {
+    return 'Day Shift'
+  }
+
+  if (
+    tokens.includes('NS') ||
+    tokens.includes('N') ||
+    normalised.includes('NIGHT')
+  ) {
+    return 'Night Shift'
+  }
+
+  return cleaned
+}
+
+function getPersonnelShiftKind(person: ProjectPersonnelItem) {
+  if (person.shift_kind) {
+    return person.shift_kind
+  }
+
+  const label = getPersonnelShiftLabel(person).toLowerCase()
+
+  if (label.includes('day')) {
+    return 'day'
+  }
+
+  if (label.includes('night')) {
+    return 'night'
+  }
+
+  return ''
+}
+
+function getPersonnelShiftBadgeClass(person: ProjectPersonnelItem) {
+  const shiftKind = getPersonnelShiftKind(person)
+
+  const baseClass = 'shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold'
+
+  if (shiftKind === 'day') {
+    return `${baseClass} bg-green-100 text-green-800`
+  }
+
+  if (shiftKind === 'night') {
+    return `${baseClass} bg-blue-100 text-blue-800`
+  }
+
+  if (shiftKind === 'mixed') {
+    return `${baseClass} bg-purple-100 text-purple-800`
+  }
+
+  return `${baseClass} bg-surface-gray-2 text-ink-gray-7`
 }
 
 function getPersonnelSubtitle(person: ProjectPersonnelItem) {

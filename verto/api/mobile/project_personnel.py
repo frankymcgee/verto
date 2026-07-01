@@ -9,6 +9,8 @@ from datetime import date, datetime
 import frappe
 from frappe import _
 
+import re
+
 
 SHIFT_ASSIGNMENT_DOCTYPE = "Shift Assignment"
 EMPLOYEE_DOCTYPE = "Employee"
@@ -209,6 +211,68 @@ def _get_shift_fields(project_fields: list[str]) -> list[str]:
     return _get_present_fields(SHIFT_ASSIGNMENT_DOCTYPE, candidates)
 
 
+def _classify_shift_type(shift_type: str | None) -> dict:
+    """Classify DS/NS shift types, including prefixed values like FG-DS and RH-NS."""
+    raw_value = _clean(shift_type)
+
+    if not raw_value:
+        return {
+            "shift_kind": "",
+            "shift_label": "",
+        }
+
+    normalised = raw_value.upper().strip()
+
+    # Remove known site/client prefixes before checking the shift code.
+    # Examples: FG-DS -> DS, RH-NS -> NS, FG DS -> DS.
+    normalised = re.sub(r"^(FG|RH)[\s_-]*", "", normalised)
+
+    tokenised = re.sub(r"[^A-Z0-9]+", " ", normalised).strip()
+    tokens = set(tokenised.split())
+
+    if "DS" in tokens or "D" in tokens or "DAY" in tokens or "DAYS" in tokens or "DAYSHIFT" in tokens or "DAY" in tokenised:
+        return {
+            "shift_kind": "day",
+            "shift_label": "Day Shift",
+        }
+
+    if "NS" in tokens or "N" in tokens or "NIGHT" in tokens or "NIGHTS" in tokens or "NIGHTSHIFT" in tokens or "NIGHT" in tokenised:
+        return {
+            "shift_kind": "night",
+            "shift_label": "Night Shift",
+        }
+
+    return {
+        "shift_kind": "",
+        "shift_label": raw_value,
+    }
+
+
+def _summarise_shift_classifications(shift_classifications: set[str]) -> dict:
+    if "day" in shift_classifications and "night" in shift_classifications:
+        return {
+            "shift_kind": "mixed",
+            "shift_label": "Day/Night Shift",
+        }
+
+    if "day" in shift_classifications:
+        return {
+            "shift_kind": "day",
+            "shift_label": "Day Shift",
+        }
+
+    if "night" in shift_classifications:
+        return {
+            "shift_kind": "night",
+            "shift_label": "Night Shift",
+        }
+
+    return {
+        "shift_kind": "",
+        "shift_label": "",
+    }
+
+
 def _build_personnel_from_shifts(shifts: list[dict]) -> list[dict]:
     employee_names = [
         shift.get("employee")
@@ -251,15 +315,15 @@ def _build_personnel_from_shifts(shifts: list[dict]) -> list[dict]:
                 "image": _get_image(employee, user),
                 "designation": _clean(employee.get("designation")),
                 "department": _clean(employee.get("department")),
-                "shift_types": set(),
+                "shift_classifications": set(),
                 "start_dates": [],
                 "end_dates": [],
             }
 
-        shift_type = _clean(shift.get("shift_type"))
+        shift_info = _classify_shift_type(shift.get("shift_type"))
 
-        if shift_type:
-            grouped[key]["shift_types"].add(shift_type)
+        if shift_info["shift_kind"]:
+            grouped[key]["shift_classifications"].add(shift_info["shift_kind"])
 
         start_date = _date_to_string(shift.get("start_date"))
         end_date = _date_to_string(shift.get("end_date"))
@@ -275,9 +339,12 @@ def _build_personnel_from_shifts(shifts: list[dict]) -> list[dict]:
     for item in grouped.values():
         start_dates = sorted(set(item.pop("start_dates")))
         end_dates = sorted(set(item.pop("end_dates")))
-        shift_types = sorted(item.pop("shift_types"))
+        shift_classifications = item.pop("shift_classifications")
+        shift_summary = _summarise_shift_classifications(shift_classifications)
 
-        item["shift_type"] = ", ".join(shift_types)
+        item["shift_kind"] = shift_summary["shift_kind"]
+        item["shift_label"] = shift_summary["shift_label"]
+        item["shift_type"] = shift_summary["shift_label"]
         item["start_date"] = start_dates[0] if start_dates else ""
         item["end_date"] = end_dates[-1] if end_dates else ""
 
