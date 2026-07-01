@@ -956,7 +956,15 @@ def get_prefill_values(
         project = project or task.get("project")
         work_order_number = work_order_number or task.get("work_order_number")
         project_scope_name = project_scope_name or task.get("project_scope_name")
-        parent_task_name = project_scope_name or task.get("parent_task_name")
+
+        # Work Summary should come from the linked Task itself.
+        # Prefer Task.subject because that is the human-readable task name/title.
+        # Fall back to Task.name if subject is empty.
+        parent_task_name = (
+            task.get("subject")
+            or task.get("name")
+            or parent_task_name
+        )
 
     if project and frappe.db.exists("Project", project) and frappe.has_permission("Project", "read"):
         project_fields = ["name", "project_name"]

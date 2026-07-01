@@ -326,6 +326,7 @@
    "print_hide": 1
   },
   {
+   "default": "Work Scope",
    "fieldname": "scope_or_wo",
    "fieldtype": "Select",
    "label": "Work Scope or WO Number?",
@@ -1041,8 +1042,8 @@
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-06-10 22:14:09.653672",
- "modified_by": "sean@minesitesupport.com.au",
+ "modified": "2026-07-01 14:33:11.482607",
+ "modified_by": "Administrator",
  "module": "Safety",
  "name": "Field Interaction",
  "naming_rule": "By \"Naming Series\" field",
