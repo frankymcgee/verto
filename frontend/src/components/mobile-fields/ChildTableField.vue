@@ -1,4 +1,4 @@
-<!-- VERTO_CHILD_TABLE_DRAWER_SLIDE_UP_2026_06_11 -->
+<!-- VERTO_CHILD_TABLE_DRAWER_STANDARD_ZINDEX_2026_07_01 -->
 <template>
   <div class="space-y-2">
     <div class="flex items-start justify-between gap-3">
@@ -77,34 +77,37 @@
       </p>
     </div>
 
-    <Transition name="drawer-fade-slide">
-      <div
-        v-if="drawerOpen"
-        class="fixed inset-0 z-[70] flex items-end bg-black/40"
-        @click.self="closeDrawer"
-      >
-        <Card class="drawer-panel max-h-[88vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
-        <div class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-outline-gray-1 bg-surface-white px-4 py-3">
-          <div class="min-w-0">
-            <h2 class="truncate text-lg font-semibold text-ink-gray-9">
-              {{ drawerTitle }}
-            </h2>
+    <Teleport to="body">
+      <Transition name="drawer-fade-slide">
+        <div
+          v-if="drawerOpen"
+          class="fixed inset-0 z-[70] flex items-end bg-black/40"
+          @click.self="closeDrawer"
+        >
+          <Card class="drawer-panel flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-xl">
+            <div class="shrink-0 border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+              <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <h2 class="truncate text-lg font-semibold text-ink-gray-9">
+                    {{ drawerTitle }}
+                  </h2>
 
-            <p class="mt-1 truncate text-sm text-ink-gray-5">
-              {{ field.label || field.fieldname }}
-            </p>
-          </div>
+                  <p class="mt-1 truncate text-sm text-ink-gray-5">
+                    {{ field.label || field.fieldname }}
+                  </p>
+                </div>
 
-          <Button
-            variant="subtle"
-            theme="gray"
-            @click="closeDrawer"
-          >
-            Close
-          </Button>
-        </div>
+                <Button
+                  variant="subtle"
+                  theme="gray"
+                  @click="closeDrawer"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
 
-        <div class="max-h-[calc(88vh-132px)] space-y-4 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]">
+            <div class="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+7rem)]">
           <template
             v-for="childField in visibleChildFields"
             :key="childField.fieldname"
@@ -227,13 +230,14 @@
             </p>
           </div>
 
-          <div
-            class="h-24 shrink-0"
-            aria-hidden="true"
-          />
+              <div
+                class="h-32 shrink-0"
+                aria-hidden="true"
+              />
         </div>
 
-        <div class="sticky bottom-0 z-10 flex gap-2 border-t border-outline-gray-1 bg-surface-white px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+            <div class="shrink-0 border-t border-outline-gray-1 bg-surface-white px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+              <div class="flex gap-2">
           <Button
             v-if="!disabled && editingIndex !== null"
             variant="subtle"
@@ -254,19 +258,21 @@
             Save Row
           </Button>
 
-          <Button
-            v-else
-            variant="solid"
-            theme="gray"
-            class="w-full justify-center"
-            @click="closeDrawer"
-          >
-            Done
-          </Button>
+                <Button
+                  v-else
+                  variant="solid"
+                  theme="gray"
+                  class="w-full justify-center"
+                  @click="closeDrawer"
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+          </Card>
         </div>
-        </Card>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -745,6 +751,11 @@ function getRowSubtitle(row: Record<string, any>) {
 .drawer-fade-slide-enter-active,
 .drawer-fade-slide-leave-active {
   transition: opacity 0.18s ease;
+}
+
+.drawer-panel {
+  position: relative;
+  z-index: 1;
 }
 
 .drawer-fade-slide-enter-active :deep(.drawer-panel),

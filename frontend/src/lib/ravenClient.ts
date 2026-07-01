@@ -1,4 +1,4 @@
-// VERTO_RAVEN_CLIENT_DOCUMENT_PREVIEW_ENDPOINT_FIX_2026_07_01
+// VERTO_RAVEN_CLIENT_NATIVE_MESSAGES_WITH_DOCUMENT_PREVIEWS_2026_07_01
 import { apiRequest } from './api'
 
 export type FrappeResponse<T> = {
@@ -64,6 +64,17 @@ export type RavenMessage = {
   text?: string
   message?: string
   content?: string
+  json?: any
+  html?: string
+  html_message?: string
+  message_html?: string
+  content_html?: string
+  text_html?: string
+  formatted_text?: string
+  formatted_message?: string
+  rich_text?: string
+  rich_text_content?: string
+  plain_text?: string
   channel_id?: string
   channel?: string
   bot?: string | null
@@ -197,6 +208,231 @@ function buildAttachmentFromRavenFile(message: RavenMessage): RavenAttachment[] 
   ]
 }
 
+function isObjectLike(value: unknown) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function stringifyIfNeeded(value: unknown) {
+  if (value === undefined || value === null) {
+    return ''
+  }
+
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (isObjectLike(value) || Array.isArray(value)) {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return ''
+    }
+  }
+
+  return String(value)
+}
+
+function normaliseJsonBody(value: unknown) {
+  if (value === undefined || value === null || value === '') {
+    return ''
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+
+    if (!trimmed) {
+      return ''
+    }
+
+    try {
+      const parsed = JSON.parse(trimmed)
+
+      if (isObjectLike(parsed) && String((parsed as Record<string, any>).type || '') === 'doc') {
+        return JSON.stringify(parsed)
+      }
+
+      return trimmed
+    } catch {
+      return trimmed
+    }
+  }
+
+  if (isObjectLike(value) && String((value as Record<string, any>).type || '') === 'doc') {
+    return stringifyIfNeeded(value)
+  }
+
+  return stringifyIfNeeded(value)
+}
+
+function hasLikelyRichFormatting(value: string) {
+  const trimmed = String(value || '').trim()
+
+  if (!trimmed) {
+    return false
+  }
+
+  return (
+    /<([a-z][\w:-]*)(?:\s[^>]*)?>[\s\S]*?<\/\1>/i.test(trimmed) ||
+    /<(br|hr|img|input|meta|link)(?:\s[^>]*)?\/?>/i.test(trimmed) ||
+    /&lt;[a-z][\s\S]*?&gt;/i.test(trimmed) ||
+    (trimmed.startsWith('{') && trimmed.includes('"type"') && trimmed.includes('"doc"'))
+  )
+}
+
+function getRichBodyCandidates(message: RavenMessage) {
+  const raw = message as any
+
+  return [
+    normaliseJsonBody(raw.json),
+    stringifyIfNeeded(raw.html),
+    stringifyIfNeeded(raw.html_message),
+    stringifyIfNeeded(raw.message_html),
+    stringifyIfNeeded(raw.content_html),
+    stringifyIfNeeded(raw.text_html),
+    stringifyIfNeeded(raw.formatted_text),
+    stringifyIfNeeded(raw.formatted_message),
+    stringifyIfNeeded(raw.rich_text),
+    stringifyIfNeeded(raw.rich_text_content),
+    stringifyIfNeeded(raw.text),
+    stringifyIfNeeded(raw.message),
+    stringifyIfNeeded(raw.content),
+  ].filter((value) => String(value || '').trim())
+}
+
+function getBestMessageBody(message: RavenMessage) {
+  const richCandidates = getRichBodyCandidates(message)
+  const explicitRich = richCandidates.find((value) => hasLikelyRichFormatting(value))
+
+  if (explicitRich) {
+    return explicitRich
+  }
+
+  return (
+    stringifyIfNeeded(message.text) ||
+    stringifyIfNeeded(message.message) ||
+    stringifyIfNeeded(message.content) ||
+    richCandidates[0] ||
+    ''
+  )
+}
+
+function previewKey(doctype: string, docname: string) {
+  return `${doctype}::${docname}`
+}
+
+function mapPreviewDataToDocumentPreview(doctype: string, docname: string, raw: Record<string, any> | null): RavenDocumentPreview | null {
+  if (!raw) {
+    return null
+  }
+
+  const hiddenKeys = new Set([
+    'preview_image',
+    'preview_title',
+    'id',
+    'raven_document_link',
+  ])
+
+  const fields = Object.keys(raw)
+    .filter((key) => !hiddenKeys.has(key) && raw[key] !== undefined && raw[key] !== null && String(raw[key]).trim() !== '')
+    .map((key) => ({
+      label: key,
+      value: raw[key],
+    }))
+
+  return {
+    doctype,
+    docname,
+    title: raw.preview_title || raw.id || docname,
+    subtitle: doctype,
+    route: raw.raven_document_link,
+    preview_image: raw.preview_image || null,
+    id: raw.id || docname,
+    fields,
+    raw,
+  }
+}
+
+async function fetchDocumentPreviewData(doctype: string, docname: string) {
+  const params = new URLSearchParams({
+    doctype,
+    docname,
+  })
+
+  try {
+    const data = await apiRequest<FrappeResponse<Record<string, any> | null>>(
+      `/api/method/raven.api.document_link.get_preview_data?${params.toString()}`
+    )
+
+    return mapPreviewDataToDocumentPreview(doctype, docname, data.message || null)
+  } catch {
+    return null
+  }
+}
+
+async function enrichDocumentPreviews(messages: RavenMessage[]) {
+  const links = messages
+    .flatMap((message) => normaliseDocumentLinks(message))
+    .filter((link) => link.doctype && link.docname)
+
+  const uniqueLinks = Array.from(
+    new Map(
+      links.map((link) => [
+        previewKey(link.doctype, link.docname),
+        link,
+      ])
+    ).values()
+  )
+
+  if (!uniqueLinks.length) {
+    return messages
+  }
+
+  const previews = await Promise.all(
+    uniqueLinks.map(async (link) => {
+      const preview = await fetchDocumentPreviewData(link.doctype, link.docname)
+
+      return {
+        key: previewKey(link.doctype, link.docname),
+        preview,
+      }
+    })
+  )
+
+  const previewMap = new Map(
+    previews
+      .filter((item) => item.preview)
+      .map((item) => [item.key, item.preview as RavenDocumentPreview])
+  )
+
+  return messages.map((message) => {
+    if (message.document_preview) {
+      return message
+    }
+
+    const primaryLink = normaliseDocumentLinks(message)[0]
+
+    if (!primaryLink) {
+      return message
+    }
+
+    const preview = previewMap.get(previewKey(primaryLink.doctype, primaryLink.docname))
+
+    if (!preview) {
+      return message
+    }
+
+    return {
+      ...message,
+      document_preview: preview,
+    }
+  })
+}
+
+async function normaliseAndEnrichRavenMessages(items: RavenMessage[]) {
+  const normalised = normaliseRavenMessages(items)
+  return enrichDocumentPreviews(normalised)
+}
+
 function normaliseDocumentLinks(message: RavenMessage): RavenDocumentLink[] {
   const existingLinks = Array.isArray(message.document_links)
     ? message.document_links
@@ -238,7 +474,8 @@ function normaliseDocumentLinks(message: RavenMessage): RavenDocumentLink[] {
 }
 
 export function normaliseRavenMessage(message: RavenMessage): RavenMessage {
-  const text = message.text || message.message || message.content || ''
+  const displayBody = getBestMessageBody(message)
+  const plainFallback = message.text || message.message || message.content || ''
   const documentLinks = normaliseDocumentLinks(message)
   const primaryDocumentLink = documentLinks[0]
 
@@ -266,9 +503,11 @@ export function normaliseRavenMessage(message: RavenMessage): RavenMessage {
     ...message,
     owner: message.owner || message.sender || '',
     sender: message.sender || message.owner || '',
-    message: message.message || text,
-    content: message.content || message.message || text,
-    text,
+    text: displayBody || plainFallback || '',
+    message: displayBody || plainFallback || '',
+    content: displayBody || plainFallback || '',
+    plain_text: plainFallback || '',
+    json: (message as any).json ?? null,
     channel_id: message.channel_id || message.channel || '',
     channel: message.channel || message.channel_id || '',
     is_bot_message: message.is_bot_message || Boolean(message.bot),
@@ -345,61 +584,64 @@ export async function getOrCreatePeriChannel() {
 }
 
 export async function getMessages(channelId: string, limit = 50) {
-  const payload = new FormData()
-  payload.append('channel', channelId)
-  payload.append('limit', String(limit))
+  const params = new URLSearchParams({
+    channel_id: channelId,
+  })
 
+  // Keep using Raven's native chat stream for message bodies. The Verto wrapper
+  // enriches document previews, but it can flatten rich message bodies back to
+  // plain text. Document previews are enriched separately below.
   const data = await apiRequest<FrappeResponse<MessagesPayload>>(
-    '/api/method/verto.api.mobile.raven.get_channel_messages',
-    {
-      method: 'POST',
-      body: payload,
-    }
+    `/api/method/raven.api.chat_stream.get_messages?${params.toString()}`
   )
+
+  const messages = await normaliseAndEnrichRavenMessages(data.message.messages || [])
 
   return {
     ...data.message,
-    messages: sortMessagesOldestFirst(normaliseRavenMessages(data.message.messages || [])),
+    messages: sortMessagesOldestFirst(messages).slice(-limit),
   }
 }
 
 export async function getOlderMessages(channelId: string, fromMessage: string, limit = 20) {
   const payload = new FormData()
-  payload.append('channel', channelId)
+  payload.append('channel_id', channelId)
   payload.append('from_message', fromMessage)
-  payload.append('limit', String(limit))
 
   const data = await apiRequest<FrappeResponse<MessagesPayload>>(
-    '/api/method/verto.api.mobile.raven.get_older_messages',
+    '/api/method/raven.api.chat_stream.get_older_messages',
     {
       method: 'POST',
       body: payload,
     }
   )
 
+  const messages = await normaliseAndEnrichRavenMessages(data.message.messages || [])
+
   return {
     ...data.message,
-    messages: sortMessagesOldestFirst(normaliseRavenMessages(data.message.messages || [])),
+    messages: sortMessagesOldestFirst(messages).slice(-limit),
   }
 }
 
 export async function getNewerMessages(channelId: string, fromMessage: string, limit = 20) {
   const payload = new FormData()
-  payload.append('channel', channelId)
+  payload.append('channel_id', channelId)
   payload.append('from_message', fromMessage)
-  payload.append('limit', String(limit))
 
   const data = await apiRequest<FrappeResponse<MessagesPayload>>(
-    '/api/method/verto.api.mobile.raven.get_newer_messages',
+    '/api/method/raven.api.chat_stream.get_newer_messages',
     {
       method: 'POST',
       body: payload,
     }
   )
 
+  const messages = await normaliseAndEnrichRavenMessages(data.message.messages || [])
+
   return {
     ...data.message,
-    messages: sortMessagesOldestFirst(normaliseRavenMessages(data.message.messages || [])),
+    messages: sortMessagesOldestFirst(messages).slice(-limit),
   }
 }
 
@@ -470,10 +712,15 @@ export async function getExistingMessageThread(messageName: string) {
     }
   )
 
+  const replies = await normaliseAndEnrichRavenMessages(data.message.replies || [])
+  const parent = data.message.parent
+    ? (await normaliseAndEnrichRavenMessages([data.message.parent]))[0]
+    : data.message.parent
+
   return {
     ...data.message,
-    parent: data.message.parent ? normaliseRavenMessage(data.message.parent) : data.message.parent,
-    replies: normaliseRavenMessages(data.message.replies || []),
+    parent,
+    replies,
   }
 }
 
@@ -489,9 +736,14 @@ export async function getMessageThread(messageName: string) {
     }
   )
 
+  const replies = await normaliseAndEnrichRavenMessages(data.message.replies || [])
+  const parent = data.message.parent
+    ? (await normaliseAndEnrichRavenMessages([data.message.parent]))[0]
+    : data.message.parent
+
   return {
     ...data.message,
-    parent: data.message.parent ? normaliseRavenMessage(data.message.parent) : data.message.parent,
-    replies: normaliseRavenMessages(data.message.replies || []),
+    parent,
+    replies,
   }
 }

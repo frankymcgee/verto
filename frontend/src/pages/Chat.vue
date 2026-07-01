@@ -881,8 +881,34 @@ function decodeHtml(value: string) {
   return textarea.value
 }
 
+function decodeHtmlDeep(value: string) {
+  let current = String(value || '')
+
+  for (let index = 0; index < 3; index += 1) {
+    const decoded = decodeHtml(current)
+
+    if (decoded === current) {
+      break
+    }
+
+    current = decoded
+  }
+
+  return current
+}
+
 function containsHtml(value: string) {
-  return /<([a-z][\w:-]*)(?:\s[^>]*)?>/i.test(value)
+  return /<([a-z][\w:-]*)(?:\s[^>]*)?>[\s\S]*?<\/\1>|<(br|hr|img|input|meta|link)(?:\s[^>]*)?\/?>/i.test(value)
+}
+
+function looksLikeEncodedHtml(value: string) {
+  return /&lt;[a-z][\s\S]*?&gt;/i.test(value)
+}
+
+function looksLikeTiptapJson(value: string) {
+  const trimmed = String(value || '').trim()
+
+  return trimmed.startsWith('{') && trimmed.includes('"type"') && trimmed.includes('"doc"')
 }
 
 function escapeHtml(value: string) {
@@ -895,6 +921,136 @@ function textToHtml(value: string) {
   return escapeHtml(value)
     .replace(/\n{3,}/g, '\n\n')
     .replace(/\n/g, '<br>')
+}
+
+function isSafeUrl(value?: string) {
+  const url = String(value || '').trim()
+
+  return Boolean(
+    url &&
+      (
+        url.startsWith('/') ||
+        url.startsWith('#') ||
+        /^https?:\/\//i.test(url) ||
+        /^mailto:/i.test(url) ||
+        /^tel:/i.test(url) ||
+        /^data:image\/(png|jpeg|jpg|gif|webp|svg\+xml);base64,/i.test(url)
+      )
+  )
+}
+
+function wrapMarks(value: string, marks?: any[]) {
+  let html = value
+
+  for (const mark of marks || []) {
+    const type = mark?.type
+    const attrs = mark?.attrs || {}
+
+    if (type === 'bold') {
+      html = `<strong>${html}</strong>`
+    } else if (type === 'italic') {
+      html = `<em>${html}</em>`
+    } else if (type === 'underline') {
+      html = `<u>${html}</u>`
+    } else if (type === 'strike') {
+      html = `<s>${html}</s>`
+    } else if (type === 'code') {
+      html = `<code>${html}</code>`
+    } else if (type === 'link' && isSafeUrl(attrs.href)) {
+      html = `<a href="${escapeHtml(attrs.href)}">${html}</a>`
+    }
+  }
+
+  return html
+}
+
+function renderTiptapNode(node: any): string {
+  if (!node || typeof node !== 'object') {
+    return ''
+  }
+
+  const type = node.type
+  const attrs = node.attrs || {}
+  const content = Array.isArray(node.content)
+    ? node.content.map((child: any) => renderTiptapNode(child)).join('')
+    : ''
+
+  if (type === 'doc') {
+    return content
+  }
+
+  if (type === 'text') {
+    return wrapMarks(escapeHtml(String(node.text || '')), node.marks)
+  }
+
+  if (type === 'paragraph') {
+    return `<p>${content}</p>`
+  }
+
+  if (type === 'hardBreak') {
+    return '<br>'
+  }
+
+  if (type === 'bulletList') {
+    return `<ul>${content}</ul>`
+  }
+
+  if (type === 'orderedList') {
+    return `<ol>${content}</ol>`
+  }
+
+  if (type === 'listItem') {
+    return `<li>${content}</li>`
+  }
+
+  if (type === 'blockquote') {
+    return `<blockquote>${content}</blockquote>`
+  }
+
+  if (type === 'codeBlock') {
+    return `<pre><code>${escapeHtml(node.text || content)}</code></pre>`
+  }
+
+  if (type === 'heading') {
+    const level = Math.min(6, Math.max(1, Number(attrs.level || 2)))
+    return `<h${level}>${content}</h${level}>`
+  }
+
+  if (type === 'image' && isSafeUrl(attrs.src)) {
+    return `<img src="${escapeHtml(attrs.src)}" alt="${escapeHtml(attrs.alt || '')}">`
+  }
+
+  if (type === 'table') {
+    return `<table>${content}</table>`
+  }
+
+  if (type === 'tableRow') {
+    return `<tr>${content}</tr>`
+  }
+
+  if (type === 'tableHeader') {
+    return `<th>${content}</th>`
+  }
+
+  if (type === 'tableCell') {
+    return `<td>${content}</td>`
+  }
+
+  return content
+}
+
+function tiptapJsonToHtml(value: string) {
+  try {
+    const parsed = JSON.parse(value)
+
+    if (!parsed || parsed.type !== 'doc') {
+      return ''
+    }
+
+    return renderTiptapNode(parsed)
+  } catch {
+    return ''
+  }
 }
 
 function sanitiseMessageHtml(value: string) {
@@ -911,7 +1067,15 @@ function sanitiseMessageHtml(value: string) {
     'CODE',
     'DIV',
     'EM',
+    'H1',
+    'H2',
+    'H3',
+    'H4',
+    'H5',
+    'H6',
+    'HR',
     'I',
+    'IMG',
     'LI',
     'OL',
     'P',
@@ -919,12 +1083,51 @@ function sanitiseMessageHtml(value: string) {
     'S',
     'SPAN',
     'STRONG',
+    'TABLE',
+    'TBODY',
+    'TD',
+    'TH',
+    'THEAD',
+    'TR',
     'U',
     'UL',
   ])
 
   const allowedAttributes: Record<string, Set<string>> = {
-    A: new Set(['href', 'target', 'rel']),
+    A: new Set(['href', 'target', 'rel', 'title']),
+    IMG: new Set(['src', 'alt', 'title', 'width', 'height', 'loading']),
+    TD: new Set(['colspan', 'rowspan']),
+    TH: new Set(['colspan', 'rowspan']),
+  }
+
+  function cleanElement(element: HTMLElement) {
+    const tagName = element.tagName.toUpperCase()
+
+    for (const attribute of Array.from(element.attributes)) {
+      const attrName = attribute.name.toLowerCase()
+      const allowedForTag = allowedAttributes[tagName]
+      const isAllowed = allowedForTag?.has(attrName) || false
+
+      if (!isAllowed) {
+        element.removeAttribute(attribute.name)
+        continue
+      }
+
+      if ((tagName === 'A' && attrName === 'href') || (tagName === 'IMG' && attrName === 'src')) {
+        if (!isSafeUrl(attribute.value)) {
+          element.removeAttribute(attribute.name)
+        }
+      }
+    }
+
+    if (tagName === 'A') {
+      element.setAttribute('target', '_blank')
+      element.setAttribute('rel', 'noopener noreferrer')
+    }
+
+    if (tagName === 'IMG') {
+      element.setAttribute('loading', 'lazy')
+    }
   }
 
   function cleanNode(node: Node) {
@@ -936,35 +1139,17 @@ function sanitiseMessageHtml(value: string) {
         const tagName = element.tagName.toUpperCase()
 
         if (!allowedTags.has(tagName)) {
-          element.replaceWith(...Array.from(element.childNodes))
+          const replacementChildren = Array.from(element.childNodes)
+          element.replaceWith(...replacementChildren)
+
+          for (const replacementChild of replacementChildren) {
+            cleanNode(replacementChild)
+          }
+
           continue
         }
 
-        for (const attribute of Array.from(element.attributes)) {
-          const attrName = attribute.name.toLowerCase()
-          const allowedForTag = allowedAttributes[tagName]
-          const isAllowed = allowedForTag?.has(attrName) || false
-
-          if (!isAllowed) {
-            element.removeAttribute(attribute.name)
-            continue
-          }
-
-          if (tagName === 'A' && attrName === 'href') {
-            const href = attribute.value.trim()
-            const isSafeHref = href.startsWith('/') || href.startsWith('#') || /^https?:\/\//i.test(href) || /^mailto:/i.test(href)
-
-            if (!isSafeHref) {
-              element.removeAttribute('href')
-            }
-          }
-        }
-
-        if (tagName === 'A') {
-          element.setAttribute('target', '_blank')
-          element.setAttribute('rel', 'noopener noreferrer')
-        }
-
+        cleanElement(element)
         cleanNode(element)
       } else if (child.nodeType === Node.COMMENT_NODE) {
         child.remove()
@@ -977,42 +1162,65 @@ function sanitiseMessageHtml(value: string) {
   return template.innerHTML.trim()
 }
 
-function getRawDisplayText(message: RavenMessage) {
-  // Raven messages can arrive with both a plain-text body and a rich/HTML body.
-  // Prefer whichever field contains actual HTML so formatting is preserved.
-  const candidates = [
-    message.message,
-    message.content,
-    message.text,
-  ]
+function getMessageBodyCandidates(message: RavenMessage) {
+  const rawMessage = message as any
 
-  const richCandidate = candidates.find((value) => {
-    if (value === undefined || value === null) {
-      return false
+  return [
+    rawMessage.html,
+    rawMessage.html_message,
+    rawMessage.message_html,
+    rawMessage.content_html,
+    rawMessage.text_html,
+    rawMessage.formatted_text,
+    rawMessage.formatted_message,
+    rawMessage.rich_text,
+    rawMessage.rich_text_content,
+    rawMessage.message,
+    rawMessage.content,
+    rawMessage.text,
+  ].filter((value) => value !== undefined && value !== null)
+}
+
+function getRawDisplayText(message: RavenMessage) {
+  const candidates = getMessageBodyCandidates(message)
+
+  for (const candidate of candidates) {
+    const value = String(candidate || '').trim()
+
+    if (!value) {
+      continue
     }
 
-    return containsHtml(String(value))
-  })
+    const decoded = decodeHtmlDeep(value)
 
-  if (richCandidate !== undefined && richCandidate !== null) {
-    return String(richCandidate)
+    if (containsHtml(decoded) || looksLikeEncodedHtml(value)) {
+      return decoded
+    }
   }
 
-  if (message.message !== undefined && message.message !== null) {
-    return String(message.message)
+  for (const candidate of candidates) {
+    const value = String(candidate || '').trim()
+    const decoded = decodeHtmlDeep(value)
+
+    if (looksLikeTiptapJson(decoded)) {
+      const html = tiptapJsonToHtml(decoded)
+
+      if (html) {
+        return html
+      }
+    }
   }
 
-  if (message.content !== undefined && message.content !== null) {
-    return String(message.content)
-  }
+  for (const candidate of candidates) {
+    const value = String(candidate || '').trim()
 
-  if (message.text !== undefined && message.text !== null) {
-    return String(message.text)
+    if (value) {
+      return value
+    }
   }
 
   return ''
 }
-
 
 type DocumentPreviewField = {
   label: string
@@ -1157,9 +1365,18 @@ function getVisibleMessageHtml(message: RavenMessage) {
 
   if (!raw) return ''
 
-  const html = containsHtml(raw) ? raw : textToHtml(decodeHtml(raw))
+  const decoded = decodeHtmlDeep(raw)
+  const tiptapHtml = looksLikeTiptapJson(decoded) ? tiptapJsonToHtml(decoded) : ''
 
-  return sanitiseMessageHtml(html)
+  if (tiptapHtml) {
+    return sanitiseMessageHtml(tiptapHtml)
+  }
+
+  if (containsHtml(decoded)) {
+    return sanitiseMessageHtml(decoded)
+  }
+
+  return textToHtml(raw)
 }
 
 function getInitials(value: string) {
@@ -1753,6 +1970,51 @@ onBeforeUnmount(() => {
 
 .rich-message-html :deep(a) {
   text-decoration: underline;
+}
+
+.rich-message-html :deep(h1),
+.rich-message-html :deep(h2),
+.rich-message-html :deep(h3),
+.rich-message-html :deep(h4),
+.rich-message-html :deep(h5),
+.rich-message-html :deep(h6) {
+  margin: 0.45rem 0 0.25rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.rich-message-html :deep(h1) {
+  font-size: 1.15rem;
+}
+
+.rich-message-html :deep(h2),
+.rich-message-html :deep(h3) {
+  font-size: 1.05rem;
+}
+
+.rich-message-html :deep(blockquote) {
+  margin: 0.35rem 0;
+  border-left: 3px solid rgba(0, 0, 0, 0.18);
+  padding-left: 0.65rem;
+}
+
+.rich-message-html :deep(table) {
+  margin: 0.35rem 0;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.rich-message-html :deep(th),
+.rich-message-html :deep(td) {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 0.25rem 0.35rem;
+  vertical-align: top;
+}
+
+.rich-message-html :deep(img) {
+  max-width: 100%;
+  border-radius: 0.5rem;
 }
 
 .rich-message-html :deep(pre) {
