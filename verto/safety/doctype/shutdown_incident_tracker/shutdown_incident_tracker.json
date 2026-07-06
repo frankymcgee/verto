@@ -64,13 +64,6 @@
    "reqd": 1
   },
   {
-   "depends_on": "eval:doc.link_project !== \"\"",
-   "fetch_from": "link_project.project_name",
-   "fieldname": "project_name",
-   "fieldtype": "Data",
-   "label": "Project Name"
-  },
-  {
    "fieldname": "column_break_6lioo",
    "fieldtype": "Column Break"
   },
@@ -210,13 +203,20 @@
    "fieldname": "work_related",
    "fieldtype": "Check",
    "label": "Work Related"
+  },
+  {
+   "depends_on": "eval:doc.link_project !== \"\"",
+   "fetch_from": "link_project.project_name",
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-07-05 09:26:12.607892",
- "modified_by": "sean@minesitesupport.com.au",
+ "modified": "2026-07-06 08:54:27.265636",
+ "modified_by": "Administrator",
  "module": "Safety",
  "name": "Shutdown Incident Tracker",
  "naming_rule": "By \"Naming Series\" field",
