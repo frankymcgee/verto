@@ -87,6 +87,7 @@
    "fieldtype": "Column Break"
   },
   {
+   "default": "Work Scope",
    "fieldname": "scope_or_wo",
    "fieldtype": "Select",
    "label": "Work Scope or WO Number?",
@@ -366,7 +367,7 @@
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-04-13 00:05:17.512745",
+ "modified": "2026-07-07 09:59:03.503656",
  "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "CCV - Hot Works",

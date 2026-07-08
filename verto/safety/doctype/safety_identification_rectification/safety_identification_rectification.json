@@ -54,6 +54,7 @@
    "fieldtype": "Column Break"
   },
   {
+   "default": "Work Scope",
    "fieldname": "scope_or_wo",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -148,11 +149,11 @@
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-03-07 04:02:09.706079",
+ "modified": "2026-07-07 10:01:10.042702",
  "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "Safety Identification Rectification",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {

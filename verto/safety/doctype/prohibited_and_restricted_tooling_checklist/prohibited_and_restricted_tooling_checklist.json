@@ -459,6 +459,7 @@
    "precision": "0"
   },
   {
+   "default": "Work Scope",
    "fieldname": "scope_or_wo",
    "fieldtype": "Select",
    "label": "Work Scope or WO Number?",
@@ -486,11 +487,11 @@
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-01-27 12:12:22.998768",
+ "modified": "2026-07-07 10:01:01.343329",
  "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "Prohibited and Restricted Tooling Checklist",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
