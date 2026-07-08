@@ -410,7 +410,12 @@
 
           <tbody v-show="showEmployeeBody">
             <tr v-for="employee in visibleEmployees" :key="employee.name" class="year-employee-row">
-              <td class="year-left-col border-b border-r bg-white">
+              <td
+                class="year-left-col year-employee-name-cell border-b border-r bg-white"
+                @mouseenter="showEmployeeNameHover(employee, $event)"
+                @mousemove="moveHoverCard"
+                @mouseleave="() => scheduleClearHoverCard()"
+              >
                 <div class="px-2 leading-tight">
                   <div class="truncate text-xs font-semibold text-gray-800" :title="employeeTitle(employee)">
                     {{ employeeDisplayName(employee) }}
@@ -566,7 +571,38 @@ type Employee = {
   last_name?: string
   designation?: string
   department?: string
+  branch?: string
+  company?: string
+  employee_number?: string
+  status?: string
+  reports_to?: string
+  user_id?: string
+  prefered_email?: string
+  preferred_email?: string
+  company_email?: string
+  personal_email?: string
+  cell_number?: string
+  emergency_phone_number?: string
+  person_to_be_contacted?: string
   image?: string
+}
+
+type EmployeeTooltipExtraField = {
+  fieldname: string
+  label: string
+  value: string | number | boolean | null
+}
+
+type EmployeeTooltipDetails = Employee & {
+  display_name?: string
+  preferred_email?: string
+  reports_to_name?: string
+  reports_to_designation?: string
+  reports_to_department?: string
+  reports_to_mobile?: string
+  reports_to_email?: string
+  emergency_contact?: string
+  extra_fields?: EmployeeTooltipExtraField[]
 }
 
 interface HolidayWithDate {
@@ -669,6 +705,7 @@ type YearEventsResponse = {
   events?: Events
   project_rows?: ProjectRow[]
   day_markers?: DayMarkers
+  employee_details?: Record<string, EmployeeTooltipDetails>
 }
 
 const emit = defineEmits<{ (e: 'hscroll', left: number): void }>()
@@ -738,7 +775,7 @@ type HoverCardRow = {
 }
 
 type HoverCard = {
-  type: 'shift' | 'project' | 'leave' | 'day-marker'
+  type: 'shift' | 'project' | 'leave' | 'day-marker' | 'employee'
   x?: number
   y?: number
   kicker: string
@@ -986,6 +1023,24 @@ const visibleEmployees = computed(() => {
   const selected = new Set(employeeSearch.value.map((item) => item.value))
   return sortedEmployees.value.filter((employee) => selected.has(employee.name))
 })
+
+const employeeTooltipDetails = computed<Record<string, EmployeeTooltipDetails>>(() => {
+  return (events.data?.employeeDetails || {}) as Record<string, EmployeeTooltipDetails>
+})
+
+function mergedEmployeeDetails(employee: Employee): EmployeeTooltipDetails {
+  return {
+    ...employee,
+    ...(employeeTooltipDetails.value?.[employee.name] || {}),
+  }
+}
+
+function firstValue<T>(...values: (T | null | undefined | '')[]): T | '' {
+  for (const value of values) {
+    if (value !== undefined && value !== null && value !== '') return value as T
+  }
+  return ''
+}
 
 const allProjectRows = computed(() => {
   return (events.data?.projectRows || []) as ProjectRow[]
@@ -1565,15 +1620,84 @@ const employeeTableMaxHeight = computed(() => {
 })
 
 function employeeDisplayName(employee: Employee) {
-  return employee.employee_name || [employee.first_name, employee.last_name].filter(Boolean).join(' ') || employee.name
+  const details = mergedEmployeeDetails(employee)
+  return details.display_name || details.employee_name || [details.first_name, details.last_name].filter(Boolean).join(' ') || details.name
 }
 
 function employeeSubline(employee: Employee) {
-  return [employee.name, employee.designation].filter(Boolean).join(' · ')
+  const details = mergedEmployeeDetails(employee)
+  return [details.name, details.designation].filter(Boolean).join(' · ')
 }
 
 function employeeTitle(employee: Employee) {
-  return [employee.employee_name, employee.name, employee.designation].filter(Boolean).join(' | ')
+  const details = mergedEmployeeDetails(employee)
+  return [employeeDisplayName(employee), details.name, details.designation, details.department].filter(Boolean).join(' | ')
+}
+
+function employeePreferredEmail(employee: Employee) {
+  const details = mergedEmployeeDetails(employee)
+  return firstValue(details.preferred_email, details.prefered_email, details.company_email, details.personal_email, details.user_id)
+}
+
+function employeeReportsToSummary(employee: Employee) {
+  const details = mergedEmployeeDetails(employee)
+  const managerName = details.reports_to_name || details.reports_to
+  if (!managerName) return ''
+
+  const managerId = details.reports_to && details.reports_to_name ? ` (${details.reports_to})` : ''
+  const role = [details.reports_to_designation, details.reports_to_department].filter(Boolean).join(' · ')
+  return [managerName + managerId, role].filter(Boolean).join(' · ')
+}
+
+function employeeStatusBadgeTone(employee: Employee): HoverCard['badgeTone'] {
+  const status = (mergedEmployeeDetails(employee).status || '').toLowerCase()
+  if (status === 'active') return 'green'
+  if (status === 'inactive' || status === 'left' || status === 'suspended') return 'red'
+  return 'gray'
+}
+
+function employeeExtraTooltipRows(employee: Employee): HoverCardRow[] {
+  const details = mergedEmployeeDetails(employee)
+  return (details.extra_fields || [])
+    .filter((field) => field.value !== undefined && field.value !== null && field.value !== '')
+    .map((field) => ({ label: field.label || field.fieldname, value: String(field.value) }))
+}
+
+function showEmployeeNameHover(employee: Employee, event: MouseEvent) {
+  const details = mergedEmployeeDetails(employee)
+
+  setHoverCard(
+    `employee:${employee.name}`,
+    {
+      type: 'employee',
+      kicker: 'Employee Profile',
+      title: employeeDisplayName(employee),
+      subtitle: [details.designation, details.department].filter(Boolean).join(' · '),
+      badge: details.status || 'Employee',
+      badgeTone: employeeStatusBadgeTone(employee),
+      accent: (colors as any).blue[500],
+      rows: [
+        { label: 'Employee ID', value: details.name },
+        { label: 'Employee Number', value: details.employee_number },
+        { label: 'Company', value: details.company },
+        { label: 'Branch', value: details.branch },
+        { label: 'Department', value: details.department },
+        { label: 'Designation', value: details.designation },
+        { label: 'Reports To', value: employeeReportsToSummary(employee) },
+        { label: 'Manager Mobile', value: details.reports_to_mobile },
+        { label: 'Manager Email', value: details.reports_to_email },
+        { label: 'Mobile', value: details.cell_number },
+        { label: 'Preferred Email', value: employeePreferredEmail(employee) },
+        { label: 'Company Email', value: details.company_email },
+        { label: 'Personal Email', value: details.personal_email },
+        { label: 'User ID', value: details.user_id },
+        { label: 'Emergency Contact', value: details.emergency_contact || details.person_to_be_contacted },
+        { label: 'Emergency Phone', value: details.emergency_phone_number },
+        ...employeeExtraTooltipRows(employee),
+      ],
+    },
+    event,
+  )
 }
 
 function isHoliday(event: RawEvent): event is HolidayWithDate {
@@ -2516,7 +2640,7 @@ function applyHoverCardPosition(pointer: HoverPointer) {
   const padding = 12
   const cursorOffset = 14
   const fallbackCardWidth = 340
-  const fallbackCardHeight = hoverCard.value.type === 'project' ? 168 : hoverCard.value.type === 'leave' ? 210 : 240
+  const fallbackCardHeight = hoverCard.value.type === 'project' ? 168 : hoverCard.value.type === 'leave' ? 210 : hoverCard.value.type === 'employee' ? 280 : 240
   const cardWidth = hoverCardElement.value.offsetWidth || fallbackCardWidth
   const cardHeight = hoverCardElement.value.offsetHeight || fallbackCardHeight
   const maxLeft = Math.max(padding, window.innerWidth - cardWidth - padding)
@@ -2987,6 +3111,7 @@ const events = createResource({
       mappedEvents: mapEventsToYear(data?.events || {}),
       projectRows: (data?.project_rows || []).sort((a, b) => naturalCompare(a.customer_name || a.customer || '', b.customer_name || b.customer || '') || naturalCompare(a.project_name, b.project_name)),
       dayMarkers: data?.day_markers || {},
+      employeeDetails: data?.employee_details || {},
     }
   },
   onSuccess() {
@@ -3699,6 +3824,14 @@ defineExpose({ events, scrollToToday })
   text-decoration: underline;
   text-decoration-thickness: 1.5px;
   text-underline-offset: 2px;
+}
+
+.year-employee-name-cell {
+  cursor: help;
+}
+
+.year-employee-name-cell:hover {
+  background: #f9fafb;
 }
 
 .year-cell:hover {

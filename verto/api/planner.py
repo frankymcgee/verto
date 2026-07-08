@@ -631,6 +631,7 @@ def get_year_events(
 		"events": merge_employee_events(leaves, shifts),
 		"project_rows": get_year_project_rows(shift_rows, year_start, year_end),
 		"day_markers": day_markers,
+		"employee_details": get_employee_planner_tooltip_details(employee_filters),
 	}
 
 
@@ -640,6 +641,175 @@ def _clean_filters(filters: dict | str | None) -> dict:
 	if isinstance(filters, str):
 		filters = frappe.parse_json(filters) or {}
 	return {key: value for key, value in dict(filters).items() if value not in (None, "")}
+
+
+EMPLOYEE_TOOLTIP_FILTER_FIELDS = {"company", "department", "branch", "designation", "status"}
+
+EMPLOYEE_TOOLTIP_FIELD_CANDIDATES = [
+	"employee_name",
+	"first_name",
+	"last_name",
+	"employee_number",
+	"status",
+	"designation",
+	"department",
+	"branch",
+	"company",
+	"reports_to",
+	"user_id",
+	"prefered_email",
+	"company_email",
+	"personal_email",
+	"cell_number",
+	"emergency_phone_number",
+	"person_to_be_contacted",
+]
+
+# Add future Employee custom fieldnames here when you want them surfaced in the
+# annual Planner employee-name tooltip. They will only be queried if the field
+# exists on the current site.
+EMPLOYEE_TOOLTIP_EXTRA_FIELD_CANDIDATES = [
+	# "custom_roster_notes",
+	# "custom_mobilisation_point",
+]
+
+
+def _existing_fields(doctype: str, candidates: list[str]) -> list[str]:
+	try:
+		meta = frappe.get_meta(doctype)
+	except Exception:
+		return []
+
+	fields = []
+	for fieldname in candidates:
+		if fieldname and fieldname not in fields and meta.has_field(fieldname):
+			fields.append(fieldname)
+	return fields
+
+
+def _safe_employee_tooltip_filters(employee_filters: dict | str | None) -> dict:
+	filters = _clean_filters(employee_filters)
+	existing = set(_existing_fields("Employee", list(EMPLOYEE_TOOLTIP_FILTER_FIELDS)))
+	return {key: value for key, value in filters.items() if key in existing}
+
+
+def _employee_display_name(row: dict | None) -> str:
+	if not row:
+		return ""
+	return (
+		(row.get("employee_name") or "").strip()
+		or " ".join(part for part in [row.get("first_name"), row.get("last_name")] if part)
+		or row.get("name")
+		or ""
+	)
+
+
+def _employee_preferred_email(row: dict) -> str | None:
+	preferred = (row.get("prefered_email") or "").strip()
+	company = (row.get("company_email") or "").strip()
+	personal = (row.get("personal_email") or "").strip()
+	user_id = (row.get("user_id") or "").strip()
+	return preferred or company or personal or user_id or None
+
+
+def get_employee_planner_tooltip_details(employee_filters: dict | str | None = None) -> dict[str, dict]:
+	"""Return Employee contact/reporting details for annual employee-name tooltips."""
+	try:
+		if not frappe.has_permission("Employee", ptype="read"):
+			return {}
+	except Exception:
+		return {}
+
+	standard_fields = _existing_fields("Employee", EMPLOYEE_TOOLTIP_FIELD_CANDIDATES)
+	extra_fields = _existing_fields("Employee", EMPLOYEE_TOOLTIP_EXTRA_FIELD_CANDIDATES)
+	fields = ["name", *standard_fields, *extra_fields]
+
+	filters = _safe_employee_tooltip_filters(employee_filters)
+	try:
+		employees = frappe.get_all(
+			"Employee",
+			filters=filters,
+			fields=fields,
+			limit_start=0,
+			limit_page_length=ANNUAL_ROSTER_RESULT_LIMIT,
+			limit=ANNUAL_ROSTER_RESULT_LIMIT,
+		)
+	except Exception:
+		return {}
+
+	reporting_employee_names = sorted(
+		{row.get("reports_to") for row in employees if row.get("reports_to")}
+	)
+	reporting_employees = {}
+	if reporting_employee_names:
+		manager_fields = _existing_fields(
+			"Employee",
+			["employee_name", "first_name", "last_name", "designation", "department", "cell_number", "prefered_email", "company_email", "personal_email", "user_id"],
+		)
+		try:
+			reporting_employees = {
+				row.name: row
+				for row in frappe.get_all(
+					"Employee",
+					filters={"name": ["in", reporting_employee_names]},
+					fields=["name", *manager_fields],
+					limit_start=0,
+					limit_page_length=ANNUAL_ROSTER_RESULT_LIMIT,
+					limit=ANNUAL_ROSTER_RESULT_LIMIT,
+				)
+			}
+		except Exception:
+			reporting_employees = {}
+
+	field_labels = {}
+	try:
+		meta = frappe.get_meta("Employee")
+		for fieldname in extra_fields:
+			df = meta.get_field(fieldname)
+			field_labels[fieldname] = df.label if df and df.label else fieldname.replace("_", " ").title()
+	except Exception:
+		field_labels = {fieldname: fieldname.replace("_", " ").title() for fieldname in extra_fields}
+
+	details = {}
+	for row in employees:
+		manager = reporting_employees.get(row.get("reports_to")) if row.get("reports_to") else None
+		extra_values = []
+		for fieldname in extra_fields:
+			value = row.get(fieldname)
+			if value not in (None, ""):
+				extra_values.append({
+					"fieldname": fieldname,
+					"label": field_labels.get(fieldname) or fieldname,
+					"value": value,
+				})
+
+		details[row.name] = {
+			"name": row.name,
+			"employee_name": row.get("employee_name"),
+			"display_name": _employee_display_name(row),
+			"employee_number": row.get("employee_number"),
+			"status": row.get("status"),
+			"designation": row.get("designation"),
+			"department": row.get("department"),
+			"branch": row.get("branch"),
+			"company": row.get("company"),
+			"reports_to": row.get("reports_to"),
+			"reports_to_name": _employee_display_name(manager) if manager else None,
+			"reports_to_designation": manager.get("designation") if manager else None,
+			"reports_to_department": manager.get("department") if manager else None,
+			"reports_to_mobile": manager.get("cell_number") if manager else None,
+			"reports_to_email": _employee_preferred_email(manager) if manager else None,
+			"user_id": row.get("user_id"),
+			"preferred_email": _employee_preferred_email(row),
+			"company_email": row.get("company_email"),
+			"personal_email": row.get("personal_email"),
+			"cell_number": row.get("cell_number"),
+			"emergency_contact": row.get("person_to_be_contacted"),
+			"emergency_phone_number": row.get("emergency_phone_number"),
+			"extra_fields": extra_values,
+		}
+
+	return details
 
 
 def merge_employee_events(*event_groups: dict[str, list[dict]]) -> dict[str, list[dict]]:
