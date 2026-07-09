@@ -16,6 +16,8 @@
   "location",
   "department",
   "description",
+  "section_break_ftqa",
+  "table_vuco",
   "incident_details_tab",
   "severity",
   "classification",
@@ -195,13 +197,22 @@
    "fieldtype": "Table",
    "label": "Actions",
    "options": "EHS Action"
+  },
+  {
+   "fieldname": "section_break_ftqa",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "table_vuco",
+   "fieldtype": "Table",
+   "options": "EHS Incident Checklist"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-06-11 13:43:57.612176",
+ "modified": "2026-07-09 10:52:45.729630",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "EHS Incident",

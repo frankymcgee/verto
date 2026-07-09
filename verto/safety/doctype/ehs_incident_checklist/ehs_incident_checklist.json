@@ -1,0 +1,138 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-07-09 10:44:30.695906",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "incident_scene_preserved",
+  "superintendent_or_rostered_manager_informed",
+  "involved_persons_sent_for_drug_and_alcohol_screening",
+  "client_reference_number_entered_on_incident",
+  "risk_rating_conducted_and_entered",
+  "incident_folder_created_inside_project_folder",
+  "statements_of_involved_obtained",
+  "statement_from_supervisor_responsible",
+  "photos_of_incident_scene",
+  "person_involved",
+  "injuries_sustained_from_incident_details",
+  "all_associated_documentation_uploaded_to_incident"
+ ],
+ "fields": [
+  {
+   "default": "No",
+   "description": "Area made safe</br>\nAll tooling and equipment left as they were at time of event </br>\nArea Barricaded</br>",
+   "fieldname": "incident_scene_preserved",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Incident Scene Preserved",
+   "options": "Yes\nNo\nN/A"
+  },
+  {
+   "default": "No",
+   "fieldname": "superintendent_or_rostered_manager_informed",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Superintendent or Rostered Manager Informed",
+   "options": "Yes\nNo\nN/A"
+  },
+  {
+   "default": "No",
+   "fieldname": "involved_persons_sent_for_drug_and_alcohol_screening",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Involved persons sent for Drug and Alcohol Screening",
+   "options": "Yes\nNo\nN/A"
+  },
+  {
+   "default": "No",
+   "fieldname": "client_reference_number_entered_on_incident",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Client Reference Number entered on Incident",
+   "options": "Yes\nNo\nN/A"
+  },
+  {
+   "default": "No",
+   "fieldname": "risk_rating_conducted_and_entered",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Risk Rating conducted and entered",
+   "options": "Yes\nNo\nN/A"
+  },
+  {
+   "default": "No",
+   "fieldname": "incident_folder_created_inside_project_folder",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Incident Folder created inside Project Folder",
+   "options": "Yes\nNo\nN/A"
+  },
+  {
+   "default": "No",
+   "description": "(Provide statement guidance as required)",
+   "fieldname": "statements_of_involved_obtained",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Statements of involved obtained",
+   "options": "Yes\nNo\nN/A"
+  },
+  {
+   "default": "No",
+   "fieldname": "statement_from_supervisor_responsible",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Statement from Supervisor Responsible",
+   "options": "Yes\nNo\nN/A"
+  },
+  {
+   "default": "No",
+   "description": "Include photos of tooling or equipment that was used </br>\nIf required, re-enact incident for photo evidence </br>",
+   "fieldname": "photos_of_incident_scene",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Photos of Incident Scene",
+   "options": "Yes\nNo\nN/A"
+  },
+  {
+   "default": "No",
+   "fieldname": "person_involved",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Person involved details: Name, Contact Number",
+   "options": "Yes\nNo\nN/A"
+  },
+  {
+   "default": "No",
+   "fieldname": "injuries_sustained_from_incident_details",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Injuries sustained from incident details",
+   "options": "Yes\nNo\nN/A"
+  },
+  {
+   "default": "No",
+   "fieldname": "all_associated_documentation_uploaded_to_incident",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "All associated documentation uploaded to Incident",
+   "options": "Yes\nNo\nN/A"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-09 10:53:27.098955",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "EHS Incident Checklist",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
