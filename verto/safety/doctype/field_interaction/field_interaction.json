@@ -303,7 +303,7 @@
    "description": "Select the relevant categories and sub-categories",
    "fieldname": "at_risk_behaviours_section",
    "fieldtype": "Section Break",
-   "label": "At Risk Behaviours"
+   "label": "Improvement Required Behaviours"
   },
   {
    "fieldname": "column_break_vknl",
@@ -997,14 +997,13 @@
   {
    "fieldname": "contractor_submitting_section",
    "fieldtype": "Section Break",
-   "hidden": 1,
    "label": "Contractor Submitting"
   },
   {
+   "depends_on": "eval:frappe.session.user === \"Guest\" || !!doc.submitting_contractor",
    "description": "Select from the list",
    "fieldname": "submitting_contractor",
    "fieldtype": "Link",
-   "hidden": 1,
    "in_list_view": 1,
    "label": "Contractor",
    "options": "Contractor"
@@ -1015,10 +1014,10 @@
    "hidden": 1
   },
   {
+   "depends_on": "eval:frappe.session.user === \"Guest\" || !!doc.submitting_supervisor",
    "description": "Please enter full name",
    "fieldname": "submitting_supervisor",
    "fieldtype": "Data",
-   "hidden": 1,
    "in_list_view": 1,
    "label": "Supervisor"
   },
@@ -1028,9 +1027,9 @@
    "hidden": 1
   },
   {
+   "depends_on": "eval:frappe.session.user === \"Guest\" || !!doc.location",
    "fieldname": "location",
    "fieldtype": "Data",
-   "hidden": 1,
    "label": "Location"
   },
   {
@@ -1042,7 +1041,7 @@
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-07-01 14:33:11.482607",
+ "modified": "2026-07-20 10:20:34.070088",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Field Interaction",

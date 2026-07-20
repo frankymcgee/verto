@@ -1,5 +1,6 @@
 import json
 import frappe
+from frappe.utils import cint, strip_html_tags
 
 
 PROJECT_DOCTYPE_MAP = [
@@ -397,3 +398,225 @@ def get_project_documents_for_swot(project_value, limit_per_doctype=DEFAULT_LIMI
         )
 
     return response
+
+@frappe.whitelist()
+def get_weekly_summaries(project_name, limit=12):
+    """
+    Fetch Weekly Summary records for Raven analysis.
+
+    Args:
+        project_name (str): Exact value stored in Weekly Summary.project_name.
+        limit (int): Maximum number of records to return.
+
+    Returns:
+        dict: Structured Weekly Summary information.
+    """
+
+    project_name = (project_name or "").strip()
+    limit = min(max(cint(limit) or 12, 1), 52)
+
+    if not project_name:
+        return {
+            "success": False,
+            "message": "A project_name must be provided.",
+            "project_name": None,
+            "record_count": 0,
+            "weekly_summaries": [],
+        }
+
+    if not frappe.db.exists("DocType", "Weekly Summary"):
+        return {
+            "success": False,
+            "message": "The Weekly Summary DocType does not exist.",
+            "project_name": project_name,
+            "record_count": 0,
+            "weekly_summaries": [],
+        }
+
+    if not frappe.has_permission("Weekly Summary", "read"):
+        return {
+            "success": False,
+            "message": (
+                "The current user does not have permission to read "
+                "Weekly Summary records."
+            ),
+            "project_name": project_name,
+            "record_count": 0,
+            "weekly_summaries": [],
+        }
+
+    def clean_text(value):
+        """Convert Text Editor HTML into cleaner text for Raven."""
+
+        if not value:
+            return ""
+
+        value = str(value)
+
+        replacements = {
+            "<br>": "\n",
+            "<br/>": "\n",
+            "<br />": "\n",
+            "</p>": "\n",
+            "</div>": "\n",
+            "</li>": "\n",
+        }
+
+        for old_value, new_value in replacements.items():
+            value = value.replace(old_value, new_value)
+
+        value = strip_html_tags(value)
+
+        lines = [
+            line.strip()
+            for line in value.splitlines()
+            if line.strip()
+        ]
+
+        return "\n".join(lines)
+
+    def serialize_value(value, fieldtype=None):
+        """Make field values safe and useful for Raven."""
+
+        if value is None:
+            return ""
+
+        if fieldtype in (
+            "Text Editor",
+            "Text",
+            "Small Text",
+            "Long Text",
+            "Markdown Editor",
+        ):
+            return clean_text(value)
+
+        if hasattr(value, "isoformat"):
+            return value.isoformat()
+
+        return value
+
+    records = frappe.get_list(
+        "Weekly Summary",
+        filters={
+            "project_name": project_name,
+        },
+        fields=[
+            "name",
+            "creation",
+            "modified",
+        ],
+        order_by="creation desc",
+        limit_page_length=limit,
+    )
+
+    weekly_summaries = []
+
+    kpi_meta = frappe.get_meta("Weekly Summary KPIs")
+
+    excluded_kpi_fields = {
+        "name",
+        "owner",
+        "creation",
+        "modified",
+        "modified_by",
+        "docstatus",
+        "parent",
+        "parentfield",
+        "parenttype",
+    }
+
+    ignored_fieldtypes = {
+        "Section Break",
+        "Column Break",
+        "Tab Break",
+        "HTML",
+        "Button",
+        "Table",
+        "Table MultiSelect",
+    }
+
+    kpi_fields = [
+        field
+        for field in kpi_meta.fields
+        if field.fieldname
+        and field.fieldname not in excluded_kpi_fields
+        and field.fieldtype not in ignored_fieldtypes
+    ]
+
+    for record in records:
+        doc = frappe.get_doc("Weekly Summary", record.name)
+        doc.check_permission("read")
+
+        kpis = []
+
+        for row in doc.weekly_kpis or []:
+            kpi = {}
+
+            for field in kpi_fields:
+                value = row.get(field.fieldname)
+
+                if value not in (None, ""):
+                    kpi[field.fieldname] = serialize_value(
+                        value,
+                        field.fieldtype,
+                    )
+
+            if kpi:
+                kpi["row_number"] = row.idx
+                kpis.append(kpi)
+
+        weekly_summaries.append({
+            "name": doc.name,
+            "created_on": (
+                doc.creation.isoformat()
+                if doc.creation
+                else None
+            ),
+            "modified_on": (
+                doc.modified.isoformat()
+                if doc.modified
+                else None
+            ),
+            "project": {
+                "project_name": doc.project_name,
+                "project_id": doc.link_project,
+            },
+            "work_information": {
+                "scope_or_work_order": doc.scope_or_wo,
+                "linked_task": doc.link_task,
+                "work_scope": doc.work_scope,
+                "work_order_number": doc.work_order_number,
+                "work_area": doc.work_area,
+            },
+            "summary_information": {
+                "weekly_summary": clean_text(
+                    doc.weekly_summary
+                ),
+                "key_deliverables": clean_text(
+                    doc.key_deliverables_for_the_week
+                ),
+                "documentation_updates": clean_text(
+                    doc.documentation_updates
+                ),
+                "critical_risks_and_observations": clean_text(
+                    doc.critital_risks_observations
+                ),
+                "comments": clean_text(doc.fl_comments),
+            },
+            "performance_metrics_and_kpis": kpis,
+        })
+
+    return {
+        "success": True,
+        "message": (
+            f"Found {len(weekly_summaries)} Weekly Summary records "
+            f"for project '{project_name}'. Use these records to identify "
+            "progress, completed deliverables, documentation changes, "
+            "performance trends, recurring risks, observations and areas "
+            "requiring follow-up."
+        ),
+        "project_name": project_name,
+        "record_count": len(weekly_summaries),
+        "records_ordered": "newest_to_oldest",
+        "weekly_summaries": weekly_summaries,
+    }
