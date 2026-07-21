@@ -1055,7 +1055,7 @@ const projectRows = computed(() => {
 })
 
 const projectEmptyStateMessage = computed(() => {
-  if (!allProjectRows.value.length) return 'No active projects found for this year'
+  if (!allProjectRows.value.length) return 'No projects found for this year'
   if (projectTypeFilter.value === 'roster') return 'No roster projects found for this year'
   if (projectTypeFilter.value === 'shutdown') return 'No shutdown projects found for this year'
   return 'No projects match the current annual filters'
@@ -1090,6 +1090,14 @@ function projectShiftsFilledValue(value: ProjectRow['shifts_filled']) {
 function projectActiveValue(project: ProjectRow) {
   const active = projectShiftsFilledValue(project.is_active as ProjectRow['shifts_filled'])
   return active === null ? true : active
+}
+
+function normaliseProjectStatus(value: string | null | undefined) {
+  return String(value || '').trim().toLowerCase()
+}
+
+function projectIsCompleted(value: string | null | undefined) {
+  return normaliseProjectStatus(value) === 'completed'
 }
 
 function projectIsFilled(project: ProjectRow) {
@@ -1193,6 +1201,7 @@ type ProjectSpan = {
   dsAllocated: number
   nsAllocated: number
   isActive: boolean
+  status?: string | null
 }
 
 type ProjectSegment = {
@@ -1215,6 +1224,7 @@ type ProjectSegment = {
   dsAllocated?: number
   nsAllocated?: number
   isActive?: boolean
+  status?: string | null
 }
 
 function projectKey(project: ProjectRow) {
@@ -1263,6 +1273,7 @@ const projectSpans = computed<Record<string, ProjectSpan>>(() => {
       dsAllocated: projectPersonnelCount(project.ds_personnel),
       nsAllocated: projectPersonnelCount(project.ns_personnel),
       isActive: projectActiveValue(project),
+      status: project.status || null,
     }
   }
 
@@ -1443,6 +1454,7 @@ function projectLaneSegments(lane: ProjectLane): ProjectSegment[] {
         dsAllocated: span.dsAllocated,
         nsAllocated: span.nsAllocated,
         isActive: span.isActive,
+        status: span.status,
       })
       index += span.days - 1
       continue
@@ -2373,7 +2385,8 @@ function projectSegmentClass(segment: ProjectSegment) {
   return {
     'year-project-span': segment.active,
     'cursor-pointer': segment.active,
-    'year-project-span-inactive': segment.active && segment.isActive === false,
+    'year-project-span-inactive': segment.active && segment.isActive === false && !projectIsCompleted(segment.status),
+    'year-project-span-completed': segment.active && projectIsCompleted(segment.status),
     'year-project-span-date-dragging': isDragTarget,
     'year-project-span-date-resizing': isDragTarget && projectSpanDrag.value?.mode !== 'move',
     'year-month-start': segment.isMonthStart,
@@ -2383,6 +2396,22 @@ function projectSegmentClass(segment: ProjectSegment) {
 
 function projectSegmentStyle(segment: ProjectSegment) {
   if (!segment.active) return {}
+
+  if (projectIsCompleted(segment.status)) {
+    const backgroundColor = (colors as any).gray[100]
+    const borderColor = (colors as any).gray[400]
+    const textColor = (colors as any).gray[700]
+    const mutedColor = (colors as any).gray[500]
+
+    return {
+      backgroundColor,
+      borderColor,
+      boxShadow: `inset 0 0 0 1px ${borderColor}`,
+      color: textColor,
+      '--year-project-span-text': textColor,
+      '--year-project-span-muted': mutedColor,
+    }
+  }
 
   const isInactive = segment.isActive === false
   const customerColor = normaliseHexColor(segment.customerColor)
@@ -2860,7 +2889,11 @@ function showProjectHover(project: ProjectRow, segment: ProjectSegment, event: M
 
   const customerColor = normaliseHexColor(segment.customerColor)
   const fallbackColor = palette(segment.poEntered === false ? 'red' : 'green')
-  const accent = customerColor ? darkenHexColor(customerColor, 0.3) : fallbackColor[500]
+  const accent = projectIsCompleted(project.status)
+    ? (colors as any).gray[500]
+    : customerColor
+      ? darkenHexColor(customerColor, 0.3)
+      : fallbackColor[500]
 
   setHoverCard(
     `project:${projectKey(project)}:${segment.date || ''}:${segment.days}`,
@@ -3693,6 +3726,11 @@ defineExpose({ events, scrollToToday })
 }
 
 .year-project-span-inactive {
+  font-weight: 500;
+}
+
+.year-project-span-completed {
+  border-style: solid !important;
   font-weight: 500;
 }
 

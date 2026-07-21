@@ -2376,17 +2376,17 @@ def _project_bounds_for_year(project: dict, year_start_date, year_end_date, star
 	return max(start_date, year_start_date), min(end_date, year_end_date)
 
 
-def get_active_project_meta(
+def get_project_meta(
 	project_names: list[str] | set[str] | None = None,
 	year_start: str | None = None,
 	year_end: str | None = None,
 ) -> dict[str, dict]:
-	"""Return Project metadata for projects that should appear in annual planning rows.
+	"""Return Project metadata for every project that should appear in annual planning rows.
 
-	When a year range is supplied, this intentionally looks up active Projects by
-	Project date range as well as projects referenced by Shift Assignment rows. This
-	means the annual Projects table can show every active project in that year, not
-	only the projects that already have people allocated to shifts.
+	When a year range is supplied, this intentionally looks up Projects of every
+	status by Project date range as well as projects referenced by Shift Assignment
+	rows. This means completed and inactive projects remain visible in the annual
+	planner when they overlap the selected year.
 
 	ANNUAL_ROSTER_RESULT_LIMIT is deliberately explicit because some Frappe list
 	queries otherwise fall back to the default page length of about 20 rows.
@@ -2394,14 +2394,6 @@ def get_active_project_meta(
 	project_names = sorted({project for project in (project_names or []) if project})
 	year_start_date = getdate(year_start) if year_start else None
 	year_end_date = getdate(year_end) if year_end else None
-
-	inactive_statuses = [
-		"Completed",
-		"Cancelled",
-		"Closed",
-		"Archived",
-		"Inactive",
-	]
 
 	po_field = _first_existing_project_field([
 		"custom_po_entered",
@@ -2463,11 +2455,10 @@ def get_active_project_meta(
 		if field
 	]
 
-	base_filters = {
-		"status": ["not in", inactive_statuses],
-	}
-
-	project_filters = dict(base_filters)
+	# Do not filter by Project.status here. The annual planner intentionally shows
+	# Open, Completed, Cancelled and any custom statuses when their date range
+	# overlaps the selected year.
+	project_filters = {}
 	if project_names and not (year_start_date and year_end_date):
 		project_filters["name"] = ["in", project_names]
 
@@ -2629,19 +2620,19 @@ def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str
 	year_end_date = getdate(year_end)
 	shift_project_bounds = get_shift_project_bounds(shift_rows, year_start_date, year_end_date)
 
-	active_projects = get_active_project_meta(
+	all_projects = get_project_meta(
 		{shift.get("custom_project") for shift in shift_rows if shift.get("custom_project")},
 		year_start,
 		year_end,
 	)
-	task_counts = get_project_task_counts(active_projects.keys())
+	task_counts = get_project_task_counts(all_projects.keys())
 
 	# First summarise roster allocations by project/day. This lets the project hover
 	# and future project span details still know about employees/shift types when
 	# shifts exist, without requiring shifts to exist before the project is shown.
 	for shift in shift_rows:
 		project = shift.get("custom_project")
-		if not project or project not in active_projects:
+		if not project or project not in all_projects:
 			continue
 
 		start_date = max(getdate(shift.get("start_date")), year_start_date)
@@ -2679,7 +2670,7 @@ def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str
 
 			current = getdate(add_days(current, 1))
 
-	for project, project_meta in active_projects.items():
+	for project, project_meta in all_projects.items():
 		project_name = project_meta.get("project_name") or project
 		bounds = _project_bounds_for_year(
 			project_meta,

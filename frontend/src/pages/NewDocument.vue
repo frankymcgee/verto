@@ -36,19 +36,30 @@
         </div>
       </Card>
 
-      <!-- Error State -->
+      <!-- Initial Load Error -->
       <Card
-        v-else-if="error"
+        v-else-if="loadError"
         class="border border-red-200 bg-red-50 p-3"
       >
-        <div class="space-y-2">
-          <p class="text-sm font-medium text-red-800">
-            Something went wrong
-          </p>
+        <div class="space-y-3">
+          <div>
+            <p class="text-sm font-medium text-red-800">
+              Could not load the form
+            </p>
 
-          <p class="whitespace-pre-wrap text-sm text-red-700">
-            {{ cleanServerMessage(error) }}
-          </p>
+            <p class="mt-1 whitespace-pre-wrap text-sm text-red-700">
+              {{ cleanServerMessage(loadError) }}
+            </p>
+          </div>
+
+          <Button
+            variant="solid"
+            theme="gray"
+            class="w-full justify-center"
+            @click="loadNewDocument()"
+          >
+            Try Again
+          </Button>
         </div>
       </Card>
 
@@ -58,6 +69,37 @@
         class="space-y-3"
         @submit.prevent="submitForm"
       >
+        <!-- Restored Draft Notice -->
+        <Card
+          v-if="draftRestored"
+          class="border border-blue-200 bg-blue-50 p-3"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-blue-900">
+                Unsaved draft restored
+              </p>
+
+              <p class="mt-1 text-sm text-blue-800">
+                Your previously entered form values have been restored.
+                <span v-if="draftHadFiles">
+                  Attachments must be selected again after leaving or reloading the page.
+                </span>
+              </p>
+            </div>
+
+            <Button
+              variant="subtle"
+              theme="gray"
+              size="sm"
+              class="shrink-0"
+              @click="discardRestoredDraft"
+            >
+              Discard
+            </Button>
+          </div>
+        </Card>
+
         <!-- Warnings -->
         <div
           v-if="warnings.length"
@@ -302,11 +344,71 @@
         </div>
       </form>
     </main>
+
+    <Teleport to="body">
+      <Transition name="drawer-fade-slide">
+        <div
+          v-if="actionError"
+          class="fixed inset-0 z-[70] flex items-end bg-black/40"
+          @click.self="closeErrorDrawer"
+        >
+          <Card class="drawer-panel flex max-h-[82dvh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-xl">
+            <div class="shrink-0 border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+              <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="text-xs font-medium uppercase tracking-wide text-red-600">
+                    Action required
+                  </p>
+
+                  <h2 class="mt-1 truncate text-lg font-semibold text-ink-gray-9">
+                    {{ actionErrorTitle }}
+                  </h2>
+                </div>
+
+                <Button
+                  variant="subtle"
+                  theme="gray"
+                  size="sm"
+                  @click="closeErrorDrawer"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+
+            <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+              <div class="rounded-xl border border-red-200 bg-red-50 p-3">
+                <p class="whitespace-pre-wrap text-sm leading-6 text-red-800">
+                  {{ cleanServerMessage(actionError) }}
+                </p>
+              </div>
+
+              <p class="mt-3 text-sm text-ink-gray-5">
+                Your form entries have not been cleared. Close this message, correct the issue, and submit again.
+              </p>
+            </div>
+
+            <div class="shrink-0 border-t border-outline-gray-1 bg-surface-white px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+              <div class="flex gap-2">
+                <Button
+                  variant="subtle"
+                  theme="gray"
+                  class="w-full justify-center"
+                  @click="closeErrorDrawer"
+                >
+                  Return to Form
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </Transition>
+    </Teleport>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Badge,
@@ -399,17 +501,25 @@ const router = useRouter()
 
 const loading = ref(true)
 const submitting = ref(false)
-const error = ref('')
+const loadError = ref('')
+const actionError = ref('')
+const actionErrorTitle = ref('Could not save document')
+const actionErrorCanRetry = ref(false)
 const schema = ref<FormSchema | null>(null)
 const values = ref<Record<string, any>>({})
 const files = ref<File[]>([])
 const messages = ref<string[]>([])
 const warnings = ref<string[]>([])
 const activeTab = ref('')
+const draftRestored = ref(false)
+const draftHadFiles = ref(false)
+const draftReady = ref(false)
 
 const mobileDoctype = String(route.params.mobileDoctype || '')
+const draftStorageKey = `verto:new-document-draft:${mobileDoctype}:${route.fullPath}`
 
 let fieldChangeTimer: number | undefined
+let draftSaveTimer: number | undefined
 
 const formTabs = computed<FormTab[]>(() => {
   const fields = schema.value?.fields || []
@@ -458,7 +568,136 @@ const formTabs = computed<FormTab[]>(() => {
   return tabs.filter((tab) => tab.fields.length > 0)
 })
 
+type NewDocumentDraft = {
+  version: number
+  mobileDoctype: string
+  route: string
+  values: Record<string, any>
+  activeTab?: string
+  fileNames?: string[]
+  savedAt: string
+}
+
+function closeErrorDrawer() {
+  actionError.value = ''
+  actionErrorCanRetry.value = false
+}
+
+function showActionError(
+  message: string,
+  title = 'Could not save document',
+  canRetry = false
+) {
+  actionErrorTitle.value = title
+  actionError.value = message
+  actionErrorCanRetry.value = canRetry
+}
+
+function clearStoredDraft() {
+  try {
+    window.sessionStorage.removeItem(draftStorageKey)
+  } catch {
+    // Session storage may be unavailable in restricted browser modes.
+  }
+}
+
+function getDraftValues() {
+  const draftValues: Record<string, any> = {}
+
+  for (const field of schema.value?.fields || []) {
+    if (isLayoutField(field)) {
+      continue
+    }
+
+    draftValues[field.fieldname] = values.value[field.fieldname]
+  }
+
+  return draftValues
+}
+
+function saveDraftNow() {
+  if (!draftReady.value || !schema.value) {
+    return
+  }
+
+  const draft: NewDocumentDraft = {
+    version: 1,
+    mobileDoctype,
+    route: route.fullPath,
+    values: getDraftValues(),
+    activeTab: activeTab.value,
+    fileNames: files.value.map((file) => file.name),
+    savedAt: new Date().toISOString(),
+  }
+
+  try {
+    window.sessionStorage.setItem(draftStorageKey, JSON.stringify(draft))
+  } catch {
+    // Keep the live form intact even when browser storage is full/unavailable.
+  }
+}
+
+function scheduleDraftSave() {
+  if (!draftReady.value) {
+    return
+  }
+
+  window.clearTimeout(draftSaveTimer)
+
+  draftSaveTimer = window.setTimeout(() => {
+    saveDraftNow()
+  }, 250)
+}
+
+function restoreStoredDraft() {
+  let rawDraft = ''
+
+  try {
+    rawDraft = window.sessionStorage.getItem(draftStorageKey) || ''
+  } catch {
+    return
+  }
+
+  if (!rawDraft) {
+    return
+  }
+
+  try {
+    const draft = JSON.parse(rawDraft) as NewDocumentDraft
+
+    if (
+      draft.version !== 1 ||
+      draft.mobileDoctype !== mobileDoctype ||
+      draft.route !== route.fullPath ||
+      !draft.values ||
+      typeof draft.values !== 'object'
+    ) {
+      return
+    }
+
+    mergeUpdatedValues(draft.values)
+    applyDefaultsForVisibleFields()
+
+    if (draft.activeTab && formTabs.value.some((tab) => tab.id === draft.activeTab)) {
+      activeTab.value = draft.activeTab
+    }
+
+    draftHadFiles.value = Boolean(draft.fileNames?.length)
+    draftRestored.value = true
+  } catch {
+    clearStoredDraft()
+  }
+}
+
+async function discardRestoredDraft() {
+  clearStoredDraft()
+  draftRestored.value = false
+  draftHadFiles.value = false
+  await loadNewDocument(false)
+}
+
 function goBack() {
+  saveDraftNow()
   router.back()
 }
 
@@ -968,7 +1207,7 @@ function handleFieldChange(field: MobileField) {
     values.value[field.fieldname] = normaliseTimeValue(values.value[field.fieldname])
   }
 
-  error.value = ''
+  closeErrorDrawer()
   window.clearTimeout(fieldChangeTimer)
 
   fieldChangeTimer = window.setTimeout(async () => {
@@ -980,9 +1219,13 @@ function handleFieldChange(field: MobileField) {
         return
       }
 
-      error.value = err instanceof Error
-        ? err.message
-        : 'Could not update dependent fields.'
+      showActionError(
+        err instanceof Error
+          ? err.message
+          : 'Could not update dependent fields.',
+        'Could not update the form',
+        false
+      )
     }
   }, 300)
 }
@@ -1044,13 +1287,17 @@ async function loadPrefillValues() {
   applyDefaultsForVisibleFields()
 }
 
-async function loadNewDocument() {
+async function loadNewDocument(restoreDraft = true) {
   loading.value = true
-  error.value = ''
+  draftReady.value = false
+  loadError.value = ''
+  closeErrorDrawer()
   messages.value = []
   warnings.value = []
   values.value = {}
   files.value = []
+  draftRestored.value = false
+  draftHadFiles.value = false
 
   try {
     if (!mobileDoctype) {
@@ -1059,14 +1306,19 @@ async function loadNewDocument() {
 
     await loadSchema()
     await loadPrefillValues()
+
+    if (restoreDraft) {
+      restoreStoredDraft()
+    }
   } catch (err) {
     if (err instanceof Error && err.message === 'Login required') {
       return
     }
 
-    error.value = err instanceof Error ? err.message : 'Could not load form.'
+    loadError.value = err instanceof Error ? err.message : 'Could not load form.'
   } finally {
     loading.value = false
+    draftReady.value = Boolean(schema.value && !loadError.value)
   }
 }
 
@@ -1115,7 +1367,8 @@ async function createDocument() {
 
 async function submitForm() {
   submitting.value = true
-  error.value = ''
+  closeErrorDrawer()
+  saveDraftNow()
 
   try {
     if (schema.value?.doctype === 'Daily Timesheet' && values.value.duration) {
@@ -1123,7 +1376,6 @@ async function submitForm() {
       const confirmed = window.confirm(`Your current hours for this shift is ${hours} hours. Is this correct?`)
 
       if (!confirmed) {
-        submitting.value = false
         return
       }
     }
@@ -1134,24 +1386,91 @@ async function submitForm() {
       await uploadFiles(schema.value.doctype, created.name)
     }
 
+    clearStoredDraft()
+    draftReady.value = false
+
     if (created.route) {
       router.push(created.route)
       return
     }
 
-    goBack()
+    router.back()
   } catch (err) {
     if (err instanceof Error && err.message === 'Login required') {
       return
     }
 
-    error.value = err instanceof Error ? err.message : 'Could not submit form.'
+    saveDraftNow()
+
+    showActionError(
+      err instanceof Error ? err.message : 'Could not submit form.',
+      'Could not save document',
+      true
+    )
   } finally {
     submitting.value = false
   }
 }
 
+watch(
+  values,
+  () => {
+    scheduleDraftSave()
+  },
+  {
+    deep: true,
+  }
+)
+
+watch(activeTab, () => {
+  scheduleDraftSave()
+})
+
+watch(
+  files,
+  () => {
+    scheduleDraftSave()
+  },
+  {
+    deep: true,
+  }
+)
+
 onMounted(() => {
   loadNewDocument()
 })
+
+onBeforeUnmount(() => {
+  window.clearTimeout(fieldChangeTimer)
+  window.clearTimeout(draftSaveTimer)
+  saveDraftNow()
+})
 </script>
+
+<style scoped>
+.drawer-panel {
+  position: relative;
+  z-index: 1;
+}
+
+.drawer-fade-slide-enter-active,
+.drawer-fade-slide-leave-active {
+  transition: opacity 0.22s ease;
+}
+
+.drawer-fade-slide-enter-active .drawer-panel,
+.drawer-fade-slide-leave-active .drawer-panel {
+  transition: transform 0.24s ease, opacity 0.24s ease;
+}
+
+.drawer-fade-slide-enter-from,
+.drawer-fade-slide-leave-to {
+  opacity: 0;
+}
+
+.drawer-fade-slide-enter-from .drawer-panel,
+.drawer-fade-slide-leave-to .drawer-panel {
+  transform: translateY(100%);
+  opacity: 0.96;
+}
+</style>
