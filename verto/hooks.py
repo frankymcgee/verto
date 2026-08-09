@@ -177,8 +177,16 @@ doc_events = {
         "on_update": "verto.api.hooks.create_project_handover_records",
     },
     "Raven Message": {
+        "after_insert": "verto.api.mobile.push_notifications.notify_project_chat_message",
         "on_update": "verto.api.mobile.raven_realtime_bridge.publish_raven_message_upsert",
         "after_delete": "verto.api.mobile.raven_realtime_bridge.publish_raven_message_delete",
+    },
+    "Shift Assignment": {
+        "on_submit": "verto.api.mobile.push_notifications.notify_shift_assigned",
+        "on_update_after_submit": "verto.api.mobile.push_notifications.notify_shift_changed",
+    },
+    "ToDo": {
+        "after_insert": "verto.api.mobile.push_notifications.notify_document_assignment",
     }
 }
 
