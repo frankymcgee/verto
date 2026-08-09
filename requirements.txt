@@ -1,2 +1,3 @@
 # verto/requirements.txt
 python-docx
+pywebpush>=2.3,<3
