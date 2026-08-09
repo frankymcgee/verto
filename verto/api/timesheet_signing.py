@@ -318,8 +318,24 @@ def build_grouped_timesheet_data(docs):
     signed_by = None
     date_signed = None
     if len(signed_docs) == len(docs):
-        signed_by = signed_docs[0].custom_signed_full_name
-        date_signed = signed_docs[0].custom_date_signed
+        signed_names = sorted({
+            str(doc.custom_signed_full_name).strip()
+            for doc in signed_docs
+            if doc.custom_signed_full_name
+        })
+        signed_dates = sorted({
+            str(doc.custom_date_signed)
+            for doc in signed_docs
+            if doc.custom_date_signed
+        })
+
+        if len(signed_names) == 1:
+            signed_by = signed_names[0]
+        elif len(signed_names) > 1:
+            signed_by = "Multiple signatories"
+
+        if len(signed_dates) == 1:
+            date_signed = signed_dates[0]
 
     project_label = first.project_name or first.parent_project
 
@@ -475,23 +491,19 @@ def sign_grouped_timesheets(
     if len(locked_rows) != len(timesheet_names):
         frappe.throw("One or more Timesheets in this approval could not be found.")
 
-    already_signed = [
+    already_signed = {
         row.name for row in locked_rows if cint(row.custom_client_signed) == 1
-    ]
+    }
 
-    if already_signed:
-        if len(already_signed) == len(timesheet_names):
-            return {
-                "status": "Already signed",
-                "message": "These weekly Timesheets have already been signed.",
-            }
+    if len(already_signed) == len(timesheet_names):
+        return {
+            "status": "Already signed",
+            "message": "These weekly Timesheets have already been signed.",
+        }
 
-        frappe.throw(
-            "Some Timesheets in this approval have already been signed. "
-            "Please refresh the page before continuing."
-        )
+    unsigned_docs = [doc for doc in docs if doc.name not in already_signed]
 
-    for doc in docs:
+    for doc in unsigned_docs:
         doc.db_set("custom_client_signature", clean_signature)
         doc.db_set("custom_client_signed", 1)
         doc.db_set("custom_signed_full_name", clean_name)
@@ -514,5 +526,5 @@ def sign_grouped_timesheets(
     return {
         "status": "Success",
         "message": "Weekly Timesheets signed successfully.",
-        "timesheets_signed": len(docs),
+        "timesheets_signed": len(unsigned_docs),
     }

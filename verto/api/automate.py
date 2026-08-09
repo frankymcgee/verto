@@ -720,31 +720,67 @@ def get_grouped_timesheet_fields():
 
 
 def get_grouped_timesheet_candidates(
-    timesheet_name=None,
+    project_id=None,
     docstatus=0,
     only_unsigned=False,
+    include_draft_and_submitted=False,
 ):
     """
-    Get a single project/week group when a Timesheet is supplied, otherwise get
-    every candidate in the normal scheduled date range.
+    For a manual project test, use the latest available week for that project.
+    Otherwise, get every candidate in the normal scheduled date range.
     """
-    if timesheet_name:
-        base_timesheet = frappe.get_doc("Timesheet", timesheet_name)
+    if project_id:
+        # Validate the supplied Project ID before looking for its Timesheets.
+        frappe.get_doc("Project", project_id)
 
-        if not base_timesheet.parent_project:
-            frappe.throw("The selected Timesheet does not have a parent project.")
+        allowed_docstatuses = (
+            [0, 1]
+            if include_draft_and_submitted
+            else [cint(docstatus)]
+        )
+        latest_filters = {
+            "parent_project": project_id,
+            "docstatus": ["in", allowed_docstatuses],
+        }
 
-        if cint(base_timesheet.docstatus) != cint(docstatus):
-            status_label = "Draft" if cint(docstatus) == 0 else "Submitted"
+        if only_unsigned:
+            latest_filters["custom_client_signed"] = 0
+
+        latest_week = frappe.get_all(
+            "Timesheet",
+            filters=latest_filters,
+            fields=[
+                "custom_monday_date",
+                "custom_sunday_date",
+            ],
+            order_by="custom_monday_date desc, modified desc",
+            limit=1,
+        )
+
+        if not latest_week:
+            status_description = (
+                "Draft or Submitted"
+                if include_draft_and_submitted
+                else ("Draft" if cint(docstatus) == 0 else "Submitted")
+            )
+            signature_description = "unsigned " if only_unsigned else ""
             frappe.throw(
-                f"The selected Timesheet must be {status_label} for this action."
+                f"No {signature_description}{status_description} Timesheets were found for "
+                f"Project {project_id}."
+            )
+
+        week = latest_week[0]
+        if not week.custom_monday_date or not week.custom_sunday_date:
+            frappe.throw(
+                f"The latest Timesheet week for Project {project_id} is missing "
+                "its Monday or Sunday date."
             )
 
         filters = {
-            "parent_project": base_timesheet.parent_project,
-            "custom_monday_date": base_timesheet.custom_monday_date,
-            "custom_sunday_date": base_timesheet.custom_sunday_date,
-            "docstatus": docstatus,
+            "parent_project": project_id,
+            "custom_monday_date": week.custom_monday_date,
+            "custom_sunday_date": week.custom_sunday_date,
+            "docstatus": ["in", allowed_docstatuses],
         }
     else:
         start_date, end_date, _allowed_days = get_timesheet_date_range()
@@ -797,37 +833,55 @@ def get_grouped_week_summary(timesheets):
 
 
 def submit_grouped_timesheets(timesheets):
-    """Submit every Draft Timesheet in the group before exposing it to a client."""
+    """
+    Submit Draft Timesheets and allow already Submitted Timesheets through.
+
+    Cancelled Timesheets are never included in a grouped approval.
+    """
     for ts in timesheets:
         doc = frappe.get_doc("Timesheet", ts.name)
+        current_status = cint(doc.docstatus)
 
-        if cint(doc.docstatus) != 0:
+        if current_status == 0:
+            doc.submit()
+            continue
+
+        if current_status == 1:
+            continue
+
+        if current_status == 2:
             frappe.throw(
-                f"Timesheet {doc.name} is no longer Draft. Refresh and try again."
+                f"Timesheet {doc.name} is Cancelled and cannot be included."
             )
 
-        doc.submit()
+        frappe.throw(
+            f"Timesheet {doc.name} has an unsupported document status."
+        )
 
 
 @frappe.whitelist()
-def send_grouped_weekly_timesheets(timesheet_name=None):
+def send_grouped_weekly_timesheets(project_id=None):
     """
     Send one grouped approval email for each project/week.
 
-    Passing a Draft Timesheet name is the recommended pilot/test action. The
-    function derives its project and week, includes all Draft Timesheets in that
-    group, and bypasses the scheduled day-of-week check. Calling it without a
-    name uses the existing scheduler date/day rules.
+    Passing a Project ID is the recommended pilot/test action. The function
+    selects that project's latest week and includes every Draft or Submitted
+    Timesheet, regardless of its existing client signature status. It also
+    bypasses the scheduled day-of-week check. Draft Timesheets are submitted
+    before the email is sent; Submitted Timesheets are included without being
+    changed. Calling the function without a Project ID keeps the existing
+    scheduler date/day behaviour.
     """
     email_settings = get_verto_mobile_email_settings()
     sendmail_options = get_sendmail_options(email_settings)
     _start_date, _end_date, allowed_days = get_timesheet_date_range()
-    is_manual_test = bool(timesheet_name)
+    is_manual_test = bool(project_id)
 
     candidates = get_grouped_timesheet_candidates(
-        timesheet_name=timesheet_name,
+        project_id=project_id,
         docstatus=0,
-        only_unsigned=True,
+        only_unsigned=not is_manual_test,
+        include_draft_and_submitted=is_manual_test,
     )
     groups = group_timesheets_by_project_and_week(candidates)
     results = []
@@ -879,7 +933,8 @@ def send_grouped_weekly_timesheets(timesheet_name=None):
                 <p>The approval page shows Day Shift and Night Shift hours for
                 every employee on each day of the week.</p>
                 <p><b><a href="{signing_url}">Click Here to Review and Sign</a></b></p>
-                <p>One signature will approve all Timesheets displayed on the page.</p>
+                <p>One signature will approve all unsigned Timesheets displayed
+                on the page. Any existing signatures will remain unchanged.</p>
                 <p>If you have any questions or concerns, please contact our site team.</p>
             """
 
@@ -932,20 +987,20 @@ def send_grouped_weekly_timesheets(timesheet_name=None):
 
 
 @frappe.whitelist()
-def send_grouped_timesheet_followup_reminders(timesheet_name=None):
+def send_grouped_timesheet_followup_reminders(project_id=None):
     """
     Send one reminder for each unsigned grouped project/week.
 
-    Keep this method out of scheduler hooks during the pilot. Passing one
-    submitted, unsigned Timesheet name derives and reminds its complete group.
+    Keep this method out of scheduler hooks during the pilot. Passing a Project
+    ID finds and reminds its latest submitted, unsigned Timesheet week.
     """
     email_settings = get_verto_mobile_email_settings()
     sendmail_options = get_sendmail_options(email_settings)
     _start_date, _end_date, allowed_days = get_timesheet_date_range()
-    is_manual_test = bool(timesheet_name)
+    is_manual_test = bool(project_id)
 
     candidates = get_grouped_timesheet_candidates(
-        timesheet_name=timesheet_name,
+        project_id=project_id,
         docstatus=1,
         only_unsigned=True,
     )
