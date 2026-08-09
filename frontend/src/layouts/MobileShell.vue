@@ -1,12 +1,13 @@
-<!-- VERTO_MOBILE_SHELL_APP_BROWSER_DRAWER_2026_06_11 -->
+<!-- VERTO_MOBILE_SHELL_PUSH_NOTIFICATIONS_2026_08_09 -->
 <template>
   <div
     class="mobile-shell min-h-[100dvh] overflow-hidden bg-gray-50 text-gray-900"
     @click.capture="handleAppBrowserLinkClick"
   >
     <div class="mobile-shell-frame mx-auto flex h-[100dvh] min-h-[100dvh] w-full flex-col overflow-hidden bg-gray-50">
-      <AppHeader />
+      <AppHeader v-if="!hideAppHeader" />
       <OfflineSyncStatus />
+      <PushNotificationPrompt />
 
       <main
         ref="mainEl"
@@ -30,12 +31,15 @@ import { useRoute } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import BottomTabs from '../components/BottomTabs.vue'
 import AppBrowserDrawer from '../components/AppBrowserDrawer.vue'
+import PushNotificationPrompt from '../components/PushNotificationPrompt.vue'
 import PwaUpdatePrompt from '../components/PwaUpdatePrompt.vue'
 import PwaInstallPrompt from '../components/PwaInstallPrompt.vue'
 import { handleAppBrowserLinkClick } from '../lib/appBrowser'
+import { isAndroidStandalonePwa } from '../pwa/displayMode'
 
 const route = useRoute()
 const mainEl = ref<HTMLElement | null>(null)
+const hideAppHeader = isAndroidStandalonePwa()
 
 watch(
   () => route.fullPath,
