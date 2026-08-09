@@ -37,7 +37,9 @@
    "fieldname": "employee_id",
    "fieldtype": "Link",
    "label": "Employee ID",
-   "options": "Employee"
+   "link_filters": "[[\"Employee\",\"prefered_email\",\"=\",\"eval: frappe.session.user\"]]",
+   "options": "Employee",
+   "remember_last_selected_value": 1
   },
   {
    "fieldname": "column_break_ckti",
@@ -146,11 +148,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-11 21:22:32.702563",
+ "modified": "2026-07-26 20:59:38.700309",
  "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "Personal Fatigue Assessment",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
