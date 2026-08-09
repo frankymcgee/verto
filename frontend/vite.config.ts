@@ -1,3 +1,6 @@
+import { copyFileSync, mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import Icons from 'unplugin-icons/vite'
@@ -108,6 +111,24 @@ const mssManifest = {
   ],
 } as unknown as Partial<ManifestOptions>
 
+function copyVertoServiceWorkerPlugin() {
+  return {
+    name: 'copy-verto-service-worker',
+    apply: 'build' as const,
+    closeBundle() {
+      const source = fileURLToPath(
+        new URL('../verto/public/verto-mobile/verto-sw.js', import.meta.url)
+      )
+      const destination = fileURLToPath(
+        new URL('../verto/public/pwa/verto-mobile-sw.js', import.meta.url)
+      )
+
+      mkdirSync(dirname(destination), { recursive: true })
+      copyFileSync(source, destination)
+    },
+  }
+}
+
 export default defineConfig(({ command }) => {
   const isDev = command === 'serve'
 
@@ -135,6 +156,7 @@ export default defineConfig(({ command }) => {
         ],
         manifest: mssManifest,
       }),
+      copyVertoServiceWorkerPlugin(),
     ],
 
     server: {
