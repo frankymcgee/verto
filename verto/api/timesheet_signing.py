@@ -2,7 +2,9 @@ import base64
 import binascii
 import datetime
 import html
+import io
 import re
+import zipfile
 
 import frappe
 from frappe.utils import add_days, cint, flt, formatdate, getdate, get_datetime
@@ -431,8 +433,101 @@ def lock_grouped_timesheets(timesheet_names):
     )
 
 
+def generate_grouped_signed_pdf_attachments(docs):
+    """Generate one signed Weekly Timesheet PDF for every document in a group."""
+    attachments = []
+
+    for timesheet in docs:
+        employee_doc = get_employee_doc(timesheet)
+        file_name = generate_attachment_name(
+            timesheet,
+            employee_doc,
+            include_project=True,
+        )
+        attachments.append(generate_attachment(timesheet, file_name))
+
+    return attachments
+
+
+def get_unique_zip_filename(file_name, used_names):
+    """Return a collision-safe PDF filename for a grouped download archive."""
+    clean_name = str(file_name or "Timesheet").strip()
+    if not clean_name.lower().endswith(".pdf"):
+        clean_name = f"{clean_name}.pdf"
+
+    candidate = clean_name
+    stem, suffix = candidate.rsplit(".", 1)
+    sequence = 2
+
+    while candidate.lower() in used_names:
+        candidate = f"{stem}_{sequence}.{suffix}"
+        sequence += 1
+
+    used_names.add(candidate.lower())
+    return candidate
+
+
+@frappe.whitelist(allow_guest=True)
+def download_grouped_signed_timesheets(token):
+    """Download every signed Timesheet in an approved group as one ZIP file."""
+    docs = get_grouped_timesheet_docs(token, require_submitted=True)
+    unsigned_names = [
+        doc.name for doc in docs if cint(doc.custom_client_signed) != 1
+    ]
+
+    if unsigned_names:
+        frappe.throw(
+            "The signed PDFs will be available after every Timesheet in this "
+            "group has been approved."
+        )
+
+    archive_buffer = io.BytesIO()
+    used_names = set()
+
+    with zipfile.ZipFile(
+        archive_buffer,
+        mode="w",
+        compression=zipfile.ZIP_DEFLATED,
+    ) as archive:
+        for timesheet in docs:
+            employee_doc = get_employee_doc(timesheet)
+            file_name = generate_attachment_name(
+                timesheet,
+                employee_doc,
+                include_project=True,
+            )
+            attachment = generate_attachment(timesheet, file_name)
+            attachment_name = get_unique_zip_filename(
+                attachment.get("fname") or file_name,
+                used_names,
+            )
+            attachment_content = attachment.get("fcontent")
+
+            if not attachment_content:
+                frappe.throw(
+                    f"The PDF for Timesheet {timesheet.name} could not be generated."
+                )
+
+            archive.writestr(attachment_name, attachment_content)
+
+    grouped_data = build_grouped_timesheet_data(docs)
+    safe_project = re.sub(
+        r"[^A-Za-z0-9._-]+",
+        "-",
+        grouped_data.get("project_name") or grouped_data.get("project") or "Project",
+    ).strip("-._") or "Project"
+    week_end = str(docs[0].custom_sunday_date).replace("-", "")
+
+    frappe.local.response.filename = (
+        f"{week_end}_{safe_project}_Signed_Timesheets.zip"
+    )
+    frappe.local.response.filecontent = archive_buffer.getvalue()
+    frappe.local.response.type = "download"
+    frappe.local.response.display_content_as = "attachment"
+
+
 def send_grouped_signed_notification(docs, grouped_data):
-    """Send one internal confirmation without changing the signing result."""
+    """Send one internal confirmation with every signed Timesheet PDF."""
     email_settings = get_verto_mobile_email_settings()
     recipients = email_settings.email_recipients
 
@@ -450,6 +545,7 @@ def send_grouped_signed_notification(docs, grouped_data):
     approval_url = get_grouped_timesheet_signing_url([doc.name for doc in docs])
     project_name = html.escape(grouped_data["project_name"] or "")
     week_label = html.escape(grouped_data["week_label"] or "")
+    attachments = generate_grouped_signed_pdf_attachments(docs)
 
     content_html = f"""
         <p>The consolidated weekly timesheets for
@@ -459,6 +555,7 @@ def send_grouped_signed_notification(docs, grouped_data):
         <p><strong>Total Day Shift Hours:</strong> {grouped_data['totals']['ds']}</p>
         <p><strong>Total Night Shift Hours:</strong> {grouped_data['totals']['ns']}</p>
         <p><strong>Total Hours:</strong> {grouped_data['totals']['total']}</p>
+        <p>Please find each signed employee Timesheet attached as a PDF.</p>
         <p><b><a href="{approval_url}">View Signed Weekly Timesheets</a></b></p>
     """
 
@@ -469,6 +566,7 @@ def send_grouped_signed_notification(docs, grouped_data):
         ),
         message=build_email_body(content_html, email_settings=email_settings),
         delayed=False,
+        attachments=attachments,
         **get_sendmail_options(email_settings),
     )
 
