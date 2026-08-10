@@ -19,8 +19,9 @@ SITE_MANIFEST_PUBLIC_URL = f"/files/{SITE_MANIFEST_FILENAME}"
 ASSET_MANIFEST_RELATIVE_PATH = ("public", "verto-mobile", "manifest.webmanifest")
 ASSET_MANIFEST_PUBLIC_URL = "/assets/verto/verto-mobile/manifest.webmanifest"
 
-DEFAULT_START_URL = "/verto-mobile/"
-DEFAULT_SCOPE = "/verto-mobile/"
+DEFAULT_MANIFEST_ID = "/verto-mobile/"
+DEFAULT_START_URL = "/verto-mobile"
+DEFAULT_SCOPE = "/verto-mobile"
 DEFAULT_APP_NAME = "Verto Mobile"
 DEFAULT_SHORT_NAME = "Verto"
 DEFAULT_THEME_COLOR = "#171717"
@@ -78,6 +79,15 @@ def _clean_path_or_url(value: str | None) -> str:
     return f"/{value.lstrip('/')}"
 
 
+def _normalise_pwa_route(value: str | None, fallback: str) -> str:
+    value = _clean_path_or_url(value) or fallback
+
+    if value == "/":
+        return value
+
+    return value.rstrip("/")
+
+
 def _normalise_color(value: str | None, fallback: str) -> str:
     value = str(value or "").strip()
 
@@ -133,7 +143,7 @@ def _normalise_manifest_id(value: str | None) -> str:
     value = str(value or "").strip()
 
     if not value:
-        return DEFAULT_SCOPE
+        return DEFAULT_MANIFEST_ID
 
     return value
 
@@ -435,7 +445,7 @@ def _build_shortcuts(settings) -> list[dict]:
         {
             "name": "Home",
             "short_name": "Home",
-            "url": "/verto-mobile/",
+            "url": "/verto-mobile",
             "description": "Open the Verto Mobile home page",
         },
         {
@@ -468,19 +478,25 @@ def build_manifest_from_settings(settings=None, generated_icon_urls: dict[str, s
     if not generated_icon_urls:
         generated_icon_urls = _get_existing_or_generated_icon_urls(settings)
 
-    start_url = _clean_path_or_url(
-        _get_first(settings, ["pwa_start_url", "start_url"], DEFAULT_START_URL)
-    ) or DEFAULT_START_URL
+    start_url = _normalise_pwa_route(
+        _get_first(settings, ["pwa_start_url", "start_url"], DEFAULT_START_URL),
+        DEFAULT_START_URL,
+    )
 
-    scope = _clean_path_or_url(
-        _get_first(settings, ["pwa_scope", "scope"], DEFAULT_SCOPE)
-    ) or DEFAULT_SCOPE
+    scope = _normalise_pwa_route(
+        _get_first(settings, ["pwa_scope", "scope"], DEFAULT_SCOPE),
+        DEFAULT_SCOPE,
+    )
 
     manifest = {
         "name": app_name,
         "short_name": short_name,
         "id": _normalise_manifest_id(
-            _get_first(settings, ["pwa_manifest_id", "manifest_id", "app_id"], scope)
+            _get_first(
+                settings,
+                ["pwa_manifest_id", "manifest_id", "app_id"],
+                DEFAULT_MANIFEST_ID,
+            )
         ),
         "start_url": start_url,
         "scope": scope,
