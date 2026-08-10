@@ -1,0 +1,55 @@
+diff --git a/frontend/src2/charts/components/SafetyCrossChart.vue b/frontend/src2/charts/components/SafetyCrossChart.vue
+--- a/frontend/src2/charts/components/SafetyCrossChart.vue
++++ b/frontend/src2/charts/components/SafetyCrossChart.vue
+@@ -125,8 +125,11 @@
+ 					role="gridcell"
+ 				>
+ 					<div
+-						class="absolute inset-x-0 top-0 h-1/2"
+-						:style="{ backgroundColor: entry.dayShift?.color || emptyColor }"
++						class="absolute inset-0"
++						:style="{
++							backgroundColor: entry.dayShift?.color || emptyColor,
++							clipPath: 'polygon(0 0, 100% 0, 0 100%)',
++						}"
+ 						:title="
+ 							tooltip(
+ 								entry.day,
+@@ -136,8 +139,11 @@
+ 						"
+ 					/>
+ 					<div
+-						class="absolute inset-x-0 bottom-0 h-1/2 border-t border-white/80"
+-						:style="{ backgroundColor: entry.nightShift?.color || emptyColor }"
++						class="absolute inset-0"
++						:style="{
++							backgroundColor: entry.nightShift?.color || emptyColor,
++							clipPath: 'polygon(100% 0, 100% 100%, 0 100%)',
++						}"
+ 						:title="
+ 							tooltip(
+ 								entry.day,
+@@ -147,6 +153,10 @@
+ 							)
+ 						"
+ 					/>
++					<div
++						class="pointer-events-none absolute left-1/2 top-1/2 h-px bg-white/80"
++						style="width: 142%; transform: translate(-50%, -50%) rotate(-45deg)"
++					/>
+ 					<div
+ 						class="pointer-events-none absolute inset-0 flex items-center justify-center"
+ 					>
+@@ -181,10 +191,10 @@
+ 
+ 			<div class="mt-2 flex items-center justify-center gap-4 text-[11px] text-gray-500">
+ 				<span>
+-					<strong class="font-semibold">Top:</strong>
++					<strong class="font-semibold">Upper left:</strong>
+ 					{{ props.config.day_shift_label || 'Day Shift' }}
+ 				</span>
+ 				<span>
+-					<strong class="font-semibold">Bottom:</strong>
++					<strong class="font-semibold">Lower right:</strong>
+ 					{{ props.config.night_shift_label || 'Night Shift' }}
+ 				</span>
