@@ -22,6 +22,8 @@
   "column_break_odql",
   "app_icon",
   "app_logo",
+  "pwa_installation_screenshots_section",
+  "pwa_screenshots",
   "peri_settings_section",
   "default_workspace",
   "default_chat_channel",
@@ -228,13 +230,24 @@
    "fieldtype": "Table",
    "label": "Project CCV's",
    "options": "Verto Mobile Form Shortcut"
+  },
+  {
+   "fieldname": "pwa_installation_screenshots_section",
+   "fieldtype": "Section Break",
+   "label": "PWA Installation Screenshots"
+  },
+  {
+   "fieldname": "pwa_screenshots",
+   "fieldtype": "Table",
+   "label": "PWA Screenshots",
+   "options": "Verto PWA Screenshot"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-07-01 10:04:03.102218",
+ "modified": "2026-08-10 12:03:06.051633",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Verto Mobile Settings",

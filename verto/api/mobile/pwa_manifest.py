@@ -402,7 +402,12 @@ def _build_screenshots(settings) -> list[dict]:
                 "src": src,
                 "sizes": row.get("sizes") or row.get("size") or "1242x2688",
                 "type": row.get("type") or row.get("mime_type") or "image/png",
-                "description": row.get("description") or row.get("label") or "Verto Mobile screenshot",
+                "form_factor": row.get("form_factor") or "narrow",
+                "label": (
+                    row.get("label")
+                    or row.get("description")
+                    or "Verto Mobile screenshot"
+                ),
             }
         )
 

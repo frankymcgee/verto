@@ -51,6 +51,10 @@
                 onClick: () => { showProjectDialog = true },
               },
               {
+                label: 'Leave Application',
+                onClick: () => { showLeaveApplicationDialog = true },
+              },
+              {
                 label: 'Shift Assignment',
                 onClick: () => { showShiftAssignmentDialog = true },
               },
@@ -132,6 +136,16 @@
     "
   />
 
+  <LeaveApplicationDialog
+    v-model="showLeaveApplicationDialog"
+    :isDialogOpen="showLeaveApplicationDialog"
+    :company="employeeFilters.company"
+    @fetchEvents="
+      fetchActiveEvents();
+      showLeaveApplicationDialog = false;
+    "
+  />
+
   <ShiftAssignmentDialog
     v-model="showShiftAssignmentDialog"
     :isDialogOpen="showShiftAssignmentDialog"
@@ -163,6 +177,7 @@ import MonthViewHeader from '../components/MonthViewHeader.vue'
 import ShiftAssignmentDialog from '../components/ShiftAssignmentDialog.vue'
 import EventDialog from '../components/EventDialog.vue'
 import ProjectDialog from '../components/ProjectDialog.vue'
+import LeaveApplicationDialog from '../components/LeaveApplicationDialog.vue'
 
 export type EmployeeFilters = {
   [K in 'status' | 'company' | 'department' | 'branch' | 'designation']?: string;
@@ -180,6 +195,7 @@ const monthViewTable = ref<InstanceType<typeof MonthViewTable>>()
 const yearViewTable = ref<InstanceType<typeof YearViewTable>>()
 const isCompanySelected = ref(false)
 const showProjectDialog = ref(false)
+const showLeaveApplicationDialog = ref(false)
 const showShiftAssignmentDialog = ref(false)
 const showEventDialog = ref(false)
 const firstOfMonth = ref(dayjs().date(1).startOf('D'))

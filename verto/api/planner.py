@@ -1,6 +1,6 @@
 import frappe
 from frappe import _
-from frappe.utils import add_days, date_diff, getdate, get_datetime_str
+from frappe.utils import add_days, date_diff, getdate, get_datetime_str, nowdate
 from frappe.desk.search import search_link
 
 from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
@@ -584,6 +584,271 @@ def create_planner_project(values: dict | str | None = None) -> dict:
 	return {
 		"name": doc.name,
 		"project_name": doc.get("project_name") or doc.name,
+	}
+
+
+LEAVE_APPLICATION_UNSUPPORTED_CREATE_FIELD_TYPES = {
+	"Table",
+	"Table MultiSelect",
+	"HTML",
+	"Button",
+	"Image",
+	"Fold",
+	"Geolocation",
+	"Signature",
+}
+
+LEAVE_APPLICATION_CREATE_ALLOWED_FIELD_TYPES = {
+	"Attach",
+	"Attach Image",
+	"Check",
+	"Code",
+	"Color",
+	"Currency",
+	"Data",
+	"Date",
+	"Datetime",
+	"Dynamic Link",
+	"Float",
+	"Int",
+	"Link",
+	"Long Text",
+	"Percent",
+	"Password",
+	"Phone",
+	"Rating",
+	"Select",
+	"Small Text",
+	"Text",
+	"Text Editor",
+	"Time",
+}
+
+
+def _leave_application_create_field_to_dict(df) -> dict:
+	return {
+		"fieldname": df.fieldname,
+		"fieldtype": df.fieldtype,
+		"label": df.label,
+		"options": df.options,
+		"reqd": df.reqd,
+		"default": df.default,
+		"depends_on": df.depends_on,
+		"description": df.description,
+		"read_only": df.read_only,
+		"hidden": df.hidden,
+		"permlevel": df.permlevel,
+		"unsupported": df.fieldtype in LEAVE_APPLICATION_UNSUPPORTED_CREATE_FIELD_TYPES,
+	}
+
+
+@frappe.whitelist()
+def get_leave_application_create_meta() -> dict:
+	"""Return Leave Application fields for the Planner create dialog."""
+	if not frappe.has_permission("Leave Application", ptype="create"):
+		frappe.throw(_("You do not have permission to create Leave Applications."), frappe.PermissionError)
+
+	meta = frappe.get_meta("Leave Application")
+	fields = []
+
+	for df in meta.fields:
+		if not df.fieldtype or df.hidden:
+			continue
+
+		# Keep layout fields so the Planner follows the current site DocType layout.
+		# Read-only values such as employee_name/company/total_leave_days are filled
+		# by Leave Application validation and are not editable from this dialog.
+		if df.fieldtype not in EVENT_LAYOUT_FIELD_TYPES and df.read_only:
+			continue
+
+		fields.append(_leave_application_create_field_to_dict(df))
+
+	return {
+		"doctype": "Leave Application",
+		"title": meta.get("title_field") or "employee_name",
+		"fields": fields,
+		"can_submit": bool(frappe.has_permission("Leave Application", ptype="submit")),
+	}
+
+
+def _is_allowed_leave_application_link_field(fieldname: str | None, link_doctype: str | None) -> bool:
+	if not fieldname or not link_doctype:
+		return False
+
+	meta = frappe.get_meta("Leave Application")
+	df = meta.get_field(fieldname)
+	if not df or df.hidden or df.read_only:
+		return False
+
+	if df.fieldtype == "Link":
+		return df.options == link_doctype
+
+	if df.fieldtype == "Dynamic Link":
+		return True
+
+	return False
+
+
+@frappe.whitelist()
+def search_leave_application_link_options(
+	link_doctype: str,
+	txt: str = "",
+	fieldname: str | None = None,
+	company: str | None = None,
+) -> list[dict]:
+	"""Return searchable Link options for the Planner Leave Application dialog."""
+	if not frappe.has_permission("Leave Application", ptype="create"):
+		frappe.throw(_("You do not have permission to create Leave Applications."), frappe.PermissionError)
+
+	link_doctype = (link_doctype or "").strip()
+	fieldname = (fieldname or "").strip()
+	company = (company or "").strip()
+
+	if not _is_allowed_leave_application_link_field(fieldname, link_doctype):
+		frappe.throw(_("This link field is not allowed for Leave Application creation."), frappe.PermissionError)
+
+	if not frappe.db.exists("DocType", link_doctype):
+		frappe.throw(_("Invalid linked DocType: {0}").format(link_doctype))
+
+	filters = None
+	if link_doctype == "Employee" and company:
+		filters = {"company": company, "status": "Active"}
+
+	results = search_link(
+		doctype=link_doctype,
+		txt=txt or "",
+		filters=filters,
+		page_length=20,
+		reference_doctype="Leave Application",
+	)
+
+	options = []
+	for row in results or []:
+		if isinstance(row, dict):
+			value = row.get("value") or row.get("name") or ""
+			label = row.get("label") or value
+			description = row.get("description") or ""
+		else:
+			value = str(row)
+			label = value
+			description = ""
+
+		if value:
+			options.append({
+				"value": value,
+				"label": label,
+				"description": description,
+			})
+
+	return options
+
+
+def _leave_application_create_fields_by_name() -> dict:
+	meta = frappe.get_meta("Leave Application")
+	return {
+		df.fieldname: df
+		for df in meta.fields
+		if df.fieldname
+		and not df.hidden
+		and not df.read_only
+		and df.fieldtype in LEAVE_APPLICATION_CREATE_ALLOWED_FIELD_TYPES
+	}
+
+
+def _normalise_leave_application_create_value(df, value):
+	if value == "":
+		return None
+
+	fieldtype = df.fieldtype
+	if fieldtype == "Check":
+		return 1 if _as_bool(value, default=False) else 0
+	if fieldtype == "Int":
+		return int(value or 0)
+	if fieldtype in ("Float", "Currency", "Percent", "Rating"):
+		return float(value or 0)
+	if fieldtype == "Datetime":
+		return _normalise_event_datetime(value)
+	if fieldtype == "Date":
+		return str(getdate(value)) if value else None
+
+	return value
+
+
+def _first_select_option(df) -> str | None:
+	for option in str(df.options or "").split("\n"):
+		option = option.strip()
+		if option:
+			return option
+	return None
+
+
+@frappe.whitelist()
+def create_planner_leave_application(values: dict | str | None = None) -> dict:
+	"""Create and, when selected and permitted, submit a Leave Application."""
+	if not frappe.has_permission("Leave Application", ptype="create"):
+		frappe.throw(_("You do not have permission to create Leave Applications."), frappe.PermissionError)
+
+	values = frappe.parse_json(values) if isinstance(values, str) else (values or {})
+	if not isinstance(values, dict):
+		frappe.throw(_("Invalid Leave Application values."))
+
+	allowed_fields = _leave_application_create_fields_by_name()
+	can_submit = bool(frappe.has_permission("Leave Application", ptype="submit"))
+
+	if "posting_date" in allowed_fields and not values.get("posting_date"):
+		values["posting_date"] = nowdate()
+
+	if "status" in allowed_fields and not values.get("status"):
+		values["status"] = "Approved" if can_submit else "Open"
+
+	if "naming_series" in allowed_fields and not values.get("naming_series"):
+		series = allowed_fields["naming_series"].default or _first_select_option(allowed_fields["naming_series"])
+		if series:
+			values["naming_series"] = series
+
+	requested_status = str(values.get("status") or "Open")
+	if requested_status in ("Approved", "Rejected") and not can_submit:
+		frappe.throw(_("You do not have permission to submit Leave Applications. Choose Open to create a draft."), frappe.PermissionError)
+
+	if requested_status == "Cancelled":
+		frappe.throw(_("A new Leave Application cannot be created with status Cancelled."))
+
+	doc = frappe.new_doc("Leave Application")
+	for fieldname, value in values.items():
+		df = allowed_fields.get(fieldname)
+		if not df:
+			continue
+		doc.set(fieldname, _normalise_leave_application_create_value(df, value))
+
+	# These fields are read-only/fetched in the Desk form. Set them server-side so
+	# Planner creation behaves the same even though the dynamic dialog does not
+	# render read-only fields.
+	if doc.get("employee"):
+		employee = frappe.db.get_value(
+			"Employee",
+			doc.employee,
+			["employee_name", "company", "department"],
+			as_dict=True,
+		)
+		if not employee:
+			frappe.throw(_("Employee {0} was not found.").format(doc.employee))
+		doc.employee_name = employee.employee_name
+		doc.company = employee.company
+		doc.department = employee.department
+
+	doc.insert()
+
+	if requested_status in ("Approved", "Rejected"):
+		doc.submit()
+
+	return {
+		"name": doc.name,
+		"employee": doc.get("employee"),
+		"employee_name": doc.get("employee_name"),
+		"status": doc.get("status"),
+		"docstatus": doc.docstatus,
+		"from_date": str(doc.get("from_date") or ""),
+		"to_date": str(doc.get("to_date") or ""),
 	}
 
 
