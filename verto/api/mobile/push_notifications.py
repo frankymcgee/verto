@@ -5,7 +5,7 @@ from urllib.parse import quote, urlparse
 
 import frappe
 from frappe import _
-from frappe.utils import now_datetime
+from frappe.utils import cint, now_datetime
 
 
 SUBSCRIPTION_DOCTYPE = "Verto Push Subscription"
@@ -15,7 +15,7 @@ VAPID_PRIVATE_KEY_CONFIG = "verto_push_vapid_private_key"
 VAPID_SUBJECT_CONFIG = "verto_push_vapid_subject"
 
 DEFAULT_VAPID_SUBJECT = "mailto:support@webwire.com.au"
-DEFAULT_NOTIFICATION_URL = "/verto-mobile/"
+DEFAULT_NOTIFICATION_URL = "/verto-mobile"
 
 
 def _require_login():
@@ -487,8 +487,137 @@ def _get_project_for_raven_channel(channel_id: str):
     )
 
 
+def _get_raven_channel(channel_id: str):
+    if not channel_id or not frappe.db.exists("DocType", "Raven Channel"):
+        return None
+
+    meta = frappe.get_meta("Raven Channel")
+    fields = ["name"]
+
+    for fieldname in (
+        "is_direct_message",
+        "is_self_message",
+        "dm_user_1",
+        "dm_user_2",
+    ):
+        if meta.has_field(fieldname):
+            fields.append(fieldname)
+
+    return frappe.db.get_value(
+        "Raven Channel",
+        channel_id,
+        fields,
+        as_dict=True,
+    )
+
+
+def _get_direct_message_users(channel_id: str, channel) -> list[str]:
+    users = []
+
+    for fieldname in ("dm_user_1", "dm_user_2"):
+        user = _clean(channel.get(fieldname))
+        if user:
+            users.append(user)
+
+    # Raven versions before dm_user_1/dm_user_2 stored the participants only
+    # in Raven Channel Member. Also use the member rows as a defensive fallback
+    # if either canonical DM field is empty.
+    if len(set(users)) < 2 and frappe.db.exists("DocType", "Raven Channel Member"):
+        members = frappe.get_all(
+            "Raven Channel Member",
+            filters={"channel_id": channel_id},
+            fields=["user_id"],
+            limit_page_length=20,
+        )
+        users.extend(_clean(member.user_id) for member in members)
+
+    return _normalise_users(users)
+
+
+def _get_raven_sender_name(doc) -> str:
+    is_bot_message = cint(getattr(doc, "is_bot_message", 0))
+    raven_user = _clean(
+        getattr(doc, "bot", None)
+        if is_bot_message
+        else getattr(doc, "owner", None)
+    )
+
+    if raven_user and frappe.db.exists("DocType", "Raven User"):
+        full_name = _clean(frappe.db.get_value("Raven User", raven_user, "full_name"))
+        if full_name:
+            return full_name
+
+    owner = _clean(getattr(doc, "owner", None))
+    if owner:
+        return _clean(frappe.db.get_value("User", owner, "full_name"))
+
+    return ""
+
+
+def _notify_direct_message(doc, channel_id: str, channel) -> bool:
+    if not cint(channel.get("is_direct_message")):
+        return False
+
+    # A Raven self-message is a private note to the same user, not an incoming
+    # DM, so it must never generate a push notification.
+    if cint(channel.get("is_self_message")):
+        return True
+
+    owner = _clean(getattr(doc, "owner", None))
+    is_bot_message = cint(getattr(doc, "is_bot_message", 0))
+    bot = _clean(getattr(doc, "bot", None))
+
+    recipients = []
+    for user in _get_direct_message_users(channel_id, channel):
+        # For ordinary messages the owner is the sender. Raven bot messages can
+        # retain the requesting user as owner, so exclude the bot identity and
+        # keep the human participant eligible for the bot response.
+        if (not is_bot_message and user == owner) or (is_bot_message and user == bot):
+            continue
+
+        if _enabled_user(user):
+            recipients.append(user)
+
+    if not recipients:
+        return True
+
+    sender_name = _get_raven_sender_name(doc)
+    title = f"New message from {sender_name}" if sender_name else "New direct message"
+
+    queue_push_to_users(
+        recipients,
+        {
+            "title": title,
+            "body": "You have a new direct message in the app. Click here to open",
+            "url": f"/verto-mobile/chat?channel={quote(channel_id, safe='')}",
+            "tag": f"direct-message-{channel_id}",
+        },
+        notification_type="direct_message",
+    )
+
+    return True
+
+
 def notify_project_chat_message(doc, method=None):
     channel_id = _clean(getattr(doc, "channel_id", None))
+
+    if not channel_id:
+        return
+
+    if (
+        _clean(getattr(doc, "message_type", None)) == "System"
+        or getattr(getattr(doc, "flags", None), "send_silently", False)
+        or getattr(frappe.flags, "in_install", False)
+        or getattr(frappe.flags, "in_patch", False)
+        or getattr(frappe.flags, "in_import", False)
+    ):
+        return
+
+    channel = _get_raven_channel(channel_id)
+
+    if channel and _notify_direct_message(doc, channel_id, channel):
+        return
+
     project = _get_project_for_raven_channel(channel_id)
 
     if not project:
