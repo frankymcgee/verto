@@ -7,6 +7,8 @@ and refuses partial or unsafe changes.
 
 from __future__ import annotations
 
+import shlex
+import shutil
 import subprocess
 from pathlib import Path
 from typing import TypedDict
@@ -14,7 +16,7 @@ from typing import TypedDict
 import frappe
 
 
-PATCH_VERSION = "1.2.0"
+PATCH_VERSION = "1.3.0"
 DIAGONAL_PATCH_VERSION = "1.1.0"
 LEGACY_PATCH_VERSION = "1.0.0"
 SUPPORTED_INSIGHTS_RELEASE = "v3.12.2"
@@ -93,6 +95,34 @@ def _run_git_apply(
 
 def _result_details(result: subprocess.CompletedProcess[str]) -> str:
     return (result.stderr or result.stdout or "").strip()
+
+
+def _bench_root(insights_root: Path) -> Path:
+    """Return the Bench root containing the apps and sites directories."""
+    root = insights_root.resolve().parent.parent
+    required_paths = (root / "apps", root / "sites")
+    if not all(path.is_dir() for path in required_paths):
+        raise RuntimeError(
+            f"Could not determine the Bench root from the Insights app at {insights_root}."
+        )
+    return root
+
+
+def _run_deployment_command(label: str, command: list[str], bench_root: Path) -> None:
+    """Run one visible deployment command and stop immediately on failure."""
+    print(f"[Safety Cross] {label}: {shlex.join(command)}")
+    result = subprocess.run(
+        command,
+        cwd=str(bench_root),
+        check=False,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"The Safety Cross source is installed, but deployment stopped while "
+            f"running '{label}' (exit code {result.returncode}). Fix the command "
+            "error and run deploy again; installation is safe to repeat."
+        )
 
 
 def status() -> PatchStatus:
@@ -257,6 +287,46 @@ def install() -> PatchStatus:
         "Run: bench build --app insights && bench clear-cache && bench restart"
     )
     return verified
+
+
+def deploy() -> PatchStatus:
+    """Install or upgrade, build Insights, clear the site cache, and restart Bench."""
+    installed = install()
+    insights_root = Path(installed["insights_path"])
+    bench_root = _bench_root(insights_root)
+
+    bench_executable = shutil.which("bench")
+    if not bench_executable:
+        raise RuntimeError(
+            "The Safety Cross source is installed, but the bench executable was not "
+            "found in PATH. Activate the Bench environment and run deploy again."
+        )
+
+    site = getattr(getattr(frappe, "local", None), "site", None)
+    if not site:
+        raise RuntimeError(
+            "The Safety Cross source is installed, but the active Frappe site could "
+            "not be determined. Run this command with: bench --site <site> execute "
+            "verto.insights_safety_cross.installer.deploy"
+        )
+
+    commands = (
+        ("build Insights", [bench_executable, "build", "--app", "insights"]),
+        (
+            "clear the site cache",
+            [bench_executable, "--site", str(site), "clear-cache"],
+        ),
+        ("restart Bench", [bench_executable, "restart"]),
+    )
+    for label, command in commands:
+        _run_deployment_command(label, command, bench_root)
+
+    installed["message"] = (
+        "The responsive Verto Safety Cross was installed, Insights was built, "
+        f"the cache for {site} was cleared, and Bench was restarted successfully."
+    )
+    installed["next_step"] = "No further deployment commands are required."
+    return installed
 
 
 def remove() -> PatchStatus:
