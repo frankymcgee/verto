@@ -14,13 +14,19 @@ from typing import TypedDict
 import frappe
 
 
-PATCH_VERSION = "1.1.0"
+PATCH_VERSION = "1.2.0"
+DIAGONAL_PATCH_VERSION = "1.1.0"
 LEGACY_PATCH_VERSION = "1.0.0"
 SUPPORTED_INSIGHTS_RELEASE = "v3.12.2"
 SUPPORTED_INSIGHTS_COMMIT = "db795c4"
 BASE_PATCH_FILE = Path(__file__).parent / "patches" / "insights-v3-safety-cross.patch"
 DIAGONAL_PATCH_FILE = (
     Path(__file__).parent / "patches" / "insights-v3-safety-cross-diagonal.patch"
+)
+RESPONSIVE_DIAGONAL_PATCH_FILE = (
+    Path(__file__).parent
+    / "patches"
+    / "insights-v3-safety-cross-responsive-diagonal.patch"
 )
 
 
@@ -93,10 +99,10 @@ def status() -> PatchStatus:
     """Return whether the Safety Cross is installed, available, or incompatible."""
     root = _insights_root()
 
-    diagonal_reverse_check = _run_git_apply(
-        root, DIAGONAL_PATCH_FILE, check=True, reverse=True
+    responsive_reverse_check = _run_git_apply(
+        root, RESPONSIVE_DIAGONAL_PATCH_FILE, check=True, reverse=True
     )
-    if diagonal_reverse_check.returncode == 0:
+    if responsive_reverse_check.returncode == 0:
         return {
             "state": "installed",
             "installed": True,
@@ -104,14 +110,34 @@ def status() -> PatchStatus:
             "supported_insights_release": SUPPORTED_INSIGHTS_RELEASE,
             "supported_insights_commit": SUPPORTED_INSIGHTS_COMMIT,
             "insights_path": str(root),
-            "message": "The Verto Safety Cross patch is installed.",
+            "message": "The responsive Verto Safety Cross patch is installed.",
             "next_step": "No source changes are required.",
+        }
+
+    diagonal_reverse_check = _run_git_apply(
+        root, DIAGONAL_PATCH_FILE, check=True, reverse=True
+    )
+    if diagonal_reverse_check.returncode == 0:
+        return {
+            "state": "responsive_upgrade_available",
+            "installed": True,
+            "patch_version": DIAGONAL_PATCH_VERSION,
+            "supported_insights_release": SUPPORTED_INSIGHTS_RELEASE,
+            "supported_insights_commit": SUPPORTED_INSIGHTS_COMMIT,
+            "insights_path": str(root),
+            "message": (
+                "The CSS diagonal Safety Cross is installed and can be upgraded "
+                "to the corner-perfect responsive design."
+            ),
+            "next_step": (
+                "Run verto.insights_safety_cross.installer.install, then build Insights."
+            ),
         }
 
     base_reverse_check = _run_git_apply(root, BASE_PATCH_FILE, check=True, reverse=True)
     if base_reverse_check.returncode == 0:
         return {
-            "state": "upgrade_available",
+            "state": "diagonal_upgrade_available",
             "installed": True,
             "patch_version": LEGACY_PATCH_VERSION,
             "supported_insights_release": SUPPORTED_INSIGHTS_RELEASE,
@@ -145,6 +171,7 @@ def status() -> PatchStatus:
         _result_details(apply_check)
         or _result_details(base_reverse_check)
         or _result_details(diagonal_reverse_check)
+        or _result_details(responsive_reverse_check)
     )
     return {
         "state": "incompatible",
@@ -172,50 +199,43 @@ def install() -> PatchStatus:
         current["message"] = "The Verto Safety Cross patch is already installed."
         return current
 
-    if current["state"] == "upgrade_available":
-        root = Path(current["insights_path"])
-        result = _run_git_apply(root, DIAGONAL_PATCH_FILE)
-        if result.returncode != 0:
-            raise RuntimeError(
-                "Git could not upgrade the Safety Cross to the diagonal design. "
-                f"The horizontal version remains installed.\n{_result_details(result)}"
-            )
-
-        verified = status()
-        if verified["state"] != "installed":
-            raise RuntimeError(
-                "The diagonal update completed, but post-install verification failed."
-            )
-
-        verified["message"] = (
-            "The Verto Safety Cross was upgraded to the diagonal design successfully."
-        )
-        verified["next_step"] = (
-            "Run: bench build --app insights && bench clear-cache && bench restart"
-        )
-        return verified
-
-    if current["state"] != "available":
+    patches_by_state = {
+        "available": [
+            BASE_PATCH_FILE,
+            DIAGONAL_PATCH_FILE,
+            RESPONSIVE_DIAGONAL_PATCH_FILE,
+        ],
+        "diagonal_upgrade_available": [
+            DIAGONAL_PATCH_FILE,
+            RESPONSIVE_DIAGONAL_PATCH_FILE,
+        ],
+        "responsive_upgrade_available": [RESPONSIVE_DIAGONAL_PATCH_FILE],
+    }
+    patch_files = patches_by_state.get(current["state"])
+    if not patch_files:
         raise RuntimeError(
             f"{current['message']}\n{current.get('details', '')}".strip()
         )
 
     root = Path(current["insights_path"])
-    base_result = _run_git_apply(root, BASE_PATCH_FILE)
-    if base_result.returncode != 0:
-        raise RuntimeError(
-            "Git could not apply the Safety Cross patch. No partial installation "
-            f"should be retained.\n{_result_details(base_result)}"
-        )
+    applied: list[Path] = []
+    for patch_file in patch_files:
+        result = _run_git_apply(root, patch_file)
+        if result.returncode == 0:
+            applied.append(patch_file)
+            continue
 
-    diagonal_result = _run_git_apply(root, DIAGONAL_PATCH_FILE)
-    if diagonal_result.returncode != 0:
-        rollback = _run_git_apply(root, BASE_PATCH_FILE, reverse=True)
-        rollback_details = _result_details(rollback)
+        rollback_errors = []
+        for applied_patch in reversed(applied):
+            rollback = _run_git_apply(root, applied_patch, reverse=True)
+            if rollback.returncode != 0:
+                rollback_errors.append(_result_details(rollback))
+
+        details = [_result_details(result), *rollback_errors]
+        detail_text = "\n".join(detail for detail in details if detail)
         raise RuntimeError(
-            "The base Safety Cross was applied, but the diagonal update failed. "
-            "The base patch was rolled back.\n"
-            f"{_result_details(diagonal_result)}\n{rollback_details}".strip()
+            f"Git could not apply {patch_file.name}. The installation was rolled "
+            f"back.\n{detail_text}"
         )
 
     verified = status()
@@ -224,7 +244,15 @@ def install() -> PatchStatus:
             "The patch command completed, but post-install verification failed."
         )
 
-    verified["message"] = "The Verto Safety Cross patch was installed successfully."
+    if current["state"] == "available":
+        verified["message"] = (
+            "The responsive Verto Safety Cross was installed successfully."
+        )
+    else:
+        verified["message"] = (
+            f"The Verto Safety Cross was upgraded from version "
+            f"{current['patch_version']} to {PATCH_VERSION} successfully."
+        )
     verified["next_step"] = (
         "Run: bench build --app insights && bench clear-cache && bench restart"
     )
@@ -238,7 +266,17 @@ def remove() -> PatchStatus:
         current["message"] = "The Verto Safety Cross patch is already removed."
         return current
 
-    if current["state"] not in {"installed", "upgrade_available"}:
+    patches_by_state = {
+        "installed": [
+            RESPONSIVE_DIAGONAL_PATCH_FILE,
+            DIAGONAL_PATCH_FILE,
+            BASE_PATCH_FILE,
+        ],
+        "responsive_upgrade_available": [DIAGONAL_PATCH_FILE, BASE_PATCH_FILE],
+        "diagonal_upgrade_available": [BASE_PATCH_FILE],
+    }
+    patch_files = patches_by_state.get(current["state"])
+    if not patch_files:
         raise RuntimeError(
             "The Safety Cross cannot be removed automatically because the Insights "
             "files have changed since installation. Resolve those changes first.\n"
@@ -246,21 +284,24 @@ def remove() -> PatchStatus:
         )
 
     root = Path(current["insights_path"])
-    if current["state"] == "installed":
-        diagonal_result = _run_git_apply(root, DIAGONAL_PATCH_FILE, reverse=True)
-        if diagonal_result.returncode != 0:
-            raise RuntimeError(
-                "Git could not remove the diagonal Safety Cross update safely.\n"
-                f"{_result_details(diagonal_result)}"
-            )
+    removed: list[Path] = []
+    for patch_file in patch_files:
+        result = _run_git_apply(root, patch_file, reverse=True)
+        if result.returncode == 0:
+            removed.append(patch_file)
+            continue
 
-    result = _run_git_apply(root, BASE_PATCH_FILE, reverse=True)
-    if result.returncode != 0:
-        if current["state"] == "installed":
-            _run_git_apply(root, DIAGONAL_PATCH_FILE)
+        rollback_errors = []
+        for removed_patch in reversed(removed):
+            rollback = _run_git_apply(root, removed_patch)
+            if rollback.returncode != 0:
+                rollback_errors.append(_result_details(rollback))
+
+        details = [_result_details(result), *rollback_errors]
+        detail_text = "\n".join(detail for detail in details if detail)
         raise RuntimeError(
-            "Git could not remove the Safety Cross patch safely.\n"
-            f"{_result_details(result)}"
+            f"Git could not remove {patch_file.name}. The installed version was "
+            f"restored.\n{detail_text}"
         )
 
     verified = status()

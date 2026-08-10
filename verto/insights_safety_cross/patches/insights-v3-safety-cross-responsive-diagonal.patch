@@ -1,0 +1,88 @@
+diff --git a/frontend/src2/charts/components/SafetyCrossChart.vue b/frontend/src2/charts/components/SafetyCrossChart.vue
+--- a/frontend/src2/charts/components/SafetyCrossChart.vue
++++ b/frontend/src2/charts/components/SafetyCrossChart.vue
+@@ -124,38 +124,52 @@
+ 					}"
+ 					role="gridcell"
+ 				>
+-					<div
+-						class="absolute inset-0"
+-						:style="{
+-							backgroundColor: entry.dayShift?.color || emptyColor,
+-							clipPath: 'polygon(0 0, 100% 0, 0 100%)',
+-						}"
+-						:title="
+-							tooltip(
+-								entry.day,
+-								props.config.day_shift_label || 'Day Shift',
+-								entry.dayShift,
+-							)
+-						"
+-					/>
+-					<div
+-						class="absolute inset-0"
+-						:style="{
+-							backgroundColor: entry.nightShift?.color || emptyColor,
+-							clipPath: 'polygon(100% 0, 100% 100%, 0 100%)',
+-						}"
+-						:title="
+-							tooltip(
+-								entry.day,
+-								props.config.night_shift_label || 'Night Shift',
+-								entry.nightShift,
+-							)
+-						"
+-					/>
+-					<div
+-						class="pointer-events-none absolute left-1/2 top-1/2 h-px bg-white/80"
+-						style="width: 142%; transform: translate(-50%, -50%) rotate(-45deg)"
+-					/>
++					<svg
++						class="absolute inset-0 h-full w-full"
++						viewBox="0 0 100 100"
++						preserveAspectRatio="none"
++						focusable="false"
++					>
++						<polygon
++							points="0,0 100,0 0,100"
++							:fill="entry.dayShift?.color || emptyColor"
++						>
++							<title>
++								{{
++									tooltip(
++										entry.day,
++										props.config.day_shift_label || 'Day Shift',
++										entry.dayShift,
++									)
++								}}
++							</title>
++						</polygon>
++						<polygon
++							points="100,0 100,100 0,100"
++							:fill="entry.nightShift?.color || emptyColor"
++						>
++							<title>
++								{{
++									tooltip(
++										entry.day,
++										props.config.night_shift_label || 'Night Shift',
++										entry.nightShift,
++									)
++								}}
++							</title>
++						</polygon>
++						<line
++							x1="0"
++							y1="100"
++							x2="100"
++							y2="0"
++							stroke="rgba(255, 255, 255, 0.8)"
++							stroke-width="1"
++							stroke-linecap="butt"
++							vector-effect="non-scaling-stroke"
++							pointer-events="none"
++						/>
++					</svg>
+ 					<div
+ 						class="pointer-events-none absolute inset-0 flex items-center justify-center"
+ 					>
