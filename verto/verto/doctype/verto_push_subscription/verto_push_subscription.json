@@ -1,0 +1,140 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-08-09 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "user",
+  "enabled",
+  "device_label",
+  "user_agent",
+  "subscription_section",
+  "endpoint",
+  "p256dh",
+  "auth",
+  "expiration_time",
+  "delivery_section",
+  "last_successful_delivery",
+  "last_error_at",
+  "last_error",
+  "disabled_on"
+ ],
+ "fields": [
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "User",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "device_label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Device Label"
+  },
+  {
+   "fieldname": "user_agent",
+   "fieldtype": "Small Text",
+   "label": "User Agent",
+   "read_only": 1
+  },
+  {
+   "fieldname": "subscription_section",
+   "fieldtype": "Section Break",
+   "label": "Push Subscription"
+  },
+  {
+   "fieldname": "endpoint",
+   "fieldtype": "Text",
+   "label": "Endpoint",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "p256dh",
+   "fieldtype": "Small Text",
+   "label": "P256DH Key",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "auth",
+   "fieldtype": "Small Text",
+   "label": "Authentication Key",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "expiration_time",
+   "fieldtype": "Data",
+   "label": "Expiration Time",
+   "read_only": 1
+  },
+  {
+   "fieldname": "delivery_section",
+   "fieldtype": "Section Break",
+   "label": "Delivery Status"
+  },
+  {
+   "fieldname": "last_successful_delivery",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Last Successful Delivery",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_error_at",
+   "fieldtype": "Datetime",
+   "label": "Last Error At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Small Text",
+   "label": "Last Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "disabled_on",
+   "fieldtype": "Datetime",
+   "label": "Disabled On",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-08-09 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Verto",
+ "name": "Verto Push Subscription",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

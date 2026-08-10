@@ -1,9 +1,19 @@
-<!-- VERTO_APP_HEADER_LEARNING_DRAWER_2026_06_23 -->
+<!-- VERTO_APP_HEADER_PUSH_TOGGLE_2026_08_10 -->
 <template>
-  <header class="app-header-safe z-40 shrink-0 border-b border-outline-gray-1 bg-surface-white/95 backdrop-blur">
-    <div class="mx-auto flex w-full max-w-[var(--verto-shell-max-width,28rem)] items-center justify-between gap-3 px-[var(--verto-page-x,0.75rem)] py-2">
-      <!-- Left: App icon + current page -->
-      <div class="flex min-w-0 items-center gap-2">
+  <header
+    :class="props.compact
+      ? 'app-profile-compact pointer-events-none fixed z-40'
+      : 'app-header-safe z-40 shrink-0 border-b border-outline-gray-1 bg-surface-white/95 backdrop-blur'"
+  >
+    <div
+      :class="props.compact
+        ? 'pointer-events-auto relative'
+        : 'mx-auto flex w-full max-w-[var(--verto-shell-max-width,28rem)] items-center justify-between gap-3 px-[var(--verto-page-x,0.75rem)] py-2'"
+    >
+      <div
+        v-if="!props.compact"
+        class="flex min-w-0 items-center gap-2"
+      >
         <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-gray-2">
           <img
             v-if="resolvedAppIcon"
@@ -32,11 +42,12 @@
         </div>
       </div>
 
-      <!-- Right: User menu -->
       <div class="relative shrink-0">
         <button
           type="button"
-          class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-outline-gray-2 bg-surface-gray-1 text-sm font-semibold text-ink-gray-8 active:scale-95"
+          class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-outline-gray-2 bg-surface-gray-1 text-sm font-semibold text-ink-gray-8 shadow-sm active:scale-95"
+          aria-label="Open profile menu"
+          :aria-expanded="menuOpen"
           @click="toggleMenu"
         >
           <img
@@ -54,7 +65,7 @@
 
         <div
           v-if="menuOpen"
-          class="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-outline-gray-1 bg-surface-white shadow-lg"
+          class="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-xl border border-outline-gray-1 bg-surface-white shadow-lg"
         >
           <div class="border-b border-outline-gray-1 px-3 py-2">
             <div class="flex items-center gap-2">
@@ -85,6 +96,46 @@
                 </p>
               </div>
             </div>
+          </div>
+
+          <div class="border-b border-outline-gray-1 px-3 py-2.5">
+            <button
+              type="button"
+              role="switch"
+              class="flex w-full items-center justify-between gap-3 text-left disabled:cursor-not-allowed disabled:opacity-60"
+              :aria-checked="subscribed"
+              :aria-label="subscribed ? 'Disable notifications' : 'Enable notifications'"
+              :disabled="notificationToggleDisabled"
+              @click="handleNotificationToggle"
+            >
+              <span class="min-w-0">
+                <span class="block text-sm font-medium text-ink-gray-9">
+                  Notifications
+                </span>
+
+                <span class="mt-0.5 block text-xs leading-4 text-ink-gray-5">
+                  {{ notificationStatus }}
+                </span>
+              </span>
+
+              <span
+                class="relative inline-flex h-6 w-10 shrink-0 rounded-full p-0.5 transition-colors"
+                :class="subscribed ? 'bg-blue-600' : 'bg-surface-gray-4'"
+                aria-hidden="true"
+              >
+                <span
+                  class="block h-5 w-5 rounded-full bg-white shadow-sm transition-transform"
+                  :class="subscribed ? 'translate-x-4' : 'translate-x-0'"
+                />
+              </span>
+            </button>
+
+            <p
+              v-if="pushError"
+              class="mt-2 text-xs leading-4 text-red-600"
+            >
+              {{ pushError }}
+            </p>
           </div>
 
           <button
@@ -145,6 +196,16 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMobileBoot } from '../lib/mobileBoot'
 import { openAppBrowser } from '../lib/appBrowser'
+import { usePushNotifications } from '../pwa/usePushNotifications'
+
+const props = withDefaults(
+  defineProps<{
+    compact?: boolean
+  }>(),
+  {
+    compact: false,
+  }
+)
 
 const route = useRoute()
 
@@ -156,6 +217,21 @@ const {
   userImageUrl,
   reloadMobileBoot,
 } = useMobileBoot()
+
+const {
+  loading: pushLoading,
+  enabling: pushEnabling,
+  disabling: pushDisabling,
+  configured: pushConfigured,
+  supported: pushSupported,
+  subscribed,
+  permission: pushPermission,
+  error: pushError,
+  needsIosInstall,
+  initialisePushNotifications,
+  enablePushNotifications,
+  disablePushNotifications,
+} = usePushNotifications()
 
 const menuOpen = ref(false)
 const iconFailed = ref(false)
@@ -209,6 +285,58 @@ const userInitials = computed(() => {
   return getInitials(userFullname.value || user.value || 'User')
 })
 
+const notificationBusy = computed(() => {
+  return pushLoading.value || pushEnabling.value || pushDisabling.value
+})
+
+const notificationToggleDisabled = computed(() => {
+  if (subscribed.value) {
+    return notificationBusy.value
+  }
+
+  return (
+    notificationBusy.value ||
+    needsIosInstall.value ||
+    !pushSupported.value ||
+    !pushConfigured.value ||
+    pushPermission.value === 'denied'
+  )
+})
+
+const notificationStatus = computed(() => {
+  if (pushLoading.value) {
+    return 'Checking this device…'
+  }
+
+  if (pushEnabling.value) {
+    return 'Enabling…'
+  }
+
+  if (pushDisabling.value) {
+    return 'Disabling…'
+  }
+
+  if (needsIosInstall.value) {
+    return 'Add Verto to the Home Screen first'
+  }
+
+  if (!pushSupported.value) {
+    return 'Not supported on this device'
+  }
+
+  if (!pushConfigured.value) {
+    return 'Not configured for this site'
+  }
+
+  if (pushPermission.value === 'denied') {
+    return 'Blocked in device settings'
+  }
+
+  return subscribed.value
+    ? 'Enabled on this device'
+    : 'Disabled on this device'
+})
+
 watch(
   () => appIconUrl.value,
   () => {
@@ -249,6 +377,19 @@ function getInitials(value: string) {
 
 function toggleMenu() {
   menuOpen.value = !menuOpen.value
+
+  if (menuOpen.value) {
+    void initialisePushNotifications(true)
+  }
+}
+
+async function handleNotificationToggle() {
+  if (subscribed.value) {
+    await disablePushNotifications()
+    return
+  }
+
+  await enablePushNotifications()
 }
 
 async function clearBrowserCaches() {
@@ -305,5 +446,10 @@ function logout() {
 <style scoped>
 .app-header-safe {
   padding-top: var(--verto-header-safe-top, max(env(safe-area-inset-top, 0px), 20px));
+}
+
+.app-profile-compact {
+  right: max(env(safe-area-inset-right, 0px), 0.75rem);
+  top: max(env(safe-area-inset-top, 0px), 0.75rem);
 }
 </style>

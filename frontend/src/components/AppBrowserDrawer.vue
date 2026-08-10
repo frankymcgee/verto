@@ -1,4 +1,4 @@
-<!-- VERTO_APP_BROWSER_DRAWER_SLIDE_UP_2026_06_11 -->
+<!-- VERTO_APP_BROWSER_DRAWER_ANDROID_CHROME_FIX_2026_08_10 -->
 <template>
   <Transition name="app-browser-drawer">
     <div
@@ -6,8 +6,16 @@
       class="app-browser-overlay fixed inset-0 z-[90] flex items-end bg-black/45"
       @click.self="closeBrowser"
     >
-      <section class="app-browser-panel mx-auto flex h-[92dvh] w-full max-w-[var(--verto-shell-max-width,56rem)] flex-col overflow-hidden rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
-        <header class="flex shrink-0 items-center justify-between gap-3 border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+      <section
+        class="app-browser-panel mx-auto flex w-full max-w-[var(--verto-shell-max-width,56rem)] flex-col overflow-hidden bg-surface-white shadow-2xl"
+        :class="hideAndroidBrowserBanner
+          ? 'h-[100dvh] rounded-none border-0'
+          : 'h-[92dvh] rounded-t-3xl border border-outline-gray-1'"
+      >
+        <header
+          v-if="!hideAndroidBrowserBanner"
+          class="flex shrink-0 items-center justify-between gap-3 border-b border-outline-gray-1 bg-surface-white px-4 py-3"
+        >
           <div class="min-w-0">
             <p class="truncate text-sm font-semibold text-ink-gray-9">
               {{ title || 'Browser' }}
@@ -38,6 +46,16 @@
         </header>
 
         <div class="relative min-h-0 flex-1 bg-surface-gray-1">
+          <button
+            v-if="hideAndroidBrowserBanner"
+            type="button"
+            class="absolute right-3 top-[max(env(safe-area-inset-top,0px),0.75rem)] z-20 flex h-10 w-10 items-center justify-center rounded-full border border-outline-gray-2 bg-surface-white/95 text-xl leading-none text-ink-gray-8 shadow-lg backdrop-blur active:scale-95"
+            aria-label="Close browser"
+            @click="closeBrowser"
+          >
+            ×
+          </button>
+
           <div
             v-if="loading"
             class="absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-surface-gray-2"
@@ -80,12 +98,14 @@ import {
   APP_BROWSER_OPEN_EVENT,
   type AppBrowserRequest,
 } from '../lib/appBrowser'
+import { isAndroidStandalonePwa } from '../pwa/displayMode'
 
 const open = ref(false)
 const url = ref('')
 const title = ref('')
 const loading = ref(false)
 const iframeKey = ref(0)
+const hideAndroidBrowserBanner = isAndroidStandalonePwa()
 
 const safeUrl = computed(() => {
   const value = String(url.value || '').trim()

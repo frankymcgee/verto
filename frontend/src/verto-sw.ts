@@ -10,7 +10,19 @@ declare let self: ServiceWorkerGlobalScope & {
   }>
 }
 
-const SW_VERSION = 'VERTO_SW_RAVEN_STYLE_STAGE_1_2026_06_10'
+type VertoPushPayload = {
+  title?: string
+  body?: string
+  url?: string
+  tag?: string
+  icon?: string
+  badge?: string
+}
+
+const SW_VERSION = 'VERTO_SW_PUSH_NOTIFICATIONS_2026_08_09'
+const DEFAULT_NOTIFICATION_URL = '/verto-mobile/'
+const DEFAULT_NOTIFICATION_ICON = '/assets/verto/manifest/mss-pwa-192.png'
+const DEFAULT_NOTIFICATION_BADGE = '/assets/verto/manifest/mss-pwa-maskable-192.png'
 const OFFLINE_HTML = `<!doctype html>
 <html lang="en">
 <head>
@@ -66,6 +78,42 @@ cleanupOutdatedCaches()
 self.skipWaiting()
 clientsClaim()
 
+function parsePushPayload(event: PushEvent): VertoPushPayload {
+  if (!event.data) {
+    return {}
+  }
+
+  try {
+    const parsed = event.data.json()
+
+    if (parsed && typeof parsed === 'object') {
+      return parsed.notification || parsed
+    }
+  } catch {
+    return {
+      body: event.data.text(),
+    }
+  }
+
+  return {}
+}
+
+function getSafeAppUrl(value?: string) {
+  const fallback = new URL(DEFAULT_NOTIFICATION_URL, self.location.origin)
+
+  try {
+    const url = new URL(value || DEFAULT_NOTIFICATION_URL, self.location.origin)
+
+    if (url.origin !== self.location.origin || !url.pathname.startsWith('/verto-mobile')) {
+      return fallback.href
+    }
+
+    return url.href
+  } catch {
+    return fallback.href
+  }
+}
+
 self.addEventListener('install', () => {
   console.log('[verto pwa] service worker installed', SW_VERSION)
 })
@@ -81,6 +129,55 @@ self.addEventListener('message', (event) => {
   }
 })
 
+self.addEventListener('push', (event) => {
+  const payload = parsePushPayload(event)
+  const title = payload.title || 'Verto'
+  const targetUrl = getSafeAppUrl(payload.url)
+  const notificationOptions: NotificationOptions & { renotify?: boolean } = {
+    body: payload.body || 'A new update is available.',
+    icon: payload.icon || DEFAULT_NOTIFICATION_ICON,
+    badge: payload.badge || DEFAULT_NOTIFICATION_BADGE,
+    tag: payload.tag,
+    renotify: Boolean(payload.tag),
+    data: {
+      url: targetUrl,
+    },
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(title, notificationOptions)
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+
+  const targetUrl = getSafeAppUrl(event.notification.data?.url)
+
+  event.waitUntil((async () => {
+    const appClients = await self.clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true,
+    })
+
+    const existingClient = appClients.find((client) => {
+      try {
+        return new URL(client.url).pathname.startsWith('/verto-mobile')
+      } catch {
+        return false
+      }
+    }) as WindowClient | undefined
+
+    if (existingClient) {
+      await existingClient.navigate(targetUrl)
+      await existingClient.focus()
+      return
+    }
+
+    await self.clients.openWindow(targetUrl)
+  })())
+})
+
 self.addEventListener('fetch', (event) => {
   const request = event.request
 
@@ -94,7 +191,8 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Keep API requests network-first for now. Offline form queuing will be added explicitly later.
+  // Keep API requests network-first. Push subscriptions and form writes should
+  // never be satisfied by the application-shell cache.
   if (url.pathname.startsWith('/api/')) {
     return
   }
@@ -102,15 +200,13 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate' && url.pathname.startsWith('/verto-mobile')) {
     event.respondWith(
       fetch(request).catch(async () => {
-        const fallbackResponse = new Response(OFFLINE_HTML, {
+        return new Response(OFFLINE_HTML, {
           status: 200,
           headers: {
             'Content-Type': 'text/html; charset=utf-8',
             'Cache-Control': 'no-store',
           },
         })
-
-        return fallbackResponse
       })
     )
   }

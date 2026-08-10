@@ -1,4 +1,7 @@
-import { defineConfig } from 'vite'
+import { copyFileSync, mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { defineConfig, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import Icons from 'unplugin-icons/vite'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -7,9 +10,9 @@ import type { ManifestOptions } from 'vite-plugin-pwa'
 const mssManifest = {
   name: 'MSS Dashboard',
   short_name: 'MSS',
-  id: '/verto-mobile/',
-  start_url: '/verto-mobile/',
-  scope: '/verto-mobile/',
+  id: '/verto-mobile',
+  start_url: '/verto-mobile',
+  scope: '/verto-mobile',
   display: 'standalone',
   description: 'PWA Companion app for Mine Site Support',
   lang: 'en-AU',
@@ -108,6 +111,38 @@ const mssManifest = {
   ],
 } as unknown as Partial<ManifestOptions>
 
+function copyVertoServiceWorkerPlugin(): Plugin {
+  return {
+    name: 'copy-verto-service-worker',
+    apply: 'build',
+    enforce: 'post',
+
+    closeBundle: {
+      order: 'post',
+      sequential: true,
+
+      handler() {
+        const source = fileURLToPath(
+          new URL(
+            '../verto/public/verto-mobile/verto-sw.js',
+            import.meta.url
+          )
+        )
+
+        const destination = fileURLToPath(
+          new URL(
+            '../verto/public/pwa/verto-mobile-sw.js',
+            import.meta.url
+          )
+        )
+
+        mkdirSync(dirname(destination), { recursive: true })
+        copyFileSync(source, destination)
+      },
+    },
+  }
+}
+
 export default defineConfig(({ command }) => {
   const isDev = command === 'serve'
 
@@ -129,12 +164,41 @@ export default defineConfig(({ command }) => {
         srcDir: 'src',
         filename: 'verto-sw.ts',
         outDir: '../verto/public/verto-mobile',
+
+        injectManifest: {
+          modifyURLPrefix: {
+            '': '/assets/verto/verto-mobile/',
+          },
+        },
+
+        integration: {
+          beforeBuildServiceWorker(options) {
+            const prefix = '/assets/verto/verto-mobile/'
+            const entries =
+              options.injectManifest.additionalManifestEntries || []
+
+            options.injectManifest.additionalManifestEntries =
+              entries.map((entry) => {
+                if (typeof entry === 'string') {
+                  return entry.startsWith('/')
+                    ? entry
+                    : `${prefix}${entry}`
+                }
+
+                return {
+                  ...entry,
+                  url: entry.url.startsWith('/')
+                    ? entry.url
+                    : `${prefix}${entry.url}`,
+                }
+              })
+          },
+        },
+
         manifestFilename: 'manifest.webmanifest',
-        includeAssets: [
-          'offline.html',
-        ],
         manifest: mssManifest,
       }),
+      copyVertoServiceWorkerPlugin(),
     ],
 
     server: {

@@ -1,4 +1,4 @@
-<!-- VERTO_MOBILE_SHELL_APP_BROWSER_DRAWER_2026_06_11 -->
+<!-- VERTO_MOBILE_SHELL_PUSH_NOTIFICATIONS_2026_08_09 -->
 <template>
   <div
     class="mobile-shell min-h-[100dvh] overflow-hidden bg-gray-50 text-gray-900"
@@ -25,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import BottomTabs from '../components/BottomTabs.vue'
@@ -33,9 +33,15 @@ import AppBrowserDrawer from '../components/AppBrowserDrawer.vue'
 import PwaUpdatePrompt from '../components/PwaUpdatePrompt.vue'
 import PwaInstallPrompt from '../components/PwaInstallPrompt.vue'
 import { handleAppBrowserLinkClick } from '../lib/appBrowser'
+import { usePushNotifications } from '../pwa/usePushNotifications'
 
 const route = useRoute()
 const mainEl = ref<HTMLElement | null>(null)
+const { initialisePushNotifications } = usePushNotifications()
+
+onMounted(() => {
+  void initialisePushNotifications()
+})
 
 watch(
   () => route.fullPath,
