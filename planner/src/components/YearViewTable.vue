@@ -360,7 +360,7 @@
                   <div class="year-employee-legend">
                     <div class="year-employee-legend-item">
                       <span class="year-employee-legend-dot year-employee-legend-fifo"></span>
-                      <span>Fly-in/Fly-out</span>
+                      <span>F-in/F-out</span>
                     </div>
                     <div class="year-employee-legend-item">
                       <span class="year-employee-legend-dot year-employee-legend-ds"></span>
@@ -373,6 +373,22 @@
                     <div class="year-employee-legend-item">
                       <span class="year-employee-legend-dot year-employee-legend-pth"></span>
                       <span>PTH</span>
+                    </div>
+                    <div class="year-employee-legend-item">
+                      <span class="year-employee-legend-triangle year-employee-legend-hours-entered"></span>
+                      <span>Hrs Entered</span>
+                    </div>
+                    <div class="year-employee-legend-item">
+                      <span class="year-employee-legend-triangle year-employee-legend-hours-missing"></span>
+                      <span>Hrs Missing</span>
+                    </div>
+                    <div class="year-employee-legend-item">
+                      <span class="year-employee-legend-triangle year-employee-legend-hours-excluded"></span>
+                      <span>Excluded</span>
+                    </div>
+                    <div class="year-employee-legend-item">
+                      <span class="year-employee-legend-triangle year-employee-legend-hours-discrepancy"></span>
+                      <span>Discrepancy</span>
                     </div>
                   </div>
                 </div>
@@ -450,6 +466,13 @@
                 @drop="onEmployeeCellDrop(employee.name, day.date, $event)"
                 @click="openEmployeeCell(employee.name, day.date, $event)"
               >
+                <span
+                  v-if="isEmployeeShiftCell(employee.name, day.date) && timesheetMarkerStatus(employee.name, day.date)"
+                  class="year-timesheet-status-marker"
+                  :class="`year-timesheet-status-marker-${timesheetMarkerStatus(employee.name, day.date)}`"
+                  :title="timesheetMarkerTitle(employee.name, day.date)"
+                  aria-hidden="true"
+                ></span>
                 {{ employeeCellLabel(employee.name, day.date) }}
               </td>
             </tr>
@@ -643,6 +666,21 @@ interface DayMarker {
 
 type DayMarkers = Record<string, DayMarker[]>
 
+type TimesheetStatus = 'entered' | 'missing' | 'excluded'
+
+type TimesheetDayInfo = {
+  status?: TimesheetStatus
+  entered?: boolean
+  missing?: boolean
+  excluded?: boolean
+  hours?: number
+  entries?: number
+  project?: string
+  reason?: string | null
+}
+
+type TimesheetDays = Record<string, Record<string, Record<string, TimesheetDayInfo>>>
+
 type ShiftAssignment = {
   name: string
   shift_type: string
@@ -706,6 +744,7 @@ type YearEventsResponse = {
   project_rows?: ProjectRow[]
   day_markers?: DayMarkers
   employee_details?: Record<string, EmployeeTooltipDetails>
+  timesheet_days?: TimesheetDays
 }
 
 const emit = defineEmits<{ (e: 'hscroll', left: number): void }>()
@@ -1960,6 +1999,38 @@ function isEmployeeShiftCell(employee: string, date: string) {
   return getEmployeeCell(employee, date)?.type === 'shift'
 }
 
+function employeeTimesheetDay(employee: string, date: string): TimesheetDayInfo | undefined {
+  const cell = getEmployeeCell(employee, date)
+  if (cell?.type !== 'shift' || !cell.shift?.name) return undefined
+  return events.data?.timesheetDays?.[employee]?.[date]?.[cell.shift.name]
+}
+
+function timesheetMarkerStatus(employee: string, date: string): TimesheetStatus | '' {
+  return employeeTimesheetDay(employee, date)?.status || ''
+}
+
+function timesheetMarkerTitle(employee: string, date: string) {
+  const entry = employeeTimesheetDay(employee, date)
+  if (!entry?.status) return ''
+
+  const hours = Number(entry.hours || 0)
+  const entries = Number(entry.entries || 0)
+  const hoursText = hours > 0 ? `${hours.toFixed(2).replace(/\.00$/, '')} h` : ''
+  const entriesText = entries > 1 ? ` across ${entries} entries` : ''
+
+  if (entry.status === 'excluded') {
+    const reason = String(entry.reason || '').trim()
+    const optionalHours = hoursText ? ` · ${hoursText}${entriesText} recorded anyway` : ''
+    return `Timesheet not required · Excluded${reason ? ` · ${reason}` : ''}${optionalHours}`
+  }
+
+  if (entry.status === 'missing') {
+    return 'Timesheet missing · No hours recorded for this allocated day'
+  }
+
+  return `Timesheet complete · ${hoursText || 'Hours entered'}${entriesText}`
+}
+
 function adjacentDate(date: string, days: number) {
   return dayjs(date).add(days, 'day').format('YYYY-MM-DD')
 }
@@ -3145,6 +3216,7 @@ const events = createResource({
       projectRows: (data?.project_rows || []).sort((a, b) => naturalCompare(a.customer_name || a.customer || '', b.customer_name || b.customer || '') || naturalCompare(a.project_name, b.project_name)),
       dayMarkers: data?.day_markers || {},
       employeeDetails: data?.employee_details || {},
+      timesheetDays: data?.timesheet_days || {},
     }
   },
   onSuccess() {
@@ -3418,9 +3490,9 @@ defineExpose({ events, scrollToToday })
 }
 
 .year-employee-table {
-  --year-left-header-height: 86px;
-  --year-month-header-height: 43px;
-  --year-day-header-height: 43px;
+  --year-left-header-height: 104px;
+  --year-month-header-height: 52px;
+  --year-day-header-height: 52px;
 }
 
 .year-month-header {
@@ -3481,8 +3553,33 @@ defineExpose({ events, scrollToToday })
 }
 
 .year-cell {
+  position: relative;
   font-weight: 600;
   vertical-align: middle;
+}
+
+.year-timesheet-status-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-right: 8px solid transparent;
+  pointer-events: none;
+}
+
+.year-timesheet-status-marker-entered {
+  border-top-color: rgb(22 163 74);
+}
+
+.year-timesheet-status-marker-missing {
+  border-top-color: rgb(220 38 38);
+}
+
+.year-timesheet-status-marker-excluded {
+  border-top-color: rgb(107 114 128);
 }
 
 .year-employee-shift-cell {
@@ -3896,15 +3993,16 @@ defineExpose({ events, scrollToToday })
 }
 
 .year-employee-search-header {
-  height: var(--year-left-header-height, 86px) !important;
-  min-height: var(--year-left-header-height, 86px) !important;
-  max-height: var(--year-left-header-height, 86px) !important;
+  height: var(--year-left-header-height, 104px) !important;
+  min-height: var(--year-left-header-height, 104px) !important;
+  max-height: var(--year-left-header-height, 104px) !important;
   vertical-align: top;
 }
 
 .year-employee-header-content {
   display: flex;
-  min-height: 86px;
+  min-height: var(--year-left-header-height, 104px);
+  box-sizing: border-box;
   flex-direction: column;
   justify-content: center;
   gap: 4px;
@@ -3934,8 +4032,8 @@ defineExpose({ events, scrollToToday })
 
 .year-employee-legend {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 2px 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px 6px;
 }
 
 .year-employee-legend-item {
@@ -3973,6 +4071,32 @@ defineExpose({ events, scrollToToday })
 
 .year-employee-legend-pth {
   background: rgb(168 85 247);
+}
+
+.year-employee-legend-triangle {
+  display: inline-block;
+  width: 0;
+  min-width: 0;
+  height: 0;
+  border-top: 9px solid transparent;
+  border-right: 9px solid transparent;
+  flex: 0 0 auto;
+}
+
+.year-employee-legend-hours-entered {
+  border-top-color: rgb(22 163 74);
+}
+
+.year-employee-legend-hours-missing {
+  border-top-color: rgb(220 38 38);
+}
+
+.year-employee-legend-hours-excluded {
+  border-top-color: rgb(107 114 128);
+}
+
+.year-employee-legend-hours-discrepancy {
+  border-top-color: rgb(234 179 8);
 }
 
 

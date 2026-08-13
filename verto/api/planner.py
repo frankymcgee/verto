@@ -889,6 +889,7 @@ def get_year_events(
 	shift_rows = get_shift_rows(year_start, year_end, employee_filters, shift_filters)
 	shifts = group_by_employee(shift_rows)
 	day_markers = get_year_day_markers(year_start, year_end, holidays)
+	timesheet_days = get_year_timesheet_days(year_start, year_end, shift_rows)
 
 	return {
 		# Holidays and calendar Events are shown as top date-header markers only in
@@ -897,6 +898,10 @@ def get_year_events(
 		"project_rows": get_year_project_rows(shift_rows, year_start, year_end),
 		"day_markers": day_markers,
 		"employee_details": get_employee_planner_tooltip_details(employee_filters),
+		# Timesheet requirement state is kept separate from shift events because a
+		# single Shift Assignment can span many days while completion/exclusion is
+		# date-specific. The annual UI renders green, red, or grey corner markers.
+		"timesheet_days": timesheet_days,
 	}
 
 
@@ -1076,6 +1081,430 @@ def get_employee_planner_tooltip_details(employee_filters: dict | str | None = N
 
 	return details
 
+
+
+TIMESHEET_EXCLUSIONS_FIELD = "timesheet_reminder_exclusions"
+SHIFT_PROJECT_FIELD_CANDIDATES = (
+	"custom_project",
+	"project",
+	"custom_project_name",
+	"project_name",
+)
+DAILY_TIMESHEET_PROJECT_FIELD_CANDIDATES = (
+	"project_id",
+	"project",
+	"parent_project",
+	"link_project",
+	"project_name",
+	"custom_project_name",
+)
+
+
+def _normalise_person_key(value) -> str:
+	return str(value or "").strip().casefold()
+
+
+def _first_existing_field(meta, candidates: list[str]) -> str | None:
+	for fieldname in candidates:
+		if meta.has_field(fieldname):
+			return fieldname
+	return None
+
+
+def _planner_as_bool(value, default=False) -> bool:
+	if value in (None, ""):
+		return default
+	if isinstance(value, bool):
+		return value
+	if isinstance(value, (int, float)):
+		return bool(value)
+	return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _row_project_value(row, candidates) -> str:
+	for fieldname in candidates:
+		value = row.get(fieldname)
+		if value not in (None, ""):
+			return str(value).strip()
+	return ""
+
+
+def _canonical_project_id(value, cache: dict[str, str] | None = None) -> str:
+	"""Resolve either a Project ID or a project display name to the Project ID.
+
+	This deliberately mirrors the project matching used by the missing-hours push
+	reminder so Planner status markers and reminder exclusions make the same
+	decision about an allocation.
+	"""
+	value = str(value or "").strip()
+	if not value:
+		return ""
+
+	cache = cache if cache is not None else {}
+	cache_key = _normalise_person_key(value)
+	if cache_key in cache:
+		return cache[cache_key]
+
+	project_id = ""
+	try:
+		if frappe.db.exists("DocType", "Project"):
+			if frappe.db.exists("Project", value):
+				project_id = value
+			else:
+				project_meta = frappe.get_meta("Project")
+				for title_field in ("project_name", "title"):
+					if not project_meta.has_field(title_field):
+						continue
+					project_id = str(
+						frappe.db.get_value("Project", {title_field: value}, "name") or ""
+					).strip()
+					if project_id:
+						break
+	except Exception:
+		project_id = ""
+
+	project_id = project_id or value
+	cache[cache_key] = project_id
+	cache[_normalise_person_key(project_id)] = project_id
+	return project_id
+
+
+def _get_timesheet_exclusion_rules() -> list[dict]:
+	"""Load Verto Mobile Settings timesheet reminder exclusions once per request.
+
+	Rules match the push notification logic: enabled row + exact User + Project,
+	with optional inclusive From/To date limits.
+	"""
+	try:
+		if not frappe.db.exists("DocType", "Verto Mobile Settings"):
+			return []
+		settings_meta = frappe.get_meta("Verto Mobile Settings")
+		if not settings_meta.has_field(TIMESHEET_EXCLUSIONS_FIELD):
+			return []
+		settings = frappe.get_single("Verto Mobile Settings")
+	except Exception:
+		return []
+
+	project_cache: dict[str, str] = {}
+	rules: list[dict] = []
+	for row in settings.get(TIMESHEET_EXCLUSIONS_FIELD) or []:
+		if not _planner_as_bool(row.get("enabled"), default=True):
+			continue
+
+		user = _normalise_person_key(row.get("user"))
+		project = _normalise_person_key(
+			_canonical_project_id(row.get("project"), project_cache)
+		)
+		if not user or not project:
+			continue
+
+		try:
+			from_date = getdate(row.get("from_date")) if row.get("from_date") else None
+		except Exception:
+			from_date = None
+		try:
+			to_date = getdate(row.get("to_date")) if row.get("to_date") else None
+		except Exception:
+			to_date = None
+
+		rules.append(
+			{
+				"user": user,
+				"project": project,
+				"from_date": from_date,
+				"to_date": to_date,
+				"reason": row.get("reason"),
+			}
+		)
+
+	return rules
+
+
+def _timesheet_allocation_is_excluded(
+	user_id: str | None,
+	project_id: str | None,
+	target_date,
+	rules: list[dict],
+) -> tuple[bool, str | None]:
+	user_key = _normalise_person_key(user_id)
+	project_key = _normalise_person_key(project_id)
+	if not user_key or not project_key:
+		return False, None
+
+	for rule in rules:
+		if rule.get("user") != user_key or rule.get("project") != project_key:
+			continue
+		from_date = rule.get("from_date")
+		to_date = rule.get("to_date")
+		if from_date and target_date < from_date:
+			continue
+		if to_date and target_date > to_date:
+			continue
+		return True, rule.get("reason")
+
+	return False, None
+
+
+def _timesheet_hours(value, fieldname: str | None) -> float:
+	"""Normalise the configured Daily Timesheet amount to hours."""
+	if value in (None, ""):
+		return 0.0
+	try:
+		amount = float(value)
+	except (TypeError, ValueError):
+		return 0.0
+
+	# Verto Daily Timesheet stores duration in seconds. Keep fallbacks for sites
+	# that use an explicit hours/total_hours field instead.
+	if fieldname == "duration":
+		return amount / 3600.0
+	return amount
+
+
+def _get_planner_timesheets_for_year(year_start: str, year_end: str) -> tuple[dict[str, list[dict]], str | None]:
+	"""Load non-cancelled Daily Timesheets and index them by date."""
+	if not frappe.db.exists("DocType", "Daily Timesheet"):
+		return {}, None
+
+	try:
+		meta = frappe.get_meta("Daily Timesheet")
+	except Exception:
+		return {}, None
+
+	date_field = _first_existing_field(meta, ["date", "work_day", "timesheet_date"])
+	duration_field = _first_existing_field(meta, ["duration", "total_hours", "hours"])
+	if not date_field:
+		return {}, duration_field
+
+	fields = ["name", "owner", date_field]
+	for fieldname in ("employee", "employee_name", "current_user", "user_full_name"):
+		if meta.has_field(fieldname) and fieldname not in fields:
+			fields.append(fieldname)
+	for fieldname in DAILY_TIMESHEET_PROJECT_FIELD_CANDIDATES:
+		if meta.has_field(fieldname) and fieldname not in fields:
+			fields.append(fieldname)
+	if duration_field and duration_field not in fields:
+		fields.append(duration_field)
+
+	filters = [
+		["Daily Timesheet", date_field, "between", [year_start, year_end]],
+		["Daily Timesheet", "docstatus", "!=", 2],
+	]
+
+	try:
+		rows = frappe.get_all(
+			"Daily Timesheet",
+			filters=filters,
+			fields=fields,
+			limit_page_length=0,
+		)
+	except Exception:
+		return {}, duration_field
+
+	project_cache: dict[str, str] = {}
+	by_date: dict[str, list[dict]] = {}
+	for row in rows:
+		hours = _timesheet_hours(row.get(duration_field), duration_field) if duration_field else 0.0
+		# Keep the same completion threshold as the push reminder. A legacy site
+		# without an hours field can still use record existence as completion.
+		if duration_field and hours <= 0:
+			continue
+		try:
+			date_key = str(getdate(row.get(date_field)))
+		except Exception:
+			continue
+
+		row["_verto_hours"] = hours
+		row["_verto_project_id"] = _canonical_project_id(
+			_row_project_value(row, DAILY_TIMESHEET_PROJECT_FIELD_CANDIDATES),
+			project_cache,
+		)
+		row["_verto_identity_keys"] = {
+			_normalise_person_key(row.get(fieldname))
+			for fieldname in ("owner", "employee", "employee_name", "current_user", "user_full_name")
+			if row.get(fieldname)
+		}
+		by_date.setdefault(date_key, []).append(row)
+
+	return by_date, duration_field
+
+
+def _timesheet_matches_planner_allocation(
+	timesheet: dict,
+	employee_aliases: set[str],
+	shift_project: str,
+) -> bool:
+	if not employee_aliases.intersection(timesheet.get("_verto_identity_keys") or set()):
+		return False
+
+	shift_project_key = _normalise_person_key(shift_project)
+	timesheet_project_key = _normalise_person_key(timesheet.get("_verto_project_id"))
+
+	# Match the push reminder behaviour: if both sides expose a project, require
+	# the same Project. If either side is blank, fall back to employee + date.
+	return (
+		not shift_project_key
+		or not timesheet_project_key
+		or shift_project_key == timesheet_project_key
+	)
+
+
+def get_year_timesheet_days(year_start: str, year_end: str, shift_rows: list[dict]) -> dict[str, dict[str, dict[str, dict]]]:
+	"""Return timesheet requirement state for each annual Shift Assignment day.
+
+	Map shape: Employee -> date -> Shift Assignment -> status data.
+
+	``entered``  = hours exist (green triangle)
+	``missing``  = active required allocation is in the past with no hours (red)
+	``excluded`` = matching Verto Mobile Settings User+Project exclusion (grey)
+
+	Future required allocations deliberately do not show red. This mirrors the
+	missing-hours reminder concept, which only evaluates a completed day.
+	"""
+	if not shift_rows:
+		return {}
+
+	employee_ids = sorted({str(row.get("employee") or "").strip() for row in shift_rows if row.get("employee")})
+	if not employee_ids:
+		return {}
+
+	try:
+		employee_meta = frappe.get_meta("Employee")
+	except Exception:
+		return {}
+
+	employee_fields = ["name", "employee_name"]
+	for fieldname in ("user_id", "status"):
+		if employee_meta.has_field(fieldname):
+			employee_fields.append(fieldname)
+
+	try:
+		employees = frappe.get_all(
+			"Employee",
+			filters={"name": ["in", employee_ids]},
+			fields=employee_fields,
+			limit_page_length=0,
+		)
+	except Exception:
+		employees = []
+
+	employee_by_id = {row.get("name"): row for row in employees}
+	user_ids = sorted({str(row.get("user_id") or "").strip() for row in employees if row.get("user_id")})
+	enabled_users: dict[str, dict] = {}
+	if user_ids:
+		try:
+			enabled_users = {
+				row.get("name"): row
+				for row in frappe.get_all(
+					"User",
+					filters={"name": ["in", user_ids], "enabled": 1},
+					fields=["name", "full_name"],
+					limit_page_length=0,
+				)
+			}
+		except Exception:
+			enabled_users = {}
+
+	timesheets_by_date, _duration_field = _get_planner_timesheets_for_year(year_start, year_end)
+	exclusion_rules = _get_timesheet_exclusion_rules()
+	project_cache: dict[str, str] = {}
+	today = getdate(nowdate())
+	year_start_date = getdate(year_start)
+	year_end_date = getdate(year_end)
+
+	result: dict[str, dict[str, dict[str, dict]]] = {}
+
+	for shift in shift_rows:
+		employee_id = str(shift.get("employee") or "").strip()
+		shift_name = str(shift.get("name") or "").strip()
+		if not employee_id or not shift_name:
+			continue
+
+		employee = employee_by_id.get(employee_id) or {}
+		user_id = str(employee.get("user_id") or "").strip()
+		user_row = enabled_users.get(user_id)
+		employee_active = (
+			not employee_meta.has_field("status")
+			or str(employee.get("status") or "Active").strip().lower() == "active"
+		)
+		shift_active = str(shift.get("status") or "Active").strip().lower() == "active"
+		push_eligible = bool(shift_active and employee_active and user_id and user_row)
+
+		aliases = {
+			_normalise_person_key(value)
+			for value in (
+				employee_id,
+				employee.get("employee_name"),
+				shift.get("employee_name"),
+				user_id,
+				user_row.get("full_name") if user_row else None,
+			)
+			if value
+		}
+
+		shift_project = _canonical_project_id(
+			_row_project_value(shift, SHIFT_PROJECT_FIELD_CANDIDATES),
+			project_cache,
+		)
+
+		try:
+			start_date = max(getdate(shift.get("start_date")), year_start_date)
+		except Exception:
+			continue
+		try:
+			end_date = getdate(shift.get("end_date")) if shift.get("end_date") else start_date
+		except Exception:
+			end_date = start_date
+		end_date = min(end_date, year_end_date)
+		if end_date < start_date:
+			continue
+
+		current = start_date
+		while current <= end_date:
+			date_key = str(current)
+			excluded, exclusion_reason = (False, None)
+			if push_eligible:
+				excluded, exclusion_reason = _timesheet_allocation_is_excluded(
+					user_id,
+					shift_project,
+					current,
+					exclusion_rules,
+				)
+
+			matched_rows = [
+				row
+				for row in timesheets_by_date.get(date_key, [])
+				if _timesheet_matches_planner_allocation(row, aliases, shift_project)
+			]
+			hours = round(sum(float(row.get("_verto_hours") or 0) for row in matched_rows), 2)
+			entries = len(matched_rows)
+
+			# Exclusion is the strongest signal: even if someone entered hours anyway,
+			# the Planner still shows that the allocation did not require a timesheet.
+			if excluded:
+				status = "excluded"
+			elif matched_rows:
+				status = "entered"
+			elif push_eligible and current < today:
+				status = "missing"
+			else:
+				status = ""
+
+			if status:
+				result.setdefault(employee_id, {}).setdefault(date_key, {})[shift_name] = {
+					"status": status,
+					"entered": bool(matched_rows),
+					"missing": status == "missing",
+					"excluded": status == "excluded",
+					"hours": hours,
+					"entries": entries,
+					"project": shift_project,
+					"reason": exclusion_reason,
+				}
+
+			current = getdate(add_days(current, 1))
+
+	return result
 
 def merge_employee_events(*event_groups: dict[str, list[dict]]) -> dict[str, list[dict]]:
 	events = {}
