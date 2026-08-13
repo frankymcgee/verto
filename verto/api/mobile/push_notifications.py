@@ -5,10 +5,11 @@ from urllib.parse import quote, urlparse
 
 import frappe
 from frappe import _
-from frappe.utils import cint, now_datetime
+from frappe.utils import add_days, cint, getdate, now_datetime, nowdate
 
 
 SUBSCRIPTION_DOCTYPE = "Verto Push Subscription"
+SETTINGS_DOCTYPE = "Verto Mobile Settings"
 
 VAPID_PUBLIC_KEY_CONFIG = "verto_push_vapid_public_key"
 VAPID_PRIVATE_KEY_CONFIG = "verto_push_vapid_private_key"
@@ -16,6 +17,23 @@ VAPID_SUBJECT_CONFIG = "verto_push_vapid_subject"
 
 DEFAULT_VAPID_SUBJECT = "mailto:support@webwire.com.au"
 DEFAULT_NOTIFICATION_URL = "/verto-mobile"
+MISSING_HOURS_NOTIFICATION_URL = "/verto-mobile/shifts"
+TIMESHEET_EXCLUSIONS_FIELD = "timesheet_reminder_exclusions"
+
+SHIFT_PROJECT_FIELD_CANDIDATES = (
+    "custom_project",
+    "project",
+    "custom_project_name",
+    "project_name",
+)
+DAILY_TIMESHEET_PROJECT_FIELD_CANDIDATES = (
+    "project_id",
+    "project",
+    "parent_project",
+    "link_project",
+    "project_name",
+    "custom_project_name",
+)
 
 
 def _require_login():
@@ -40,6 +58,19 @@ def _as_dict(value):
 
 def _clean(value) -> str:
     return str(value or "").strip()
+
+
+def _as_bool(value, default=False) -> bool:
+    if value in (None, ""):
+        return default
+
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, (int, float)):
+        return bool(value)
+
+    return _clean(value).lower() in {"1", "true", "yes", "y", "on"}
 
 
 def _site_config_value(key: str, default=""):
@@ -404,6 +435,432 @@ def notify_shift_changed(doc, method=None):
     _queue_shift_notification(doc, changed=True)
 
 
+def _normalise_identity(value) -> str:
+    return _clean(value).casefold()
+
+
+def _log_missing_hours_configuration_error(message: str):
+    frappe.log_error(
+        title="Verto missing-hours reminder configuration",
+        message=message,
+    )
+
+
+def _row_project(row, fieldnames) -> str:
+    for fieldname in fieldnames:
+        value = _clean(row.get(fieldname))
+        if value:
+            return value
+
+    return ""
+
+
+def _canonical_project_id(value, cache=None) -> str:
+    """Return the Project document ID for either an ID or display name."""
+    value = _clean(value)
+    if not value:
+        return ""
+
+    cache = cache if cache is not None else {}
+    cache_key = _normalise_identity(value)
+    if cache_key in cache:
+        return cache[cache_key]
+
+    project_id = ""
+    if frappe.db.exists("DocType", "Project"):
+        if frappe.db.exists("Project", value):
+            project_id = value
+        else:
+            project_meta = frappe.get_meta("Project")
+            for title_field in ("project_name", "title"):
+                if not project_meta.has_field(title_field):
+                    continue
+
+                project_id = _clean(
+                    frappe.db.get_value(
+                        "Project",
+                        {title_field: value},
+                        "name",
+                    )
+                )
+                if project_id:
+                    break
+
+    project_id = project_id or value
+    cache[cache_key] = project_id
+    cache[_normalise_identity(project_id)] = project_id
+    return project_id
+
+
+def _get_timesheet_reminder_exclusions(target_date) -> set[tuple[str, str]]:
+    if not frappe.db.exists("DocType", SETTINGS_DOCTYPE):
+        return set()
+
+    settings_meta = frappe.get_meta(SETTINGS_DOCTYPE)
+    if not settings_meta.has_field(TIMESHEET_EXCLUSIONS_FIELD):
+        return set()
+
+    settings = frappe.get_single(SETTINGS_DOCTYPE)
+    exclusions = set()
+    project_cache = {}
+
+    for row in settings.get(TIMESHEET_EXCLUSIONS_FIELD) or []:
+        if not _as_bool(row.get("enabled"), default=True):
+            continue
+
+        user = _normalise_identity(row.get("user"))
+        project = _normalise_identity(
+            _canonical_project_id(row.get("project"), project_cache)
+        )
+        if not user or not project:
+            continue
+
+        from_date = getdate(row.get("from_date")) if row.get("from_date") else None
+        to_date = getdate(row.get("to_date")) if row.get("to_date") else None
+
+        if from_date and target_date < from_date:
+            continue
+
+        if to_date and target_date > to_date:
+            continue
+
+        exclusions.add((user, project))
+
+    return exclusions
+
+
+def _get_allocated_users_for_date(target_date) -> tuple[dict[str, dict], list[dict]]:
+    if not frappe.db.exists("DocType", "Shift Assignment"):
+        _log_missing_hours_configuration_error(
+            "Shift Assignment is not available; missing-hours reminders were skipped."
+        )
+        return {}, []
+
+    shift_meta = frappe.get_meta("Shift Assignment")
+    required_shift_fields = {"employee", "start_date", "end_date"}
+    missing_shift_fields = [
+        fieldname
+        for fieldname in required_shift_fields
+        if not shift_meta.has_field(fieldname)
+    ]
+
+    if missing_shift_fields:
+        _log_missing_hours_configuration_error(
+            "Shift Assignment is missing required fields: "
+            + ", ".join(sorted(missing_shift_fields))
+        )
+        return {}, []
+
+    shift_fields = ["name", "employee"]
+    if shift_meta.has_field("employee_name"):
+        shift_fields.append("employee_name")
+
+    for fieldname in SHIFT_PROJECT_FIELD_CANDIDATES:
+        if shift_meta.has_field(fieldname) and fieldname not in shift_fields:
+            shift_fields.append(fieldname)
+
+    shift_filters = {
+        "docstatus": 1,
+        "start_date": ["<=", target_date],
+        "end_date": [">=", target_date],
+    }
+    if shift_meta.has_field("status"):
+        shift_filters["status"] = "Active"
+
+    shift_rows = frappe.get_all(
+        "Shift Assignment",
+        filters=shift_filters,
+        fields=shift_fields,
+        limit_page_length=10000,
+    )
+    employee_ids = sorted({_clean(row.get("employee")) for row in shift_rows if row.get("employee")})
+
+    if not employee_ids:
+        return {}, []
+
+    employee_meta = frappe.get_meta("Employee")
+    employee_fields = ["name", "employee_name", "user_id"]
+    employee_filters = {
+        "name": ["in", employee_ids],
+        "user_id": ["is", "set"],
+    }
+    if employee_meta.has_field("status"):
+        employee_filters["status"] = "Active"
+
+    employees = frappe.get_all(
+        "Employee",
+        filters=employee_filters,
+        fields=employee_fields,
+        limit_page_length=10000,
+    )
+    employee_by_id = {row.name: row for row in employees if row.get("user_id")}
+    user_ids = sorted({_clean(row.user_id) for row in employees if row.get("user_id")})
+
+    if not user_ids:
+        return {}, []
+
+    enabled_users = {
+        row.name: row
+        for row in frappe.get_all(
+            "User",
+            filters={
+                "name": ["in", user_ids],
+                "enabled": 1,
+            },
+            fields=["name", "full_name"],
+            limit_page_length=10000,
+        )
+    }
+
+    exclusions = _get_timesheet_reminder_exclusions(target_date)
+    allocated_users = {}
+    excluded_allocations = []
+    project_cache = {}
+
+    for shift in shift_rows:
+        employee = employee_by_id.get(_clean(shift.get("employee")))
+        if not employee:
+            continue
+
+        user = _clean(employee.user_id)
+        if user not in enabled_users:
+            continue
+
+        project = _canonical_project_id(
+            _row_project(shift, SHIFT_PROJECT_FIELD_CANDIDATES),
+            project_cache,
+        )
+        if (
+            project
+            and (_normalise_identity(user), _normalise_identity(project)) in exclusions
+        ):
+            excluded_allocations.append(
+                {
+                    "user": user,
+                    "project": project,
+                    "shift_assignment": _clean(shift.name),
+                }
+            )
+            continue
+
+        allocation = allocated_users.setdefault(
+            user,
+            {
+                "user": user,
+                "user_full_name": _clean(enabled_users[user].get("full_name")),
+                "employee_ids": set(),
+                "employee_names": set(),
+                "shift_assignments": set(),
+                "allocations": [],
+            },
+        )
+        allocation["employee_ids"].add(_clean(employee.name))
+        allocation["employee_names"].add(_clean(employee.get("employee_name")))
+        allocation["employee_names"].add(_clean(shift.get("employee_name")))
+        allocation["employee_names"].discard("")
+        allocation["shift_assignments"].add(_clean(shift.name))
+        allocation["allocations"].append(
+            {
+                "shift_assignment": _clean(shift.name),
+                "project": project,
+            }
+        )
+
+    return allocated_users, excluded_allocations
+
+
+def _get_daily_timesheets_with_hours(target_date):
+    if not frappe.db.exists("DocType", "Daily Timesheet"):
+        _log_missing_hours_configuration_error(
+            "Daily Timesheet is not available; missing-hours reminders were skipped."
+        )
+        return None
+
+    timesheet_meta = frappe.get_meta("Daily Timesheet")
+    required_timesheet_fields = {"date", "duration"}
+    missing_timesheet_fields = [
+        fieldname
+        for fieldname in required_timesheet_fields
+        if not timesheet_meta.has_field(fieldname)
+    ]
+
+    if missing_timesheet_fields:
+        _log_missing_hours_configuration_error(
+            "Daily Timesheet is missing required fields: "
+            + ", ".join(sorted(missing_timesheet_fields))
+        )
+        return None
+
+    fields = ["name", "owner", "duration"]
+    for fieldname in ("employee", "employee_name", "current_user"):
+        if timesheet_meta.has_field(fieldname):
+            fields.append(fieldname)
+
+    for fieldname in DAILY_TIMESHEET_PROJECT_FIELD_CANDIDATES:
+        if timesheet_meta.has_field(fieldname) and fieldname not in fields:
+            fields.append(fieldname)
+
+    timesheets = frappe.get_all(
+        "Daily Timesheet",
+        filters={
+            "date": target_date,
+            "docstatus": ["!=", 2],
+            "duration": [">", 0],
+        },
+        fields=fields,
+        limit_page_length=10000,
+    )
+
+    project_cache = {}
+    for timesheet in timesheets:
+        timesheet["_verto_project_id"] = _canonical_project_id(
+            _row_project(timesheet, DAILY_TIMESHEET_PROJECT_FIELD_CANDIDATES),
+            project_cache,
+        )
+
+    return timesheets
+
+
+def _timesheet_matches_user(timesheet, allocation: dict) -> bool:
+    user_id = _normalise_identity(allocation.get("user"))
+    user_full_name = _normalise_identity(allocation.get("user_full_name"))
+    employee_ids = {
+        _normalise_identity(value)
+        for value in allocation.get("employee_ids", set())
+        if value
+    }
+    employee_names = {
+        _normalise_identity(value)
+        for value in allocation.get("employee_names", set())
+        if value
+    }
+
+    if _normalise_identity(timesheet.get("owner")) == user_id:
+        return True
+
+    if _normalise_identity(timesheet.get("employee")) in employee_ids:
+        return True
+
+    if _normalise_identity(timesheet.get("employee_name")) in employee_names:
+        return True
+
+    current_user = _normalise_identity(timesheet.get("current_user"))
+    return bool(
+        current_user
+        and current_user
+        in ({user_id, user_full_name} | employee_names)
+    )
+
+
+def _timesheet_matches_allocation(timesheet, allocation: dict, shift_allocation: dict) -> bool:
+    if not _timesheet_matches_user(timesheet, allocation):
+        return False
+
+    shift_project = _normalise_identity(shift_allocation.get("project"))
+    timesheet_project = _normalise_identity(
+        timesheet.get("_verto_project_id")
+        or _row_project(timesheet, DAILY_TIMESHEET_PROJECT_FIELD_CANDIDATES)
+    )
+
+    # Preserve the existing user-and-date matching on sites where either side
+    # does not expose a usable project field. When both values exist, require an
+    # exact project match so hours on another project do not satisfy this shift.
+    return not shift_project or not timesheet_project or shift_project == timesheet_project
+
+
+def get_missing_hours_users(target_date=None) -> dict:
+    target_date = getdate(target_date or add_days(nowdate(), -1))
+    allocated_users, excluded_allocations = _get_allocated_users_for_date(target_date)
+
+    if not allocated_users:
+        return {
+            "date": target_date,
+            "allocated_users": {},
+            "completed_users": [],
+            "missing_users": [],
+            "excluded_allocations": excluded_allocations,
+        }
+
+    timesheets = _get_daily_timesheets_with_hours(target_date)
+    if timesheets is None:
+        return {
+            "date": target_date,
+            "allocated_users": allocated_users,
+            "completed_users": [],
+            "missing_users": [],
+            "excluded_allocations": excluded_allocations,
+            "skipped": True,
+        }
+
+    completed_users = {
+        user
+        for user, allocation in allocated_users.items()
+        if allocation["allocations"]
+        and all(
+            any(
+                _timesheet_matches_allocation(
+                    timesheet,
+                    allocation,
+                    shift_allocation,
+                )
+                for timesheet in timesheets
+            )
+            for shift_allocation in allocation["allocations"]
+        )
+    }
+    missing_users = sorted(set(allocated_users) - completed_users)
+
+    return {
+        "date": target_date,
+        "allocated_users": allocated_users,
+        "completed_users": sorted(completed_users),
+        "missing_users": missing_users,
+        "excluded_allocations": excluded_allocations,
+    }
+
+
+def send_previous_day_missing_hours_reminders(target_date=None, dry_run=False):
+    """Notify enabled users who had a shift but recorded no hours for the date.
+
+    The scheduler calls this without arguments, which checks yesterday in the
+    site's configured timezone. ``target_date`` and ``dry_run`` are provided so
+    administrators can safely verify historical data with ``bench execute``.
+    """
+    result = get_missing_hours_users(target_date)
+    target_date = result["date"]
+    missing_users = result["missing_users"]
+    dry_run = bool(cint(dry_run))
+
+    if missing_users and not dry_run and not result.get("skipped"):
+        formatted_date = target_date.strftime("%A, %-d %B")
+        queue_push_to_users(
+            missing_users,
+            {
+                "title": "Hours reminder",
+                "body": (
+                    f"No hours are recorded for your shift on {formatted_date}. "
+                    "Tap to enter them."
+                ),
+                "url": MISSING_HOURS_NOTIFICATION_URL,
+                "tag": f"missing-hours-{target_date.isoformat()}",
+            },
+            notification_type="missing_hours",
+        )
+
+    return {
+        "date": target_date.isoformat(),
+        "allocated_user_count": len(result["allocated_users"]),
+        "completed_user_count": len(result["completed_users"]),
+        "missing_user_count": len(missing_users),
+        "missing_users": missing_users,
+        "excluded_allocation_count": len(result["excluded_allocations"]),
+        "excluded_allocations": result["excluded_allocations"],
+        "dry_run": dry_run,
+        "queued": bool(missing_users and not dry_run and not result.get("skipped")),
+        "skipped": bool(result.get("skipped")),
+    }
+
+
 def notify_document_assignment(doc, method=None):
     if getattr(doc, "status", "Open") != "Open":
         return
@@ -588,7 +1045,7 @@ def _notify_direct_message(doc, channel_id: str, channel) -> bool:
         recipients,
         {
             "title": title,
-            "body": "You have a new direct message in the app. Click here to open",
+            "body": "You have a new direct message in Raven.",
             "url": f"/verto-mobile/chat?channel={quote(channel_id, safe='')}",
             "tag": f"direct-message-{channel_id}",
         },

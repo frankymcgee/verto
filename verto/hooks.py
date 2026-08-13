@@ -211,7 +211,8 @@ scheduler_events = {
 #	],
     "cron": {
         "0 10 * * *": [
-            "verto.api.automate.send_weekly_timesheet_verification"
+            "verto.api.automate.send_weekly_timesheet_verification",
+            "verto.api.mobile.push_notifications.send_previous_day_missing_hours_reminders",
         ],
         "0 13 * * *": [
             "verto.api.automate.send_grouped_weekly_timesheets"

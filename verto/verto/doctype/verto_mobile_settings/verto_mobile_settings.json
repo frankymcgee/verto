@@ -41,7 +41,9 @@
   "planner_app_name",
   "desk_icon",
   "planner_icon",
-  "planner_view_default"
+  "planner_view_default",
+  "push_notifications_tab",
+  "timesheet_reminder_exclusions"
  ],
  "fields": [
   {
@@ -241,13 +243,24 @@
    "fieldtype": "Table",
    "label": "PWA Screenshots",
    "options": "Verto PWA Screenshot"
+  },
+  {
+   "fieldname": "push_notifications_tab",
+   "fieldtype": "Tab Break",
+   "label": "Push Notifications"
+  },
+  {
+   "fieldname": "timesheet_reminder_exclusions",
+   "fieldtype": "Table",
+   "label": "Timesheet Reminder Exclusions",
+   "options": "Verto Timesheet Reminder Exclusion"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-08-10 12:03:06.051633",
+ "modified": "2026-08-13 12:18:48.900602",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Verto Mobile Settings",
