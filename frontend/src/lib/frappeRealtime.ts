@@ -92,32 +92,30 @@ export function setupFrappeRealtime() {
     },
 
     on(event: string, callback: RealtimeCallback) {
+      const activeSocket = ensureSocket()
+
       if (!callbacks.has(event)) {
         callbacks.set(event, new Set())
       }
 
       callbacks.get(event)?.add(callback)
-
-      const activeSocket = ensureSocket()
       activeSocket.on(event, callback)
     },
 
     off(event: string, callback?: RealtimeCallback) {
-      const activeSocket = ensureSocket()
-
       if (!callback) {
         callbacks.delete(event)
-        activeSocket.off(event)
+        socket?.off(event)
         return
       }
 
       callbacks.get(event)?.delete(callback)
-      activeSocket.off(event, callback)
+      socket?.off(event, callback)
     },
 
-    emit(event: string, data?: any) {
+    emit(event: string, ...args: any[]) {
       const activeSocket = ensureSocket()
-      activeSocket.emit(event, data)
+      activeSocket.emit(event, ...args)
     },
 
     connect() {
