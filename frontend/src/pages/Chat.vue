@@ -794,9 +794,11 @@ const activeThreadId = ref('')
 const threadCounts = ref<Record<string, number>>({})
 const hydratingThreadCounts = ref(false)
 
-const FORCED_REFRESH_INTERVAL_MS = 5000
-let forcedRefreshTimer: number | undefined
-let forcedRefreshInFlight = false
+const FALLBACK_REFRESH_INTERVAL_MS = 60_000
+let fallbackRefreshTimer: number | undefined
+let fallbackRefreshInFlight = false
+const visibleMessageHtmlCache = new Map<string, string>()
+const VISIBLE_MESSAGE_HTML_CACHE_LIMIT = 300
 
 const requestedChannel = computed(() => String(route.query.channel || '').trim())
 const isAiMode = computed(() => {
@@ -1365,18 +1367,27 @@ function getVisibleMessageHtml(message: RavenMessage) {
 
   if (!raw) return ''
 
+  const cached = visibleMessageHtmlCache.get(raw)
+
+  if (cached !== undefined) {
+    return cached
+  }
+
   const decoded = decodeHtmlDeep(raw)
   const tiptapHtml = looksLikeTiptapJson(decoded) ? tiptapJsonToHtml(decoded) : ''
+  const html = tiptapHtml
+    ? sanitiseMessageHtml(tiptapHtml)
+    : containsHtml(decoded)
+      ? sanitiseMessageHtml(decoded)
+      : textToHtml(raw)
 
-  if (tiptapHtml) {
-    return sanitiseMessageHtml(tiptapHtml)
+  if (visibleMessageHtmlCache.size >= VISIBLE_MESSAGE_HTML_CACHE_LIMIT) {
+    visibleMessageHtmlCache.clear()
   }
 
-  if (containsHtml(decoded)) {
-    return sanitiseMessageHtml(decoded)
-  }
+  visibleMessageHtmlCache.set(raw, html)
 
-  return textToHtml(raw)
+  return html
 }
 
 function getInitials(value: string) {
@@ -1837,12 +1848,12 @@ function getLatestMessageName(items: RavenMessage[]) {
   return ordered[ordered.length - 1]?.name || ''
 }
 
-async function forcedRefreshFromRaven() {
-  if (forcedRefreshInFlight || chat.loading.value || !chat.activeChannelId.value) {
+async function fallbackRefreshFromRaven() {
+  if (fallbackRefreshInFlight || chat.loading.value || !chat.activeChannelId.value) {
     return
   }
 
-  forcedRefreshInFlight = true
+  fallbackRefreshInFlight = true
 
   const beforeLatestMessage = getLatestMessageName(chat.messages.value)
   const beforeThreadLatestMessage = getLatestMessageName(threadReplies.value)
@@ -1868,29 +1879,30 @@ async function forcedRefreshFromRaven() {
       }
     }
   } catch (err) {
-    console.warn('[verto raven polling] forced refresh failed', err)
+    console.warn('[verto raven fallback] refresh failed', err)
   } finally {
-    forcedRefreshInFlight = false
+    fallbackRefreshInFlight = false
   }
 }
 
-function startForcedRefreshPolling() {
-  stopForcedRefreshPolling()
+function startFallbackRefreshPolling() {
+  stopFallbackRefreshPolling()
 
-  console.log('[verto raven polling] started', {
-    intervalMs: FORCED_REFRESH_INTERVAL_MS,
-    activeChannel: chat.activeChannelId.value,
-  })
-
-  forcedRefreshTimer = window.setInterval(() => {
-    forcedRefreshFromRaven()
-  }, FORCED_REFRESH_INTERVAL_MS)
+  fallbackRefreshTimer = window.setInterval(() => {
+    if (
+      document.visibilityState === 'visible'
+      && navigator.onLine
+      && !realtime.ready.value
+    ) {
+      void fallbackRefreshFromRaven()
+    }
+  }, FALLBACK_REFRESH_INTERVAL_MS)
 }
 
-function stopForcedRefreshPolling() {
-  if (forcedRefreshTimer) {
-    window.clearInterval(forcedRefreshTimer)
-    forcedRefreshTimer = undefined
+function stopFallbackRefreshPolling() {
+  if (fallbackRefreshTimer) {
+    window.clearInterval(fallbackRefreshTimer)
+    fallbackRefreshTimer = undefined
   }
 }
 
@@ -1917,7 +1929,7 @@ async function reloadChat() {
   await chat.load()
   await hydrateThreadCountsForMessages()
   realtime.resubscribeAll()
-  startForcedRefreshPolling()
+  startFallbackRefreshPolling()
   await scrollToBottom()
 }
 
@@ -1927,7 +1939,7 @@ watch(
     await chat.load()
     await hydrateThreadCountsForMessages()
     realtime.resubscribeAll()
-    startForcedRefreshPolling()
+    startFallbackRefreshPolling()
     await handlePeriAutoSend()
     await scrollToBottom()
   }
@@ -1938,13 +1950,13 @@ onMounted(async () => {
   await chat.load()
   await hydrateThreadCountsForMessages()
   realtime.start()
-  startForcedRefreshPolling()
+  startFallbackRefreshPolling()
   await handlePeriAutoSend()
   await scrollToBottom()
 })
 
 onBeforeUnmount(() => {
-  stopForcedRefreshPolling()
+  stopFallbackRefreshPolling()
   realtime.stop()
 })
 </script>

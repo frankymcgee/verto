@@ -1246,3 +1246,39 @@ def run_field_change(mobile_doctype, changed_fieldname, values=None, docname=Non
         "messages": result.get("messages", []),
         "warnings": result.get("warnings", []),
     }
+
+
+@frappe.whitelist()
+def process_field_change(mobile_doctype, changed_fieldname, values=None, docname=None):
+    """Apply fetch_from rules and field-change hooks in one request."""
+    require_login()
+
+    if isinstance(values, str):
+        values = json.loads(values or "{}")
+
+    working_values = dict(values or {})
+    fetch_result = apply_fetch_from(
+        mobile_doctype=mobile_doctype,
+        changed_fieldname=changed_fieldname,
+        values=working_values,
+        docname=docname,
+    ) or {}
+    fetched_values = fetch_result.get("values", {})
+    working_values.update(fetched_values)
+
+    change_result = run_field_change(
+        mobile_doctype=mobile_doctype,
+        changed_fieldname=changed_fieldname,
+        values=working_values,
+        docname=docname,
+    ) or {}
+    changed_values = change_result.get("values", {})
+
+    return {
+        "values": {
+            **fetched_values,
+            **changed_values,
+        },
+        "messages": change_result.get("messages", []),
+        "warnings": change_result.get("warnings", []),
+    }

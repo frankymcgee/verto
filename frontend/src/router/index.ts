@@ -1,12 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import MobileShell from '../layouts/MobileShell.vue'
-import Home from '../pages/Home.vue'
-import Forms from '../pages/Forms.vue'
-import Shifts from '../pages/Shifts.vue'
-import Chat from '../pages/Chat.vue'
-import NewDocument from '../pages/NewDocument.vue'
-import EditDocument from '../pages/EditDocument.vue'
+
+const Home = () => import('../pages/Home.vue')
+const Forms = () => import('../pages/Forms.vue')
+const Shifts = () => import('../pages/Shifts.vue')
+const Chat = () => import('../pages/Chat.vue')
+const NewDocument = () => import('../pages/NewDocument.vue')
+const EditDocument = () => import('../pages/EditDocument.vue')
 
 const routes = [
   {

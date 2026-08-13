@@ -137,8 +137,6 @@ export function setupFrappeRealtime() {
     },
   }
 
-  ensureSocket()
-
   return window.frappe.realtime
 }
 
