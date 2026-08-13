@@ -836,7 +836,7 @@ def send_previous_day_missing_hours_reminders(target_date=None, dry_run=False):
         queue_push_to_users(
             missing_users,
             {
-                "title": "Hours reminder",
+                "title": "Timesheet Reminder",
                 "body": (
                     f"No hours are recorded for your shift on {formatted_date}. "
                     "Tap to enter them."
