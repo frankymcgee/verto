@@ -27,6 +27,8 @@ declare global {
 
 const RAVEN_GLOBAL_DOCTYPE_ROOM = 'Raven User'
 const RAVEN_CHANNEL_DOCTYPE = 'Raven Channel'
+const VERTO_RAVEN_BRIDGE_EVENT = 'verto:raven_message_event'
+
 export function useRavenRealtime(options: RavenRealtimeOptions) {
   const ready = ref(false)
   const status = ref('Connecting')
@@ -65,6 +67,43 @@ export function useRavenRealtime(options: RavenRealtimeOptions) {
     return uniqueObjects(candidates).filter((socket) => {
       return typeof socket?.emit === 'function' || typeof socket?.on === 'function'
     })
+  }
+
+  function isConnected() {
+    const realtime = getRealtime()
+
+    return Boolean(
+      realtime?.isConnected?.()
+      || getSocketCandidates().some((socket) => socket?.connected)
+    )
+  }
+
+  function ensureConnected() {
+    const realtime = getRealtime()
+
+    if (!realtime) {
+      ready.value = false
+      status.value = 'Live unavailable'
+      return false
+    }
+
+    if (isConnected()) {
+      ready.value = true
+      status.value = 'Live'
+      return true
+    }
+
+    ready.value = false
+    status.value = 'Connecting'
+
+    try {
+      realtime.connect?.()
+    } catch (err) {
+      status.value = 'Offline'
+      console.warn('[verto raven realtime] realtime connect failed', err)
+    }
+
+    return isConnected()
   }
 
   function getEventTargets() {
@@ -269,6 +308,11 @@ export function useRavenRealtime(options: RavenRealtimeOptions) {
     status.value = 'Offline'
   }
 
+  function handleConnectError() {
+    ready.value = false
+    status.value = 'Offline'
+  }
+
   function handleReconnect() {
     ready.value = true
     status.value = 'Live'
@@ -352,10 +396,39 @@ export function useRavenRealtime(options: RavenRealtimeOptions) {
     options.onThreadReply?.(eventChannel, event)
   }
 
+  function handleVertoBridgeEvent(event: any) {
+    const eventChannel = getEventChannel(event)
+
+    if (!isActiveChannel(eventChannel)) {
+      return
+    }
+
+    lastEvent.value = VERTO_RAVEN_BRIDGE_EVENT
+
+    if (String(event?.action || '').toLowerCase() === 'delete') {
+      options.onMessageDeleted?.(
+        event?.message_id || event?.name || '',
+        event
+      )
+      return
+    }
+
+    if (event?.message) {
+      options.onMessageCreated?.(
+        normaliseRavenMessage(event.message),
+        event
+      )
+      return
+    }
+
+    options.onChannelUpdated?.(eventChannel, event)
+  }
+
   function bindEvents() {
     cleanupFns.forEach((fn) => fn())
     cleanupFns = []
     onAll('message_created', handleMessageCreated)
+    onAll(VERTO_RAVEN_BRIDGE_EVENT, handleVertoBridgeEvent)
     onAll('message_edited', handleMessageEdited)
     onAll('message_deleted', handleMessageDeleted)
     onAll('message_reacted', handleMessageReacted)
@@ -374,9 +447,11 @@ export function useRavenRealtime(options: RavenRealtimeOptions) {
     for (const socket of getSocketCandidates()) {
       try {
         socket.on?.('connect', handleConnect)
+        socket.on?.('connect_error', handleConnectError)
         socket.on?.('disconnect', handleDisconnect)
         socket.io?.on?.('reconnect', handleReconnect)
         cleanupFns.push(() => socket.off?.('connect', handleConnect))
+        cleanupFns.push(() => socket.off?.('connect_error', handleConnectError))
         cleanupFns.push(() => socket.off?.('disconnect', handleDisconnect))
         cleanupFns.push(() => socket.io?.off?.('reconnect', handleReconnect))
       } catch (err) {
@@ -398,23 +473,7 @@ export function useRavenRealtime(options: RavenRealtimeOptions) {
     }
 
     bindEvents()
-
-    if (typeof realtime?.connect === 'function') {
-      try {
-        realtime.connect()
-      } catch (err) {
-        console.warn('[verto raven realtime] realtime connect failed', err)
-      }
-    }
-
-    const connected = Boolean(
-      realtime?.isConnected?.()
-      || getSocketCandidates().some((socket) => socket?.connected)
-    )
-
-    ready.value = connected
-    status.value = connected ? 'Live' : 'Connecting'
-
+    ensureConnected()
     scheduleResubscribeBursts()
   }
 
@@ -473,6 +532,8 @@ export function useRavenRealtime(options: RavenRealtimeOptions) {
     lastEvent,
     start,
     stop,
+    isConnected,
+    ensureConnected,
     subscribeChannelDoc,
     unsubscribeChannelDoc,
     resubscribeAll,

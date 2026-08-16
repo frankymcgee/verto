@@ -1860,7 +1860,7 @@ async function fallbackRefreshFromRaven() {
   const shouldStayAtBottom = isNearBottom(messagesEl.value, 180)
 
   try {
-    await chat.loadMessages()
+    await chat.fetchNewer()
     await hydrateThreadCountsForMessages()
 
     const afterLatestMessage = getLatestMessageName(chat.messages.value)
@@ -1892,11 +1892,35 @@ function startFallbackRefreshPolling() {
     if (
       document.visibilityState === 'visible'
       && navigator.onLine
-      && !realtime.ready.value
     ) {
+      if (!realtime.isConnected()) {
+        realtime.ensureConnected()
+      }
+
       void fallbackRefreshFromRaven()
     }
   }, FALLBACK_REFRESH_INTERVAL_MS)
+}
+
+function recoverLiveChat() {
+  if (
+    document.visibilityState !== 'visible'
+    || !navigator.onLine
+    || chat.loading.value
+    || !chat.activeChannelId.value
+  ) {
+    return
+  }
+
+  realtime.ensureConnected()
+  realtime.resubscribeAll()
+  void fallbackRefreshFromRaven()
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    recoverLiveChat()
+  }
 }
 
 function stopFallbackRefreshPolling() {
@@ -1946,6 +1970,10 @@ watch(
 )
 
 onMounted(async () => {
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  window.addEventListener('pageshow', recoverLiveChat)
+  window.addEventListener('online', recoverLiveChat)
+
   await loadMobileBoot()
   await chat.load()
   await hydrateThreadCountsForMessages()
@@ -1956,6 +1984,9 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  window.removeEventListener('pageshow', recoverLiveChat)
+  window.removeEventListener('online', recoverLiveChat)
   stopFallbackRefreshPolling()
   realtime.stop()
 })
