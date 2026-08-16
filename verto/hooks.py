@@ -177,7 +177,10 @@ doc_events = {
         "on_update": "verto.api.hooks.create_project_handover_records",
     },
     "Raven Message": {
-        "after_insert": "verto.api.mobile.push_notifications.notify_project_chat_message",
+        "after_insert": [
+            "verto.api.mobile.push_notifications.notify_project_chat_message",
+            "verto.api.mobile.raven_realtime_bridge.publish_raven_message_upsert",
+        ],
         "on_update": "verto.api.mobile.raven_realtime_bridge.publish_raven_message_upsert",
         "after_delete": "verto.api.mobile.raven_realtime_bridge.publish_raven_message_delete",
     },
