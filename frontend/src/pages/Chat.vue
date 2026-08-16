@@ -1902,7 +1902,7 @@ function startFallbackRefreshPolling() {
   }, FALLBACK_REFRESH_INTERVAL_MS)
 }
 
-function recoverLiveChat() {
+async function recoverLiveChat() {
   if (
     document.visibilityState !== 'visible'
     || !navigator.onLine
@@ -1912,14 +1912,18 @@ function recoverLiveChat() {
     return
   }
 
-  realtime.ensureConnected()
-  realtime.resubscribeAll()
-  void fallbackRefreshFromRaven()
+  const healthy = await realtime.ensureHealthy()
+
+  if (healthy) {
+    realtime.resubscribeAll()
+  }
+
+  await fallbackRefreshFromRaven()
 }
 
 function handleVisibilityChange() {
   if (document.visibilityState === 'visible') {
-    recoverLiveChat()
+    void recoverLiveChat()
   }
 }
 

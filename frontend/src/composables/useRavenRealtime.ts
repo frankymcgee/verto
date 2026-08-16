@@ -38,6 +38,8 @@ export function useRavenRealtime(options: RavenRealtimeOptions) {
   const subscribedDoctypes = new Set<string>()
   let cleanupFns: Array<() => void> = []
   let resubscribeTimers: number[] = []
+  let healthCheckInFlight: Promise<boolean> | null = null
+  let running = false
 
   function getRealtime() {
     return window.frappe?.realtime || null
@@ -104,6 +106,65 @@ export function useRavenRealtime(options: RavenRealtimeOptions) {
     }
 
     return isConnected()
+  }
+
+  async function ensureHealthy() {
+    if (healthCheckInFlight) {
+      return healthCheckInFlight
+    }
+
+    const realtime = getRealtime()
+
+    if (!realtime || !isConnected()) {
+      ensureConnected()
+      return false
+    }
+
+    if (typeof realtime.ping !== 'function') {
+      ready.value = true
+      status.value = 'Live'
+      return true
+    }
+
+    status.value = 'Checking live'
+
+    healthCheckInFlight = Promise.resolve(realtime.ping(5000))
+      .then((healthy) => {
+        if (!running) return false
+
+        if (healthy) {
+          ready.value = true
+          status.value = 'Live'
+          return true
+        }
+
+        ready.value = false
+        status.value = 'Reconnecting'
+
+        try {
+          realtime.disconnect?.()
+          realtime.connect?.()
+        } catch (err) {
+          status.value = 'Offline'
+          console.warn('[verto raven realtime] health reconnect failed', err)
+        }
+
+        return false
+      })
+      .catch((err) => {
+        if (running) {
+          ready.value = false
+          status.value = 'Offline'
+        }
+
+        console.warn('[verto raven realtime] health check failed', err)
+        return false
+      })
+      .finally(() => {
+        healthCheckInFlight = null
+      })
+
+    return healthCheckInFlight
   }
 
   function getEventTargets() {
@@ -298,9 +359,10 @@ export function useRavenRealtime(options: RavenRealtimeOptions) {
 
   function handleConnect() {
     ready.value = true
-    status.value = 'Live'
+    status.value = 'Checking live'
 
     scheduleResubscribeBursts()
+    void ensureHealthy()
   }
 
   function handleDisconnect() {
@@ -315,8 +377,9 @@ export function useRavenRealtime(options: RavenRealtimeOptions) {
 
   function handleReconnect() {
     ready.value = true
-    status.value = 'Live'
+    status.value = 'Checking live'
     scheduleResubscribeBursts()
+    void ensureHealthy()
   }
 
   function handleMessageCreated(event: any) {
@@ -462,6 +525,7 @@ export function useRavenRealtime(options: RavenRealtimeOptions) {
   }
 
   function start() {
+    running = true
     const realtime = getRealtime()
     const sockets = getSocketCandidates()
 
@@ -473,11 +537,14 @@ export function useRavenRealtime(options: RavenRealtimeOptions) {
     }
 
     bindEvents()
-    ensureConnected()
+    if (ensureConnected()) {
+      void ensureHealthy()
+    }
     scheduleResubscribeBursts()
   }
 
   function stop() {
+    running = false
     clearResubscribeTimers()
     cleanupFns.forEach((fn) => fn())
     cleanupFns = []
@@ -534,6 +601,7 @@ export function useRavenRealtime(options: RavenRealtimeOptions) {
     stop,
     isConnected,
     ensureConnected,
+    ensureHealthy,
     subscribeChannelDoc,
     unsubscribeChannelDoc,
     resubscribeAll,

@@ -7,16 +7,25 @@ const callbacks = new Map<string, Set<RealtimeCallback>>()
 let socket: Socket | null = null
 let hasInitialised = false
 
+function normaliseSiteName(value?: string) {
+  return String(value || '').trim().replace(/^\/+|\/+$/g, '')
+}
+
 function getSiteName() {
-  return (
+  const embeddedSiteName = document
+    .querySelector<HTMLMetaElement>('meta[name="frappe-site-name"]')
+    ?.content
+
+  return normaliseSiteName(
     window.frappe?.boot?.sitename ||
     window.frappe?.boot?.site_name ||
+    embeddedSiteName ||
     window.location.hostname
   )
 }
 
-function getSocketUrl() {
-  return window.location.origin
+function getSocketUrl(siteName: string) {
+  return `${window.location.origin}/${siteName}`
 }
 
 function getSocketPath() {
@@ -26,7 +35,7 @@ function getSocketPath() {
 function makeSocket() {
   const siteName = getSiteName()
 
-  return io(getSocketUrl(), {
+  return io(getSocketUrl(siteName), {
     path: getSocketPath(),
     withCredentials: true,
     transports: ['websocket', 'polling'],
@@ -34,12 +43,6 @@ function makeSocket() {
     reconnectionAttempts: Infinity,
     reconnectionDelay: 500,
     reconnectionDelayMax: 5000,
-    auth: {
-      site_name: siteName,
-    },
-    query: {
-      site_name: siteName,
-    },
   })
 }
 
@@ -61,7 +64,10 @@ function ensureSocket() {
   socket = makeSocket()
 
   socket.on('connect', () => {
-    console.info('[Verto realtime] connected')
+    console.info('[Verto realtime] connected', {
+      namespace: socket?.nsp,
+      transport: socket?.io.engine.transport.name,
+    })
   })
 
   socket.on('connect_error', (error) => {
@@ -132,6 +138,33 @@ export function setupFrappeRealtime() {
 
     isConnected() {
       return Boolean(socket?.connected)
+    },
+
+    ping(timeoutMs = 5000) {
+      const activeSocket = ensureSocket()
+
+      if (!activeSocket.connected) {
+        return Promise.resolve(false)
+      }
+
+      return new Promise<boolean>((resolve) => {
+        let settled = false
+        let timer = 0
+
+        const finish = (healthy: boolean) => {
+          if (settled) return
+          settled = true
+          window.clearTimeout(timer)
+          activeSocket.off('pong', handlePong)
+          resolve(healthy)
+        }
+
+        const handlePong = () => finish(true)
+
+        activeSocket.once('pong', handlePong)
+        timer = window.setTimeout(() => finish(false), timeoutMs)
+        activeSocket.emit('ping')
+      })
     },
   }
 
