@@ -1,4 +1,4 @@
-import { io, type Socket } from 'socket.io-client'
+import { Manager, type Socket } from 'socket.io-client'
 
 type RealtimeCallback = (data: any) => void
 
@@ -24,8 +24,8 @@ function getSiteName() {
   )
 }
 
-function getSocketUrl(siteName: string) {
-  return `${window.location.origin}/${siteName}`
+function getSocketNamespace(siteName: string) {
+  return `/${siteName}`
 }
 
 function getSocketPath() {
@@ -34,8 +34,7 @@ function getSocketPath() {
 
 function makeSocket() {
   const siteName = getSiteName()
-
-  return io(getSocketUrl(siteName), {
+  const manager = new Manager(window.location.origin, {
     path: getSocketPath(),
     withCredentials: true,
     transports: ['websocket', 'polling'],
@@ -44,6 +43,8 @@ function makeSocket() {
     reconnectionDelay: 500,
     reconnectionDelayMax: 5000,
   })
+
+  return manager.socket(getSocketNamespace(siteName))
 }
 
 function attachStoredListeners() {
