@@ -1,6 +1,8 @@
+import re
+
 import frappe
 from frappe import _
-from frappe.utils import add_days, date_diff, getdate, get_datetime_str, nowdate
+from frappe.utils import add_days, date_diff, getdate, get_datetime, get_datetime_str, nowdate
 from frappe.desk.search import search_link
 
 from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
@@ -2876,6 +2878,13 @@ PROJECT_NOTES_FIELD_CANDIDATES = [
 	"custom_notes",
 ]
 
+GENERIC_TASK_DEFAULT_LOCATION = "General"
+GENERIC_TASK_DEFAULT_WORK_SUMMARY = "Execution Works"
+GENERIC_TASK_DEFAULT_START_TIME = "08:00:00"
+GENERIC_TASK_DEFAULT_END_TIME = "20:00:00"
+GENERIC_TASK_DEFAULT_SHARED_VALUE = "MULTIPLE"
+GENERIC_TASK_ID_DIGITS = 4
+
 
 def _project_meta_fieldtype(fieldname: str | None) -> str | None:
 	if not fieldname:
@@ -2940,6 +2949,113 @@ def _validate_project_date_range(start_date, end_date) -> None:
 		frappe.throw(_("Project Start Date cannot be after Project End Date."))
 
 
+def _generic_task_creation_availability(doc, task_count: int, fields: dict[str, str | None]) -> tuple[bool, str]:
+	if (doc.get("status") or "").strip().lower() == "cancelled":
+		return False, _("Generic tasks cannot be created for a cancelled project.")
+
+	if task_count:
+		return False, _("This project already has {0} task(s) assigned.").format(task_count)
+
+	if not frappe.has_permission("Task", ptype="create"):
+		return False, _("You do not have permission to create Tasks.")
+
+	start_date_field = fields.get("start_date_field")
+	end_date_field = fields.get("end_date_field")
+	if not start_date_field or not end_date_field:
+		return False, _("The Project start and end date fields are not configured on this site.")
+
+	if not doc.get(start_date_field) or not doc.get(end_date_field):
+		return False, _("Set the Project Start Date and Project End Date before creating generic tasks.")
+
+	return True, ""
+
+
+def _normalise_generic_task_subject(value, fallback: str, label: str) -> str:
+	subject = " ".join(str(value or fallback).split()).strip()
+	if not subject:
+		frappe.throw(_("{0} is required.").format(label))
+	if len(subject) > 140:
+		frappe.throw(_("{0} cannot exceed 140 characters.").format(label))
+	return subject
+
+
+def _normalise_generic_task_time(value, fallback: str, label: str) -> str:
+	value = str(value or fallback).strip()
+	try:
+		return get_datetime(f"2000-01-01 {value}").strftime("%H:%M:%S")
+	except Exception:
+		frappe.throw(_("{0} must be a valid time.").format(label))
+
+
+def _next_project_task_names(project: str, count: int) -> list[str]:
+	prefix = f"{project}-"
+	pattern = re.compile(rf"^{re.escape(prefix)}(\d+)$")
+	existing_names = frappe.db.sql(
+		"SELECT name FROM `tabTask` WHERE name LIKE %s",
+		(f"{prefix}%",),
+		pluck=True,
+	)
+
+	sequence = 0
+	for name in existing_names:
+		match = pattern.match(name or "")
+		if match:
+			sequence = max(sequence, int(match.group(1)))
+
+	result = []
+	while len(result) < count:
+		sequence += 1
+		candidate = f"{prefix}{sequence:0{GENERIC_TASK_ID_DIGITS}d}"
+		if frappe.db.exists("Task", candidate):
+			continue
+		result.append(candidate)
+
+	return result
+
+
+def _insert_generic_project_task(
+	*,
+	name: str,
+	project_doc,
+	subject: str,
+	task_type: str,
+	is_group: bool,
+	start_date: str,
+	end_date: str,
+	start_time: str,
+	end_time: str,
+	expected_time: float,
+	parent_task=None,
+):
+	task = frappe.new_doc("Task")
+	task.subject = subject
+	task.project = project_doc.name
+	task.description = subject
+	task.is_group = 1 if is_group else 0
+	task.is_milestone = 0
+	task.exp_start_date = start_date
+	task.exp_end_date = end_date
+	task.expected_time = expected_time
+	task.progress = 0
+
+	_set_doc_field_if_exists(task, "type", task_type)
+	_set_doc_field_if_exists(task, "project_scope_name", project_doc.project_name or project_doc.name)
+	_set_doc_field_if_exists(task, "exp_start_time", start_time)
+	_set_doc_field_if_exists(task, "exp_end_time", end_time)
+	_set_doc_field_if_exists(task, "responsible_contractor", GENERIC_TASK_DEFAULT_SHARED_VALUE)
+	_set_doc_field_if_exists(task, "supervisor", GENERIC_TASK_DEFAULT_SHARED_VALUE)
+	_set_doc_field_if_exists(task, "client_functional_location", GENERIC_TASK_DEFAULT_SHARED_VALUE)
+	_set_doc_field_if_exists(task, "work_order_number", "0")
+	_set_doc_field_if_exists(task, "operation_number", "0")
+
+	if parent_task:
+		task.parent_task = parent_task.name
+		_set_doc_field_if_exists(task, "parent_task_name", parent_task.subject)
+
+	task.insert(set_name=name)
+	return task
+
+
 @frappe.whitelist()
 def get_project_planner_details(project: str) -> dict:
 	"""Return editable annual-planner details for a Project span dialog."""
@@ -2958,6 +3074,11 @@ def get_project_planner_details(project: str) -> dict:
 	notes_field = fields.get("notes_field")
 	task_count = get_project_task_counts([project]).get(project, 0)
 	has_tasks = task_count > 0
+	can_create_generic_tasks, generic_tasks_unavailable_reason = _generic_task_creation_availability(
+		doc,
+		task_count,
+		fields,
+	)
 
 	po_value = doc.get(po_field) if po_field else None
 	is_po_check = po_fieldtype == "Check"
@@ -2986,12 +3107,139 @@ def get_project_planner_details(project: str) -> dict:
 		"notes": doc.get(notes_field) if notes_field else "",
 		"task_count": task_count,
 		"has_tasks": has_tasks,
+		"can_create_generic_tasks": can_create_generic_tasks,
+		"generic_tasks_unavailable_reason": generic_tasks_unavailable_reason,
 		"can_update_po": bool(po_field),
 		"can_update_ds": bool(ds_field),
 		"can_update_ns": bool(ns_field),
 		"can_update_is_active": bool(is_active_field),
 		"can_update_project_dates": bool(start_date_field and end_date_field) and not has_tasks,
 		"can_update_notes": bool(notes_field),
+	}
+
+
+@frappe.whitelist()
+def create_generic_project_tasks(
+	project: str,
+	location_subject: str | None = None,
+	work_summary_subject: str | None = None,
+	expected_start_time: str | None = None,
+	expected_end_time: str | None = None,
+) -> dict:
+	"""Create the standard Outline > Location > Work Summary task hierarchy.
+
+	This is intentionally restricted to projects with no existing Tasks so it
+	cannot be mixed accidentally with an imported client Gantt. The Project row
+	is locked for the duration of the request so two Planner users cannot create
+	the generic hierarchy at the same time.
+	"""
+	if not project:
+		frappe.throw(_("Project is required"))
+
+	if not frappe.has_permission("Task", ptype="create"):
+		frappe.throw(_("You do not have permission to create Tasks."), frappe.PermissionError)
+
+	project_doc = frappe.get_doc("Project", project)
+	project_doc.check_permission("read")
+
+	frappe.db.sql("SELECT name FROM `tabProject` WHERE name = %s FOR UPDATE", (project,))
+	project_doc.reload()
+
+	fields = _project_planner_edit_fields()
+	task_count = frappe.db.count("Task", {"project": project_doc.name})
+	can_create, unavailable_reason = _generic_task_creation_availability(project_doc, task_count, fields)
+	if not can_create:
+		frappe.throw(unavailable_reason)
+
+	outline_subject = _normalise_generic_task_subject(
+		project_doc.project_name or project_doc.name,
+		project_doc.name,
+		_("Project task name"),
+	)
+	location_subject = _normalise_generic_task_subject(
+		location_subject,
+		GENERIC_TASK_DEFAULT_LOCATION,
+		_("Location task name"),
+	)
+	work_summary_subject = _normalise_generic_task_subject(
+		work_summary_subject,
+		GENERIC_TASK_DEFAULT_WORK_SUMMARY,
+		_("Work Summary task name"),
+	)
+	start_time = _normalise_generic_task_time(
+		expected_start_time,
+		GENERIC_TASK_DEFAULT_START_TIME,
+		_("Expected Start Time"),
+	)
+	end_time = _normalise_generic_task_time(
+		expected_end_time,
+		GENERIC_TASK_DEFAULT_END_TIME,
+		_("Expected End Time"),
+	)
+
+	start_date = _normalise_project_date_for_update(project_doc.get(fields["start_date_field"]))
+	end_date = _normalise_project_date_for_update(project_doc.get(fields["end_date_field"]))
+	_validate_project_date_range(start_date, end_date)
+
+	start_datetime = get_datetime(f"{start_date} {start_time}")
+	end_datetime = get_datetime(f"{end_date} {end_time}")
+	if end_datetime <= start_datetime:
+		frappe.throw(_("The generic task end date and time must be after its start date and time."))
+	expected_time = round((end_datetime - start_datetime).total_seconds() / 3600, 2)
+
+	task_names = _next_project_task_names(project_doc.name, 3)
+	outline_task = _insert_generic_project_task(
+		name=task_names[0],
+		project_doc=project_doc,
+		subject=outline_subject,
+		task_type="Outline",
+		is_group=True,
+		start_date=start_date,
+		end_date=end_date,
+		start_time=start_time,
+		end_time=end_time,
+		expected_time=expected_time,
+	)
+	location_task = _insert_generic_project_task(
+		name=task_names[1],
+		project_doc=project_doc,
+		subject=location_subject,
+		task_type="Location",
+		is_group=True,
+		start_date=start_date,
+		end_date=end_date,
+		start_time=start_time,
+		end_time=end_time,
+		expected_time=expected_time,
+		parent_task=outline_task,
+	)
+	work_summary_task = _insert_generic_project_task(
+		name=task_names[2],
+		project_doc=project_doc,
+		subject=work_summary_subject,
+		task_type="Work Summary",
+		is_group=False,
+		start_date=start_date,
+		end_date=end_date,
+		start_time=start_time,
+		end_time=end_time,
+		expected_time=expected_time,
+		parent_task=location_task,
+	)
+
+	created_tasks = [outline_task, location_task, work_summary_task]
+	return {
+		"project": project_doc.name,
+		"created_tasks": [
+			{
+				"name": task.name,
+				"subject": task.subject,
+				"type": task.get("type"),
+				"parent_task": task.get("parent_task"),
+			}
+			for task in created_tasks
+		],
+		"project_details": get_project_planner_details(project_doc.name),
 	}
 
 

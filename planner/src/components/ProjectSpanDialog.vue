@@ -131,6 +131,78 @@
 
               <div class="rounded-lg border border-gray-200 bg-white">
                 <div class="border-b border-gray-100 px-4 py-3">
+                  <div class="flex items-start justify-between gap-3">
+                    <div>
+                      <div class="text-sm font-semibold text-gray-800">Generic Task Structure</div>
+                      <div class="mt-0.5 text-xs text-gray-500">
+                        {{ genericTaskStatusMessage }}
+                      </div>
+                    </div>
+                    <div
+                      class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold"
+                      :class="form.has_tasks ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'"
+                    >
+                      {{ form.has_tasks ? `${form.task_count} task(s)` : 'Gantt missing' }}
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="!form.has_tasks" class="space-y-4 p-4">
+                  <div class="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                    <div class="font-semibold">{{ form.project_name || form.project }}</div>
+                    <div class="mt-1 pl-3">└─ {{ form.generic_location_subject || 'General' }}</div>
+                    <div class="pl-6">└─ {{ form.generic_work_summary_subject || 'Execution Works' }}</div>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-4">
+                    <FormControl
+                      type="text"
+                      label="Location Task"
+                      placeholder="General"
+                      v-model="form.generic_location_subject"
+                      :disabled="!form.can_create_generic_tasks || createGenericTasks.loading"
+                    />
+                    <FormControl
+                      type="text"
+                      label="Work Summary Task"
+                      placeholder="Execution Works"
+                      v-model="form.generic_work_summary_subject"
+                      :disabled="!form.can_create_generic_tasks || createGenericTasks.loading"
+                    />
+                    <FormControl
+                      type="time"
+                      label="Expected Start Time"
+                      v-model="form.generic_start_time"
+                      :disabled="!form.can_create_generic_tasks || createGenericTasks.loading"
+                    />
+                    <FormControl
+                      type="time"
+                      label="Expected End Time"
+                      v-model="form.generic_end_time"
+                      :disabled="!form.can_create_generic_tasks || createGenericTasks.loading"
+                    />
+                  </div>
+
+                  <div class="flex items-center justify-between gap-3">
+                    <p class="text-xs text-gray-500">
+                      The project name becomes the top-level Outline task. Existing tasks are never changed.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="solid"
+                      class="shrink-0"
+                      :disabled="!canSubmitGenericTasks || updateProject.loading"
+                      :loading="createGenericTasks.loading"
+                      @click="confirmCreateGenericTasks"
+                    >
+                      Create Generic Tasks
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rounded-lg border border-gray-200 bg-white">
+                <div class="border-b border-gray-100 px-4 py-3">
                   <div class="text-sm font-semibold text-gray-800">Personnel Assigned</div>
                   <div class="mt-0.5 text-xs text-gray-500">
                     Current annual view assignments split by DS and NS shift types.
@@ -194,7 +266,7 @@
               size="md"
               variant="solid"
               class="w-28"
-              :disabled="projectDetails.loading || updateProject.loading || !form.project"
+              :disabled="projectDetails.loading || updateProject.loading || createGenericTasks.loading || !form.project"
               :loading="updateProject.loading"
               @click="updateProject.submit()"
             >
@@ -242,12 +314,25 @@ type ProjectDetails = {
   notes?: string | null
   task_count?: number | string | null
   has_tasks?: boolean | number | string | null
+  can_create_generic_tasks?: boolean
+  generic_tasks_unavailable_reason?: string | null
   can_update_po?: boolean
   can_update_ds?: boolean
   can_update_ns?: boolean
   can_update_is_active?: boolean
   can_update_project_dates?: boolean
   can_update_notes?: boolean
+}
+
+type GenericTaskResponse = {
+  project?: string
+  created_tasks?: Array<{
+    name: string
+    subject?: string
+    type?: string | null
+    parent_task?: string | null
+  }>
+  project_details?: ProjectDetails
 }
 
 const props = defineProps<{
@@ -283,6 +368,12 @@ const form = reactive({
   project_notes: '',
   task_count: 0,
   has_tasks: false,
+  can_create_generic_tasks: false,
+  generic_tasks_unavailable_reason: '',
+  generic_location_subject: 'General',
+  generic_work_summary_subject: 'Execution Works',
+  generic_start_time: '08:00',
+  generic_end_time: '20:00',
   can_update_po: false,
   can_update_ds: false,
   can_update_ns: false,
@@ -310,6 +401,25 @@ const projectDateHelpMessage = computed(() => {
 
   return 'Project dates are not editable because the matching Project date fields were not found.'
 })
+
+const genericTaskStatusMessage = computed(() => {
+  if (form.has_tasks) {
+    return `This project already has ${form.task_count} task(s). The generic task option is no longer required.`
+  }
+
+  if (form.generic_tasks_unavailable_reason) return form.generic_tasks_unavailable_reason
+
+  return 'Creates an Outline, Location and Work Summary hierarchy using this project\'s dates.'
+})
+
+const canSubmitGenericTasks = computed(() => (
+  form.can_create_generic_tasks
+  && Boolean(form.project)
+  && Boolean(String(form.generic_location_subject || '').trim())
+  && Boolean(String(form.generic_work_summary_subject || '').trim())
+  && Boolean(form.generic_start_time)
+  && Boolean(form.generic_end_time)
+))
 
 const dsPersonnel = computed(() => normalisePersonnel(props.project?.ds_personnel))
 const nsPersonnel = computed(() => normalisePersonnel(props.project?.ns_personnel))
@@ -360,6 +470,12 @@ function resetForm() {
   form.project_notes = ''
   form.task_count = 0
   form.has_tasks = false
+  form.can_create_generic_tasks = false
+  form.generic_tasks_unavailable_reason = ''
+  form.generic_location_subject = 'General'
+  form.generic_work_summary_subject = 'Execution Works'
+  form.generic_start_time = '08:00'
+  form.generic_end_time = '20:00'
   form.can_update_po = false
   form.can_update_ds = false
   form.can_update_ns = false
@@ -387,6 +503,8 @@ function applyDetails(data: ProjectDetails | undefined) {
   form.project_notes = data.notes || ''
   form.task_count = intValue(data.task_count)
   form.has_tasks = boolValue(data.has_tasks)
+  form.can_create_generic_tasks = Boolean(data.can_create_generic_tasks)
+  form.generic_tasks_unavailable_reason = data.generic_tasks_unavailable_reason || ''
   form.can_update_po = Boolean(data.can_update_po)
   form.can_update_ds = Boolean(data.can_update_ds)
   form.can_update_ns = Boolean(data.can_update_ns)
@@ -412,6 +530,40 @@ const projectDetails = createResource({
   },
   onError(error: { messages?: string[]; message?: string }) {
     raiseToast('error', error?.messages?.[0] || error?.message || 'Failed to load project details')
+  },
+})
+
+function confirmCreateGenericTasks() {
+  if (!canSubmitGenericTasks.value || createGenericTasks.loading) return
+
+  const confirmed = window.confirm(
+    `Create the generic task hierarchy for ${form.project_name || form.project}?\n\n`
+    + 'This will create three linked Tasks and lock the Project dates while those Tasks exist.',
+  )
+  if (confirmed) createGenericTasks.submit()
+}
+
+const createGenericTasks = createResource({
+  url: 'verto.api.planner.create_generic_project_tasks',
+  auto: false,
+  makeParams() {
+    return {
+      project: form.project,
+      location_subject: form.generic_location_subject,
+      work_summary_subject: form.generic_work_summary_subject,
+      expected_start_time: form.generic_start_time,
+      expected_end_time: form.generic_end_time,
+    }
+  },
+  onSuccess(data: GenericTaskResponse | undefined) {
+    applyDetails(data?.project_details)
+    const createdCount = data?.created_tasks?.length || 3
+    raiseToast('success', `Created ${createdCount} linked generic tasks for ${form.project_name || form.project}.`)
+    emit('fetchEvents')
+  },
+  onError(error: { messages?: string[]; message?: string }) {
+    raiseToast('error', error?.messages?.[0] || error?.message || 'Failed to create generic tasks')
+    projectDetails.fetch()
   },
 })
 
