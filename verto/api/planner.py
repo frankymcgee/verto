@@ -868,7 +868,10 @@ def get_events(
 
 @frappe.whitelist()
 def get_year_events(
-	year: str | int, employee_filters: dict[str, str], shift_filters: dict[str, str]
+	year: str | int,
+	employee_filters: dict[str, str],
+	shift_filters: dict[str, str],
+	contract_version: str | int = 1,
 ) -> dict:
 	"""Return compact annual roster data.
 
@@ -887,15 +890,18 @@ def get_year_events(
 	holidays = get_holidays(year_start, year_end, employee_filters)
 	leaves = get_leaves(year_start, year_end, employee_filters)
 	shift_rows = get_shift_rows(year_start, year_end, employee_filters, shift_filters)
-	shifts = group_by_employee(shift_rows)
 	day_markers = get_year_day_markers(year_start, year_end, holidays)
 	timesheet_days = get_year_timesheet_days(year_start, year_end, shift_rows)
+	requested_contract_version = max(1, _safe_int(contract_version))
 
-	return {
-		# Holidays and calendar Events are shown as top date-header markers only in
-		# the annual Planner. They are intentionally not merged into employee cells.
-		"events": merge_employee_events(leaves, shifts),
-		"project_rows": get_year_project_rows(shift_rows, year_start, year_end),
+	response = {
+		"contract_version": requested_contract_version,
+		"project_rows": get_year_project_rows(
+			shift_rows,
+			year_start,
+			year_end,
+			sparse_assignments=requested_contract_version >= 2,
+		),
 		"day_markers": day_markers,
 		"employee_details": get_employee_planner_tooltip_details(employee_filters),
 		# Timesheet requirement state is kept separate from shift events because a
@@ -903,6 +909,30 @@ def get_year_events(
 		# date-specific. The annual UI renders green, red, or grey corner markers.
 		"timesheet_days": timesheet_days,
 	}
+
+	if response["contract_version"] >= 2:
+		# Version 2 replaces the browser's employee x day x event scan with a sparse
+		# date index. Full leave and shift records remain de-duplicated and each
+		# occupied employee day only carries their identifiers.
+		employee_event_days, leave_applications, shift_assignments = get_year_employee_event_index(
+			leaves,
+			shift_rows,
+			year_start,
+			year_end,
+		)
+		response.update(
+			{
+				"employee_event_days": employee_event_days,
+				"leave_applications": leave_applications,
+				"shift_assignments": shift_assignments,
+			}
+		)
+	else:
+		# Keep the original response for cached or older Planner assets during a
+		# rolling deployment. Holidays and calendar Events are header markers only.
+		response["events"] = merge_employee_events(leaves, group_by_employee(shift_rows))
+
+	return response
 
 
 def _clean_filters(filters: dict | str | None) -> dict:
@@ -1506,6 +1536,7 @@ def get_year_timesheet_days(year_start: str, year_end: str, shift_rows: list[dic
 
 	return result
 
+
 def merge_employee_events(*event_groups: dict[str, list[dict]]) -> dict[str, list[dict]]:
 	events = {}
 	for event_group in event_groups:
@@ -1530,6 +1561,82 @@ def _safe_date(value):
 		return getdate(value)
 	except Exception:
 		return None
+
+
+def _year_event_date_keys(start_value, end_value, year_start_date, year_end_date, open_ended=False):
+	start_date = _safe_date(start_value)
+	if not start_date:
+		return
+
+	end_date = _safe_date(end_value)
+	if not end_date:
+		end_date = year_end_date if open_ended else start_date
+
+	current = max(start_date, year_start_date)
+	last_date = min(end_date, year_end_date)
+	while current <= last_date:
+		yield str(current)
+		current = getdate(add_days(current, 1))
+
+
+def get_year_employee_event_index(
+	leaves: dict[str, list[dict]],
+	shift_rows: list[dict],
+	year_start: str,
+	year_end: str,
+) -> tuple[dict[str, dict[str, dict]], dict[str, dict], dict[str, dict]]:
+	"""Build the version 2 sparse annual employee-day contract."""
+	year_start_date = getdate(year_start)
+	year_end_date = getdate(year_end)
+	employee_event_days: dict[str, dict[str, dict]] = {}
+	leave_applications: dict[str, dict] = {}
+	shift_assignments: dict[str, dict] = {}
+
+	for employee, employee_leaves in (leaves or {}).items():
+		for leave in employee_leaves or []:
+			leave_name = str(leave.get("leave") or "").strip()
+			if not leave_name:
+				continue
+
+			leave_applications[leave_name] = dict(leave)
+			for date_key in _year_event_date_keys(
+				leave.get("from_date"),
+				leave.get("to_date"),
+				year_start_date,
+				year_end_date,
+			):
+				employee_event_days.setdefault(employee, {}).setdefault(date_key, {}).setdefault(
+					"leave", leave_name
+				)
+
+	for shift in shift_rows or []:
+		employee = str(shift.get("employee") or "").strip()
+		shift_name = str(shift.get("name") or "").strip()
+		if not employee or not shift_name:
+			continue
+
+		shift_is_visible = False
+		for date_key in _year_event_date_keys(
+			shift.get("start_date"),
+			shift.get("end_date"),
+			year_start_date,
+			year_end_date,
+			open_ended=True,
+		):
+			day = employee_event_days.setdefault(employee, {}).setdefault(date_key, {})
+			if day.get("leave"):
+				continue
+			shift_names = day.setdefault("shifts", [])
+			if shift_name not in shift_names:
+				shift_names.append(shift_name)
+				shift_is_visible = True
+
+		if shift_is_visible:
+			shift_assignments[shift_name] = {
+				key: value for key, value in shift.items() if key != "employee"
+			}
+
+	return employee_event_days, leave_applications, shift_assignments
 
 
 def add_holiday_day_markers(markers: dict[str, list[dict]], holidays: dict[str, list[dict]] | None) -> None:
@@ -3307,7 +3414,12 @@ def _is_ns_personnel_shift(shift_type: str | None) -> bool:
 	return suffix == "NS" or suffix.startswith("NS-")
 
 
-def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str) -> list[dict]:
+def get_year_project_rows(
+	shift_rows: list[dict],
+	year_start: str,
+	year_end: str,
+	sparse_assignments: bool = False,
+) -> list[dict]:
 	projects = {}
 	shift_summaries: dict[str, dict] = {}
 	year_start_date = getdate(year_start)
@@ -3396,38 +3508,57 @@ def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str
 			"ds_requested": _safe_int(project_meta.get("ds_requested")),
 			"ns_requested": _safe_int(project_meta.get("ns_requested")),
 			"customer_color": project_meta.get("customer_color"),
+			"start_date": str(bounds[0]),
+			"end_date": str(bounds[1]),
 			"assignments": {},
 		}
 
-		current = bounds[0]
-		while current <= bounds[1]:
-			date_key = str(current)
-			cell = projects[project]["assignments"].setdefault(
-				date_key,
-				{
-					"count": 0,
-					"color": None,
-					"_shift_types": [],
-					"_employees": [],
-					"_ds_personnel": [],
-					"_ns_personnel": [],
-				},
-			)
+		if sparse_assignments:
+			for date_key, shift_cell in shift_summaries.get(project, {}).items():
+				date = getdate(date_key)
+				if date < bounds[0] or date > bounds[1]:
+					continue
+				projects[project]["assignments"][date_key] = {
+					"count": shift_cell.get("count", 0),
+					"color": shift_cell.get("color"),
+					"_shift_types": list(shift_cell.get("_shift_types", [])),
+					"_employees": list(shift_cell.get("_employees", [])),
+					"_ds_personnel": list(shift_cell.get("_ds_personnel", [])),
+					"_ns_personnel": list(shift_cell.get("_ns_personnel", [])),
+				}
+		else:
+			current = bounds[0]
+			while current <= bounds[1]:
+				date_key = str(current)
+				cell = projects[project]["assignments"].setdefault(
+					date_key,
+					{
+						"count": 0,
+						"color": None,
+						"_shift_types": [],
+						"_employees": [],
+						"_ds_personnel": [],
+						"_ns_personnel": [],
+					},
+				)
 
-			shift_cell = shift_summaries.get(project, {}).get(date_key)
-			if shift_cell:
-				cell["count"] += shift_cell.get("count", 0)
-				cell["color"] = shift_cell.get("color") or cell.get("color")
-				cell["_shift_types"].extend(shift_cell.get("_shift_types", []))
-				cell["_employees"].extend(shift_cell.get("_employees", []))
-				cell["_ds_personnel"].extend(shift_cell.get("_ds_personnel", []))
-				cell["_ns_personnel"].extend(shift_cell.get("_ns_personnel", []))
+				shift_cell = shift_summaries.get(project, {}).get(date_key)
+				if shift_cell:
+					cell["count"] += shift_cell.get("count", 0)
+					cell["color"] = shift_cell.get("color") or cell.get("color")
+					cell["_shift_types"].extend(shift_cell.get("_shift_types", []))
+					cell["_employees"].extend(shift_cell.get("_employees", []))
+					cell["_ds_personnel"].extend(shift_cell.get("_ds_personnel", []))
+					cell["_ns_personnel"].extend(shift_cell.get("_ns_personnel", []))
 
-			current = getdate(add_days(current, 1))
+				current = getdate(add_days(current, 1))
 
 	for project in projects.values():
 		project_ds_personnel = set()
 		project_ns_personnel = set()
+		project_employees = set()
+		project_shift_types = set()
+		largest_daily_count = 0
 
 		for cell in project["assignments"].values():
 			shift_types = sorted(set(cell.pop("_shift_types", [])))
@@ -3436,11 +3567,14 @@ def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str
 			ns_personnel = sorted(set(cell.pop("_ns_personnel", [])))
 			project_ds_personnel.update(ds_personnel)
 			project_ns_personnel.update(ns_personnel)
+			project_employees.update(employees)
+			project_shift_types.update(shift_types)
 			cell["shift_types"] = shift_types
 			cell["employees"] = employees
 			cell["ds_personnel"] = ds_personnel
 			cell["ns_personnel"] = ns_personnel
 			cell["count"] = len(employees) or cell["count"]
+			largest_daily_count = max(largest_daily_count, cell["count"])
 			if cell["count"] > 1:
 				cell["label"] = str(cell["count"])
 			else:
@@ -3448,6 +3582,16 @@ def get_year_project_rows(shift_rows: list[dict], year_start: str, year_end: str
 
 		project["ds_personnel"] = sorted(project_ds_personnel)
 		project["ns_personnel"] = sorted(project_ns_personnel)
+		project["employee_count"] = len(project_employees) or largest_daily_count
+		project["shift_types"] = sorted(project_shift_types)
+
+		if sparse_assignments:
+			# The v2 client receives project-level summaries, so daily cells only need
+			# their allocation count for the legacy filled-status fallback.
+			project["assignments"] = {
+				date_key: {"count": cell.get("count", 0)}
+				for date_key, cell in project["assignments"].items()
+			}
 
 	return sorted(
 		projects.values(),
