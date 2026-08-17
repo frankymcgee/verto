@@ -1,3 +1,4 @@
+import json
 import re
 
 import frappe
@@ -2884,6 +2885,7 @@ GENERIC_TASK_DEFAULT_START_TIME = "08:00:00"
 GENERIC_TASK_DEFAULT_END_TIME = "20:00:00"
 GENERIC_TASK_DEFAULT_SHARED_VALUE = "MULTIPLE"
 GENERIC_TASK_ID_DIGITS = 4
+GENERIC_TASK_MAX_LOCATIONS = 100
 
 
 def _project_meta_fieldtype(fieldname: str | None) -> str | None:
@@ -2985,6 +2987,43 @@ def _normalise_generic_task_time(value, fallback: str, label: str) -> str:
 		return get_datetime(f"2000-01-01 {value}").strftime("%H:%M:%S")
 	except Exception:
 		frappe.throw(_("{0} must be a valid time.").format(label))
+
+
+def _normalise_generic_task_locations(locations, legacy_location_subject=None) -> list[str]:
+	if locations in (None, ""):
+		locations = [legacy_location_subject or GENERIC_TASK_DEFAULT_LOCATION]
+	elif isinstance(locations, str):
+		try:
+			locations = json.loads(locations)
+		except (TypeError, ValueError):
+			locations = [locations]
+
+	if isinstance(locations, dict):
+		locations = [locations]
+	if not isinstance(locations, (list, tuple)):
+		frappe.throw(_("Locations must be supplied as a list."))
+	if not locations:
+		frappe.throw(_("Add at least one Location task."))
+	if len(locations) > GENERIC_TASK_MAX_LOCATIONS:
+		frappe.throw(_("A maximum of {0} Location tasks can be created at once.").format(GENERIC_TASK_MAX_LOCATIONS))
+
+	subjects = []
+	seen = set()
+	for index, location in enumerate(locations, start=1):
+		if isinstance(location, dict):
+			location = location.get("subject") or location.get("location_subject") or location.get("name")
+		subject = _normalise_generic_task_subject(
+			location,
+			"",
+			_("Location {0} task name").format(index),
+		)
+		key = subject.casefold()
+		if key in seen:
+			frappe.throw(_("Location task names must be unique. Duplicate: {0}").format(subject))
+		seen.add(key)
+		subjects.append(subject)
+
+	return subjects
 
 
 def _next_project_task_names(project: str, count: int) -> list[str]:
@@ -3122,11 +3161,12 @@ def get_project_planner_details(project: str) -> dict:
 def create_generic_project_tasks(
 	project: str,
 	location_subject: str | None = None,
+	locations: list | str | None = None,
 	work_summary_subject: str | None = None,
 	expected_start_time: str | None = None,
 	expected_end_time: str | None = None,
 ) -> dict:
-	"""Create the standard Outline > Location > Work Summary task hierarchy.
+	"""Create an Outline with one or more Location > Work Summary task pairs.
 
 	This is intentionally restricted to projects with no existing Tasks so it
 	cannot be mixed accidentally with an imported client Gantt. The Project row
@@ -3156,11 +3196,7 @@ def create_generic_project_tasks(
 		project_doc.name,
 		_("Project task name"),
 	)
-	location_subject = _normalise_generic_task_subject(
-		location_subject,
-		GENERIC_TASK_DEFAULT_LOCATION,
-		_("Location task name"),
-	)
+	location_subjects = _normalise_generic_task_locations(locations, location_subject)
 	work_summary_subject = _normalise_generic_task_subject(
 		work_summary_subject,
 		GENERIC_TASK_DEFAULT_WORK_SUMMARY,
@@ -3187,7 +3223,7 @@ def create_generic_project_tasks(
 		frappe.throw(_("The generic task end date and time must be after its start date and time."))
 	expected_time = round((end_datetime - start_datetime).total_seconds() / 3600, 2)
 
-	task_names = _next_project_task_names(project_doc.name, 3)
+	task_names = _next_project_task_names(project_doc.name, 1 + (len(location_subjects) * 2))
 	outline_task = _insert_generic_project_task(
 		name=task_names[0],
 		project_doc=project_doc,
@@ -3200,34 +3236,38 @@ def create_generic_project_tasks(
 		end_time=end_time,
 		expected_time=expected_time,
 	)
-	location_task = _insert_generic_project_task(
-		name=task_names[1],
-		project_doc=project_doc,
-		subject=location_subject,
-		task_type="Location",
-		is_group=True,
-		start_date=start_date,
-		end_date=end_date,
-		start_time=start_time,
-		end_time=end_time,
-		expected_time=expected_time,
-		parent_task=outline_task,
-	)
-	work_summary_task = _insert_generic_project_task(
-		name=task_names[2],
-		project_doc=project_doc,
-		subject=work_summary_subject,
-		task_type="Work Summary",
-		is_group=False,
-		start_date=start_date,
-		end_date=end_date,
-		start_time=start_time,
-		end_time=end_time,
-		expected_time=expected_time,
-		parent_task=location_task,
-	)
-
-	created_tasks = [outline_task, location_task, work_summary_task]
+	created_tasks = [outline_task]
+	task_name_index = 1
+	for location_subject in location_subjects:
+		location_task = _insert_generic_project_task(
+			name=task_names[task_name_index],
+			project_doc=project_doc,
+			subject=location_subject,
+			task_type="Location",
+			is_group=True,
+			start_date=start_date,
+			end_date=end_date,
+			start_time=start_time,
+			end_time=end_time,
+			expected_time=expected_time,
+			parent_task=outline_task,
+		)
+		task_name_index += 1
+		work_summary_task = _insert_generic_project_task(
+			name=task_names[task_name_index],
+			project_doc=project_doc,
+			subject=work_summary_subject,
+			task_type="Work Summary",
+			is_group=False,
+			start_date=start_date,
+			end_date=end_date,
+			start_time=start_time,
+			end_time=end_time,
+			expected_time=expected_time,
+			parent_task=location_task,
+		)
+		task_name_index += 1
+		created_tasks.extend([location_task, work_summary_task])
 	return {
 		"project": project_doc.name,
 		"created_tasks": [

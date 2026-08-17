@@ -150,21 +150,68 @@
                 <div v-if="!form.has_tasks" class="space-y-4 p-4">
                   <div class="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
                     <div class="font-semibold">{{ form.project_name || form.project }}</div>
-                    <div class="mt-1 pl-3">└─ {{ form.generic_location_subject || 'General' }}</div>
-                    <div class="pl-6">└─ {{ form.generic_work_summary_subject || 'Execution Works' }}</div>
+                    <div
+                      v-for="(location, index) in form.generic_locations"
+                      :key="`generic-preview-${location.key}`"
+                      :class="index === 0 ? 'mt-1' : 'mt-1.5'"
+                    >
+                      <div class="pl-3">└─ {{ location.subject || `Location ${index + 1}` }}</div>
+                      <div class="pl-6">└─ {{ form.generic_work_summary_subject || 'Execution Works' }}</div>
+                    </div>
+                  </div>
+
+                  <div class="rounded-md border border-gray-200">
+                    <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-3 py-2">
+                      <div>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-600">Locations</div>
+                        <div class="text-xs text-gray-500">Each location receives its own linked Work Summary task.</div>
+                      </div>
+                      <button
+                        type="button"
+                        class="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        :disabled="!canAddGenericLocation"
+                        @click="addGenericLocation"
+                      >
+                        + Add Location
+                      </button>
+                    </div>
+
+                    <div class="space-y-3 p-3">
+                      <div
+                        v-for="(location, index) in form.generic_locations"
+                        :key="location.key"
+                        class="flex items-end gap-2"
+                      >
+                        <div class="min-w-0 flex-1">
+                          <FormControl
+                            type="text"
+                            :label="`Location ${index + 1}`"
+                            :placeholder="index === 0 ? 'General' : `Enter location ${index + 1}`"
+                            v-model="location.subject"
+                            :disabled="!form.can_create_generic_tasks || createGenericTasks.loading"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          class="mb-0.5 rounded-md border border-red-200 bg-white px-2.5 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                          :disabled="form.generic_locations.length <= 1 || createGenericTasks.loading"
+                          :aria-label="`Remove location ${index + 1}`"
+                          @click="removeGenericLocation(index)"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      <p v-if="!genericLocationNamesAreUnique" class="text-xs font-medium text-red-600">
+                        Each location task must have a unique name.
+                      </p>
+                    </div>
                   </div>
 
                   <div class="grid grid-cols-2 gap-4">
                     <FormControl
                       type="text"
-                      label="Location Task"
-                      placeholder="General"
-                      v-model="form.generic_location_subject"
-                      :disabled="!form.can_create_generic_tasks || createGenericTasks.loading"
-                    />
-                    <FormControl
-                      type="text"
-                      label="Work Summary Task"
+                      label="Work Summary Task (each location)"
                       placeholder="Execution Works"
                       v-model="form.generic_work_summary_subject"
                       :disabled="!form.can_create_generic_tasks || createGenericTasks.loading"
@@ -195,7 +242,7 @@
                       :loading="createGenericTasks.loading"
                       @click="confirmCreateGenericTasks"
                     >
-                      Create Generic Tasks
+                      Create {{ genericTaskTotalCount }} Generic Tasks
                     </Button>
                   </div>
                 </div>
@@ -351,6 +398,21 @@ const isOpen = computed({
   set: (value: boolean) => emit('update:modelValue', value),
 })
 
+type GenericLocationRow = {
+  key: number
+  subject: string
+}
+
+const GENERIC_LOCATION_LIMIT = 100
+let nextGenericLocationKey = 1
+
+function newGenericLocation(subject = ''): GenericLocationRow {
+  return {
+    key: nextGenericLocationKey++,
+    subject,
+  }
+}
+
 const form = reactive({
   project: '',
   project_name: '',
@@ -370,7 +432,7 @@ const form = reactive({
   has_tasks: false,
   can_create_generic_tasks: false,
   generic_tasks_unavailable_reason: '',
-  generic_location_subject: 'General',
+  generic_locations: [newGenericLocation('General')],
   generic_work_summary_subject: 'Execution Works',
   generic_start_time: '08:00',
   generic_end_time: '20:00',
@@ -409,13 +471,27 @@ const genericTaskStatusMessage = computed(() => {
 
   if (form.generic_tasks_unavailable_reason) return form.generic_tasks_unavailable_reason
 
-  return 'Creates an Outline, Location and Work Summary hierarchy using this project\'s dates.'
+  return 'Creates one Outline plus a Location and Work Summary pair for every location entered below.'
 })
+
+const genericLocationNames = computed(() => form.generic_locations.map((location) => String(location.subject || '').trim()))
+const genericLocationNamesAreUnique = computed(() => {
+  const names = genericLocationNames.value.filter(Boolean).map((name) => name.toLowerCase())
+  return new Set(names).size === names.length
+})
+const genericTaskTotalCount = computed(() => 1 + (form.generic_locations.length * 2))
+const canAddGenericLocation = computed(() => (
+  form.can_create_generic_tasks
+  && !createGenericTasks.loading
+  && form.generic_locations.length < GENERIC_LOCATION_LIMIT
+))
 
 const canSubmitGenericTasks = computed(() => (
   form.can_create_generic_tasks
   && Boolean(form.project)
-  && Boolean(String(form.generic_location_subject || '').trim())
+  && form.generic_locations.length > 0
+  && genericLocationNames.value.every(Boolean)
+  && genericLocationNamesAreUnique.value
   && Boolean(String(form.generic_work_summary_subject || '').trim())
   && Boolean(form.generic_start_time)
   && Boolean(form.generic_end_time)
@@ -438,6 +514,16 @@ const missingEditableFieldMessage = computed(() => {
 
 function normalisePersonnel(value?: string[] | null) {
   return Array.isArray(value) ? value.filter(Boolean).sort() : []
+}
+
+function addGenericLocation() {
+  if (!canAddGenericLocation.value) return
+  form.generic_locations.push(newGenericLocation())
+}
+
+function removeGenericLocation(index: number) {
+  if (form.generic_locations.length <= 1 || createGenericTasks.loading) return
+  form.generic_locations.splice(index, 1)
 }
 
 function boolValue(value: unknown, fallback = false) {
@@ -472,7 +558,7 @@ function resetForm() {
   form.has_tasks = false
   form.can_create_generic_tasks = false
   form.generic_tasks_unavailable_reason = ''
-  form.generic_location_subject = 'General'
+  form.generic_locations.splice(0, form.generic_locations.length, newGenericLocation('General'))
   form.generic_work_summary_subject = 'Execution Works'
   form.generic_start_time = '08:00'
   form.generic_end_time = '20:00'
@@ -536,9 +622,12 @@ const projectDetails = createResource({
 function confirmCreateGenericTasks() {
   if (!canSubmitGenericTasks.value || createGenericTasks.loading) return
 
+  const locationCount = form.generic_locations.length
+  const locationLabel = locationCount === 1 ? 'location' : 'locations'
   const confirmed = window.confirm(
     `Create the generic task hierarchy for ${form.project_name || form.project}?\n\n`
-    + 'This will create three linked Tasks and lock the Project dates while those Tasks exist.',
+    + `This will create ${genericTaskTotalCount.value} linked Tasks across ${locationCount} ${locationLabel} `
+    + 'and lock the Project dates while those Tasks exist.',
   )
   if (confirmed) createGenericTasks.submit()
 }
@@ -549,7 +638,7 @@ const createGenericTasks = createResource({
   makeParams() {
     return {
       project: form.project,
-      location_subject: form.generic_location_subject,
+      locations: genericLocationNames.value,
       work_summary_subject: form.generic_work_summary_subject,
       expected_start_time: form.generic_start_time,
       expected_end_time: form.generic_end_time,
@@ -557,7 +646,7 @@ const createGenericTasks = createResource({
   },
   onSuccess(data: GenericTaskResponse | undefined) {
     applyDetails(data?.project_details)
-    const createdCount = data?.created_tasks?.length || 3
+    const createdCount = data?.created_tasks?.length || genericTaskTotalCount.value
     raiseToast('success', `Created ${createdCount} linked generic tasks for ${form.project_name || form.project}.`)
     emit('fetchEvents')
   },
