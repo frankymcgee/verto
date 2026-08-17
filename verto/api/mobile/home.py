@@ -77,7 +77,16 @@ def scrub_mobile_doctype(doctype):
 
 
 def doctype_exists(doctype):
-    return bool(frappe.db.exists("DocType", doctype))
+    cache = getattr(frappe.local, "verto_mobile_doctype_exists", None)
+
+    if cache is None:
+        cache = {}
+        frappe.local.verto_mobile_doctype_exists = cache
+
+    if doctype not in cache:
+        cache[doctype] = bool(frappe.db.exists("DocType", doctype))
+
+    return cache[doctype]
 
 
 def get_button_doctype(button):
@@ -194,7 +203,7 @@ def get_buttons_from_settings(settings, field_candidates, fallback_buttons):
 
 def get_mobile_form_buttons():
     try:
-        settings = frappe.get_single(SETTINGS_DOCTYPE)
+        settings = frappe.get_cached_doc(SETTINGS_DOCTYPE)
     except Exception:
         frappe.log_error(
             title="Verto Mobile Settings lookup failed",

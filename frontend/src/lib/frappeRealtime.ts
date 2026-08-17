@@ -1,4 +1,4 @@
-import { io, type Socket } from 'socket.io-client'
+import { Manager, type Socket } from 'socket.io-client'
 
 type RealtimeCallback = (data: any) => void
 
@@ -7,16 +7,25 @@ const callbacks = new Map<string, Set<RealtimeCallback>>()
 let socket: Socket | null = null
 let hasInitialised = false
 
+function normaliseSiteName(value?: string) {
+  return String(value || '').trim().replace(/^\/+|\/+$/g, '')
+}
+
 function getSiteName() {
-  return (
+  const embeddedSiteName = document
+    .querySelector<HTMLMetaElement>('meta[name="frappe-site-name"]')
+    ?.content
+
+  return normaliseSiteName(
+    window.location.hostname ||
+    embeddedSiteName ||
     window.frappe?.boot?.sitename ||
-    window.frappe?.boot?.site_name ||
-    window.location.hostname
+    window.frappe?.boot?.site_name
   )
 }
 
-function getSocketUrl() {
-  return window.location.origin
+function getSocketNamespace(siteName: string) {
+  return `/${siteName}`
 }
 
 function getSocketPath() {
@@ -25,22 +34,16 @@ function getSocketPath() {
 
 function makeSocket() {
   const siteName = getSiteName()
-
-  return io(getSocketUrl(), {
+  const manager = new Manager(window.location.origin, {
     path: getSocketPath(),
     withCredentials: true,
-    transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 500,
     reconnectionDelayMax: 5000,
-    auth: {
-      site_name: siteName,
-    },
-    query: {
-      site_name: siteName,
-    },
   })
+
+  return manager.socket(getSocketNamespace(siteName))
 }
 
 function attachStoredListeners() {
@@ -61,11 +64,19 @@ function ensureSocket() {
   socket = makeSocket()
 
   socket.on('connect', () => {
-    console.info('[Verto realtime] connected')
+    console.info('[Verto realtime] connected', {
+      namespace: socket?.nsp,
+      transport: socket?.io.engine.transport.name,
+    })
   })
 
   socket.on('connect_error', (error) => {
-    console.warn('[Verto realtime] connect_error:', error.message)
+    console.warn('[Verto realtime] connect_error', {
+      message: error.message,
+      namespace: socket?.nsp,
+      origin: window.location.origin,
+      hostname: window.location.hostname,
+    })
   })
 
   socket.on('disconnect', (reason) => {
@@ -92,32 +103,30 @@ export function setupFrappeRealtime() {
     },
 
     on(event: string, callback: RealtimeCallback) {
+      const activeSocket = ensureSocket()
+
       if (!callbacks.has(event)) {
         callbacks.set(event, new Set())
       }
 
       callbacks.get(event)?.add(callback)
-
-      const activeSocket = ensureSocket()
       activeSocket.on(event, callback)
     },
 
     off(event: string, callback?: RealtimeCallback) {
-      const activeSocket = ensureSocket()
-
       if (!callback) {
         callbacks.delete(event)
-        activeSocket.off(event)
+        socket?.off(event)
         return
       }
 
       callbacks.get(event)?.delete(callback)
-      activeSocket.off(event, callback)
+      socket?.off(event, callback)
     },
 
-    emit(event: string, data?: any) {
+    emit(event: string, ...args: any[]) {
       const activeSocket = ensureSocket()
-      activeSocket.emit(event, data)
+      activeSocket.emit(event, ...args)
     },
 
     connect() {
@@ -135,9 +144,34 @@ export function setupFrappeRealtime() {
     isConnected() {
       return Boolean(socket?.connected)
     },
-  }
 
-  ensureSocket()
+    ping(timeoutMs = 5000) {
+      const activeSocket = ensureSocket()
+
+      if (!activeSocket.connected) {
+        return Promise.resolve(false)
+      }
+
+      return new Promise<boolean>((resolve) => {
+        let settled = false
+        let timer = 0
+
+        const finish = (healthy: boolean) => {
+          if (settled) return
+          settled = true
+          window.clearTimeout(timer)
+          activeSocket.off('pong', handlePong)
+          resolve(healthy)
+        }
+
+        const handlePong = () => finish(true)
+
+        activeSocket.once('pong', handlePong)
+        timer = window.setTimeout(() => finish(false), timeoutMs)
+        activeSocket.emit('ping')
+      })
+    },
+  }
 
   return window.frappe.realtime
 }

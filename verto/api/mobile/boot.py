@@ -28,11 +28,18 @@ def doctype_exists(doctype):
     return bool(frappe.db.exists("DocType", doctype))
 
 
-def get_setting(fieldname, default=None):
-    if not doctype_exists(SETTINGS_DOCTYPE):
+def get_mobile_settings():
+    try:
+        return frappe.get_cached_doc(SETTINGS_DOCTYPE)
+    except Exception:
+        return None
+
+
+def get_setting(settings, fieldname, default=None):
+    if not settings or not settings.meta.has_field(fieldname):
         return default
 
-    value = frappe.db.get_single_value(SETTINGS_DOCTYPE, fieldname)
+    value = settings.get(fieldname)
 
     if value in (None, ""):
         return default
@@ -170,33 +177,42 @@ def get_peri_bot_image_from_raven(bot_name):
 def get_mobile_boot():
     require_login()
 
+    settings = get_mobile_settings()
+
     app_icon = normalise_asset_url(
-        get_setting("app_icon", DEFAULT_BOOT["app_icon"])
+        get_setting(settings, "app_icon", DEFAULT_BOOT["app_icon"])
     )
 
     app_logo = normalise_asset_url(
-        get_setting("app_logo", DEFAULT_BOOT["app_logo"])
+        get_setting(settings, "app_logo", DEFAULT_BOOT["app_logo"])
     )
 
     favicon = normalise_asset_url(
-        get_setting("favicon", DEFAULT_BOOT["favicon"])
+        get_setting(settings, "favicon", DEFAULT_BOOT["favicon"])
     )
 
-    peri_bot_name = get_setting(
+    peri_bot_name = get_setting(settings, 
         "peri_bot_name",
         DEFAULT_BOOT["peri_bot_name"],
     )
 
     configured_peri_bot_image = normalise_asset_url(
-        get_setting("peri_bot_image", DEFAULT_BOOT["peri_bot_image"])
+        get_setting(settings, "peri_bot_image", DEFAULT_BOOT["peri_bot_image"])
     )
 
     resolved_peri_bot_image = configured_peri_bot_image or normalise_asset_url(
         get_peri_bot_image_from_raven(peri_bot_name)
     )
 
+    user_details = frappe.db.get_value(
+        "User",
+        frappe.session.user,
+        ["full_name", "user_image"],
+        as_dict=True,
+    ) or {}
+
     user_image = normalise_asset_url(
-        get_user_image(frappe.session.user)
+        user_details.get("user_image")
     )
 
     return {
@@ -204,7 +220,7 @@ def get_mobile_boot():
         "base_url": get_site_base_url(),
 
         # App identity
-        "app_name": get_setting("app_name", DEFAULT_BOOT["app_name"]),
+        "app_name": get_setting(settings, "app_name", DEFAULT_BOOT["app_name"]),
         "app_icon": app_icon,
         "app_icon_url": absolute_url(app_icon),
         "app_logo": app_logo,
@@ -214,22 +230,22 @@ def get_mobile_boot():
 
         # Mobile routing
         "app_route_base": "/verto-mobile",
-        "fallback_home_route": get_setting(
+        "fallback_home_route": get_setting(settings, 
             "fallback_home_route",
             DEFAULT_BOOT["fallback_home_route"],
         ),
 
         # Chat/Raven defaults
-        "default_workspace": get_setting(
+        "default_workspace": get_setting(settings, 
             "default_workspace",
             DEFAULT_BOOT["default_workspace"],
         ),
-        "default_chat_channel": get_setting(
+        "default_chat_channel": get_setting(settings, 
             "default_chat_channel",
             DEFAULT_BOOT["default_chat_channel"],
         ),
         "peri_bot_name": peri_bot_name,
-        "peri_bot_user": get_setting(
+        "peri_bot_user": get_setting(settings, 
             "peri_bot_user",
             DEFAULT_BOOT["peri_bot_user"],
         ),
@@ -242,11 +258,7 @@ def get_mobile_boot():
 
         # Current user
         "user": frappe.session.user,
-        "user_fullname": frappe.db.get_value(
-            "User",
-            frappe.session.user,
-            "full_name",
-        ) or frappe.session.user,
+        "user_fullname": user_details.get("full_name") or frappe.session.user,
         "user_image": user_image,
         "user_image_url": absolute_url(user_image),
     }

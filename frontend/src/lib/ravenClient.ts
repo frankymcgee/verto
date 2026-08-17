@@ -352,21 +352,42 @@ function mapPreviewDataToDocumentPreview(doctype: string, docname: string, raw: 
   }
 }
 
+const documentPreviewCache = new Map<string, Promise<RavenDocumentPreview | null>>()
+const DOCUMENT_PREVIEW_CACHE_LIMIT = 200
+
 async function fetchDocumentPreviewData(doctype: string, docname: string) {
-  const params = new URLSearchParams({
-    doctype,
-    docname,
-  })
+  const key = previewKey(doctype, docname)
+  const cached = documentPreviewCache.get(key)
 
-  try {
-    const data = await apiRequest<FrappeResponse<Record<string, any> | null>>(
-      `/api/method/raven.api.document_link.get_preview_data?${params.toString()}`
-    )
-
-    return mapPreviewDataToDocumentPreview(doctype, docname, data.message || null)
-  } catch {
-    return null
+  if (cached) {
+    return cached
   }
+
+  const request = (async () => {
+    const params = new URLSearchParams({
+      doctype,
+      docname,
+    })
+
+    try {
+      const data = await apiRequest<FrappeResponse<Record<string, any> | null>>(
+        `/api/method/raven.api.document_link.get_preview_data?${params.toString()}`
+      )
+
+      return mapPreviewDataToDocumentPreview(doctype, docname, data.message || null)
+    } catch {
+      documentPreviewCache.delete(key)
+      return null
+    }
+  })()
+
+  if (documentPreviewCache.size >= DOCUMENT_PREVIEW_CACHE_LIMIT) {
+    documentPreviewCache.clear()
+  }
+
+  documentPreviewCache.set(key, request)
+
+  return request
 }
 
 async function enrichDocumentPreviews(messages: RavenMessage[]) {

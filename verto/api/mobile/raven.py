@@ -786,13 +786,9 @@ def get_mobile_chat_bootstrap():
         channels[0] if channels else None,
     )
 
+    # The client loads the active channel through Raven's normal message stream.
+    # Avoid fetching and normalising the same messages twice during bootstrap.
     messages = []
-
-    if active_channel:
-        try:
-            messages = get_channel_messages(active_channel["name"], limit=20).get("messages", [])
-        except Exception:
-            messages = []
 
     return {
         "current_user": user,

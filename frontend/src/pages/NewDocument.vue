@@ -519,6 +519,7 @@ const mobileDoctype = String(route.params.mobileDoctype || '')
 const draftStorageKey = `verto:new-document-draft:${mobileDoctype}:${route.fullPath}`
 
 let fieldChangeTimer: number | undefined
+let fieldChangeRequestId = 0
 let draftSaveTimer: number | undefined
 
 const formTabs = computed<FormTab[]>(() => {
@@ -1155,7 +1156,7 @@ function getVisibleValues() {
   return cleaned
 }
 
-async function applyFetchFrom(changedFieldname: string) {
+async function processFieldChange(changedFieldname: string) {
   const payload = new FormData()
 
   payload.append('mobile_doctype', mobileDoctype)
@@ -1163,43 +1164,18 @@ async function applyFetchFrom(changedFieldname: string) {
   payload.append('values', JSON.stringify(getAllValuesForFieldChange()))
 
   const data = await apiRequest<FrappeResponse<DynamicFieldChangeResponse>>(
-    '/api/method/verto.api.mobile.documents.apply_fetch_from',
+    '/api/method/verto.api.mobile.documents.process_field_change',
     {
       method: 'POST',
       body: payload,
     }
   )
 
-  const message = getResponseMessage(data, { values: {} })
-
-  applyDynamicFieldResponse(message)
-}
-
-async function runFieldChange(changedFieldname: string) {
-  const payload = new FormData()
-
-  payload.append('mobile_doctype', mobileDoctype)
-  payload.append('changed_fieldname', changedFieldname)
-  payload.append('values', JSON.stringify(getAllValuesForFieldChange()))
-
-  const data = await apiRequest<FrappeResponse<DynamicFieldChangeResponse>>(
-    '/api/method/verto.api.mobile.documents.run_field_change',
-    {
-      method: 'POST',
-      body: payload,
-    }
-  )
-
-  const message = getResponseMessage(data, {
+  return getResponseMessage(data, {
     values: {},
     messages: [],
     warnings: [],
   })
-
-  applyDynamicFieldResponse(message)
-
-  messages.value = message.messages || []
-  warnings.value = message.warnings || []
 }
 
 function handleFieldChange(field: MobileField) {
@@ -1208,13 +1184,26 @@ function handleFieldChange(field: MobileField) {
   }
 
   closeErrorDrawer()
+  fieldChangeRequestId += 1
+  const requestId = fieldChangeRequestId
   window.clearTimeout(fieldChangeTimer)
 
   fieldChangeTimer = window.setTimeout(async () => {
     try {
-      await applyFetchFrom(field.fieldname)
-      await runFieldChange(field.fieldname)
+      const message = await processFieldChange(field.fieldname)
+
+      if (requestId !== fieldChangeRequestId) {
+        return
+      }
+
+      applyDynamicFieldResponse(message)
+      messages.value = message.messages || []
+      warnings.value = message.warnings || []
     } catch (err) {
+      if (requestId !== fieldChangeRequestId) {
+        return
+      }
+
       if (err instanceof Error && err.message === 'Login required') {
         return
       }
@@ -1441,6 +1430,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  fieldChangeRequestId += 1
   window.clearTimeout(fieldChangeTimer)
   window.clearTimeout(draftSaveTimer)
   saveDraftNow()

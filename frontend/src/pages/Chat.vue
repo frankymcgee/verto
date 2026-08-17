@@ -794,9 +794,11 @@ const activeThreadId = ref('')
 const threadCounts = ref<Record<string, number>>({})
 const hydratingThreadCounts = ref(false)
 
-const FORCED_REFRESH_INTERVAL_MS = 5000
-let forcedRefreshTimer: number | undefined
-let forcedRefreshInFlight = false
+const FALLBACK_REFRESH_INTERVAL_MS = 60_000
+let fallbackRefreshTimer: number | undefined
+let fallbackRefreshInFlight = false
+const visibleMessageHtmlCache = new Map<string, string>()
+const VISIBLE_MESSAGE_HTML_CACHE_LIMIT = 300
 
 const requestedChannel = computed(() => String(route.query.channel || '').trim())
 const isAiMode = computed(() => {
@@ -1365,18 +1367,27 @@ function getVisibleMessageHtml(message: RavenMessage) {
 
   if (!raw) return ''
 
+  const cached = visibleMessageHtmlCache.get(raw)
+
+  if (cached !== undefined) {
+    return cached
+  }
+
   const decoded = decodeHtmlDeep(raw)
   const tiptapHtml = looksLikeTiptapJson(decoded) ? tiptapJsonToHtml(decoded) : ''
+  const html = tiptapHtml
+    ? sanitiseMessageHtml(tiptapHtml)
+    : containsHtml(decoded)
+      ? sanitiseMessageHtml(decoded)
+      : textToHtml(raw)
 
-  if (tiptapHtml) {
-    return sanitiseMessageHtml(tiptapHtml)
+  if (visibleMessageHtmlCache.size >= VISIBLE_MESSAGE_HTML_CACHE_LIMIT) {
+    visibleMessageHtmlCache.clear()
   }
 
-  if (containsHtml(decoded)) {
-    return sanitiseMessageHtml(decoded)
-  }
+  visibleMessageHtmlCache.set(raw, html)
 
-  return textToHtml(raw)
+  return html
 }
 
 function getInitials(value: string) {
@@ -1837,19 +1848,19 @@ function getLatestMessageName(items: RavenMessage[]) {
   return ordered[ordered.length - 1]?.name || ''
 }
 
-async function forcedRefreshFromRaven() {
-  if (forcedRefreshInFlight || chat.loading.value || !chat.activeChannelId.value) {
+async function fallbackRefreshFromRaven() {
+  if (fallbackRefreshInFlight || chat.loading.value || !chat.activeChannelId.value) {
     return
   }
 
-  forcedRefreshInFlight = true
+  fallbackRefreshInFlight = true
 
   const beforeLatestMessage = getLatestMessageName(chat.messages.value)
   const beforeThreadLatestMessage = getLatestMessageName(threadReplies.value)
   const shouldStayAtBottom = isNearBottom(messagesEl.value, 180)
 
   try {
-    await chat.loadMessages()
+    await chat.fetchNewer()
     await hydrateThreadCountsForMessages()
 
     const afterLatestMessage = getLatestMessageName(chat.messages.value)
@@ -1868,29 +1879,58 @@ async function forcedRefreshFromRaven() {
       }
     }
   } catch (err) {
-    console.warn('[verto raven polling] forced refresh failed', err)
+    console.warn('[verto raven fallback] refresh failed', err)
   } finally {
-    forcedRefreshInFlight = false
+    fallbackRefreshInFlight = false
   }
 }
 
-function startForcedRefreshPolling() {
-  stopForcedRefreshPolling()
+function startFallbackRefreshPolling() {
+  stopFallbackRefreshPolling()
 
-  console.log('[verto raven polling] started', {
-    intervalMs: FORCED_REFRESH_INTERVAL_MS,
-    activeChannel: chat.activeChannelId.value,
-  })
+  fallbackRefreshTimer = window.setInterval(() => {
+    if (
+      document.visibilityState === 'visible'
+      && navigator.onLine
+    ) {
+      if (!realtime.isConnected()) {
+        realtime.ensureConnected()
+      }
 
-  forcedRefreshTimer = window.setInterval(() => {
-    forcedRefreshFromRaven()
-  }, FORCED_REFRESH_INTERVAL_MS)
+      void fallbackRefreshFromRaven()
+    }
+  }, FALLBACK_REFRESH_INTERVAL_MS)
 }
 
-function stopForcedRefreshPolling() {
-  if (forcedRefreshTimer) {
-    window.clearInterval(forcedRefreshTimer)
-    forcedRefreshTimer = undefined
+async function recoverLiveChat() {
+  if (
+    document.visibilityState !== 'visible'
+    || !navigator.onLine
+    || chat.loading.value
+    || !chat.activeChannelId.value
+  ) {
+    return
+  }
+
+  const healthy = await realtime.ensureHealthy()
+
+  if (healthy) {
+    realtime.resubscribeAll()
+  }
+
+  await fallbackRefreshFromRaven()
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    void recoverLiveChat()
+  }
+}
+
+function stopFallbackRefreshPolling() {
+  if (fallbackRefreshTimer) {
+    window.clearInterval(fallbackRefreshTimer)
+    fallbackRefreshTimer = undefined
   }
 }
 
@@ -1917,7 +1957,7 @@ async function reloadChat() {
   await chat.load()
   await hydrateThreadCountsForMessages()
   realtime.resubscribeAll()
-  startForcedRefreshPolling()
+  startFallbackRefreshPolling()
   await scrollToBottom()
 }
 
@@ -1927,24 +1967,31 @@ watch(
     await chat.load()
     await hydrateThreadCountsForMessages()
     realtime.resubscribeAll()
-    startForcedRefreshPolling()
+    startFallbackRefreshPolling()
     await handlePeriAutoSend()
     await scrollToBottom()
   }
 )
 
 onMounted(async () => {
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  window.addEventListener('pageshow', recoverLiveChat)
+  window.addEventListener('online', recoverLiveChat)
+
   await loadMobileBoot()
   await chat.load()
   await hydrateThreadCountsForMessages()
   realtime.start()
-  startForcedRefreshPolling()
+  startFallbackRefreshPolling()
   await handlePeriAutoSend()
   await scrollToBottom()
 })
 
 onBeforeUnmount(() => {
-  stopForcedRefreshPolling()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  window.removeEventListener('pageshow', recoverLiveChat)
+  window.removeEventListener('online', recoverLiveChat)
+  stopFallbackRefreshPolling()
   realtime.stop()
 })
 </script>

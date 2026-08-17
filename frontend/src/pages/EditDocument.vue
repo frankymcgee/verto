@@ -381,7 +381,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Badge,
@@ -489,6 +489,7 @@ const mobileDoctype = String(route.params.mobileDoctype || '')
 const docname = String(route.params.docname || '')
 
 let fieldChangeTimer: number | undefined
+let fieldChangeRequestId = 0
 
 const formTabs = computed<FormTab[]>(() => {
   const fields = schema.value?.fields || []
@@ -999,9 +1000,9 @@ function getVisibleValues() {
   return cleaned
 }
 
-async function applyFetchFrom(changedFieldname: string) {
+async function processFieldChange(changedFieldname: string) {
   if (!canWrite.value) {
-    return
+    return null
   }
 
   const payload = new FormData()
@@ -1012,48 +1013,18 @@ async function applyFetchFrom(changedFieldname: string) {
   payload.append('values', JSON.stringify(getAllValuesForFieldChange()))
 
   const data = await apiRequest<FrappeResponse<DynamicFieldChangeResponse>>(
-    '/api/method/verto.api.mobile.documents.apply_fetch_from',
+    '/api/method/verto.api.mobile.documents.process_field_change',
     {
       method: 'POST',
       body: payload,
     }
   )
 
-  const message = getResponseMessage(data, { values: {} })
-
-  applyDynamicFieldResponse(message)
-}
-
-async function runFieldChange(changedFieldname: string) {
-  if (!canWrite.value) {
-    return
-  }
-
-  const payload = new FormData()
-
-  payload.append('mobile_doctype', mobileDoctype)
-  payload.append('docname', docname)
-  payload.append('changed_fieldname', changedFieldname)
-  payload.append('values', JSON.stringify(getAllValuesForFieldChange()))
-
-  const data = await apiRequest<FrappeResponse<DynamicFieldChangeResponse>>(
-    '/api/method/verto.api.mobile.documents.run_field_change',
-    {
-      method: 'POST',
-      body: payload,
-    }
-  )
-
-  const message = getResponseMessage(data, {
+  return getResponseMessage(data, {
     values: {},
     messages: [],
     warnings: [],
   })
-
-  applyDynamicFieldResponse(message)
-
-  messages.value = message.messages || []
-  warnings.value = message.warnings || []
 }
 
 function handleFieldChange(field: MobileField) {
@@ -1067,13 +1038,26 @@ function handleFieldChange(field: MobileField) {
 
   saved.value = false
   error.value = ''
+  fieldChangeRequestId += 1
+  const requestId = fieldChangeRequestId
   window.clearTimeout(fieldChangeTimer)
 
   fieldChangeTimer = window.setTimeout(async () => {
     try {
-      await applyFetchFrom(field.fieldname)
-      await runFieldChange(field.fieldname)
+      const message = await processFieldChange(field.fieldname)
+
+      if (!message || requestId !== fieldChangeRequestId) {
+        return
+      }
+
+      applyDynamicFieldResponse(message)
+      messages.value = message.messages || []
+      warnings.value = message.warnings || []
     } catch (err) {
+      if (requestId !== fieldChangeRequestId) {
+        return
+      }
+
       if (err instanceof Error && err.message === 'Login required') {
         return
       }
@@ -1254,5 +1238,10 @@ async function saveForm() {
 
 onMounted(() => {
   loadEditDocument()
+})
+
+onBeforeUnmount(() => {
+  fieldChangeRequestId += 1
+  window.clearTimeout(fieldChangeTimer)
 })
 </script>
