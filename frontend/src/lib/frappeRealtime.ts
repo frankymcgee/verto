@@ -17,10 +17,10 @@ function getSiteName() {
     ?.content
 
   return normaliseSiteName(
-    window.frappe?.boot?.sitename ||
-    window.frappe?.boot?.site_name ||
+    window.location.hostname ||
     embeddedSiteName ||
-    window.location.hostname
+    window.frappe?.boot?.sitename ||
+    window.frappe?.boot?.site_name
   )
 }
 
@@ -37,7 +37,6 @@ function makeSocket() {
   const manager = new Manager(window.location.origin, {
     path: getSocketPath(),
     withCredentials: true,
-    transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 500,
@@ -72,7 +71,12 @@ function ensureSocket() {
   })
 
   socket.on('connect_error', (error) => {
-    console.warn('[Verto realtime] connect_error:', error.message)
+    console.warn('[Verto realtime] connect_error', {
+      message: error.message,
+      namespace: socket?.nsp,
+      origin: window.location.origin,
+      hostname: window.location.hostname,
+    })
   })
 
   socket.on('disconnect', (reason) => {
