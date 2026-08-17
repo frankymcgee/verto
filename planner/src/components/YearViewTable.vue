@@ -700,6 +700,13 @@ type ShiftAssignment = {
 type RawEvent = HolidayWithDate | LeaveApplication | ShiftAssignment
 type Events = Record<string, RawEvent[]>
 
+type EmployeeEventDayReferences = {
+  leave?: string
+  shifts?: string[]
+}
+
+type EmployeeEventDays = Record<string, Record<string, EmployeeEventDayReferences>>
+
 type YearCell =
   | { type: 'holiday'; label: string; title: string }
   | { type: 'leave'; label: string; title: string; leave: LeaveApplication }
@@ -708,7 +715,7 @@ type YearCell =
 type MappedEvents = Record<string, Record<string, YearCell>>
 
 type ProjectDayCell = {
-  label: string
+  label?: string
   count: number
   color?: string
   shift_types?: string[]
@@ -736,11 +743,19 @@ type ProjectRow = {
   ds_requested?: number
   ns_requested?: number
   customer_color?: string | null
+  start_date?: string | null
+  end_date?: string | null
+  employee_count?: number
+  shift_types?: string[]
   assignments: Record<string, ProjectDayCell>
 }
 
 type YearEventsResponse = {
+  contract_version?: number
   events?: Events
+  employee_event_days?: EmployeeEventDays
+  leave_applications?: Record<string, LeaveApplication>
+  shift_assignments?: Record<string, ShiftAssignment>
   project_rows?: ProjectRow[]
   day_markers?: DayMarkers
   employee_details?: Record<string, EmployeeTooltipDetails>
@@ -1152,6 +1167,11 @@ function projectIsFilled(project: ProjectRow) {
   const cells = Object.values(project.assignments || {})
   if (!cells.length) return false
 
+  if (project.start_date && project.end_date) {
+    const expectedDays = dayjs(project.end_date).diff(dayjs(project.start_date), 'day') + 1
+    if (expectedDays > cells.length) return false
+  }
+
   return cells.every((cell) => Number(cell?.count || 0) >= requested)
 }
 
@@ -1275,7 +1295,9 @@ const projectSpans = computed<Record<string, ProjectSpan>>(() => {
 
   for (const project of projectRows.value) {
     const dates = Object.keys(project.assignments || {}).sort()
-    if (!dates.length) continue
+    const startDate = project.start_date || dates[0]
+    const endDate = project.end_date || dates[dates.length - 1]
+    if (!startDate || !endDate) continue
 
     const employeeSet = new Set<string>()
     const shiftTypeSet = new Set<string>()
@@ -1294,18 +1316,24 @@ const projectSpans = computed<Record<string, ProjectSpan>>(() => {
       }
     }
 
-    const startIndex = daysOfYear.value.findIndex((day) => day.date === dates[0])
-    const endIndex = daysOfYear.value.findIndex((day) => day.date === dates[dates.length - 1])
+    const startIndex = daysOfYear.value.findIndex((day) => day.date === startDate)
+    const endIndex = daysOfYear.value.findIndex((day) => day.date === endDate)
+    if (startIndex < 0 || endIndex < startIndex) continue
+
+    const employeeCount = Number(project.employee_count || 0)
+    const shiftTypes = project.shift_types?.length
+      ? [...project.shift_types].sort()
+      : Array.from(shiftTypeSet).sort()
 
     spans[projectKey(project)] = {
-      start: dates[0],
-      end: dates[dates.length - 1],
-      startIndex: Math.max(0, startIndex),
+      start: startDate,
+      end: endDate,
+      startIndex,
       days: Math.max(1, endIndex - startIndex + 1),
       color: project.po_entered === false ? 'red' : 'green',
       customerColor: project.customer_color || null,
-      employeeCount: employeeSet.size || largestDailyCount,
-      shiftTypes: Array.from(shiftTypeSet).sort(),
+      employeeCount: employeeCount || employeeSet.size || largestDailyCount,
+      shiftTypes,
       poEntered: project.po_entered !== false,
       dsRequested: Number(project.ds_requested || 0),
       nsRequested: Number(project.ns_requested || 0),
@@ -1924,6 +1952,8 @@ function plainTextFromHtml(value: string | null | undefined) {
 function mapEventsToYear(data: Events): MappedEvents {
   const mappedEvents: MappedEvents = {}
 
+  const formattedShiftCache = new Map<string, ShiftAssignment>()
+
   for (const employee in data) {
     mappedEvents[employee] = {}
 
@@ -1950,7 +1980,12 @@ function mapEventsToYear(data: Events): MappedEvents {
         }
 
         if (isShift(event) && overlaps(date, event.start_date, event.end_date)) {
-          shifts.push(formatShift(event))
+          let formattedShift = formattedShiftCache.get(event.name)
+          if (!formattedShift) {
+            formattedShift = formatShift(event)
+            formattedShiftCache.set(event.name, formattedShift)
+          }
+          shifts.push(formattedShift)
         }
       }
 
@@ -1960,23 +1995,69 @@ function mapEventsToYear(data: Events): MappedEvents {
       }
 
       if (shifts.length) {
-        shifts.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''))
-        const firstShift = shifts[0]
-        const firstShiftLabel = shiftCellLabel(firstShift)
-        mappedEvents[employee][day.date] = {
-          type: 'shift',
-          label: shifts.length > 1 && firstShiftLabel ? `${firstShiftLabel}+` : firstShiftLabel,
-          title: [
-            firstShift.customer_abbreviation ? `Customer: ${firstShift.customer_abbreviation}` : '',
-            firstShift.custom_project_name,
-            firstShift.shift_type,
-            firstShift.shift_location,
-            firstShift.note ? `Note: ${firstShift.note}` : '',
-          ].filter(Boolean).join(' | '),
-          shift: firstShift,
-          shifts,
-        }
+        mappedEvents[employee][day.date] = createShiftCell(shifts)
       }
+    }
+  }
+
+  return mappedEvents
+}
+
+function createShiftCell(input: ShiftAssignment[]): Extract<YearCell, { type: 'shift' }> {
+  const shifts = [...input].sort((a, b) =>
+    (a.start_time || '').localeCompare(b.start_time || '') || a.name.localeCompare(b.name),
+  )
+  const firstShift = shifts[0]
+  const firstShiftLabel = shiftCellLabel(firstShift)
+
+  return {
+    type: 'shift',
+    label: shifts.length > 1 && firstShiftLabel ? `${firstShiftLabel}+` : firstShiftLabel,
+    title: [
+      firstShift.customer_abbreviation ? `Customer: ${firstShift.customer_abbreviation}` : '',
+      firstShift.custom_project_name,
+      firstShift.shift_type,
+      firstShift.shift_location,
+      firstShift.note ? `Note: ${firstShift.note}` : '',
+    ].filter(Boolean).join(' | '),
+    shift: firstShift,
+    shifts,
+  }
+}
+
+function mapIndexedEventsToYear(data: YearEventsResponse): MappedEvents {
+  const mappedEvents: MappedEvents = {}
+  const leaveApplications = data.leave_applications || {}
+  const shiftAssignments = new Map(
+    Object.entries(data.shift_assignments || {}).map(([name, shift]) => [name, formatShift(shift)]),
+  )
+
+  for (const [employee, days] of Object.entries(data.employee_event_days || {})) {
+    const employeeCells: Record<string, YearCell> = {}
+
+    for (const [date, references] of Object.entries(days)) {
+      const leave = references.leave ? leaveApplications[references.leave] : undefined
+      if (leave) {
+        employeeCells[date] = {
+          type: 'leave',
+          label: 'L',
+          title: leave.leave_type,
+          leave,
+        }
+        continue
+      }
+
+      const shifts = (references.shifts || [])
+        .map((name) => shiftAssignments.get(name))
+        .filter((shift): shift is ShiftAssignment => Boolean(shift))
+
+      if (shifts.length) {
+        employeeCells[date] = createShiftCell(shifts)
+      }
+    }
+
+    if (Object.keys(employeeCells).length) {
+      mappedEvents[employee] = employeeCells
     }
   }
 
@@ -3208,11 +3289,14 @@ const events = createResource({
       year: props.firstOfMonth.year(),
       employee_filters: props.employeeFilters,
       shift_filters: props.shiftFilters,
+      contract_version: 2,
     }
   },
   transform(data: YearEventsResponse) {
+    const hasIndexedEvents = Number(data?.contract_version || 1) >= 2 && data?.employee_event_days !== undefined
+
     return {
-      mappedEvents: mapEventsToYear(data?.events || {}),
+      mappedEvents: hasIndexedEvents ? mapIndexedEventsToYear(data) : mapEventsToYear(data?.events || {}),
       projectRows: (data?.project_rows || []).sort((a, b) => naturalCompare(a.customer_name || a.customer || '', b.customer_name || b.customer || '') || naturalCompare(a.project_name, b.project_name)),
       dayMarkers: data?.day_markers || {},
       employeeDetails: data?.employee_details || {},
