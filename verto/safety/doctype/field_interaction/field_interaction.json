@@ -20,6 +20,13 @@
   "link_task",
   "work_order_number",
   "work_area",
+  "contractor_submitting_section",
+  "column_break_hzxh",
+  "submitting_contractor",
+  "column_break_gqnn",
+  "submitting_supervisor",
+  "column_break_csgr",
+  "location",
   "interaction_details_section",
   "contractor",
   "column_break_uvqwd",
@@ -139,7 +146,8 @@
   "safety_category",
   "improvement_required",
   "fl_comments",
-  "compliance_percentage"
+  "compliance_percentage",
+  "photo"
  ],
  "fields": [
   {
@@ -295,7 +303,7 @@
    "description": "Select the relevant categories and sub-categories",
    "fieldname": "at_risk_behaviours_section",
    "fieldtype": "Section Break",
-   "label": "At Risk Behaviours"
+   "label": "Improvement Required Behaviours"
   },
   {
    "fieldname": "column_break_vknl",
@@ -318,6 +326,7 @@
    "print_hide": 1
   },
   {
+   "default": "Work Scope",
    "fieldname": "scope_or_wo",
    "fieldtype": "Select",
    "label": "Work Scope or WO Number?",
@@ -978,13 +987,62 @@
    "fieldname": "ar_work_com",
    "fieldtype": "Small Text",
    "label": "Comments"
+  },
+  {
+   "fieldname": "photo",
+   "fieldtype": "Attach Image",
+   "hidden": 1,
+   "label": "Photo"
+  },
+  {
+   "fieldname": "contractor_submitting_section",
+   "fieldtype": "Section Break",
+   "label": "Contractor Submitting"
+  },
+  {
+   "depends_on": "eval:frappe.session.user === \"Guest\" || !!doc.submitting_contractor",
+   "description": "Select from the list",
+   "fieldname": "submitting_contractor",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Contractor",
+   "options": "Contractor"
+  },
+  {
+   "fieldname": "column_break_gqnn",
+   "fieldtype": "Column Break",
+   "hidden": 1
+  },
+  {
+   "depends_on": "eval:frappe.session.user === \"Guest\" || !!doc.submitting_supervisor",
+   "description": "Please enter full name",
+   "fieldname": "submitting_supervisor",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Supervisor"
+  },
+  {
+   "fieldname": "column_break_csgr",
+   "fieldtype": "Column Break",
+   "hidden": 1
+  },
+  {
+   "depends_on": "eval:frappe.session.user === \"Guest\" || !!doc.location",
+   "fieldname": "location",
+   "fieldtype": "Data",
+   "label": "Location"
+  },
+  {
+   "fieldname": "column_break_hzxh",
+   "fieldtype": "Column Break",
+   "hidden": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-04-13 19:26:45.821944",
- "modified_by": "sean@minesitesupport.com.au",
+ "modified": "2026-07-20 10:20:34.070088",
+ "modified_by": "Administrator",
  "module": "Safety",
  "name": "Field Interaction",
  "naming_rule": "By \"Naming Series\" field",

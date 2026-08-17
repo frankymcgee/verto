@@ -1,0 +1,35 @@
+{% set no_cache = 1 %}
+
+{% if frappe.session.user == "Guest" %}
+<script>
+  const redirectTo = window.location.pathname + window.location.search + window.location.hash
+  window.location.href = "/login?redirect-to=" + encodeURIComponent(redirectTo || "/verto-mobile")
+</script>
+{% else %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  />
+  <meta name="frappe-site-name" content="{{ frappe.local.site }}" />
+  <title>Verto Mobile</title>
+
+  <link
+    rel="stylesheet"
+    href="/assets/verto/verto-mobile/assets/index.css"
+  />
+</head>
+
+<body>
+  <div id="app"></div>
+
+  <script
+    type="module"
+    src="/assets/verto/verto-mobile/assets/index.js"
+  ></script>
+</body>
+</html>
+{% endif %}

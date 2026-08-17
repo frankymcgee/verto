@@ -1,0 +1,285 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-04 10:25:56.514209",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "verto_desk_app_tab",
+  "timesheet_emails_section",
+  "email_header_image",
+  "image_alt_text",
+  "bcc_email_list",
+  "email_recipients",
+  "reply_to_email",
+  "footer_html",
+  "details_tab",
+  "app_settings_section",
+  "app_name",
+  "short_name",
+  "favicon",
+  "fallback_home_route",
+  "column_break_odql",
+  "app_icon",
+  "app_logo",
+  "pwa_installation_screenshots_section",
+  "pwa_screenshots",
+  "peri_settings_section",
+  "default_workspace",
+  "default_chat_channel",
+  "column_break_dlnx",
+  "peri_bot_name",
+  "peri_bot_user",
+  "peri_bot_image",
+  "section_break_rtpg",
+  "generic_forms",
+  "column_break_ufwo",
+  "project_forms",
+  "column_break_uzjk",
+  "project_ccvs",
+  "planner_tab",
+  "planner_app_name",
+  "desk_icon",
+  "planner_icon",
+  "planner_view_default",
+  "push_notifications_tab",
+  "timesheet_reminder_exclusions"
+ ],
+ "fields": [
+  {
+   "description": "Example: Mine Site Support",
+   "fieldname": "app_name",
+   "fieldtype": "Data",
+   "label": "App Name"
+  },
+  {
+   "description": "Header / app icon",
+   "fieldname": "app_icon",
+   "fieldtype": "Attach Image",
+   "label": "App Icon"
+  },
+  {
+   "description": "Optional larger logo",
+   "fieldname": "app_logo",
+   "fieldtype": "Attach Image",
+   "label": "App Logo"
+  },
+  {
+   "description": "Example: Mine Site Support",
+   "fieldname": "default_workspace",
+   "fieldtype": "Data",
+   "label": "Default Workspace"
+  },
+  {
+   "description": "Example: general",
+   "fieldname": "default_chat_channel",
+   "fieldtype": "Link",
+   "label": "Default Chat Channel",
+   "options": "Raven Channel"
+  },
+  {
+   "description": "Example: P.E.R.I.",
+   "fieldname": "peri_bot_name",
+   "fieldtype": "Data",
+   "label": "PERI Bot Name"
+  },
+  {
+   "description": "Optional Raven user/bot value",
+   "fieldname": "peri_bot_user",
+   "fieldtype": "Link",
+   "label": "PERI Bot User",
+   "options": "Raven User"
+  },
+  {
+   "default": "/",
+   "description": "Example: /",
+   "fieldname": "fallback_home_route",
+   "fieldtype": "Data",
+   "label": "Fallback Home Route"
+  },
+  {
+   "fieldname": "peri_bot_image",
+   "fieldtype": "Attach Image",
+   "label": "PERI Bot Image"
+  },
+  {
+   "fieldname": "app_settings_section",
+   "fieldtype": "Section Break",
+   "label": "App Settings"
+  },
+  {
+   "fieldname": "favicon",
+   "fieldtype": "Attach Image",
+   "label": "Favicon"
+  },
+  {
+   "fieldname": "column_break_odql",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "peri_settings_section",
+   "fieldtype": "Section Break",
+   "label": "PERI Settings"
+  },
+  {
+   "fieldname": "column_break_dlnx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "verto_desk_app_tab",
+   "fieldtype": "Tab Break",
+   "label": "Verto Desk App"
+  },
+  {
+   "fieldname": "timesheet_emails_section",
+   "fieldtype": "Section Break",
+   "label": "Timesheet Emails"
+  },
+  {
+   "fieldname": "bcc_email_list",
+   "fieldtype": "Data",
+   "label": "BCC Email List"
+  },
+  {
+   "fieldname": "email_recipients",
+   "fieldtype": "Data",
+   "label": "Email Recipients"
+  },
+  {
+   "fieldname": "reply_to_email",
+   "fieldtype": "Data",
+   "label": "Reply-To Email"
+  },
+  {
+   "default": "<p>Kind Regards,<br><strong>Mine Site Support</strong></p>\n        \n        \n        \n        <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"padding-top: 10px;\">\n            <tbody><tr>\n            <td align=\"center\" style=\"font-family: sans-serif; font-size: 11px; color: #888;\">\n                <p>\n                This email was sent via <a href=\"https://webwire.com.au\"><strong>Verto ERP</strong></a><br>\n                </p>\n            </td>\n            </tr>\n        </tbody></table>\n        \n    \n    ",
+   "fieldname": "footer_html",
+   "fieldtype": "HTML Editor",
+   "label": "footer HTML"
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Mobile"
+  },
+  {
+   "fieldname": "email_header_image",
+   "fieldtype": "Attach Image",
+   "label": "Email Header Image"
+  },
+  {
+   "fieldname": "image_alt_text",
+   "fieldtype": "Data",
+   "label": "Image Alt Text"
+  },
+  {
+   "fieldname": "planner_tab",
+   "fieldtype": "Tab Break",
+   "label": "Planner"
+  },
+  {
+   "fieldname": "desk_icon",
+   "fieldtype": "Attach Image",
+   "label": "Desk Icon"
+  },
+  {
+   "fieldname": "planner_icon",
+   "fieldtype": "Attach Image",
+   "label": "Planner Icon"
+  },
+  {
+   "fieldname": "planner_app_name",
+   "fieldtype": "Data",
+   "label": "Planner App Name"
+  },
+  {
+   "fieldname": "short_name",
+   "fieldtype": "Data",
+   "label": "Short Name"
+  },
+  {
+   "default": "Month",
+   "fieldname": "planner_view_default",
+   "fieldtype": "Select",
+   "label": "Planner View Default",
+   "options": "\nMonth\nAnnual"
+  },
+  {
+   "fieldname": "section_break_rtpg",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "generic_forms",
+   "fieldtype": "Table",
+   "label": "Generic Forms",
+   "options": "Verto Mobile Form Shortcut"
+  },
+  {
+   "fieldname": "column_break_ufwo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_uzjk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "project_forms",
+   "fieldtype": "Table",
+   "label": "Project Forms",
+   "options": "Verto Mobile Form Shortcut"
+  },
+  {
+   "fieldname": "project_ccvs",
+   "fieldtype": "Table",
+   "label": "Project CCV's",
+   "options": "Verto Mobile Form Shortcut"
+  },
+  {
+   "fieldname": "pwa_installation_screenshots_section",
+   "fieldtype": "Section Break",
+   "label": "PWA Installation Screenshots"
+  },
+  {
+   "fieldname": "pwa_screenshots",
+   "fieldtype": "Table",
+   "label": "PWA Screenshots",
+   "options": "Verto PWA Screenshot"
+  },
+  {
+   "fieldname": "push_notifications_tab",
+   "fieldtype": "Tab Break",
+   "label": "Push Notifications"
+  },
+  {
+   "fieldname": "timesheet_reminder_exclusions",
+   "fieldtype": "Table",
+   "label": "Timesheet Reminder Exclusions",
+   "options": "Verto Timesheet Reminder Exclusion"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-08-13 12:18:48.900602",
+ "modified_by": "Administrator",
+ "module": "Verto",
+ "name": "Verto Mobile Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

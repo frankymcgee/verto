@@ -1,11 +1,6 @@
-// Copyright (c) 2025, Webwire and contributors
+// Copyright (c) 2026, Webwire Pty Ltd and contributors
 // For license information, please see license.txt
 
-// frappe.ui.form.on("Safety Identification Rectification", {
-// 	refresh(frm) {
-
-// 	},
-// });
 frappe.ui.form.on('Safety Identification Rectification', {
 	refresh: function(frm) {
         // Function to add a button
@@ -85,41 +80,5 @@ frappe.ui.form.on('Safety Identification Rectification', {
                 });
             }
         );
-    },
-    link_task: function (frm) {
-        if (frm.doc.link_task && frm.doc.scope_or_wo == 'Work Scope') {
-            frappe.call({
-                method: 'frappe.client.get_value',
-                args: {
-                    doctype: 'Task',
-                    filters: { 'name': frm.doc.link_task },
-                    fieldname: 'work_order_number'
-                },
-                callback: function (response) {
-                    const work_order_number = response.message?.work_order_number;
-                    if (work_order_number) {
-                        frm.set_value('work_order_number', work_order_number);
-                    }
-                }
-            });
-        }
-    },
-    work_order_number: function (frm) {
-        if (frm.doc.work_order_number && frm.doc.scope_or_wo == 'Work Order Number') {
-            frappe.call({
-                method: 'frappe.client.get_value',
-                args: {
-                    doctype: 'Task',
-                    filters: { 'work_order_number': frm.doc.work_order_number },
-                    fieldname: 'name'
-                },
-                callback: function(response) {
-                    const task_name = response.message?.name;
-                    if (task_name) {
-                        frm.set_value('link_task', task_name);
-                    }
-                }
-            });
-        }
     }
 })

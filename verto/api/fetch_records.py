@@ -2,8 +2,12 @@ import frappe
 from datetime import datetime
 from frappe.utils.pdf import get_pdf
 
-@frappe.whitelist(allow_guest=True)
+
+@frappe.whitelist()
 def fetch_created_records():
+    if frappe.session.user == "Guest":
+        frappe.throw("Login required", frappe.PermissionError)
+
     # Define the DocTypes to include in the list
     doctypes = [
         "Commitment Interaction",
@@ -13,6 +17,7 @@ def fetch_created_records():
         "Supervisor BATB",
         "Workplace Inspection",
         "Prohibited and Restricted Tooling Checklist",
+        "Safety Identification Rectification",
         "CCV - Confined Space",
         "CCV - Contact with Electricity",
         "CCV - Dropped Objects",
@@ -37,95 +42,111 @@ def fetch_created_records():
 
     # List to store all records across DocTypes
     all_records = []
+    owner_names = {}
 
     for doctype in doctypes:
-        # Check if the 'compliance_percentage' field exists for the current Doctype
-        columns = frappe.db.get_table_columns(doctype)
-        include_compliance = "compliance_percentage" in columns
-        include_task_name = "work_scope" in columns
+        if not frappe.has_permission(doctype, "read"):
+            continue
 
-        # Fields to fetch, include 'compliance_percentage' if it exists
-        fields = ["name", "owner", "creation", "project_name", "contractor", "supervisor"]
-        if include_compliance:
-            fields.append("compliance_percentage")
-        if include_task_name:
-            fields.append("work_scope")
+        columns = set(frappe.db.get_table_columns(doctype))
 
-        # Apply filters based on whether the user is Administrator
+        fields = ["name", "owner", "creation"]
+
+        optional_fields = [
+            "project_name",
+            "contractor",
+            "supervisor",
+            "compliance_percentage",
+            "work_scope"
+        ]
+
+        for field in optional_fields:
+            if field in columns:
+                fields.append(field)
+
         filters = {"creation": ["between", [start_date, end_date]]}
+
         if not is_admin:
-            filters["owner"] = current_user  # Restrict to records created by the current user
+            filters["owner"] = current_user
 
-        # Fetch records for the current Doctype
-        records = frappe.get_all(doctype, filters=filters, fields=fields)
+        records = frappe.get_list(
+            doctype,
+            filters=filters,
+            fields=fields
+        )
 
-        # Append each record with its Doctype for distinction
         for record in records:
-            # Format creation datetime
             if isinstance(record.creation, datetime):
                 formatted_creation = record.creation.strftime("%d-%b-%y %H:%M")
             else:
-                formatted_creation = record.creation  # Fallback in case it's not a datetime
+                formatted_creation = record.creation
 
-            # Format compliance percentage
-            compliance_percentage = record.get("compliance_percentage")
-            if compliance_percentage is not None:
-                compliance_percentage = f"{round(float(compliance_percentage), 2)}%"
+            # Default compliance to 100% if the field does not exist or has no value
+            if "compliance_percentage" in columns:
+                compliance_value = record.get("compliance_percentage")
+
+                if compliance_value is not None and compliance_value != "":
+                    compliance_percentage = f"{round(float(compliance_value), 2)}%"
+                else:
+                    compliance_percentage = "100%"
             else:
-                compliance_percentage = "N/A"
+                compliance_percentage = "100%"
 
-            # Fetch full name of the owner
-            full_name = frappe.db.get_value("User", record.owner, "full_name") or record.owner
+            if record.owner not in owner_names:
+                owner_names[record.owner] = (
+                    frappe.db.get_value("User", record.owner, "full_name")
+                    or record.owner
+                )
 
-             # Generate link to the record
+            full_name = owner_names[record.owner]
+
             link = f"/app/{doctype.replace(' ', '-').lower()}/{record.name}"
-
-            project = record.get("project_name") if hasattr(record, 'project_name') else None
-            contractor = record.get("contractor") if hasattr(record, 'contractor') else None
-            supervisor = record.get("supervisor") if hasattr(record, 'supervisor') else None
-            task = record.get("work_scope") if hasattr(record, 'work_scope') else None
 
             all_records.append({
                 "doctype": doctype,
                 "name": record.name,
-                "owner": full_name,  # Use full name instead of email
+                "owner": full_name,
                 "creation": formatted_creation,
                 "compliance_percentage": compliance_percentage,
                 "link": link,
-                "project" : project,
-                "contractor": contractor,
-                "supervisor": supervisor,
-                "task": task
+                "project": record.get("project_name") or "N/A",
+                "contractor": record.get("contractor") or "N/A",
+                "supervisor": record.get("supervisor") or "N/A",
+                "task": record.get("work_scope") or "N/A"
             })
 
     # Sort the combined list by 'creation' in descending order
     sorted_records = sorted(all_records, key=lambda x: datetime.strptime(x["creation"], "%d-%b-%y %H:%M"), reverse=True)
 
     return sorted_records
-@frappe.whitelist(allow_guest=True)
-def generate_record_pdf(doctype, name):
-    """
-    Generate and return a PDF for the given record.
-    """
-    try:
-        # Fetch the HTML representation of the document
-        html = frappe.get_print(doctype, name, print_format=doctype)
-        
-        # Generate the PDF from the HTML
-        pdf = get_pdf(html)
-        
-        # Set the appropriate response headers for downloading the PDF
-        frappe.local.response.filename = f"{name}.pdf"
-        frappe.local.response.filecontent = pdf
-        frappe.local.response.type = "download"
-    except Exception as e:
-        frappe.throw(f"Failed to generate PDF: {str(e)}")
 
-@frappe.whitelist(allow_guest=True)
+
+@frappe.whitelist()
+def generate_record_pdf(doctype, name):
+    """Generate a PDF only when the current user can read the document."""
+    if frappe.session.user == "Guest":
+        frappe.throw("Login required", frappe.PermissionError)
+
+    if not doctype or not name:
+        frappe.throw("Missing required parameters: doctype or name")
+
+    doc = frappe.get_doc(doctype, name)
+    doc.check_permission("read")
+
+    html = frappe.get_print(doctype, name, print_format=doctype)
+    pdf = get_pdf(html)
+
+    frappe.local.response.filename = f"{name}.pdf"
+    frappe.local.response.filecontent = pdf
+    frappe.local.response.type = "download"
+
+
+@frappe.whitelist()
 def open_pdf():
-    """
-    Generate and return a PDF for the given record using get_pdf.
-    """
+    """Generate and return a PDF when the current user can read the document."""
+    if frappe.session.user == "Guest":
+        frappe.throw("Login required", frappe.PermissionError)
+
     doctype = frappe.form_dict.get("doctype")
     name = frappe.form_dict.get("name")
 
@@ -133,26 +154,20 @@ def open_pdf():
         frappe.throw("Missing required parameters: doctype or name")
 
     try:
-        # Validate document existence
         doc = frappe.get_doc(doctype, name)
-        if not doc:
-            frappe.throw(f"The document {doctype} {name} does not exist.")
+        doc.check_permission("read")
 
-        # Validate permissions
-        if not frappe.has_permission(doctype, "read"):
-            frappe.throw(f"You do not have permission to access {doctype}.")
-
-        # Fetch the HTML representation of the document
         html = frappe.get_print(doctype, name, print_format=doctype)
-
-        # Generate the PDF from the HTML
         pdf_data = get_pdf(html)
 
-        # Set the response headers for downloading
-        frappe.response['filename'] = f"{name}.pdf"
-        frappe.response['filecontent'] = pdf_data
-        frappe.response['type'] = 'binary'
-    except Exception as e:
-        # Log error details for debugging
-        frappe.log_error(message=f"PDF Generation Error: {str(e)}", title="PDF Generation Error")
-        frappe.throw(f"Could not generate PDF: {str(e)}")
+        frappe.response["filename"] = f"{name}.pdf"
+        frappe.response["filecontent"] = pdf_data
+        frappe.response["type"] = "binary"
+    except frappe.PermissionError:
+        raise
+    except Exception as error:
+        frappe.log_error(
+            message=f"PDF Generation Error: {str(error)}",
+            title="PDF Generation Error",
+        )
+        frappe.throw(f"Could not generate PDF: {str(error)}")

@@ -1,11 +1,6 @@
-// Copyright (c) 2025, Webwire and contributors
+// Copyright (c) 2026, Webwire Pty Ltd and contributors
 // For license information, please see license.txt
 
-// frappe.ui.form.on("Workplace Inspection", {
-// 	refresh(frm) {
-
-// 	},
-// });
 frappe.ui.form.on('Workplace Inspection', {
     refresh: function(frm) {
         // Function to add a button
@@ -85,65 +80,5 @@ frappe.ui.form.on('Workplace Inspection', {
                 });
             }
         );
-    },
-    link_task: function (frm) {
-        if (frm.doc.link_task && frm.doc.scope_or_wo == 'Work Scope') {
-            frappe.call({
-                method: 'frappe.client.get_value',
-                args: {
-                    doctype: 'Task',
-                    filters: { 'name': frm.doc.link_task },
-                    fieldname: 'work_order_number'
-                },
-                callback: function (response) {
-                    const work_order_number = response.message?.work_order_number;
-                    if (work_order_number) {
-                        frm.set_value('work_order_number', work_order_number);
-                    }
-                }
-            });
-        }
-    },
-    work_order_number: function (frm) {
-        if (frm.doc.work_order_number && frm.doc.scope_or_wo == 'Work Order Number') {
-            frappe.call({
-                method: 'frappe.client.get_value',
-                args: {
-                    doctype: 'Task',
-                    filters: { 'work_order_number': frm.doc.work_order_number },
-                    fieldname: 'name'
-                },
-                callback: function(response) {
-                    const task_name = response.message?.name;
-                    if (task_name) {
-                        frm.set_value('link_task', task_name);
-                    }
-                }
-            });
-        }
-    },
-    validate: function(frm) {
-        let total_rating = 0;
-        let count = 0;
-        $.each(frm.fields_dict, function(fieldname, field) {// Iterate through all fields in the form
-            if (fieldname.includes('safety_category') || fieldname.includes('improvement_required') || field.df.fieldtype !== "Select") { // Skip fields containing 'safety_category' or 'improvement_required' and non-Select fields
-                return;  // Skip this iteration
-            }
-            let field_value = frm.doc[fieldname];
-            if (!field_value) return; // Disregard the field if field_value is blank
-            let rating_map = {// Assign values based on the selected option
-                'Yes': 1,
-                'Yes (fixed on the spot)': 0.75,
-                'No': 0,
-                'N/A': 1
-            };
-            if (rating_map.hasOwnProperty(field_value)) {
-                total_rating += rating_map[field_value];
-                count++;
-            }
-        });
-        
-        let average_percentage = count ? (total_rating / count) * 100 : 0; // Calculate the average rating and set the compliance percentage
-        frm.set_value('compliance_percentage', average_percentage); // Set the Compliance Percentage
     }
 });

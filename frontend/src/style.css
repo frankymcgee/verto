@@ -1,0 +1,43 @@
+@import "../node_modules/frappe-ui/src/style.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --mobile-bottom-tabs-height: calc(68px + env(safe-area-inset-bottom));
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+  background: #f9fafb;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: #f9fafb;
+}
+
+/* Prevent iOS Safari/PWA auto-zoom when focusing form fields.
+   Keep this scoped to form entry controls only so nav buttons stay small. */
+@supports (-webkit-touch-callout: none) {
+  input,
+  textarea,
+  select,
+  [contenteditable='true'],
+  [role='textbox'] {
+    font-size: 16px !important;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    font-size: 16px !important;
+  }
+}

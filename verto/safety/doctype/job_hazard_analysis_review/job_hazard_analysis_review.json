@@ -215,6 +215,7 @@
    "precision": "2"
   },
   {
+   "default": "Work Scope",
    "fieldname": "scope_or_wo",
    "fieldtype": "Select",
    "label": "Work Scope or WO Number?",
@@ -240,11 +241,11 @@
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-01-27 12:12:06.276083",
+ "modified": "2026-07-07 10:00:53.183571",
  "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "Job Hazard Analysis Review",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {

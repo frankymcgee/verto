@@ -12,18 +12,11 @@ app_license = "apache-2.0"
 # Each item in the list will be shown as an app in the apps page
 add_to_apps_screen = [
 	{
-		"name": "Roster",
- 		"logo": "/assets/mss_erp/images/calendar-96.png",
- 		"title": "Roster",
- 		"route": "/hr/roster",
- 		"has_permission": "hrms.hr.utils.check_app_permission"
- 	},
-    {
-		"name": "SMS Center",
- 		"logo": "/assets/mss_erp/images/sms-96.png",
- 		"title": "SMS Center",
- 		"route": "/app/sms-center",
- 		"has_permission": "hrms.hr.utils.check_app_permission"
+		"name": "Planner",
+ 		"logo": "/assets/verto/images/verto.png",
+ 		"title": "Planner",
+ 		"route": "/planner",
+ 		"has_permission": "verto.api.planner.check_app_permission"
  	}
  ]
 
@@ -41,24 +34,32 @@ app_include_css = [
 app_include_js = [
 	"/assets/verto/js/gantt_view.js",
     "/assets/verto/js/task_gantt_map.js",
-	"/assets/verto/js/geolocation.js",
+	#"/assets/verto/js/geolocation.js",
 	"/assets/verto/js/map_defaults.js",
 	"/assets/verto/js/project_calendar.js",
 	"/assets/verto/js/map_view.js",
-    "/assets/verto/js/leaflet.js",
-    "/assets/verto/js/leaflet.draw.js",
-    "/assets/verto/js/easy-button.js",
-    "/assets/verto/js/L.Control.Locate.js"
+    #"/assets/verto/js/leaflet.js",
+    #"/assets/verto/js/leaflet.draw.js",
+    #"/assets/verto/js/easy-button.js",
+    #"/assets/verto/js/L.Control.Locate.js"
+    "/assets/verto/js/raven_peri_auto_command.js",
 ]	
 
 # include js, css files in header of web template
 web_include_js = [
-    "/assets/verto/js/mobile_install_prompt.js"
+    #"/assets/verto/js/mobile_install_prompt.js",
+    "/assets/verto/js/raven_peri_auto_command.js",
 ]
 
 web_include_css = [
-    "/assets/verto/css/mobile_install_prompt.css"
+    #"/assets/verto/css/mobile_install_prompt.css"
 ]
+
+website_context = {
+    "include_js": [
+        "/assets/verto/js/raven_peri_auto_command.js",
+    ]
+}
 
 # include custom scss in every website theme (without file extension ".scss")
 # website_theme_scss = "verto/public/scss/website"
@@ -172,7 +173,23 @@ doc_events = {
 	# 	"on_trash": "method"
 	# }
     "Project": {
-        "after_insert": "verto.api.hooks.create_project_handover_records"
+        "after_insert": "verto.api.hooks.create_project_handover_records",
+        "on_update": "verto.api.hooks.create_project_handover_records",
+    },
+    "Raven Message": {
+        "after_insert": [
+            "verto.api.mobile.push_notifications.notify_project_chat_message",
+            "verto.api.mobile.raven_realtime_bridge.publish_raven_message_upsert",
+        ],
+        "on_update": "verto.api.mobile.raven_realtime_bridge.publish_raven_message_upsert",
+        "after_delete": "verto.api.mobile.raven_realtime_bridge.publish_raven_message_delete",
+    },
+    "Shift Assignment": {
+        "on_submit": "verto.api.mobile.push_notifications.notify_shift_assigned",
+        "on_update_after_submit": "verto.api.mobile.push_notifications.notify_shift_changed",
+    },
+    "ToDo": {
+        "after_insert": "verto.api.mobile.push_notifications.notify_document_assignment",
     }
 }
 
@@ -196,14 +213,17 @@ scheduler_events = {
 #		"verto.tasks.monthly"
 #	],
     "cron": {
+        "0 09 * * *": [
+                    "verto.api.mobile.push_notifications.send_previous_day_missing_hours_reminders",
+                ],
         "0 10 * * *": [
-            "verto.api.automate.send_weekly_timesheet_verification"
+            "verto.api.automate.send_weekly_timesheet_verification",
         ],
         "0 13 * * *": [
-            "verto.api.automate.send_weekly_timesheets"
+            "verto.api.automate.send_grouped_weekly_timesheets"
         ],
         "0 12 * * *": [
-            "verto.api.automate.send_timesheet_followup_reminders"
+            "verto.api.automate.send_grouped_timesheet_followup_reminders"
         ]
     }
 }
@@ -289,4 +309,7 @@ override_whitelisted_methods = {
 # }
 
 
-# website_route_rules = [{'from_route': '/dashboard/<path:app_path>', 'to_route': 'dashboard'}, {'from_route': '/mobile/<path:app_path>', 'to_route': 'mobile'}, {'from_route': '/dashboard/<path:app_path>', 'to_route': 'dashboard'},]
+website_route_rules = [
+    {"from_route": "/verto-mobile/<path:app_path>", "to_route": "verto-mobile"},
+    {"from_route": "/planner/<path:app_path>", "to_route": "planner"},
+]

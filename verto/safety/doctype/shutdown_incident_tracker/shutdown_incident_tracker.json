@@ -1,0 +1,245 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-07-05 08:25:46.970376",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sb_taskinfo",
+  "naming_series",
+  "link_project",
+  "project_name",
+  "column_break_6lioo",
+  "scope_or_wo",
+  "work_scope",
+  "column_break_mcwf",
+  "link_task",
+  "work_order_number",
+  "work_area",
+  "interaction_details_section",
+  "date_occured",
+  "time_range",
+  "client_reference",
+  "current_status",
+  "contractor",
+  "column_break_gwyr",
+  "classification",
+  "consequence",
+  "likelihood",
+  "risk_rating",
+  "work_related",
+  "section_break_uwiq",
+  "description",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_taskinfo",
+   "fieldtype": "Section Break",
+   "label": "Task Information"
+  },
+  {
+   "default": "INC-.YY..MM..DD.-.##",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "INC-.YY..MM..DD.-.##",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "options": "Project",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_6lioo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Work Scope",
+   "fieldname": "scope_or_wo",
+   "fieldtype": "Select",
+   "label": "Work Scope or WO Number?",
+   "options": "Work Scope\nWork Order Number",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\"",
+   "fetch_from": "link_task.subject",
+   "fieldname": "work_scope",
+   "fieldtype": "Data",
+   "label": "Work Summary"
+  },
+  {
+   "fieldname": "column_break_mcwf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+   "mandatory_depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+   "options": "Task",
+   "print_hide": 1,
+   "search_index": 1
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Order Number\"",
+   "fetch_from": "link_task.work_order_number",
+   "fetch_if_empty": 1,
+   "fieldname": "work_order_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number",
+   "mandatory_depends_on": "eval:doc.scope_or_wo == \"Work Order Number\""
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fetch_from": "link_task.parent_task_name",
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "fieldname": "interaction_details_section",
+   "fieldtype": "Section Break",
+   "label": "Incident Details"
+  },
+  {
+   "fieldname": "contractor",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Contractor",
+   "options": "Contractor",
+   "reqd": 1
+  },
+  {
+   "fieldname": "client_reference",
+   "fieldtype": "Data",
+   "label": "Client Reference"
+  },
+  {
+   "fieldname": "classification",
+   "fieldtype": "Select",
+   "label": "Classification",
+   "options": "Autonomous Equipment\nCattle Strike\nEnvironmental\nEquipment Damage or Loss\nFire\nGeotechnical\nHeritage\nInjury or Illness\nLand Use Certificate\nMarine\nNear Miss\nOccupational Exposure\nQuality / Procedure Breach\nProcess Safety\nPsychosocial\nRail\nRegulatory Notices and Communications\nSecurity\nTenure",
+   "reqd": 1,
+   "sort_options": 1
+  },
+  {
+   "fieldname": "consequence",
+   "fieldtype": "Select",
+   "label": "Consequence",
+   "options": "PENDING\nMinor\nModerate\nSerious\nMajor\nSevere\nCatastrophic",
+   "reqd": 1
+  },
+  {
+   "fieldname": "likelihood",
+   "fieldtype": "Select",
+   "label": "Likelihood",
+   "options": "PENDING\nAlmost Certain\nHighly Likely\nLikely\nPossible\nUnlikely\nHighly Unlikely",
+   "reqd": 1
+  },
+  {
+   "fieldname": "risk_rating",
+   "fieldtype": "Data",
+   "label": "RIsk Rating",
+   "read_only": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "current_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Current Status",
+   "options": "Evidence Gathering\nInvestigation\nFinalising\nClosed",
+   "reqd": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "column_break_gwyr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_uwiq",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "date_occured",
+   "fieldtype": "Date",
+   "label": "Date Occured"
+  },
+  {
+   "fieldname": "time_range",
+   "fieldtype": "Select",
+   "label": "Time Range",
+   "options": "00:00 - 03:00\n03:00 - 06:00\n06:00 - 09:00\n09:00 - 12:00\n12:00 - 15:00\n15:00 - 18:00\n18:00 - 21:00\n21:00 - 00:00"
+  },
+  {
+   "default": "0",
+   "fieldname": "work_related",
+   "fieldtype": "Check",
+   "label": "Work Related"
+  },
+  {
+   "depends_on": "eval:doc.link_project !== \"\"",
+   "fetch_from": "link_project.project_name",
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
+ "links": [],
+ "modified": "2026-07-06 10:09:07.208673",
+ "modified_by": "sean@minesitesupport.com.au",
+ "module": "Safety",
+ "name": "Shutdown Incident Tracker",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "date_occured",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

@@ -17,10 +17,11 @@
    "unique": 1
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-03-17 07:25:22.910956",
- "modified_by": "Administrator",
+ "modified": "2026-07-21 08:32:05.755545",
+ "modified_by": "sean@minesitesupport.com.au",
  "module": "Verto",
  "name": "Contractor",
  "naming_rule": "By fieldname",
@@ -49,8 +50,9 @@
    "write": 1
   }
  ],
- "sort_field": "modified",
- "sort_order": "DESC",
+ "row_format": "Dynamic",
+ "sort_field": "company_name",
+ "sort_order": "ASC",
  "states": [],
  "track_changes": 1
 }

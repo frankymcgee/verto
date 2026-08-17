@@ -1,0 +1,18 @@
+{
+  "name": "verto",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Webwire Verto custom app for ERPNext",
+  "scripts": {
+    "build": "git submodule update --init --recursive && yarn install:frontend && yarn install:planner && yarn build:frontend && yarn build:planner",
+
+    "build:frontend": "cd frontend && yarn build",
+    "build:planner": "cd planner && yarn build",
+
+    "install:frontend": "git submodule update --init --recursive && cd frontend && yarn install --frozen-lockfile --non-interactive",
+    "install:planner": "cd planner && yarn install --frozen-lockfile --non-interactive",
+
+    "dev:frontend": "cd frontend && yarn dev",
+    "dev:planner": "cd planner && yarn dev"
+  }
+}

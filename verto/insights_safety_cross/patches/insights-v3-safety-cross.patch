@@ -1,0 +1,857 @@
+diff --git a/frontend/src2/charts/chart.ts b/frontend/src2/charts/chart.ts
+index ab22b5a..02b4627 100644
+--- a/frontend/src2/charts/chart.ts
++++ b/frontend/src2/charts/chart.ts
+@@ -23,6 +23,7 @@ import {
+ 	DonutChartConfig,
+ 	MapChartConfig,
+ 	NumberChartConfig,
++	SafetyCrossChartConfig,
+ 	TableChartConfig,
+ } from '../types/chart.types'
+ import { InsightsChartv3 } from '../types/workbook.types'
+@@ -201,6 +202,19 @@ function makeChart(name: string) {
+ 			}
+ 		}
+ 
++		if (chart.doc.chart_type === 'Safety Cross') {
++			const config = chart.doc.config as SafetyCrossChartConfig
++			if (!config.date_column?.column_name) {
++				messages.push({ variant: 'error', message: __('Date column is required') })
++			}
++			if (!config.shift_column?.column_name) {
++				messages.push({ variant: 'error', message: __('Shift column is required') })
++			}
++			if (!config.status_column?.column_name) {
++				messages.push({ variant: 'error', message: __('Status column is required') })
++			}
++		}
++
+ 		return !messages.length
+ 	}
+ 
+@@ -241,6 +255,10 @@ function makeChart(name: string) {
+ 		if (chart.doc.chart_type === 'Bubble') {
+ 			addBubbleChartOperation(query)
+ 		}
++
++		if (chart.doc.chart_type === 'Safety Cross') {
++			addSafetyCrossChartOperation(query)
++		}
+ 	}
+ 
+ 	function addAxisChartOperation(query: Query) {
+@@ -352,6 +370,21 @@ function makeChart(name: string) {
+ 		})
+ 	}
+ 
++	function addSafetyCrossChartOperation(query: Query) {
++		const config = chart.doc.config as SafetyCrossChartConfig
++		const dimensions = [
++			config.date_column,
++			config.shift_column,
++			config.status_column,
++			config.detail_column,
++		].filter((dimension) => dimension?.column_name)
++
++		query.addSummarize({
++			measures: [count()],
++			dimensions: dimensions as SafetyCrossChartConfig['date_column'][],
++		})
++	}
++
+ 	function addOrderByOperation(query: Query) {
+ 		chart.doc.config.order_by.forEach((sort) => {
+ 			if (sort.column.column_name && sort.direction) {
+diff --git a/frontend/src2/charts/components/ChartConfigForm.vue b/frontend/src2/charts/components/ChartConfigForm.vue
+index 5d95a54..02f27a7 100644
+--- a/frontend/src2/charts/components/ChartConfigForm.vue
++++ b/frontend/src2/charts/components/ChartConfigForm.vue
+@@ -10,6 +10,7 @@ import {
+ 	MapChartConfig,
+ 	NumberChartConfig,
+ 	SankeyChartConfig,
++	SafetyCrossChartConfig,
+ 	TableChartConfig,
+ } from '../../types/chart.types'
+ import { DimensionOption } from '../../types/query.types'
+@@ -22,6 +23,7 @@ import MapChartConfigForm from './MapChartConfigForm.vue'
+ import NumberChartConfigForm from './NumberChartConfigForm.vue'
+ import BubbleChartConfigForm from './BubbleChartConfigForm.vue'
+ import SankeyChartConfigForm from './SankeyChartConfigForm.vue'
++import SafetyCrossChartConfigForm from './SafetyCrossChartConfigForm.vue'
+ import TableChartConfigForm from './TableChartConfigForm.vue'
+ 
+ const props = defineProps<{ chart: Chart }>()
+@@ -104,4 +106,9 @@ const queryResult = computed(() => chartQuery.value.result)
+ 		:dimensions="dimensions"
+ 		:column-options="columnOptions"
+ 	/>
++	<SafetyCrossChartConfigForm
++		v-if="props.chart.doc.chart_type == 'Safety Cross'"
++		v-model="(props.chart.doc.config as SafetyCrossChartConfig)"
++		:dimensions="dimensions"
++	/>
+ </template>
+diff --git a/frontend/src2/charts/components/ChartIcon.vue b/frontend/src2/charts/components/ChartIcon.vue
+index 7340d35..0a701eb 100644
+--- a/frontend/src2/charts/components/ChartIcon.vue
++++ b/frontend/src2/charts/components/ChartIcon.vue
+@@ -11,6 +11,7 @@ import {
+ 	Map,
+ 	ScatterChart,
+ 	Share2,
++	ShieldCheck,
+ 	Table2,
+ } from 'lucide-vue-next'
+ import { computed } from 'vue'
+@@ -41,6 +42,8 @@ const icon = computed(() => {
+ 			return Map
+ 		case 'Sankey':
+ 			return Share2
++		case 'Safety Cross':
++			return ShieldCheck
+ 		default:
+ 			return BarChart3
+ 	}
+diff --git a/frontend/src2/charts/components/ChartRenderer.vue b/frontend/src2/charts/components/ChartRenderer.vue
+index 6e10db6..f346e9e 100644
+--- a/frontend/src2/charts/components/ChartRenderer.vue
++++ b/frontend/src2/charts/components/ChartRenderer.vue
+@@ -14,6 +14,7 @@ import {
+ 	LineChartConfig,
+ 	MapChartConfig,
+ 	NumberChartConfig,
++	SafetyCrossChartConfig,
+ 	SankeyChartConfig,
+ 	AXIS_CHARTS,
+ 	AxisChartConfig,
+@@ -32,6 +33,7 @@ import {
+ import BaseChart from './BaseChart.vue'
+ import DrillDown from './DrillDown.vue'
+ import NumberChart from './NumberChart.vue'
++import SafetyCrossChart from './SafetyCrossChart.vue'
+ import TableChart from './TableChart.vue'
+ 
+ const props = defineProps<{ chart: Chart; hideMaximize?: boolean }>()
+@@ -205,6 +207,12 @@ const showExpandedChartDialog = ref(false)
+ 			@drill-down="onNumberChartDrillDown"
+ 		/>
+ 		<TableChart v-else-if="chart_type == 'Table'" :chart="props.chart" />
++		<SafetyCrossChart
++			v-else-if="!loading && chart_type == 'Safety Cross'"
++			:config="config as SafetyCrossChartConfig"
++			:result="result"
++			:title="props.chart.doc.title"
++		/>
+ 
+ 		<div v-else class="flex h-full flex-1 flex-col items-center justify-center rounded border">
+ 			<template v-if="loading">
+diff --git a/frontend/src2/charts/components/SafetyCrossChart.vue b/frontend/src2/charts/components/SafetyCrossChart.vue
+new file mode 100644
+index 0000000..607a647
+--- /dev/null
++++ b/frontend/src2/charts/components/SafetyCrossChart.vue
+@@ -0,0 +1,202 @@
++<script setup lang="ts">
++import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
++import { computed, ref, watch } from 'vue'
++import { SafetyCrossChartConfig } from '../../types/chart.types'
++import { QueryResult } from '../../types/query.types'
++import {
++	DEFAULT_EMPTY_COLOR,
++	buildSafetyCross,
++	getInitialSafetyMonth,
++	getSafetyCrossPosition,
++	getSafetyMonths,
++	safetyMonthLabel,
++} from '../safetyCross'
++import ChartTitle from './ChartTitle.vue'
++
++const props = defineProps<{
++	config: SafetyCrossChartConfig
++	result: QueryResult
++	title?: string
++}>()
++
++const rows = computed(() => props.result.formattedRows || props.result.rows || [])
++const availableMonths = computed(() =>
++	getSafetyMonths(rows.value, props.config.date_column?.dimension_name),
++)
++const selectedMonth = ref('')
++
++watch(
++	[availableMonths, () => props.config.month_mode, () => props.config.fixed_month],
++	([months]) => {
++		if (months.includes(selectedMonth.value) && !props.config.fixed_month) return
++		selectedMonth.value = getInitialSafetyMonth(
++			months,
++			props.config.month_mode,
++			props.config.fixed_month,
++		)
++	},
++	{ immediate: true },
++)
++
++const cross = computed(() => buildSafetyCross(rows.value, props.config, selectedMonth.value))
++const selectedMonthIndex = computed(() => availableMonths.value.indexOf(selectedMonth.value))
++const canGoPrevious = computed(() => selectedMonthIndex.value > 0)
++const canGoNext = computed(
++	() =>
++		selectedMonthIndex.value >= 0 &&
++		selectedMonthIndex.value < availableMonths.value.length - 1,
++)
++const emptyColor = computed(() => props.config.empty_color || DEFAULT_EMPTY_COLOR)
++const hasWarnings = computed(
++	() =>
++		cross.value.ignored.invalidDate +
++			cross.value.ignored.unknownShift +
++			cross.value.ignored.unknownStatus >
++		0,
++)
++
++function changeMonth(offset: number) {
++	const target = selectedMonthIndex.value + offset
++	if (target < 0 || target >= availableMonths.value.length) return
++	selectedMonth.value = availableMonths.value[target]
++}
++
++function tooltip(day: number, shiftName: string, shift: any) {
++	const lines = [
++		`${safetyMonthLabel(selectedMonth.value)} ${day}`,
++		shiftName,
++		shift?.label || props.config.empty_label || 'No record',
++	]
++	if (shift?.count > 1) lines.push(`${shift.count} records (highest severity shown)`)
++	if (shift?.details?.length) lines.push(shift.details.join(' • '))
++	return lines.join('\n')
++}
++</script>
++
++<template>
++	<div class="flex h-full w-full min-h-0 flex-col rounded bg-white py-1 shadow">
++		<ChartTitle v-if="props.title" :title="props.title" />
++
++		<div
++			v-if="!availableMonths.length"
++			class="flex flex-1 items-center justify-center p-6 text-center text-sm text-gray-500"
++		>
++			No valid dates were found in the selected date column.
++		</div>
++
++		<div v-else class="flex min-h-0 flex-1 flex-col px-3 pb-3">
++			<div class="mb-2 flex items-center justify-center gap-2">
++				<Button
++					v-if="props.config.show_month_navigation !== false"
++					variant="ghost"
++					:disabled="!canGoPrevious"
++					aria-label="Previous month with data"
++					@click="changeMonth(-1)"
++				>
++					<template #icon><ChevronLeft class="h-4 w-4" /></template>
++				</Button>
++				<div class="min-w-[9rem] text-center text-sm font-medium text-gray-700">
++					{{ safetyMonthLabel(selectedMonth) }}
++				</div>
++				<Button
++					v-if="props.config.show_month_navigation !== false"
++					variant="ghost"
++					:disabled="!canGoNext"
++					aria-label="Next month with data"
++					@click="changeMonth(1)"
++				>
++					<template #icon><ChevronRight class="h-4 w-4" /></template>
++				</Button>
++			</div>
++
++			<div
++				class="mx-auto grid min-h-0 w-full max-w-[38rem] flex-1 grid-cols-7 grid-rows-7 gap-1"
++				role="grid"
++				:aria-label="`Safety Cross for ${safetyMonthLabel(selectedMonth)}`"
++			>
++				<div
++					v-for="entry in cross.days"
++					:key="entry.day"
++					class="relative min-h-[2.15rem] overflow-hidden rounded-sm border border-white shadow-sm ring-1 ring-gray-200"
++					:style="{
++						gridRow: getSafetyCrossPosition(entry.day).row,
++						gridColumn: getSafetyCrossPosition(entry.day).column,
++					}"
++					role="gridcell"
++				>
++					<div
++						class="absolute inset-x-0 top-0 h-1/2"
++						:style="{ backgroundColor: entry.dayShift?.color || emptyColor }"
++						:title="
++							tooltip(
++								entry.day,
++								props.config.day_shift_label || 'Day Shift',
++								entry.dayShift,
++							)
++						"
++					/>
++					<div
++						class="absolute inset-x-0 bottom-0 h-1/2 border-t border-white/80"
++						:style="{ backgroundColor: entry.nightShift?.color || emptyColor }"
++						:title="
++							tooltip(
++								entry.day,
++								props.config.night_shift_label || 'Night Shift',
++								entry.nightShift,
++							)
++						"
++					/>
++					<div
++						class="pointer-events-none absolute inset-0 flex items-center justify-center"
++					>
++						<span
++							class="flex h-6 min-w-6 items-center justify-center rounded-full bg-white/90 px-1 text-xs font-semibold text-gray-800 shadow-sm"
++						>
++							{{ entry.day }}
++						</span>
++					</div>
++				</div>
++			</div>
++
++			<div class="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
++				<div
++					v-for="status in cross.statuses"
++					:key="status.key"
++					class="flex items-center gap-1.5 text-xs text-gray-600"
++				>
++					<span
++						class="h-2.5 w-2.5 rounded-sm ring-1 ring-black/10"
++						:style="{ backgroundColor: status.color }"
++					/>
++					<span>{{ status.label }}</span>
++				</div>
++				<div class="flex items-center gap-1.5 text-xs text-gray-600">
++					<span
++						class="h-2.5 w-2.5 rounded-sm ring-1 ring-black/10"
++						:style="{ backgroundColor: emptyColor }"
++					/>
++					<span>{{ props.config.empty_label || 'No record' }}</span>
++				</div>
++			</div>
++
++			<div class="mt-2 flex items-center justify-center gap-4 text-[11px] text-gray-500">
++				<span>
++					<strong class="font-semibold">Top:</strong>
++					{{ props.config.day_shift_label || 'Day Shift' }}
++				</span>
++				<span>
++					<strong class="font-semibold">Bottom:</strong>
++					{{ props.config.night_shift_label || 'Night Shift' }}
++				</span>
++			</div>
++
++			<div
++				v-if="hasWarnings && props.config.show_data_warnings !== false"
++				class="mt-1 text-center text-[11px] text-amber-700"
++				:title="`${cross.ignored.invalidDate} invalid dates, ${cross.ignored.unknownShift} unknown shifts, ${cross.ignored.unknownStatus} unknown statuses`"
++			>
++				Some rows could not be plotted. Hover for details.
++			</div>
++		</div>
++	</div>
++</template>
+diff --git a/frontend/src2/charts/components/SafetyCrossChartConfigForm.vue b/frontend/src2/charts/components/SafetyCrossChartConfigForm.vue
+new file mode 100644
+index 0000000..5bf7d59
+--- /dev/null
++++ b/frontend/src2/charts/components/SafetyCrossChartConfigForm.vue
+@@ -0,0 +1,160 @@
++<script setup lang="ts">
++import { watchEffect } from 'vue'
++import { SafetyCrossChartConfig } from '../../types/chart.types'
++import { Dimension, DimensionOption } from '../../types/query.types'
++import { DEFAULT_EMPTY_COLOR, DEFAULT_STATUSES } from '../safetyCross'
++import CollapsibleSection from './CollapsibleSection.vue'
++import DimensionPicker from './DimensionPicker.vue'
++
++const props = defineProps<{ dimensions: DimensionOption[] }>()
++const config = defineModel<SafetyCrossChartConfig>({
++	required: true,
++	default: () => ({
++		date_column: {},
++		shift_column: {},
++		status_column: {},
++	}),
++})
++
++const monthModes = [
++	{ label: 'Latest month with data', value: 'latest' },
++	{ label: 'Earliest month with data', value: 'earliest' },
++	{ label: 'Current month (or latest)', value: 'current' },
++]
++
++watchEffect(() => {
++	config.value.date_column ||= {} as Dimension
++	config.value.shift_column ||= {} as Dimension
++	config.value.status_column ||= {} as Dimension
++	config.value.detail_column ||= {} as Dimension
++	config.value.month_mode ||= 'latest'
++	config.value.show_month_navigation ??= true
++	config.value.show_data_warnings ??= true
++	config.value.day_shift_label ||= 'Day Shift'
++	config.value.night_shift_label ||= 'Night Shift'
++	config.value.day_shift_values ||= 'Day Shift, DS, Day'
++	config.value.night_shift_values ||= 'Night Shift, NS, Night'
++	config.value.empty_label ||= 'No record'
++	config.value.empty_color ||= DEFAULT_EMPTY_COLOR
++
++	for (const status of DEFAULT_STATUSES) {
++		const labelKey = `${status.key}_label` as keyof SafetyCrossChartConfig
++		const valuesKey = `${status.key}_values` as keyof SafetyCrossChartConfig
++		const colorKey = `${status.key}_color` as keyof SafetyCrossChartConfig
++		config.value[labelKey] ||= status.label as never
++		config.value[valuesKey] ||= status.values as never
++		config.value[colorKey] ||= status.color as never
++	}
++})
++</script>
++
++<template>
++	<CollapsibleSection title="Safety Cross">
++		<div class="flex flex-col gap-3 pt-1">
++			<DimensionPicker
++				label="Date"
++				v-model="config.date_column"
++				:options="props.dimensions"
++			/>
++			<DimensionPicker
++				label="Shift"
++				v-model="config.shift_column"
++				:options="props.dimensions"
++			/>
++			<DimensionPicker
++				label="Safety Status"
++				v-model="config.status_column"
++				:options="props.dimensions"
++			/>
++			<DimensionPicker
++				label="Tooltip Detail (optional)"
++				v-model="config.detail_column"
++				:options="props.dimensions"
++			/>
++		</div>
++	</CollapsibleSection>
++
++	<CollapsibleSection title="Month" collapsed>
++		<div class="flex flex-col gap-3 pt-1">
++			<FormControl
++				v-model="config.month_mode"
++				label="Initial Month"
++				type="select"
++				:options="monthModes"
++			/>
++			<FormControl
++				v-model="config.fixed_month"
++				label="Lock to Month (optional)"
++				placeholder="YYYY-MM"
++			/>
++			<Toggle v-model="config.show_month_navigation" label="Show Month Navigation" />
++		</div>
++	</CollapsibleSection>
++
++	<CollapsibleSection title="Shift Mapping" collapsed>
++		<div class="flex flex-col gap-3 pt-1">
++			<FormControl v-model="config.day_shift_label" label="Day Shift Label" />
++			<FormControl
++				v-model="config.day_shift_values"
++				label="Day Shift Values"
++				description="Comma-separated aliases"
++			/>
++			<FormControl v-model="config.night_shift_label" label="Night Shift Label" />
++			<FormControl
++				v-model="config.night_shift_values"
++				label="Night Shift Values"
++				description="Comma-separated aliases"
++			/>
++		</div>
++	</CollapsibleSection>
++
++	<CollapsibleSection title="Status Mapping & Colours" collapsed>
++		<div class="flex flex-col gap-4 pt-1">
++			<div
++				v-for="status in DEFAULT_STATUSES"
++				:key="status.key"
++				class="flex flex-col gap-2 rounded border p-2.5"
++			>
++				<FormControl
++					v-model="config[`${status.key}_label` as keyof SafetyCrossChartConfig]"
++					label="Legend Label"
++				/>
++				<FormControl
++					v-model="config[`${status.key}_values` as keyof SafetyCrossChartConfig]"
++					label="Source Value(s)"
++					description="Comma-separated aliases"
++				/>
++				<label class="text-xs text-gray-600">
++					Colour
++					<div class="mt-1 flex items-center gap-2">
++						<input
++							v-model="config[`${status.key}_color` as keyof SafetyCrossChartConfig]"
++							type="color"
++							class="h-8 w-10 cursor-pointer rounded border bg-white p-1"
++						/>
++						<FormControl
++							v-model="config[`${status.key}_color` as keyof SafetyCrossChartConfig]"
++							class="flex-1"
++						/>
++					</div>
++				</label>
++			</div>
++
++			<div class="flex flex-col gap-2 rounded border p-2.5">
++				<FormControl v-model="config.empty_label" label="Empty Label" />
++				<label class="text-xs text-gray-600">
++					Empty Colour
++					<div class="mt-1 flex items-center gap-2">
++						<input
++							v-model="config.empty_color"
++							type="color"
++							class="h-8 w-10 cursor-pointer rounded border bg-white p-1"
++						/>
++						<FormControl v-model="config.empty_color" class="flex-1" />
++					</div>
++				</label>
++			</div>
++			<Toggle v-model="config.show_data_warnings" label="Show Data Warnings" />
++		</div>
++	</CollapsibleSection>
++</template>
+diff --git a/frontend/src2/charts/helpers.ts b/frontend/src2/charts/helpers.ts
+index eae005f..4750bfe 100644
+--- a/frontend/src2/charts/helpers.ts
++++ b/frontend/src2/charts/helpers.ts
+@@ -1362,6 +1362,15 @@ export function setDimensionNames(config: any) {
+ 	if (config.label_column) {
+ 		config.label_column = setDimensionName(config.label_column)
+ 	}
++	if (config.shift_column) {
++		config.shift_column = setDimensionName(config.shift_column)
++	}
++	if (config.status_column) {
++		config.status_column = setDimensionName(config.status_column)
++	}
++	if (config.detail_column) {
++		config.detail_column = setDimensionName(config.detail_column)
++	}
+ 	if (config.rows && config.rows.length) {
+ 		config.rows = config.rows.map(setDimensionName)
+ 	}
+diff --git a/frontend/src2/charts/safetyCross.ts b/frontend/src2/charts/safetyCross.ts
+new file mode 100644
+index 0000000..308219f
+--- /dev/null
++++ b/frontend/src2/charts/safetyCross.ts
+@@ -0,0 +1,251 @@
++import { SafetyCrossChartConfig } from '../types/chart.types'
++import { QueryResultRow } from '../types/query.types'
++
++export type SafetyStatus = {
++	key: string
++	label: string
++	values: string
++	color: string
++	severity: number
++}
++
++export type SafetyShift = SafetyStatus & {
++	count: number
++	details: string[]
++}
++
++export type SafetyCrossDay = {
++	day: number
++	dayShift: SafetyShift | null
++	nightShift: SafetyShift | null
++}
++
++export const DEFAULT_EMPTY_COLOR = '#E5E7EB'
++
++export const DEFAULT_STATUSES: SafetyStatus[] = [
++	{
++		key: 'safe_shift',
++		label: 'Safe Shift',
++		values: 'Safe Shift',
++		color: '#22C55E',
++		severity: 1,
++	},
++	{
++		key: 'safe_with_improvements',
++		label: 'Safe With Improvements',
++		values: 'Safe With Improvements',
++		color: '#FACC15',
++		severity: 2,
++	},
++	{
++		key: 'unsafe_shift',
++		label: 'Unsafe Shift',
++		values: 'Unsafe Shift',
++		color: '#F97316',
++		severity: 3,
++	},
++	{
++		key: 'unsafe_shift_with_incident',
++		label: 'Unsafe Shift With Incident',
++		values: 'Unsafe Shift With Incident',
++		color: '#DC2626',
++		severity: 4,
++	},
++]
++
++export function normalizeText(value: unknown) {
++	return String(value ?? '')
++		.trim()
++		.toLowerCase()
++		.replace(/[_-]+/g, ' ')
++		.replace(/\s+/g, ' ')
++}
++
++function aliases(value?: string) {
++	return String(value ?? '')
++		.split(',')
++		.map(normalizeText)
++		.filter(Boolean)
++}
++
++export function parseSafetyDate(value: unknown) {
++	if (value instanceof Date && !Number.isNaN(value.getTime())) {
++		return new Date(value.getFullYear(), value.getMonth(), value.getDate())
++	}
++
++	const text = String(value ?? '').trim()
++	if (!text) return null
++
++	const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)
++	if (iso) return validDate(Number(iso[1]), Number(iso[2]), Number(iso[3]))
++
++	const australian = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)
++	if (australian) {
++		return validDate(Number(australian[3]), Number(australian[2]), Number(australian[1]))
++	}
++
++	const parsed = new Date(text)
++	if (Number.isNaN(parsed.getTime())) return null
++	return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate())
++}
++
++function validDate(year: number, month: number, day: number) {
++	const date = new Date(year, month - 1, day)
++	return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
++		? date
++		: null
++}
++
++export function safetyMonthKey(date: Date) {
++	return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
++}
++
++export function safetyMonthLabel(key: string) {
++	if (!/^\d{4}-\d{2}$/.test(key)) return ''
++	const [year, month] = key.split('-').map(Number)
++	return new Intl.DateTimeFormat(undefined, {
++		month: 'long',
++		year: 'numeric',
++	}).format(new Date(year, month - 1, 1))
++}
++
++export function getSafetyStatuses(config: SafetyCrossChartConfig) {
++	return DEFAULT_STATUSES.map((status) => ({
++		...status,
++		label: config[`${status.key}_label` as keyof SafetyCrossChartConfig] || status.label,
++		values: config[`${status.key}_values` as keyof SafetyCrossChartConfig] || status.values,
++		color: config[`${status.key}_color` as keyof SafetyCrossChartConfig] || status.color,
++	})) as SafetyStatus[]
++}
++
++export function normalizeSafetyShift(value: unknown, config: SafetyCrossChartConfig) {
++	const normalized = normalizeText(value)
++	const dayAliases = [
++		'day',
++		'day shift',
++		'dayshift',
++		'ds',
++		'd',
++		...aliases(config.day_shift_values),
++	]
++	const nightAliases = [
++		'night',
++		'night shift',
++		'nightshift',
++		'ns',
++		'n',
++		...aliases(config.night_shift_values),
++	]
++	if (dayAliases.map(normalizeText).includes(normalized)) return 'day'
++	if (nightAliases.map(normalizeText).includes(normalized)) return 'night'
++	return null
++}
++
++export function resolveSafetyStatus(value: unknown, statuses: SafetyStatus[]) {
++	const normalized = normalizeText(value)
++	if (!normalized) return null
++	return (
++		statuses.find((status) =>
++			[...aliases(status.values), normalizeText(status.label)].includes(normalized),
++		) || null
++	)
++}
++
++export function getSafetyMonths(rows: QueryResultRow[], dateColumn: string) {
++	if (!dateColumn) return []
++	return [
++		...new Set(
++			rows
++				.map((row) => parseSafetyDate(row[dateColumn]))
++				.filter((date): date is Date => Boolean(date))
++				.map(safetyMonthKey),
++		),
++	].sort()
++}
++
++export function getInitialSafetyMonth(months: string[], mode = 'latest', fixedMonth = '') {
++	if (!months.length) return ''
++	if (fixedMonth && months.includes(fixedMonth)) return fixedMonth
++	if (mode === 'earliest') return months[0]
++	if (mode === 'current') {
++		const current = safetyMonthKey(new Date())
++		if (months.includes(current)) return current
++	}
++	return months[months.length - 1]
++}
++
++export function buildSafetyCross(
++	rows: QueryResultRow[],
++	config: SafetyCrossChartConfig,
++	selectedMonth: string,
++) {
++	const statuses = getSafetyStatuses(config)
++	const days: SafetyCrossDay[] = Array.from({ length: 31 }, (_, index) => ({
++		day: index + 1,
++		dayShift: null,
++		nightShift: null,
++	}))
++	const ignored = { invalidDate: 0, unknownShift: 0, unknownStatus: 0 }
++	const dateColumn = config.date_column?.dimension_name
++	const shiftColumn = config.shift_column?.dimension_name
++	const statusColumn = config.status_column?.dimension_name
++	const detailColumn = config.detail_column?.dimension_name
++
++	for (const row of rows) {
++		const date = parseSafetyDate(row[dateColumn])
++		if (!date) {
++			ignored.invalidDate += 1
++			continue
++		}
++		if (safetyMonthKey(date) !== selectedMonth) continue
++
++		const shift = normalizeSafetyShift(row[shiftColumn], config)
++		if (!shift) {
++			ignored.unknownShift += 1
++			continue
++		}
++
++		const status = resolveSafetyStatus(row[statusColumn], statuses)
++		if (!status) {
++			ignored.unknownStatus += 1
++			continue
++		}
++
++		const day = days[date.getDate() - 1]
++		const shiftKey = shift === 'day' ? 'dayShift' : 'nightShift'
++		const existing = day[shiftKey]
++		const count = Number(row.count_of_rows) || 1
++		const detail = detailColumn ? String(row[detailColumn] ?? '').trim() : ''
++
++		if (!existing) {
++			day[shiftKey] = {
++				...status,
++				count,
++				details: detail ? [detail] : [],
++			}
++			continue
++		}
++
++		const details =
++			detail && !existing.details.includes(detail)
++				? [...existing.details, detail]
++				: existing.details
++		day[shiftKey] =
++			status.severity > existing.severity
++				? { ...status, count: existing.count + count, details }
++				: { ...existing, count: existing.count + count, details }
++	}
++
++	return { days, statuses, ignored }
++}
++
++export function getSafetyCrossPosition(day: number) {
++	if (day <= 3) return { row: 1, column: day + 2 }
++	if (day <= 6) return { row: 2, column: day - 1 }
++	if (day <= 27) {
++		const offset = day - 7
++		return { row: 3 + Math.floor(offset / 7), column: 1 + (offset % 7) }
++	}
++	if (day <= 30) return { row: 6, column: day - 25 }
++	return { row: 7, column: 4 }
++}
+diff --git a/frontend/src2/types/chart.types.ts b/frontend/src2/types/chart.types.ts
+index 7baa595..a6403d0 100644
+--- a/frontend/src2/types/chart.types.ts
++++ b/frontend/src2/types/chart.types.ts
+@@ -4,7 +4,7 @@ import { Dimension, Measure } from './query.types'
+ export const AXIS_CHARTS = ['Bar', 'Line', 'Row']
+ export type AxisChartType = (typeof AXIS_CHARTS)[number]
+ 
+-export const CHARTS = ['Number', ...AXIS_CHARTS, 'Donut', 'Funnel', 'Table', 'Map', 'Bubble', 'Sankey']
++export const CHARTS = ['Number', ...AXIS_CHARTS, 'Donut', 'Funnel', 'Table', 'Map', 'Bubble', 'Sankey', 'Safety Cross']
+ export type ChartType = (typeof CHARTS)[number]
+ 
+ export type AxisChartConfig = {
+@@ -154,6 +154,35 @@ export type SankeyChartConfig = {
+ 	node_align?: 'left' | 'right' | 'justify'
+ }
+ 
++export type SafetyCrossChartConfig = {
++	date_column: Dimension
++	shift_column: Dimension
++	status_column: Dimension
++	detail_column: Dimension
++	month_mode?: 'latest' | 'earliest' | 'current'
++	fixed_month?: string
++	show_month_navigation?: boolean
++	show_data_warnings?: boolean
++	day_shift_label?: string
++	night_shift_label?: string
++	day_shift_values?: string
++	night_shift_values?: string
++	safe_shift_label?: string
++	safe_shift_values?: string
++	safe_shift_color?: string
++	safe_with_improvements_label?: string
++	safe_with_improvements_values?: string
++	safe_with_improvements_color?: string
++	unsafe_shift_label?: string
++	unsafe_shift_values?: string
++	unsafe_shift_color?: string
++	unsafe_shift_with_incident_label?: string
++	unsafe_shift_with_incident_values?: string
++	unsafe_shift_with_incident_color?: string
++	empty_label?: string
++	empty_color?: string
++}
++
+ export type ChartConfig =
+ 	| LineChartConfig
+ 	| BarChartConfig
+@@ -164,6 +193,7 @@ export type ChartConfig =
+ 	| MapChartConfig
+ 	| BubbleChartConfig
+ 	| SankeyChartConfig
++	| SafetyCrossChartConfig
+ 
+ export interface Suggestion {
+ 		region: string

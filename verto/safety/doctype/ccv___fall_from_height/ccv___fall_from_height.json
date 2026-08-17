@@ -85,6 +85,7 @@
    "fieldtype": "Column Break"
   },
   {
+   "default": "Work Scope",
    "fieldname": "scope_or_wo",
    "fieldtype": "Select",
    "label": "Work Scope or WO Number?",
@@ -364,7 +365,7 @@
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-04-13 00:08:10.006968",
+ "modified": "2026-07-07 09:58:55.349861",
  "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "CCV - Fall From Height",

@@ -1,11 +1,6 @@
-// Copyright (c) 2024, Webwire and contributors
+// Copyright (c) 2026, Webwire Pty Ltd and contributors
 // For license information, please see license.txt
 
-// frappe.ui.form.on("Take 5", {
-// 	refresh(frm) {
-
-// 	},
-// });
 frappe.ui.form.on('Take 5', {
     refresh: function(frm) {
         // Function to add a button
