@@ -3095,6 +3095,138 @@ def _insert_generic_project_task(
 	return task
 
 
+def _normalise_task_assignees(value) -> list[str]:
+	"""Return the unique User IDs stored in a Task's standard ``_assign`` field."""
+	if not value:
+		return []
+	if isinstance(value, str):
+		try:
+			value = json.loads(value)
+		except (TypeError, ValueError):
+			value = [value]
+	if not isinstance(value, (list, tuple, set)):
+		return []
+
+	assignees = []
+	seen = set()
+	for user in value:
+		user = str(user or "").strip()
+		key = user.casefold()
+		if not user or key in seen:
+			continue
+		seen.add(key)
+		assignees.append(user)
+	return assignees
+
+
+def _get_project_execution_tasks(project: str) -> list[dict]:
+	"""Return Work Summary tasks and their standard Frappe assignees."""
+	tasks = frappe.get_all(
+		"Task",
+		filters={"project": project, "type": "Work Summary"},
+		fields=["name", "subject", "parent_task", "_assign"],
+		order_by="name asc",
+	)
+	if not tasks:
+		return []
+
+	parent_names = sorted({row.get("parent_task") for row in tasks if row.get("parent_task")})
+	parent_subjects = {}
+	if parent_names:
+		parent_subjects = {
+			row.name: row.subject
+			for row in frappe.get_all(
+				"Task",
+				filters={"name": ["in", parent_names]},
+				fields=["name", "subject"],
+				limit_page_length=len(parent_names),
+			)
+		}
+
+	all_assignees = sorted({
+		user
+		for row in tasks
+		for user in _normalise_task_assignees(row.get("_assign"))
+	})
+	user_details = {}
+	if all_assignees:
+		user_details = {
+			row.name: row
+			for row in frappe.get_all(
+				"User",
+				filters={"name": ["in", all_assignees]},
+				fields=["name", "full_name", "user_image"],
+				limit_page_length=len(all_assignees),
+			)
+		}
+
+	result = []
+	for row in tasks:
+		assignees = []
+		for user in _normalise_task_assignees(row.get("_assign")):
+			user_row = user_details.get(user) or {}
+			assignees.append({
+				"user": user,
+				"full_name": user_row.get("full_name") or user,
+				"user_image": user_row.get("user_image"),
+			})
+
+		try:
+			can_assign = bool(frappe.get_doc("Task", row.name).has_permission("write"))
+		except Exception:
+			can_assign = False
+
+		result.append({
+			"name": row.name,
+			"subject": row.subject,
+			"parent_task": row.get("parent_task"),
+			"location_subject": parent_subjects.get(row.get("parent_task")) or row.get("parent_task") or "",
+			"assignees": assignees,
+			"can_assign": can_assign,
+		})
+	return result
+
+
+def _get_assignable_execution_task(project: str, task: str):
+	if not project:
+		frappe.throw(_("Project is required"))
+	if not task:
+		frappe.throw(_("Task is required"))
+
+	task_doc = frappe.get_doc("Task", task)
+	if task_doc.project != project:
+		frappe.throw(_("Task {0} does not belong to Project {1}.").format(task, project))
+	if str(task_doc.get("type") or "").strip().casefold() != "work summary":
+		frappe.throw(_("Only Work Summary/Execution tasks can be assigned from the Planner."))
+	task_doc.check_permission("write")
+	return task_doc
+
+
+def _normalise_assignment_users(users) -> list[str]:
+	if isinstance(users, str):
+		try:
+			users = json.loads(users)
+		except (TypeError, ValueError):
+			users = [users]
+	if not isinstance(users, (list, tuple, set)):
+		frappe.throw(_("Personnel must be supplied as a list."))
+
+	result = []
+	seen = set()
+	for user in users:
+		user = str(user or "").strip()
+		key = user.casefold()
+		if not user or key in seen:
+			continue
+		seen.add(key)
+		result.append(user)
+	if not result:
+		frappe.throw(_("Select at least one person to assign."))
+	if len(result) > 50:
+		frappe.throw(_("A maximum of 50 people can be assigned at once."))
+	return result
+
+
 @frappe.whitelist()
 def get_project_planner_details(project: str) -> dict:
 	"""Return editable annual-planner details for a Project span dialog."""
@@ -3146,6 +3278,7 @@ def get_project_planner_details(project: str) -> dict:
 		"notes": doc.get(notes_field) if notes_field else "",
 		"task_count": task_count,
 		"has_tasks": has_tasks,
+		"execution_tasks": _get_project_execution_tasks(project),
 		"can_create_generic_tasks": can_create_generic_tasks,
 		"generic_tasks_unavailable_reason": generic_tasks_unavailable_reason,
 		"can_update_po": bool(po_field),
@@ -3154,6 +3287,69 @@ def get_project_planner_details(project: str) -> dict:
 		"can_update_is_active": bool(is_active_field),
 		"can_update_project_dates": bool(start_date_field and end_date_field) and not has_tasks,
 		"can_update_notes": bool(notes_field),
+	}
+
+
+@frappe.whitelist()
+def get_task_assignment_users(project: str, task: str) -> dict:
+	"""Return enabled ERPNext users after verifying write access to the Task."""
+	_get_assignable_execution_task(project, task)
+	users = frappe.get_all(
+		"User",
+		filters={"enabled": 1, "user_type": "System User", "name": ["!=", "Guest"]},
+		fields=["name", "full_name", "user_image"],
+		order_by="full_name asc, name asc",
+		limit_page_length=1000,
+	)
+	return {
+		"users": [
+			{
+				"user": row.name,
+				"full_name": row.full_name or row.name,
+				"user_image": row.user_image,
+			}
+			for row in users
+		],
+	}
+
+
+@frappe.whitelist()
+def assign_project_execution_task(project: str, task: str, users: list | str) -> dict:
+	"""Assign personnel through Frappe's standard Task/ToDo assignment flow."""
+	task_doc = _get_assignable_execution_task(project, task)
+	requested_users = _normalise_assignment_users(users)
+
+	valid_users = set(frappe.get_all(
+		"User",
+		filters={
+			"name": ["in", requested_users],
+			"enabled": 1,
+			"user_type": "System User",
+		},
+		pluck="name",
+		limit_page_length=len(requested_users),
+	))
+	invalid_users = [user for user in requested_users if user not in valid_users or user == "Guest"]
+	if invalid_users:
+		frappe.throw(_("These personnel cannot be assigned: {0}").format(", ".join(invalid_users)))
+
+	existing_users = set(_normalise_task_assignees(task_doc.get("_assign")))
+	new_users = [user for user in requested_users if user not in existing_users]
+	if not new_users:
+		frappe.throw(_("All selected personnel are already assigned to this task."))
+
+	from frappe.desk.form.assign_to import add as add_assignment
+
+	add_assignment({
+		"assign_to": new_users,
+		"doctype": "Task",
+		"name": task_doc.name,
+		"description": task_doc.subject,
+	})
+	return {
+		"task": task_doc.name,
+		"assigned_users": new_users,
+		"project_details": get_project_planner_details(project),
 	}
 
 
