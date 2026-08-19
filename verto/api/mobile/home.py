@@ -1,6 +1,8 @@
 import frappe
 from frappe.utils import add_to_date, now_datetime
 
+from verto.api.mobile.task_checklist import attach_checklists_to_tasks
+
 
 SETTINGS_DOCTYPE = "Verto Mobile Settings"
 
@@ -477,6 +479,7 @@ def get_home_summary():
     require_login()
 
     tasks = fetch_assigned_work_summary_tasks()
+    attach_checklists_to_tasks(tasks)
     project_map = fetch_projects_for_tasks(tasks)
     grouped_tasks = group_tasks(tasks, project_map)
     mobile_form_buttons = get_mobile_form_buttons()

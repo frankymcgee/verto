@@ -171,7 +171,10 @@ doc_events = {
 	# 	"on_update": "method",
 	# 	"on_cancel": "method",
 	# 	"on_trash": "method"
-	# }
+    # }
+    "Task": {
+        "before_validate": "verto.api.mobile.task_checklist.sync_task_checklist_progress",
+    },
     "Project": {
         "after_insert": "verto.api.hooks.create_project_handover_records",
         "on_update": "verto.api.hooks.create_project_handover_records",

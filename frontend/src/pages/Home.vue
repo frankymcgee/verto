@@ -226,6 +226,64 @@
                       </Badge>
                     </div>
 
+                    <div
+                      v-if="task.checklist?.length"
+                      class="overflow-hidden rounded-xl border border-outline-gray-1 bg-surface-gray-1"
+                    >
+                      <div class="flex items-center justify-between gap-3 border-b border-outline-gray-1 px-3 py-2">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-ink-gray-6">
+                          Checklist
+                        </p>
+
+                        <p class="text-xs font-medium text-ink-gray-5">
+                          {{ getCompletedChecklistCount(task) }}/{{ getChecklistItemCount(task) }} complete
+                        </p>
+                      </div>
+
+                      <div class="divide-y divide-outline-gray-1">
+                        <div
+                          v-for="item in (task.checklist || [])"
+                          :key="item.name"
+                        >
+                          <label
+                            class="flex min-h-11 cursor-pointer items-start gap-3 px-3 py-2.5 active:bg-surface-gray-2"
+                            :class="{ 'cursor-wait opacity-60': isChecklistItemPending(task, item) }"
+                          >
+                            <input
+                              type="checkbox"
+                              class="mt-0.5 h-5 w-5 shrink-0 accent-blue-600"
+                              :checked="isChecklistItemComplete(item)"
+                              :disabled="isChecklistItemPending(task, item)"
+                              @change="toggleChecklistItem(parent, task, item, $event)"
+                            >
+
+                            <span
+                              class="min-w-0 flex-1 text-sm leading-5"
+                              :class="isChecklistItemComplete(item)
+                                ? 'text-ink-gray-5 line-through'
+                                : 'text-ink-gray-8'"
+                            >
+                              {{ item.description }}
+                            </span>
+
+                            <span
+                              v-if="isChecklistItemPending(task, item)"
+                              class="shrink-0 text-xs text-ink-gray-5"
+                            >
+                              Saving…
+                            </span>
+                          </label>
+
+                          <p
+                            v-if="getChecklistItemError(task, item)"
+                            class="px-3 pb-2 text-xs text-red-700"
+                          >
+                            {{ getChecklistItemError(task, item) }}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     <div class="grid grid-cols-2 gap-2 pt-1">
                       <Button
                         variant="solid"
@@ -597,7 +655,20 @@ type HomeButton = {
   mobile_doctype: string
 }
 
-type TaskItem = Record<string, any>
+type ChecklistItem = {
+  name: string
+  description: string
+  completed: number | boolean | string
+  completed_by?: string | null
+  completed_on?: string | null
+}
+
+type TaskItem = {
+  name: string
+  progress?: number | string
+  checklist?: ChecklistItem[]
+  [key: string]: any
+}
 
 type ProjectDetails = {
   name?: string
@@ -697,11 +768,24 @@ type ProjectPersonnelResponse = {
   matched_shift_count?: number
 }
 
+type ChecklistUpdateResponse = {
+  task: string
+  item: ChecklistItem
+  checklist: ChecklistItem[]
+  completed_count: number
+  total_count: number
+  progress: number | string
+  parent_task?: string | null
+  parent_progress?: number | string | null
+}
+
 const router = useRouter()
 
 const loading = ref(true)
 const error = ref('')
 const home = ref<HomePayload | null>(null)
+const checklistPending = ref<Record<string, boolean>>({})
+const checklistErrors = ref<Record<string, string>>({})
 
 const openScopes = ref<Record<string, boolean>>({})
 const openParents = ref<Record<string, boolean>>({})
@@ -750,6 +834,87 @@ function toggleScope(name: string) {
 
 function toggleParent(key: string) {
   openParents.value[key] = !openParents.value[key]
+}
+
+function getChecklistItemKey(task: TaskItem, item: ChecklistItem) {
+  return `${task.name}::${item.name}`
+}
+
+function isChecklistItemComplete(item: ChecklistItem) {
+  if (item.completed === true) {
+    return true
+  }
+
+  const normalised = String(item.completed ?? '').trim().toLowerCase()
+  return normalised === '1' || normalised === 'true' || normalised === 'yes'
+}
+
+function isChecklistItemPending(task: TaskItem, item: ChecklistItem) {
+  return Boolean(checklistPending.value[getChecklistItemKey(task, item)])
+}
+
+function getChecklistItemError(task: TaskItem, item: ChecklistItem) {
+  return checklistErrors.value[getChecklistItemKey(task, item)] || ''
+}
+
+function getCompletedChecklistCount(task: TaskItem) {
+  return (task.checklist || []).filter(isChecklistItemComplete).length
+}
+
+function getChecklistItemCount(task: TaskItem) {
+  return (task.checklist || []).length
+}
+
+async function toggleChecklistItem(
+  parent: ParentGroup,
+  task: TaskItem,
+  item: ChecklistItem,
+  event: Event
+) {
+  const input = event.target as HTMLInputElement
+  const key = getChecklistItemKey(task, item)
+  const previousCompleted = isChecklistItemComplete(item)
+  const nextCompleted = input.checked
+
+  if (!task.name || !item.name || checklistPending.value[key]) {
+    input.checked = previousCompleted
+    return
+  }
+
+  checklistPending.value[key] = true
+  checklistErrors.value[key] = ''
+  item.completed = nextCompleted ? 1 : 0
+
+  try {
+    const payload = new FormData()
+    payload.append('task_name', task.name)
+    payload.append('item_name', item.name)
+    payload.append('completed', nextCompleted ? '1' : '0')
+
+    const data = await apiRequest<FrappeResponse<ChecklistUpdateResponse>>(
+      '/api/method/verto.api.mobile.task_checklist.set_checklist_item_completed',
+      {
+        method: 'POST',
+        body: payload,
+      }
+    )
+
+    const update = data.message
+    task.checklist = update.checklist || task.checklist
+    task.progress = Number(update.progress || 0)
+
+    if (update.parent_progress !== null && update.parent_progress !== undefined) {
+      parent.progress = Number(update.parent_progress || 0)
+    }
+  } catch (err) {
+    item.completed = previousCompleted ? 1 : 0
+    input.checked = previousCompleted
+    checklistErrors.value[key] = err instanceof Error
+      ? err.message
+      : 'Could not update this checklist item.'
+  } finally {
+    delete checklistPending.value[key]
+  }
 }
 
 function openPicker(type: 'generic' | 'form' | 'ccv', task?: TaskItem) {
@@ -809,7 +974,7 @@ function getScopeAverageProgress(scope: ScopeGroup) {
   return Math.round(totalProgress / parents.length)
 }
 
-function clampPercent(value: number) {
+function clampPercent(value: number | string | null | undefined) {
   if (!Number.isFinite(Number(value))) {
     return 0
   }
