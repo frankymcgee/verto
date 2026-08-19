@@ -1,6 +1,9 @@
+import json
+import re
+
 import frappe
 from frappe import _
-from frappe.utils import add_days, date_diff, getdate, get_datetime_str, nowdate
+from frappe.utils import add_days, date_diff, getdate, get_datetime, get_datetime_str, nowdate
 from frappe.desk.search import search_link
 
 from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
@@ -2876,6 +2879,14 @@ PROJECT_NOTES_FIELD_CANDIDATES = [
 	"custom_notes",
 ]
 
+GENERIC_TASK_DEFAULT_LOCATION = "General"
+GENERIC_TASK_DEFAULT_WORK_SUMMARY = "Execution Works"
+GENERIC_TASK_DEFAULT_START_TIME = "08:00:00"
+GENERIC_TASK_DEFAULT_END_TIME = "20:00:00"
+GENERIC_TASK_DEFAULT_SHARED_VALUE = "MULTIPLE"
+GENERIC_TASK_ID_DIGITS = 4
+GENERIC_TASK_MAX_LOCATIONS = 100
+
 
 def _project_meta_fieldtype(fieldname: str | None) -> str | None:
 	if not fieldname:
@@ -2940,6 +2951,282 @@ def _validate_project_date_range(start_date, end_date) -> None:
 		frappe.throw(_("Project Start Date cannot be after Project End Date."))
 
 
+def _generic_task_creation_availability(doc, task_count: int, fields: dict[str, str | None]) -> tuple[bool, str]:
+	if (doc.get("status") or "").strip().lower() == "cancelled":
+		return False, _("Generic tasks cannot be created for a cancelled project.")
+
+	if task_count:
+		return False, _("This project already has {0} task(s) assigned.").format(task_count)
+
+	if not frappe.has_permission("Task", ptype="create"):
+		return False, _("You do not have permission to create Tasks.")
+
+	start_date_field = fields.get("start_date_field")
+	end_date_field = fields.get("end_date_field")
+	if not start_date_field or not end_date_field:
+		return False, _("The Project start and end date fields are not configured on this site.")
+
+	if not doc.get(start_date_field) or not doc.get(end_date_field):
+		return False, _("Set the Project Start Date and Project End Date before creating generic tasks.")
+
+	return True, ""
+
+
+def _normalise_generic_task_subject(value, fallback: str, label: str) -> str:
+	subject = " ".join(str(value or fallback).split()).strip()
+	if not subject:
+		frappe.throw(_("{0} is required.").format(label))
+	if len(subject) > 140:
+		frappe.throw(_("{0} cannot exceed 140 characters.").format(label))
+	return subject
+
+
+def _normalise_generic_task_time(value, fallback: str, label: str) -> str:
+	value = str(value or fallback).strip()
+	try:
+		return get_datetime(f"2000-01-01 {value}").strftime("%H:%M:%S")
+	except Exception:
+		frappe.throw(_("{0} must be a valid time.").format(label))
+
+
+def _normalise_generic_task_locations(locations, legacy_location_subject=None) -> list[str]:
+	if locations in (None, ""):
+		locations = [legacy_location_subject or GENERIC_TASK_DEFAULT_LOCATION]
+	elif isinstance(locations, str):
+		try:
+			locations = json.loads(locations)
+		except (TypeError, ValueError):
+			locations = [locations]
+
+	if isinstance(locations, dict):
+		locations = [locations]
+	if not isinstance(locations, (list, tuple)):
+		frappe.throw(_("Locations must be supplied as a list."))
+	if not locations:
+		frappe.throw(_("Add at least one Location task."))
+	if len(locations) > GENERIC_TASK_MAX_LOCATIONS:
+		frappe.throw(_("A maximum of {0} Location tasks can be created at once.").format(GENERIC_TASK_MAX_LOCATIONS))
+
+	subjects = []
+	seen = set()
+	for index, location in enumerate(locations, start=1):
+		if isinstance(location, dict):
+			location = location.get("subject") or location.get("location_subject") or location.get("name")
+		subject = _normalise_generic_task_subject(
+			location,
+			"",
+			_("Location {0} task name").format(index),
+		)
+		key = subject.casefold()
+		if key in seen:
+			frappe.throw(_("Location task names must be unique. Duplicate: {0}").format(subject))
+		seen.add(key)
+		subjects.append(subject)
+
+	return subjects
+
+
+def _next_project_task_names(project: str, count: int) -> list[str]:
+	prefix = f"{project}-"
+	pattern = re.compile(rf"^{re.escape(prefix)}(\d+)$")
+	existing_names = frappe.db.sql(
+		"SELECT name FROM `tabTask` WHERE name LIKE %s",
+		(f"{prefix}%",),
+		pluck=True,
+	)
+
+	sequence = 0
+	for name in existing_names:
+		match = pattern.match(name or "")
+		if match:
+			sequence = max(sequence, int(match.group(1)))
+
+	result = []
+	while len(result) < count:
+		sequence += 1
+		candidate = f"{prefix}{sequence:0{GENERIC_TASK_ID_DIGITS}d}"
+		if frappe.db.exists("Task", candidate):
+			continue
+		result.append(candidate)
+
+	return result
+
+
+def _insert_generic_project_task(
+	*,
+	name: str,
+	project_doc,
+	subject: str,
+	task_type: str,
+	is_group: bool,
+	start_date: str,
+	end_date: str,
+	start_time: str,
+	end_time: str,
+	expected_time: float,
+	parent_task=None,
+):
+	task = frappe.new_doc("Task")
+	task.subject = subject
+	task.project = project_doc.name
+	task.description = subject
+	task.is_group = 1 if is_group else 0
+	task.is_milestone = 0
+	task.exp_start_date = start_date
+	task.exp_end_date = end_date
+	task.expected_time = expected_time
+	task.progress = 0
+
+	_set_doc_field_if_exists(task, "type", task_type)
+	_set_doc_field_if_exists(task, "project_scope_name", project_doc.project_name or project_doc.name)
+	_set_doc_field_if_exists(task, "exp_start_time", start_time)
+	_set_doc_field_if_exists(task, "exp_end_time", end_time)
+	_set_doc_field_if_exists(task, "responsible_contractor", GENERIC_TASK_DEFAULT_SHARED_VALUE)
+	_set_doc_field_if_exists(task, "supervisor", GENERIC_TASK_DEFAULT_SHARED_VALUE)
+	_set_doc_field_if_exists(task, "client_functional_location", GENERIC_TASK_DEFAULT_SHARED_VALUE)
+	_set_doc_field_if_exists(task, "work_order_number", "0")
+	_set_doc_field_if_exists(task, "operation_number", "0")
+
+	if parent_task:
+		task.parent_task = parent_task.name
+		_set_doc_field_if_exists(task, "parent_task_name", parent_task.subject)
+
+	task.insert(set_name=name)
+	return task
+
+
+def _normalise_task_assignees(value) -> list[str]:
+	"""Return the unique User IDs stored in a Task's standard ``_assign`` field."""
+	if not value:
+		return []
+	if isinstance(value, str):
+		try:
+			value = json.loads(value)
+		except (TypeError, ValueError):
+			value = [value]
+	if not isinstance(value, (list, tuple, set)):
+		return []
+
+	assignees = []
+	seen = set()
+	for user in value:
+		user = str(user or "").strip()
+		key = user.casefold()
+		if not user or key in seen:
+			continue
+		seen.add(key)
+		assignees.append(user)
+	return assignees
+
+
+def _get_project_execution_tasks(project: str) -> list[dict]:
+	"""Return Work Summary tasks and their standard Frappe assignees."""
+	tasks = frappe.get_all(
+		"Task",
+		filters={"project": project, "type": "Work Summary"},
+		fields=["name", "subject", "parent_task", "_assign"],
+		order_by="name asc",
+	)
+	if not tasks:
+		return []
+
+	parent_names = sorted({row.get("parent_task") for row in tasks if row.get("parent_task")})
+	parent_subjects = {}
+	if parent_names:
+		parent_subjects = {
+			row.name: row.subject
+			for row in frappe.get_all(
+				"Task",
+				filters={"name": ["in", parent_names]},
+				fields=["name", "subject"],
+				limit_page_length=len(parent_names),
+			)
+		}
+
+	all_assignees = sorted({
+		user
+		for row in tasks
+		for user in _normalise_task_assignees(row.get("_assign"))
+	})
+	user_details = {}
+	if all_assignees:
+		user_details = {
+			row.name: row
+			for row in frappe.get_all(
+				"User",
+				filters={"name": ["in", all_assignees]},
+				fields=["name", "full_name", "user_image"],
+				limit_page_length=len(all_assignees),
+			)
+		}
+
+	result = []
+	for row in tasks:
+		assignees = []
+		for user in _normalise_task_assignees(row.get("_assign")):
+			user_row = user_details.get(user) or {}
+			assignees.append({
+				"user": user,
+				"full_name": user_row.get("full_name") or user,
+				"user_image": user_row.get("user_image"),
+			})
+
+		try:
+			can_assign = bool(frappe.get_doc("Task", row.name).has_permission("write"))
+		except Exception:
+			can_assign = False
+
+		result.append({
+			"name": row.name,
+			"subject": row.subject,
+			"parent_task": row.get("parent_task"),
+			"location_subject": parent_subjects.get(row.get("parent_task")) or row.get("parent_task") or "",
+			"assignees": assignees,
+			"can_assign": can_assign,
+		})
+	return result
+
+
+def _get_assignable_execution_task(project: str, task: str):
+	if not project:
+		frappe.throw(_("Project is required"))
+	if not task:
+		frappe.throw(_("Task is required"))
+
+	task_doc = frappe.get_doc("Task", task)
+	if task_doc.project != project:
+		frappe.throw(_("Task {0} does not belong to Project {1}.").format(task, project))
+	if str(task_doc.get("type") or "").strip().casefold() != "work summary":
+		frappe.throw(_("Only Work Summary/Execution tasks can be assigned from the Planner."))
+	task_doc.check_permission("write")
+	return task_doc
+
+
+def _normalise_assignment_users(users) -> list[str]:
+	if isinstance(users, str):
+		try:
+			users = json.loads(users)
+		except (TypeError, ValueError):
+			users = [users]
+	if not isinstance(users, (list, tuple, set)):
+		frappe.throw(_("Personnel must be supplied as a list."))
+
+	result = []
+	seen = set()
+	for user in users:
+		user = str(user or "").strip()
+		key = user.casefold()
+		if not user or key in seen:
+			continue
+		seen.add(key)
+		result.append(user)
+	if not result:
+		frappe.throw(_("Select at least one person to assign."))
+	if len(result) > 50:
+		frappe.throw(_("A maximum of 50 people can be assigned at once."))
+	return result
+
+
 @frappe.whitelist()
 def get_project_planner_details(project: str) -> dict:
 	"""Return editable annual-planner details for a Project span dialog."""
@@ -2958,6 +3245,11 @@ def get_project_planner_details(project: str) -> dict:
 	notes_field = fields.get("notes_field")
 	task_count = get_project_task_counts([project]).get(project, 0)
 	has_tasks = task_count > 0
+	can_create_generic_tasks, generic_tasks_unavailable_reason = _generic_task_creation_availability(
+		doc,
+		task_count,
+		fields,
+	)
 
 	po_value = doc.get(po_field) if po_field else None
 	is_po_check = po_fieldtype == "Check"
@@ -2986,12 +3278,204 @@ def get_project_planner_details(project: str) -> dict:
 		"notes": doc.get(notes_field) if notes_field else "",
 		"task_count": task_count,
 		"has_tasks": has_tasks,
+		"execution_tasks": _get_project_execution_tasks(project),
+		"can_create_generic_tasks": can_create_generic_tasks,
+		"generic_tasks_unavailable_reason": generic_tasks_unavailable_reason,
 		"can_update_po": bool(po_field),
 		"can_update_ds": bool(ds_field),
 		"can_update_ns": bool(ns_field),
 		"can_update_is_active": bool(is_active_field),
 		"can_update_project_dates": bool(start_date_field and end_date_field) and not has_tasks,
 		"can_update_notes": bool(notes_field),
+	}
+
+
+@frappe.whitelist()
+def get_task_assignment_users(project: str, task: str) -> dict:
+	"""Return enabled ERPNext users after verifying write access to the Task."""
+	_get_assignable_execution_task(project, task)
+	users = frappe.get_all(
+		"User",
+		filters={"enabled": 1, "user_type": "System User", "name": ["!=", "Guest"]},
+		fields=["name", "full_name", "user_image"],
+		order_by="full_name asc, name asc",
+		limit_page_length=1000,
+	)
+	return {
+		"users": [
+			{
+				"user": row.name,
+				"full_name": row.full_name or row.name,
+				"user_image": row.user_image,
+			}
+			for row in users
+		],
+	}
+
+
+@frappe.whitelist()
+def assign_project_execution_task(project: str, task: str, users: list | str) -> dict:
+	"""Assign personnel through Frappe's standard Task/ToDo assignment flow."""
+	task_doc = _get_assignable_execution_task(project, task)
+	requested_users = _normalise_assignment_users(users)
+
+	valid_users = set(frappe.get_all(
+		"User",
+		filters={
+			"name": ["in", requested_users],
+			"enabled": 1,
+			"user_type": "System User",
+		},
+		pluck="name",
+		limit_page_length=len(requested_users),
+	))
+	invalid_users = [user for user in requested_users if user not in valid_users or user == "Guest"]
+	if invalid_users:
+		frappe.throw(_("These personnel cannot be assigned: {0}").format(", ".join(invalid_users)))
+
+	existing_users = set(_normalise_task_assignees(task_doc.get("_assign")))
+	new_users = [user for user in requested_users if user not in existing_users]
+	if not new_users:
+		frappe.throw(_("All selected personnel are already assigned to this task."))
+
+	from frappe.desk.form.assign_to import add as add_assignment
+
+	add_assignment({
+		"assign_to": new_users,
+		"doctype": "Task",
+		"name": task_doc.name,
+		"description": task_doc.subject,
+	})
+	return {
+		"task": task_doc.name,
+		"assigned_users": new_users,
+		"project_details": get_project_planner_details(project),
+	}
+
+
+@frappe.whitelist()
+def create_generic_project_tasks(
+	project: str,
+	location_subject: str | None = None,
+	locations: list | str | None = None,
+	work_summary_subject: str | None = None,
+	expected_start_time: str | None = None,
+	expected_end_time: str | None = None,
+) -> dict:
+	"""Create an Outline with one or more Location > Work Summary task pairs.
+
+	This is intentionally restricted to projects with no existing Tasks so it
+	cannot be mixed accidentally with an imported client Gantt. The Project row
+	is locked for the duration of the request so two Planner users cannot create
+	the generic hierarchy at the same time.
+	"""
+	if not project:
+		frappe.throw(_("Project is required"))
+
+	if not frappe.has_permission("Task", ptype="create"):
+		frappe.throw(_("You do not have permission to create Tasks."), frappe.PermissionError)
+
+	project_doc = frappe.get_doc("Project", project)
+	project_doc.check_permission("read")
+
+	frappe.db.sql("SELECT name FROM `tabProject` WHERE name = %s FOR UPDATE", (project,))
+	project_doc.reload()
+
+	fields = _project_planner_edit_fields()
+	task_count = frappe.db.count("Task", {"project": project_doc.name})
+	can_create, unavailable_reason = _generic_task_creation_availability(project_doc, task_count, fields)
+	if not can_create:
+		frappe.throw(unavailable_reason)
+
+	outline_subject = _normalise_generic_task_subject(
+		project_doc.project_name or project_doc.name,
+		project_doc.name,
+		_("Project task name"),
+	)
+	location_subjects = _normalise_generic_task_locations(locations, location_subject)
+	work_summary_subject = _normalise_generic_task_subject(
+		work_summary_subject,
+		GENERIC_TASK_DEFAULT_WORK_SUMMARY,
+		_("Work Summary task name"),
+	)
+	start_time = _normalise_generic_task_time(
+		expected_start_time,
+		GENERIC_TASK_DEFAULT_START_TIME,
+		_("Expected Start Time"),
+	)
+	end_time = _normalise_generic_task_time(
+		expected_end_time,
+		GENERIC_TASK_DEFAULT_END_TIME,
+		_("Expected End Time"),
+	)
+
+	start_date = _normalise_project_date_for_update(project_doc.get(fields["start_date_field"]))
+	end_date = _normalise_project_date_for_update(project_doc.get(fields["end_date_field"]))
+	_validate_project_date_range(start_date, end_date)
+
+	start_datetime = get_datetime(f"{start_date} {start_time}")
+	end_datetime = get_datetime(f"{end_date} {end_time}")
+	if end_datetime <= start_datetime:
+		frappe.throw(_("The generic task end date and time must be after its start date and time."))
+	expected_time = round((end_datetime - start_datetime).total_seconds() / 3600, 2)
+
+	task_names = _next_project_task_names(project_doc.name, 1 + (len(location_subjects) * 2))
+	outline_task = _insert_generic_project_task(
+		name=task_names[0],
+		project_doc=project_doc,
+		subject=outline_subject,
+		task_type="Outline",
+		is_group=True,
+		start_date=start_date,
+		end_date=end_date,
+		start_time=start_time,
+		end_time=end_time,
+		expected_time=expected_time,
+	)
+	created_tasks = [outline_task]
+	task_name_index = 1
+	for location_subject in location_subjects:
+		location_task = _insert_generic_project_task(
+			name=task_names[task_name_index],
+			project_doc=project_doc,
+			subject=location_subject,
+			task_type="Location",
+			is_group=True,
+			start_date=start_date,
+			end_date=end_date,
+			start_time=start_time,
+			end_time=end_time,
+			expected_time=expected_time,
+			parent_task=outline_task,
+		)
+		task_name_index += 1
+		work_summary_task = _insert_generic_project_task(
+			name=task_names[task_name_index],
+			project_doc=project_doc,
+			subject=work_summary_subject,
+			task_type="Work Summary",
+			is_group=False,
+			start_date=start_date,
+			end_date=end_date,
+			start_time=start_time,
+			end_time=end_time,
+			expected_time=expected_time,
+			parent_task=location_task,
+		)
+		task_name_index += 1
+		created_tasks.extend([location_task, work_summary_task])
+	return {
+		"project": project_doc.name,
+		"created_tasks": [
+			{
+				"name": task.name,
+				"subject": task.subject,
+				"type": task.get("type"),
+				"parent_task": task.get("parent_task"),
+			}
+			for task in created_tasks
+		],
+		"project_details": get_project_planner_details(project_doc.name),
 	}
 
 
