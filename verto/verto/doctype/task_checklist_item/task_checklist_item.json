@@ -1,13 +1,14 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2026-08-20 09:00:00.000000",
+ "creation": "2026-08-20 08:09:30.970548",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
   "checklist_item",
   "completed",
+  "column_break_nfph",
   "completed_by",
   "completed_on"
  ],
@@ -27,6 +28,10 @@
    "label": "Completed"
   },
   {
+   "fieldname": "column_break_nfph",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "completed_by",
    "fieldtype": "Link",
    "label": "Completed By",
@@ -44,15 +49,15 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-08-20 09:00:00.000000",
+ "modified": "2026-08-20 08:12:06.861226",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Task Checklist Item",
  "owner": "Administrator",
  "permissions": [],
  "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": [],
- "track_changes": 1
+ "states": []
 }
