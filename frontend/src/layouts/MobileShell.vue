@@ -6,7 +6,9 @@
   >
     <div class="mobile-shell-frame mx-auto flex h-[100dvh] min-h-[100dvh] w-full flex-col overflow-hidden bg-gray-50">
       <div class="mobile-shell-content flex min-h-0 min-w-0 flex-1 flex-col">
-        <AppHeader class="mobile-shell-header" />
+        <div class="mobile-shell-header">
+          <AppHeader />
+        </div>
         <OfflineSyncStatus />
 
         <main
