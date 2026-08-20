@@ -247,15 +247,18 @@
                         >
                           <label
                             class="flex min-h-11 cursor-pointer items-start gap-3 px-3 py-2.5 active:bg-surface-gray-2"
-                            :class="{ 'cursor-wait opacity-60': isChecklistItemPending(task, item) }"
+                            :class="{
+                              'cursor-wait opacity-60': isChecklistItemPending(task, item),
+                              'cursor-default': isChecklistItemAwaitingEvidence(task, item),
+                            }"
                           >
-                            <input
-                              type="checkbox"
-                              class="mt-0.5 h-5 w-5 shrink-0 accent-blue-600"
-                              :checked="isChecklistItemComplete(item)"
-                              :disabled="isChecklistItemPending(task, item)"
-                              @change="toggleChecklistItem(parent, task, item, $event)"
-                            >
+                            <Checkbox
+                              class="mt-0.5 shrink-0"
+                              size="md"
+                              :model-value="isChecklistItemComplete(item)"
+                              :disabled="isChecklistItemBusy(task, item)"
+                              @update:model-value="(checked) => toggleChecklistItem(parent, task, item, Boolean(checked))"
+                            />
 
                             <span
                               class="min-w-0 flex-1 text-sm leading-5"
@@ -626,17 +629,68 @@
         </Card>
       </div>
     </Transition>
+
+    <input
+      ref="checklistEvidenceInput"
+      type="file"
+      class="hidden"
+      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.odt,.ods"
+      @change="handleChecklistEvidenceSelected"
+      @cancel="cancelChecklistEvidenceSelection"
+    >
+
+    <Transition name="checklist-toast">
+      <div
+        v-if="checklistToast"
+        class="fixed bottom-[calc(68px+env(safe-area-inset-bottom)+1rem)] left-1/2 z-[80] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-xl border bg-surface-white p-3 shadow-xl lg:bottom-6 lg:left-auto lg:right-6 lg:translate-x-0"
+        :class="getChecklistToastClass(checklistToast.tone)"
+        :role="checklistToast.tone === 'error' ? 'alert' : 'status'"
+        aria-live="polite"
+      >
+        <div class="flex items-start gap-3">
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-semibold text-ink-gray-9">
+              {{ checklistToast.title }}
+            </p>
+
+            <p class="mt-1 text-sm leading-5 text-ink-gray-6">
+              {{ checklistToast.message }}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            class="shrink-0 rounded-md px-1.5 py-1 text-xs font-medium text-ink-gray-5 hover:bg-surface-gray-2 hover:text-ink-gray-8"
+            @click="dismissChecklistToast"
+          >
+            {{ checklistEvidenceRequest ? 'Not now' : 'Close' }}
+          </button>
+        </div>
+
+        <Button
+          v-if="checklistToast.actionLabel"
+          variant="solid"
+          theme="gray"
+          size="sm"
+          class="mt-3 w-full justify-center"
+          @click="chooseChecklistEvidence"
+        >
+          {{ checklistToast.actionLabel }}
+        </Button>
+      </div>
+    </Transition>
   </section>
 </template>
 
 <script setup lang="ts">
 // VERTO_HOME_ACTION_BUTTONS_V1
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Badge,
   Button,
   Card,
+  Checkbox,
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
 import { openAppBrowser } from '../lib/appBrowser'
@@ -653,6 +707,22 @@ type ChecklistItem = {
   completed: number | boolean | string
   completed_by?: string | null
   completed_on?: string | null
+}
+
+type ChecklistEvidenceRequest = {
+  parent: ParentGroup
+  task: TaskItem
+  item: ChecklistItem
+}
+
+type ChecklistToastTone = 'info' | 'success' | 'error'
+
+type ChecklistToastState = {
+  title: string
+  message: string
+  tone: ChecklistToastTone
+  actionLabel?: string
+  persistent?: boolean
 }
 
 type TaskItem = {
@@ -784,6 +854,12 @@ type ChecklistUpdateResponse = {
   progress: number | string
   parent_task?: string | null
   parent_progress?: number | string | null
+  evidence?: {
+    name: string
+    file_name: string
+    file_url: string
+    is_private: number | boolean
+  } | null
 }
 
 const router = useRouter()
@@ -793,6 +869,11 @@ const error = ref('')
 const home = ref<HomePayload | null>(null)
 const checklistPending = ref<Record<string, boolean>>({})
 const checklistErrors = ref<Record<string, string>>({})
+const checklistEvidenceInput = ref<HTMLInputElement | null>(null)
+const checklistEvidenceRequest = ref<ChecklistEvidenceRequest | null>(null)
+const checklistToast = ref<ChecklistToastState | null>(null)
+
+let checklistToastTimer: number | undefined
 
 const openScopes = ref<Record<string, boolean>>({})
 const openParents = ref<Record<string, boolean>>({})
@@ -935,6 +1016,22 @@ function isChecklistItemPending(task: TaskItem, item: ChecklistItem) {
   return Boolean(checklistPending.value[getChecklistItemKey(task, item)])
 }
 
+function isChecklistItemAwaitingEvidence(task: TaskItem, item: ChecklistItem) {
+  const request = checklistEvidenceRequest.value
+
+  return Boolean(
+    request &&
+    getChecklistItemKey(request.task, request.item) === getChecklistItemKey(task, item)
+  )
+}
+
+function isChecklistItemBusy(task: TaskItem, item: ChecklistItem) {
+  return (
+    isChecklistItemPending(task, item) ||
+    isChecklistItemAwaitingEvidence(task, item)
+  )
+}
+
 function getChecklistItemError(task: TaskItem, item: ChecklistItem) {
   return checklistErrors.value[getChecklistItemKey(task, item)] || ''
 }
@@ -947,31 +1044,146 @@ function getChecklistItemCount(task: TaskItem) {
   return (task.checklist || []).length
 }
 
-async function toggleChecklistItem(
+function getChecklistToastClass(tone: ChecklistToastTone) {
+  if (tone === 'success') {
+    return 'border-green-200'
+  }
+
+  if (tone === 'error') {
+    return 'border-red-200'
+  }
+
+  return 'border-blue-200'
+}
+
+function clearChecklistToastTimer() {
+  window.clearTimeout(checklistToastTimer)
+  checklistToastTimer = undefined
+}
+
+function showChecklistToast(toast: ChecklistToastState) {
+  clearChecklistToastTimer()
+  checklistToast.value = toast
+
+  if (!toast.persistent) {
+    checklistToastTimer = window.setTimeout(() => {
+      checklistToast.value = null
+      checklistToastTimer = undefined
+    }, 5000)
+  }
+}
+
+function dismissChecklistToast() {
+  const cancelsEvidenceRequest = Boolean(checklistEvidenceRequest.value)
+
+  clearChecklistToastTimer()
+  checklistToast.value = null
+
+  if (cancelsEvidenceRequest) {
+    checklistEvidenceRequest.value = null
+
+    if (checklistEvidenceInput.value) {
+      checklistEvidenceInput.value.value = ''
+    }
+  }
+}
+
+function requestChecklistEvidence(
+  parent: ParentGroup,
+  task: TaskItem,
+  item: ChecklistItem
+) {
+  const key = getChecklistItemKey(task, item)
+
+  if (!task.name || !item.name || checklistPending.value[key]) {
+    return
+  }
+
+  checklistErrors.value[key] = ''
+  checklistEvidenceRequest.value = {
+    parent,
+    task,
+    item,
+  }
+
+  showChecklistToast({
+    title: 'Evidence required',
+    message: `Upload evidence to complete “${item.description}”.`,
+    tone: 'info',
+    actionLabel: 'Upload evidence',
+    persistent: true,
+  })
+}
+
+function chooseChecklistEvidence() {
+  if (!checklistEvidenceRequest.value || !checklistEvidenceInput.value) {
+    return
+  }
+
+  checklistEvidenceInput.value.value = ''
+
+  showChecklistToast({
+    title: 'Select evidence',
+    message: 'Choose a photo or supporting document from your device.',
+    tone: 'info',
+    persistent: true,
+  })
+
+  checklistEvidenceInput.value.click()
+}
+
+function cancelChecklistEvidenceSelection() {
+  checklistEvidenceRequest.value = null
+
+  if (checklistEvidenceInput.value) {
+    checklistEvidenceInput.value.value = ''
+  }
+
+  showChecklistToast({
+    title: 'Checklist unchanged',
+    message: 'No evidence was selected, so the checklist item remains incomplete.',
+    tone: 'info',
+  })
+}
+
+function applyChecklistUpdate(
+  parent: ParentGroup,
+  task: TaskItem,
+  update: ChecklistUpdateResponse
+) {
+  task.checklist = update.checklist || task.checklist
+  task.progress = Number(update.progress || 0)
+
+  if (update.parent_progress !== null && update.parent_progress !== undefined) {
+    parent.progress = Number(update.parent_progress || 0)
+  }
+}
+
+async function saveChecklistItemCompletion(
   parent: ParentGroup,
   task: TaskItem,
   item: ChecklistItem,
-  event: Event
+  completed: boolean,
+  evidenceFile?: File
 ) {
-  const input = event.target as HTMLInputElement
   const key = getChecklistItemKey(task, item)
-  const previousCompleted = isChecklistItemComplete(item)
-  const nextCompleted = input.checked
 
   if (!task.name || !item.name || checklistPending.value[key]) {
-    input.checked = previousCompleted
-    return
+    return false
   }
 
   checklistPending.value[key] = true
   checklistErrors.value[key] = ''
-  item.completed = nextCompleted ? 1 : 0
 
   try {
     const payload = new FormData()
     payload.append('task_name', task.name)
     payload.append('item_name', item.name)
-    payload.append('completed', nextCompleted ? '1' : '0')
+    payload.append('completed', completed ? '1' : '0')
+
+    if (evidenceFile) {
+      payload.append('evidence_file', evidenceFile, evidenceFile.name)
+    }
 
     const data = await apiRequest<FrappeResponse<ChecklistUpdateResponse>>(
       '/api/method/verto.api.mobile.task_checklist.set_checklist_item_completed',
@@ -981,21 +1193,93 @@ async function toggleChecklistItem(
       }
     )
 
-    const update = data.message
-    task.checklist = update.checklist || task.checklist
-    task.progress = Number(update.progress || 0)
-
-    if (update.parent_progress !== null && update.parent_progress !== undefined) {
-      parent.progress = Number(update.parent_progress || 0)
-    }
+    applyChecklistUpdate(parent, task, data.message)
+    return true
   } catch (err) {
-    item.completed = previousCompleted ? 1 : 0
-    input.checked = previousCompleted
-    checklistErrors.value[key] = err instanceof Error
+    const message = err instanceof Error
       ? err.message
       : 'Could not update this checklist item.'
+
+    checklistErrors.value[key] = message
+
+    showChecklistToast({
+      title: 'Could not update checklist',
+      message,
+      tone: 'error',
+    })
+
+    return false
   } finally {
     delete checklistPending.value[key]
+  }
+}
+
+async function handleChecklistEvidenceSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const request = checklistEvidenceRequest.value
+  const evidenceFile = input.files?.[0]
+
+  if (!request || !evidenceFile) {
+    cancelChecklistEvidenceSelection()
+    return
+  }
+
+  checklistEvidenceRequest.value = null
+
+  showChecklistToast({
+    title: 'Uploading evidence',
+    message: `Attaching ${evidenceFile.name} to the Task…`,
+    tone: 'info',
+    persistent: true,
+  })
+
+  const completed = await saveChecklistItemCompletion(
+    request.parent,
+    request.task,
+    request.item,
+    true,
+    evidenceFile
+  )
+
+  input.value = ''
+
+  if (completed) {
+    showChecklistToast({
+      title: 'Checklist completed',
+      message: 'Evidence was attached to the Task and checklist progress was updated.',
+      tone: 'success',
+    })
+  }
+}
+
+async function toggleChecklistItem(
+  parent: ParentGroup,
+  task: TaskItem,
+  item: ChecklistItem,
+  nextCompleted: boolean
+) {
+  if (nextCompleted === isChecklistItemComplete(item)) {
+    return
+  }
+
+  if (nextCompleted) {
+    requestChecklistEvidence(parent, task, item)
+    return
+  }
+
+  const unchecked = await saveChecklistItemCompletion(
+    parent,
+    task,
+    item,
+    false
+  )
+
+  if (unchecked) {
+    showChecklistToast({
+      title: 'Checklist reopened',
+      message: 'Existing evidence remains attached to the Task for audit purposes.',
+      tone: 'info',
+    })
   }
 }
 
@@ -1677,9 +1961,31 @@ async function loadHome() {
 onMounted(() => {
   loadHome()
 })
+
+onBeforeUnmount(() => {
+  clearChecklistToastTimer()
+})
 </script>
 
 <style scoped>
+.checklist-toast-enter-active,
+.checklist-toast-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.checklist-toast-enter-from,
+.checklist-toast-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 0.75rem);
+}
+
+@media (min-width: 1024px) {
+  .checklist-toast-enter-from,
+  .checklist-toast-leave-to {
+    transform: translate(0, 0.75rem);
+  }
+}
+
 .drawer-fade-slide-enter-active,
 .drawer-fade-slide-leave-active {
   transition: opacity 0.18s ease;
@@ -1708,6 +2014,8 @@ onMounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .checklist-toast-enter-active,
+  .checklist-toast-leave-active,
   .drawer-fade-slide-enter-active,
   .drawer-fade-slide-leave-active,
   .drawer-fade-slide-enter-active :deep(.drawer-panel),

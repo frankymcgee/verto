@@ -1,6 +1,7 @@
 import frappe
 from frappe import _
 from frappe.utils import cint, now_datetime
+from frappe.utils.file_manager import save_file
 
 
 TASK_DOCTYPE = "Task"
@@ -30,6 +31,24 @@ COMPLETED_ON_FIELD_CANDIDATES = (
     "completed_on",
     "checked_on",
 )
+EVIDENCE_FILE_EXTENSIONS = {
+    ".csv",
+    ".doc",
+    ".docx",
+    ".gif",
+    ".heic",
+    ".heif",
+    ".jpeg",
+    ".jpg",
+    ".ods",
+    ".odt",
+    ".pdf",
+    ".png",
+    ".txt",
+    ".webp",
+    ".xls",
+    ".xlsx",
+}
 
 
 def require_login():
@@ -101,6 +120,48 @@ def parse_completed(value):
         return 0
 
     frappe.throw(_("Completed must be true or false."), frappe.ValidationError)
+
+
+def get_evidence_upload():
+    files = getattr(frappe.request, "files", None) or {}
+    upload = files.get("evidence_file") or files.get("file")
+
+    if not upload:
+        frappe.throw(
+            _("Upload evidence before completing this checklist item."),
+            frappe.ValidationError,
+        )
+
+    filename = (upload.filename or "").strip()
+    extension = f".{filename.rsplit('.', 1)[-1].lower()}" if "." in filename else ""
+
+    if not filename or extension not in EVIDENCE_FILE_EXTENSIONS:
+        frappe.throw(
+            _(
+                "Evidence must be an image, PDF, Microsoft Office document, "
+                "text file, or CSV."
+            ),
+            frappe.ValidationError,
+        )
+
+    content = upload.stream.read()
+
+    if not content:
+        frappe.throw(_("The evidence file is empty."), frappe.ValidationError)
+
+    return filename, content
+
+
+def save_checklist_evidence(task):
+    filename, content = get_evidence_upload()
+
+    return save_file(
+        filename,
+        content,
+        TASK_DOCTYPE,
+        task.name,
+        is_private=1,
+    )
 
 
 def calculate_progress(rows, completed_field):
@@ -272,6 +333,15 @@ def set_checklist_item_completed(task_name, item_name, completed):
         frappe.throw(_("Checklist item does not belong to this Task."), frappe.PermissionError)
 
     completed_value = parse_completed(completed)
+    was_completed = cint(row.get(config["completed_field"]))
+    evidence_file = None
+
+    # Evidence is mandatory every time an incomplete item is completed. The
+    # File is attached to the Task and is deliberately never removed when the
+    # checklist item is later unchecked, preserving the audit trail.
+    if completed_value and not was_completed:
+        evidence_file = save_checklist_evidence(task)
+
     row.set(config["completed_field"], completed_value)
 
     completed_by_field = config.get("completed_by_field")
@@ -298,4 +368,14 @@ def set_checklist_item_completed(task_name, item_name, completed):
         "progress": task.progress,
         "parent_task": task.parent_task,
         "parent_progress": get_parent_progress(task),
+        "evidence": (
+            {
+                "name": evidence_file.name,
+                "file_name": evidence_file.file_name,
+                "file_url": evidence_file.file_url,
+                "is_private": cint(evidence_file.is_private),
+            }
+            if evidence_file
+            else None
+        ),
     }
