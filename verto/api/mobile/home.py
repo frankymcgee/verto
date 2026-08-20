@@ -68,6 +68,26 @@ PROJECT_CCVS_FIELD_CANDIDATES = [
     "verto_project_ccvs",
 ]
 
+PROJECT_TOOLS_FIELD_CANDIDATES = [
+    "project_tools",
+    "mobile_project_tools",
+]
+
+DEFAULT_PROJECT_TOOLS = [
+    {"key": "gantt", "label": "Gantt", "description": "View the project schedule."},
+    {"key": "map", "label": "Map", "description": "View Work Summary locations."},
+    {"key": "folder", "label": "Folder", "description": "Open shared project files."},
+    {"key": "handover", "label": "Handover", "description": "Open the project handover."},
+    {"key": "personnel", "label": "Personnel", "description": "View allocated personnel."},
+    {"key": "gameplan", "label": "Gameplan", "description": "Open project collaboration."},
+    {"key": "chat", "label": "Chat", "description": "Open the project channel."},
+]
+
+PROJECT_TOOL_DEFAULTS = {
+    tool["key"]: tool
+    for tool in DEFAULT_PROJECT_TOOLS
+}
+
 
 def require_login():
     if frappe.session.user == "Guest":
@@ -203,6 +223,48 @@ def get_buttons_from_settings(settings, field_candidates, fallback_buttons):
     return configured_allowed_buttons
 
 
+def get_project_tool_key(row):
+    value = (
+        row.get("tool_key")
+        or row.get("project_tool")
+        or row.get("tool")
+        or ""
+    )
+
+    return str(value).strip().lower()
+
+
+def get_project_tools_from_settings(settings):
+    rows = get_settings_child_rows(settings, PROJECT_TOOLS_FIELD_CANDIDATES)
+
+    if not rows:
+        return [dict(tool) for tool in DEFAULT_PROJECT_TOOLS]
+
+    configured_tools = []
+    seen_keys = set()
+
+    for row in rows:
+        if not is_enabled(row.get("enabled")):
+            continue
+
+        key = get_project_tool_key(row)
+
+        if key not in PROJECT_TOOL_DEFAULTS or key in seen_keys:
+            continue
+
+        defaults = PROJECT_TOOL_DEFAULTS[key]
+        configured_tools.append({
+            "key": key,
+            "label": (row.get("label") or defaults["label"]).strip(),
+            "description": (
+                row.get("description") or defaults["description"]
+            ).strip(),
+        })
+        seen_keys.add(key)
+
+    return configured_tools
+
+
 def get_mobile_form_buttons():
     try:
         settings = frappe.get_cached_doc(SETTINGS_DOCTYPE)
@@ -216,6 +278,7 @@ def get_mobile_form_buttons():
             "generic_forms": get_allowed_buttons(GENERIC_FORM_BUTTONS),
             "task_forms": get_allowed_buttons(TASK_FORM_BUTTONS),
             "ccv_forms": get_allowed_buttons(CCV_BUTTONS),
+            "project_tools": [dict(tool) for tool in DEFAULT_PROJECT_TOOLS],
         }
 
     return {
@@ -234,6 +297,7 @@ def get_mobile_form_buttons():
             PROJECT_CCVS_FIELD_CANDIDATES,
             CCV_BUTTONS,
         ),
+        "project_tools": get_project_tools_from_settings(settings),
     }
 
 
@@ -491,5 +555,6 @@ def get_home_summary():
         "generic_forms": mobile_form_buttons["generic_forms"],
         "task_forms": mobile_form_buttons["task_forms"],
         "ccv_forms": mobile_form_buttons["ccv_forms"],
+        "project_tools": mobile_form_buttons["project_tools"],
         "raven_base": "https://dashboard.minesitesupport.com.au/raven",
     }

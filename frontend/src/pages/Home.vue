@@ -311,8 +311,12 @@
               </div>
             </Card>
 
-            <div class="grid grid-cols-2 gap-2">
+            <div
+              class="grid gap-2"
+              :class="projectToolDefinitions.length ? 'grid-cols-2' : 'grid-cols-1'"
+            >
               <Button
+                v-if="projectToolDefinitions.length"
                 variant="subtle"
                 theme="gray"
                 class="w-full justify-center"
@@ -350,7 +354,7 @@
     <Transition name="drawer-fade-slide">
       <div
         v-if="projectToolsOpen && projectToolsScope"
-        class="fixed inset-0 z-[60] flex items-end bg-black/40 px-0 lg:items-center lg:px-6"
+        class="fixed inset-0 z-[60] flex items-end bg-black/40 px-0 lg:items-center lg:justify-center lg:px-6"
         @click.self="closeProjectTools"
       >
         <Card class="drawer-panel max-h-[82vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white lg:max-w-2xl lg:rounded-3xl">
@@ -798,6 +802,7 @@ type HomePayload = {
   generic_forms: HomeButton[]
   task_forms: HomeButton[]
   ccv_forms: HomeButton[]
+  project_tools?: ProjectToolDefinition[]
 }
 
 type FrappeResponse<T> = {
@@ -881,7 +886,7 @@ const openParents = ref<Record<string, boolean>>({})
 const projectToolsOpen = ref(false)
 const projectToolsScope = ref<ScopeGroup | null>(null)
 
-const projectToolDefinitions: ProjectToolDefinition[] = [
+const defaultProjectToolDefinitions: ProjectToolDefinition[] = [
   { key: 'gantt', label: 'Gantt', description: 'View the project schedule.' },
   { key: 'map', label: 'Map', description: 'View Work Summary locations.' },
   { key: 'folder', label: 'Folder', description: 'Open shared project files.' },
@@ -903,6 +908,14 @@ const personnelRows = ref<ProjectPersonnelItem[]>([])
 
 const groupedTasks = computed(() => {
   return home.value?.grouped_tasks || []
+})
+
+const projectToolDefinitions = computed<ProjectToolDefinition[]>(() => {
+  if (!home.value || home.value.project_tools === undefined) {
+    return defaultProjectToolDefinitions
+  }
+
+  return home.value.project_tools
 })
 
 const projectToolsProjectName = computed(() => {
