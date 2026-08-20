@@ -79,7 +79,20 @@ watch(
   max-width: var(--verto-shell-max-width);
 }
 
+.mobile-shell-content {
+  isolation: isolate;
+}
+
+.mobile-shell-header {
+  position: relative;
+  z-index: 50;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
 .mobile-shell-main {
+  position: relative;
+  z-index: 0;
   -webkit-overflow-scrolling: touch;
 }
 
