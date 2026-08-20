@@ -16,6 +16,7 @@ def fetch_created_records():
         "Job Hazard Analysis Review",
         "Supervisor BATB",
         "Workplace Inspection",
+        "Weekly Summary",
         "Prohibited and Restricted Tooling Checklist",
         "Safety Identification Rectification",
         "CCV - Confined Space",
