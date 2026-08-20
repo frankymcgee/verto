@@ -308,82 +308,25 @@
               </div>
             </Card>
 
-            <!-- Project Links -->
-            <div class="grid grid-cols-3 gap-2">
-              <Button
-                variant="subtle"
-                theme="gray"
-                class="justify-center"
-                @click="openInternalUrl(getProjectGanttUrl(scope), 'Gantt')"
-              >
-                Gantt
-              </Button>
-
-              <Button
-                variant="subtle"
-                theme="gray"
-                class="justify-center"
-                @click="openInternalUrl(getProjectMapUrl(scope), 'Map')"
-              >
-                Map
-              </Button>
-
-              <Button
-                variant="subtle"
-                theme="gray"
-                class="justify-center"
-                @click="openExternalUrl(getShareFolder(scope), 'Folder')"
-              >
-                Folder
-              </Button>
-            </div>
-
             <div class="grid grid-cols-2 gap-2">
               <Button
                 variant="subtle"
                 theme="gray"
-                class="justify-center"
-                @click="openProjectHandover(scope)"
+                class="w-full justify-center"
+                @click="openProjectTools(scope)"
               >
-                Handover
+                Project Tools
               </Button>
 
               <Button
-                variant="subtle"
+                variant="solid"
                 theme="gray"
-                class="justify-center"
-                @click="openPersonnelDrawer(scope)"
+                class="w-full justify-center"
+                @click="analyseProjectWithPeri(scope)"
               >
-                Personnel
-              </Button>
-
-              <Button
-                variant="subtle"
-                theme="gray"
-                class="justify-center"
-                @click="openExternalUrl(getGameplanUrl(scope), 'Gameplan')"
-              >
-                Gameplan
-              </Button>
-
-              <Button
-                variant="subtle"
-                theme="gray"
-                class="justify-center"
-                @click="openProjectChat(scope)"
-              >
-                Chat
+                Analyse with PERI
               </Button>
             </div>
-
-            <Button
-              variant="solid"
-              theme="gray"
-              class="w-full justify-center"
-              @click="analyseProjectWithPeri(scope)"
-            >
-              Analyse with PERI
-            </Button>
           </div>
         </Card>
 
@@ -400,14 +343,63 @@
       </template>
     </main>
 
+    <!-- Project Tools Sheet -->
+    <Transition name="drawer-fade-slide">
+      <div
+        v-if="projectToolsOpen && projectToolsScope"
+        class="fixed inset-0 z-[60] flex items-end bg-black/40 px-0 lg:items-center lg:px-6"
+        @click.self="closeProjectTools"
+      >
+        <Card class="drawer-panel max-h-[82vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white lg:max-w-2xl lg:rounded-3xl">
+          <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+            <div class="min-w-0">
+              <h2 class="truncate text-lg font-semibold text-ink-gray-9">
+                Project Tools
+              </h2>
+
+              <p class="mt-1 truncate text-sm text-ink-gray-5">
+                {{ projectToolsProjectName }}
+              </p>
+            </div>
+
+            <Button
+              variant="subtle"
+              theme="gray"
+              @click="closeProjectTools"
+            >
+              Close
+            </Button>
+          </div>
+
+          <div class="grid max-h-[calc(82vh-72px)] grid-cols-2 gap-3 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] sm:grid-cols-3 lg:pb-4">
+            <button
+              v-for="tool in projectToolDefinitions"
+              :key="tool.key"
+              type="button"
+              class="min-h-24 rounded-xl border border-outline-gray-1 bg-surface-white p-3 text-left shadow-sm transition hover:border-outline-gray-2 hover:bg-surface-gray-1 active:scale-[0.99]"
+              @click="openProjectTool(tool.key)"
+            >
+              <p class="text-sm font-semibold text-ink-gray-9">
+                {{ tool.label }}
+              </p>
+
+              <p class="mt-1 text-xs leading-4 text-ink-gray-5">
+                {{ tool.description }}
+              </p>
+            </button>
+          </div>
+        </Card>
+      </div>
+    </Transition>
+
     <!-- Picker Sheet -->
     <Transition name="drawer-fade-slide">
       <div
         v-if="pickerOpen"
-        class="fixed inset-0 z-[60] flex items-end bg-black/40 px-0"
+        class="fixed inset-0 z-[60] flex items-end bg-black/40 px-0 lg:items-center lg:px-6"
         @click.self="closePicker"
       >
-        <Card class="drawer-panel max-h-[75vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
+        <Card class="drawer-panel max-h-[75vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white lg:max-w-2xl lg:rounded-3xl">
         <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
           <div class="min-w-0">
             <h2 class="truncate text-lg font-semibold text-ink-gray-9">
@@ -474,10 +466,10 @@
     <Transition name="drawer-fade-slide">
       <div
         v-if="personnelOpen"
-        class="fixed inset-0 z-[60] flex items-end bg-black/40 px-0"
+        class="fixed inset-0 z-[60] flex items-end bg-black/40 px-0 lg:items-center lg:px-6"
         @click.self="closePersonnelDrawer"
       >
-        <Card class="drawer-panel max-h-[80vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
+        <Card class="drawer-panel max-h-[80vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white lg:max-w-2xl lg:rounded-3xl">
           <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
             <div class="min-w-0">
               <h2 class="truncate text-lg font-semibold text-ink-gray-9">
@@ -708,6 +700,21 @@ type ScopeGroup = {
   customer?: string
 }
 
+type ProjectToolKey =
+  | 'gantt'
+  | 'map'
+  | 'folder'
+  | 'handover'
+  | 'personnel'
+  | 'gameplan'
+  | 'chat'
+
+type ProjectToolDefinition = {
+  key: ProjectToolKey
+  label: string
+  description: string
+}
+
 type HomePayload = {
   user: string
   full_name?: string
@@ -790,6 +797,19 @@ const checklistErrors = ref<Record<string, string>>({})
 const openScopes = ref<Record<string, boolean>>({})
 const openParents = ref<Record<string, boolean>>({})
 
+const projectToolsOpen = ref(false)
+const projectToolsScope = ref<ScopeGroup | null>(null)
+
+const projectToolDefinitions: ProjectToolDefinition[] = [
+  { key: 'gantt', label: 'Gantt', description: 'View the project schedule.' },
+  { key: 'map', label: 'Map', description: 'View Work Summary locations.' },
+  { key: 'folder', label: 'Folder', description: 'Open shared project files.' },
+  { key: 'handover', label: 'Handover', description: 'Open the project handover.' },
+  { key: 'personnel', label: 'Personnel', description: 'View allocated personnel.' },
+  { key: 'gameplan', label: 'Gameplan', description: 'Open project collaboration.' },
+  { key: 'chat', label: 'Chat', description: 'Open the project channel.' },
+]
+
 const pickerOpen = ref(false)
 const pickerType = ref<'generic' | 'form' | 'ccv'>('generic')
 const pickerTask = ref<TaskItem | null>(null)
@@ -802,6 +822,14 @@ const personnelRows = ref<ProjectPersonnelItem[]>([])
 
 const groupedTasks = computed(() => {
   return home.value?.grouped_tasks || []
+})
+
+const projectToolsProjectName = computed(() => {
+  if (!projectToolsScope.value) {
+    return ''
+  }
+
+  return getProjectDisplayName(projectToolsScope.value)
 })
 
 const pickerTitle = computed(() => {
@@ -834,6 +862,60 @@ function toggleScope(name: string) {
 
 function toggleParent(key: string) {
   openParents.value[key] = !openParents.value[key]
+}
+
+function openProjectTools(scope: ScopeGroup) {
+  projectToolsScope.value = scope
+  projectToolsOpen.value = true
+}
+
+function closeProjectTools() {
+  projectToolsOpen.value = false
+  projectToolsScope.value = null
+}
+
+async function openProjectTool(tool: ProjectToolKey) {
+  const scope = projectToolsScope.value
+
+  if (!scope) {
+    return
+  }
+
+  closeProjectTools()
+
+  if (tool === 'gantt') {
+    openInternalUrl(getProjectGanttUrl(scope), 'Gantt')
+    return
+  }
+
+  if (tool === 'map') {
+    openInternalUrl(getProjectMapUrl(scope), 'Map')
+    return
+  }
+
+  if (tool === 'folder') {
+    openExternalUrl(getShareFolder(scope), 'Folder')
+    return
+  }
+
+  if (tool === 'handover') {
+    await openProjectHandover(scope)
+    return
+  }
+
+  if (tool === 'personnel') {
+    await openPersonnelDrawer(scope)
+    return
+  }
+
+  if (tool === 'gameplan') {
+    openExternalUrl(getGameplanUrl(scope), 'Gameplan')
+    return
+  }
+
+  if (tool === 'chat') {
+    await openProjectChat(scope)
+  }
 }
 
 function getChecklistItemKey(task: TaskItem, item: ChecklistItem) {

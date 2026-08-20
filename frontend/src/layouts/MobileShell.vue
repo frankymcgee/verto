@@ -5,15 +5,19 @@
     @click.capture="handleAppBrowserLinkClick"
   >
     <div class="mobile-shell-frame mx-auto flex h-[100dvh] min-h-[100dvh] w-full flex-col overflow-hidden bg-gray-50">
-      <AppHeader />
-      <OfflineSyncStatus />
+      <div class="mobile-shell-content flex min-h-0 min-w-0 flex-1 flex-col">
+        <AppHeader />
+        <OfflineSyncStatus />
 
-      <main
-        ref="mainEl"
-        class="mobile-shell-main min-h-0 flex-1 overflow-y-auto overscroll-contain"
-      >
-        <router-view />
-      </main>
+        <main
+          ref="mainEl"
+          class="mobile-shell-main min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        >
+          <div class="mobile-shell-page mx-auto h-full w-full max-w-[var(--verto-shell-max-width,28rem)]">
+            <router-view />
+          </div>
+        </main>
+      </div>
 
       <BottomTabs />
     </div>
@@ -103,9 +107,30 @@ watch(
 
 @media (min-width: 1024px) {
   .mobile-shell {
-    --verto-shell-max-width: 56rem;
+    --verto-shell-max-width: 90rem;
     --verto-page-x: 1.75rem;
     --verto-page-y: 1.75rem;
+    --verto-header-safe-top: 0px;
+  }
+
+  .mobile-shell-frame {
+    max-width: none;
+    flex-direction: row;
+  }
+
+  .mobile-shell-content {
+    order: 2;
+  }
+
+  .mobile-shell-page {
+    min-height: 100%;
+  }
+}
+
+@media (min-width: 1440px) {
+  .mobile-shell {
+    --verto-page-x: 2.25rem;
+    --verto-page-y: 2rem;
   }
 }
 </style>

@@ -1,14 +1,42 @@
 <template>
   <nav
     class="bottom-tabs z-40 shrink-0 border-t border-outline-gray-1 bg-surface-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur"
-    aria-label="Primary mobile navigation"
+    :class="{ 'sidebar-collapsed': sidebarCollapsed }"
+    aria-label="Primary navigation"
   >
-    <div class="mx-auto grid w-full max-w-[var(--verto-shell-max-width,28rem)] grid-cols-5 px-1 pb-[var(--verto-footer-safe-bottom,env(safe-area-inset-bottom,0px))]">
+    <div class="desktop-sidebar-header">
+      <div class="desktop-app-icon">
+        <img
+          v-if="resolvedAppIcon"
+          :src="resolvedAppIcon"
+          :alt="appName || 'Verto'"
+          class="h-full w-full object-cover"
+          @error="appIconFailed = true"
+        >
+
+        <span v-else>
+          {{ appInitials }}
+        </span>
+      </div>
+
+      <div class="desktop-sidebar-copy min-w-0">
+        <p class="truncate text-sm font-semibold text-ink-gray-9">
+          {{ appName || 'Verto' }}
+        </p>
+
+        <p class="truncate text-xs text-ink-gray-5">
+          {{ desktopUserLabel }}
+        </p>
+      </div>
+    </div>
+
+    <div class="bottom-tabs-items mx-auto grid w-full max-w-[var(--verto-shell-max-width,28rem)] grid-cols-5 px-1 pb-[var(--verto-footer-safe-bottom,env(safe-area-inset-bottom,0px))]">
       <RouterLink
         to="/"
         class="navbar-item"
         :class="{ active: isActive('/') }"
         :aria-current="isActive('/') ? 'page' : undefined"
+        title="Home"
       >
         <svg
           class="navbar-icon"
@@ -29,6 +57,7 @@
         class="navbar-item"
         :class="{ active: isActive('/shifts') }"
         :aria-current="isActive('/shifts') ? 'page' : undefined"
+        title="Shifts"
       >
         <svg
           class="navbar-icon"
@@ -51,6 +80,7 @@
         :aria-current="isPeriActive ? 'page' : undefined"
         :aria-busy="periLoading ? 'true' : 'false'"
         :aria-label="`Open ${periBotName} AI chat`"
+        :title="askPeriLabel"
         @click="openPeriChat"
       >
         <span class="peri-avatar">
@@ -82,6 +112,7 @@
         class="navbar-item"
         :class="{ active: isActive('/forms') }"
         :aria-current="isActive('/forms') ? 'page' : undefined"
+        title="Forms"
       >
         <svg
           class="navbar-icon"
@@ -101,6 +132,7 @@
         class="navbar-item"
         :class="{ active: isGeneralChatActive }"
         :aria-current="isGeneralChatActive ? 'page' : undefined"
+        title="Chat"
       >
         <svg
           class="navbar-icon"
@@ -116,6 +148,38 @@
         <span class="navbar-label">Chat</span>
       </RouterLink>
     </div>
+
+    <button
+      type="button"
+      class="desktop-sidebar-collapse"
+      :aria-label="sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation'"
+      :title="sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation'"
+      @click="toggleSidebar"
+    >
+      <svg
+        class="h-4 w-4 shrink-0"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.75"
+        aria-hidden="true"
+      >
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M9 4v16" />
+        <path
+          v-if="sidebarCollapsed"
+          d="m13 9 3 3-3 3"
+        />
+        <path
+          v-else
+          d="m16 9-3 3 3 3"
+        />
+      </svg>
+
+      <span class="desktop-sidebar-copy">
+        {{ sidebarCollapsed ? 'Expand' : 'Collapse' }}
+      </span>
+    </button>
   </nav>
 </template>
 
@@ -146,6 +210,10 @@ const router = useRouter()
 
 const {
   loadMobileBoot,
+  appName,
+  appIconUrl,
+  user,
+  userFullname,
   defaultChatChannel,
   periBotName,
   periBotImageUrl,
@@ -153,6 +221,10 @@ const {
 
 const periLoading = ref(false)
 const periAvatarFailed = ref(false)
+const appIconFailed = ref(false)
+const sidebarCollapsed = ref(false)
+
+const SIDEBAR_STORAGE_KEY = 'verto-desktop-sidebar-collapsed'
 
 const generalChannelName = computed(() => {
   return defaultChatChannel.value || 'general'
@@ -171,6 +243,22 @@ const askPeriLabel = computed(() => {
   const name = periBotName.value || 'PERI'
 
   return `Ask ${name}`
+})
+
+const resolvedAppIcon = computed(() => {
+  if (appIconFailed.value) {
+    return ''
+  }
+
+  return appIconUrl.value || ''
+})
+
+const appInitials = computed(() => {
+  return getInitials(appName.value || 'Verto')
+})
+
+const desktopUserLabel = computed(() => {
+  return userFullname.value || user.value || 'Signed in'
 })
 
 const resolvedPeriAvatarUrl = computed(() => {
@@ -216,9 +304,25 @@ watch(
   }
 )
 
+watch(
+  () => appIconUrl.value,
+  () => {
+    appIconFailed.value = false
+  }
+)
+
 onMounted(() => {
+  sidebarCollapsed.value = window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1'
   loadMobileBoot()
 })
+
+function toggleSidebar() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  window.localStorage.setItem(
+    SIDEBAR_STORAGE_KEY,
+    sidebarCollapsed.value ? '1' : '0'
+  )
+}
 
 function isActive(path: string) {
   if (path === '/') {
@@ -298,6 +402,11 @@ async function openPeriChat() {
 .bottom-tabs {
   --mobile-bottom-tabs-height: calc(68px + var(--verto-footer-safe-bottom, env(safe-area-inset-bottom, 0px)));
   min-height: var(--mobile-bottom-tabs-height);
+}
+
+.desktop-sidebar-header,
+.desktop-sidebar-collapse {
+  display: none;
 }
 
 .navbar-item {
@@ -415,6 +524,159 @@ async function openPeriChat() {
   100% {
     opacity: 0;
     transform: translateY(-8px) scale(1.25);
+  }
+}
+
+@media (min-width: 1024px) {
+  .bottom-tabs {
+    order: 1;
+    display: flex;
+    height: 100dvh;
+    min-height: 100dvh;
+    width: 15rem;
+    flex-direction: column;
+    border-top: 0;
+    border-right: 1px solid #e5e7eb;
+    background: rgba(249, 250, 251, 0.98);
+    box-shadow: 8px 0 24px rgba(15, 23, 42, 0.05);
+    transition: width 0.2s ease;
+  }
+
+  .bottom-tabs.sidebar-collapsed {
+    width: 4.75rem;
+  }
+
+  .desktop-sidebar-header {
+    display: flex;
+    min-height: 4.5rem;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0.875rem 1rem;
+  }
+
+  .desktop-app-icon {
+    display: flex;
+    height: 2.25rem;
+    width: 2.25rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    background: #e5e7eb;
+    color: #374151;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .bottom-tabs-items {
+    display: flex;
+    max-width: none;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem;
+  }
+
+  .navbar-item {
+    min-height: 2.75rem;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 0.75rem;
+    border: 1px solid transparent;
+    border-radius: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .navbar-item:hover {
+    background: rgba(255, 255, 255, 0.8);
+    color: #1f2937;
+  }
+
+  .navbar-item.active {
+    border-color: #e5e7eb;
+    background: #ffffff;
+    color: #2563eb;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  }
+
+  .navbar-icon {
+    height: 1.25rem;
+    width: 1.25rem;
+    flex-shrink: 0;
+  }
+
+  .peri-avatar {
+    height: 1.25rem;
+    width: 1.25rem;
+    flex-shrink: 0;
+  }
+
+  .peri-avatar-frame {
+    height: 1.5rem;
+    width: 1.5rem;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .peri-avatar::after {
+    display: none;
+  }
+
+  .desktop-sidebar-collapse {
+    display: flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.75rem;
+    border-radius: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    color: #4b5563;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-align: left;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .desktop-sidebar-collapse:hover {
+    background: #ffffff;
+    color: #111827;
+  }
+
+  .sidebar-collapsed .desktop-sidebar-header,
+  .sidebar-collapsed .navbar-item,
+  .sidebar-collapsed .desktop-sidebar-collapse {
+    justify-content: center;
+  }
+
+  .sidebar-collapsed .desktop-sidebar-header {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .sidebar-collapsed .desktop-sidebar-copy,
+  .sidebar-collapsed .navbar-label {
+    display: none;
+  }
+
+  .sidebar-collapsed .bottom-tabs-items {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .sidebar-collapsed .navbar-item,
+  .sidebar-collapsed .desktop-sidebar-collapse {
+    padding-left: 0.625rem;
+    padding-right: 0.625rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bottom-tabs {
+    transition: none;
   }
 }
 </style>
