@@ -6,7 +6,7 @@
   >
     <div class="mobile-shell-frame mx-auto flex h-[100dvh] min-h-[100dvh] w-full flex-col overflow-hidden bg-gray-50">
       <div class="mobile-shell-content flex min-h-0 min-w-0 flex-1 flex-col">
-        <AppHeader />
+        <AppHeader class="mobile-shell-header" />
         <OfflineSyncStatus />
 
         <main
@@ -106,6 +106,10 @@ watch(
 }
 
 @media (min-width: 1024px) {
+  .mobile-shell-header {
+    display: none;
+  }
+
   .mobile-shell {
     --verto-shell-max-width: 90rem;
     --verto-page-x: 1.75rem;

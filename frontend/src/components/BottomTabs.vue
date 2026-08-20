@@ -5,18 +5,8 @@
     aria-label="Primary navigation"
   >
     <div class="desktop-sidebar-header">
-      <div class="desktop-app-icon">
-        <img
-          v-if="resolvedAppIcon"
-          :src="resolvedAppIcon"
-          :alt="appName || 'Verto'"
-          class="h-full w-full object-cover"
-          @error="appIconFailed = true"
-        >
-
-        <span v-else>
-          {{ appInitials }}
-        </span>
+      <div class="desktop-sidebar-profile">
+        <AppHeader compact />
       </div>
 
       <div class="desktop-sidebar-copy min-w-0">
@@ -188,6 +178,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiRequest } from '../lib/api'
 import { useMobileBoot } from '../lib/mobileBoot'
+import AppHeader from './AppHeader.vue'
 
 type FrappeResponse<T> = {
   message: T
@@ -211,7 +202,6 @@ const router = useRouter()
 const {
   loadMobileBoot,
   appName,
-  appIconUrl,
   user,
   userFullname,
   defaultChatChannel,
@@ -221,7 +211,6 @@ const {
 
 const periLoading = ref(false)
 const periAvatarFailed = ref(false)
-const appIconFailed = ref(false)
 const sidebarCollapsed = ref(false)
 
 const SIDEBAR_STORAGE_KEY = 'verto-desktop-sidebar-collapsed'
@@ -243,18 +232,6 @@ const askPeriLabel = computed(() => {
   const name = periBotName.value || 'PERI'
 
   return `Ask ${name}`
-})
-
-const resolvedAppIcon = computed(() => {
-  if (appIconFailed.value) {
-    return ''
-  }
-
-  return appIconUrl.value || ''
-})
-
-const appInitials = computed(() => {
-  return getInitials(appName.value || 'Verto')
 })
 
 const desktopUserLabel = computed(() => {
@@ -301,13 +278,6 @@ watch(
   () => periBotImageUrl.value,
   () => {
     periAvatarFailed.value = false
-  }
-)
-
-watch(
-  () => appIconUrl.value,
-  () => {
-    appIconFailed.value = false
   }
 )
 
@@ -555,19 +525,27 @@ async function openPeriChat() {
     padding: 0.875rem 1rem;
   }
 
-  .desktop-app-icon {
-    display: flex;
+  .desktop-sidebar-profile {
+    position: relative;
+    display: block;
     height: 2.25rem;
     width: 2.25rem;
     flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    border-radius: 0.75rem;
-    background: #e5e7eb;
-    color: #374151;
-    font-size: 0.75rem;
-    font-weight: 700;
+  }
+
+  .desktop-sidebar-profile :deep(.app-profile-compact) {
+    position: static;
+    inset: auto;
+  }
+
+  .desktop-sidebar-profile :deep(.app-profile-compact > div > button) {
+    height: 2.25rem;
+    width: 2.25rem;
+  }
+
+  .desktop-sidebar-profile :deep(.app-profile-compact .absolute.right-0) {
+    left: 0;
+    right: auto;
   }
 
   .bottom-tabs-items {
