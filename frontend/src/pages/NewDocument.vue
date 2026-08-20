@@ -203,6 +203,17 @@
                     @update:model-value="handleFieldChange(field)"
                   />
 
+                  <RichTextEditorField
+                    v-else-if="field.fieldtype === 'Text Editor'"
+                    v-model="values[field.fieldname]"
+                    :label="field.label"
+                    :description="field.description"
+                    :placeholder="field.label"
+                    :required="isFieldMandatory(field)"
+                    :disabled="isFieldReadOnly(field)"
+                    @change="handleFieldChange(field)"
+                  />
+
                   <Textarea
                     v-else-if="isTextArea(field.fieldtype)"
                     v-model="values[field.fieldname]"
@@ -428,6 +439,7 @@ import {
 import LinkField from '../components/mobile-fields/LinkField.vue'
 import ChildTableField from '../components/mobile-fields/ChildTableField.vue'
 import SignatureField from '../components/mobile-fields/SignatureField.vue'
+import RichTextEditorField from '../components/mobile-fields/RichTextEditorField.vue'
 
 export type MobileField = {
   fieldname: string
@@ -729,7 +741,6 @@ function isTextArea(fieldtype: string) {
     'Text',
     'Small Text',
     'Long Text',
-    'Text Editor',
     'Code',
   ].includes(fieldtype)
 }
