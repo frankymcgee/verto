@@ -1,4 +1,5 @@
 import { createApp } from 'vue'
+import { FrappeUI } from 'frappe-ui'
 import App from './App.vue'
 import router from './router'
 import './style.css'
@@ -10,6 +11,7 @@ setupFrappeRealtime()
 
 const app = createApp(App)
 
+app.use(FrappeUI)
 app.use(router)
 
 app.mount('#app')
