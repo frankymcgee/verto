@@ -1,6 +1,35 @@
 import { computed, readonly, ref } from 'vue'
 import { apiRequest } from './api'
 
+export type MobileFormShortcut = {
+  doc_type: string
+  label: string
+}
+
+export type MobileProjectTool = {
+  tool_key: string
+  label: string
+  description: string
+}
+
+export type MobileConfiguration = {
+  forms: {
+    generic: MobileFormShortcut[]
+    project: MobileFormShortcut[]
+    project_ccvs: MobileFormShortcut[]
+  }
+  project_tools: MobileProjectTool[]
+}
+
+const defaultConfiguration: MobileConfiguration = {
+  forms: {
+    generic: [],
+    project: [],
+    project_ccvs: [],
+  },
+  project_tools: [],
+}
+
 export type MobileBoot = {
   site_name: string
   base_url: string
@@ -25,6 +54,8 @@ export type MobileBoot = {
 
   api_method_base: string
   api_resource_base: string
+
+  configuration: MobileConfiguration
 
   user: string
   user_fullname: string
@@ -60,6 +91,8 @@ const defaultBoot: MobileBoot = {
 
   api_method_base: '/api/method',
   api_resource_base: '/api/resource',
+
+  configuration: defaultConfiguration,
 
   user: '',
   user_fullname: '',
@@ -216,6 +249,21 @@ export function useMobileBoot() {
     periBotUser: computed(() => boot.value.peri_bot_user),
     periBotImage: computed(() => boot.value.peri_bot_image || ''),
     periBotImageUrl: computed(() => boot.value.peri_bot_image_url || getAbsoluteUrl(boot.value.peri_bot_image)),
+
+    configuration: computed(() => boot.value.configuration || defaultConfiguration),
+    genericForms: computed(() => boot.value.configuration?.forms?.generic || []),
+    projectForms: computed(() => boot.value.configuration?.forms?.project || []),
+    projectCcvs: computed(() => boot.value.configuration?.forms?.project_ccvs || []),
+    projectTools: computed(() => boot.value.configuration?.project_tools || []),
+    allowedDoctypes: computed(() => {
+      const forms = boot.value.configuration?.forms || defaultConfiguration.forms
+
+      return new Set(
+        [...forms.generic, ...forms.project, ...forms.project_ccvs]
+          .map((form) => form.doc_type)
+          .filter(Boolean)
+      )
+    }),
 
     loadMobileBoot,
     reloadMobileBoot,
