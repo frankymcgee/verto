@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { Avatar, MobileNav, MobileNavItem } from 'frappe-ui'
+import { CalendarDays, ClipboardList, House, MessageCircle } from '@lucide/vue'
 import { useMobileBoot } from '../lib/mobileBoot'
 
 const route = useRoute()
@@ -35,14 +36,14 @@ const isChat = computed(() =>
   <MobileNav aria-label="Primary navigation">
     <MobileNavItem
       label="Home"
-      icon="lucide-house"
+       :icon="House"
       to="/"
       :active="isHome"
     />
 
     <MobileNavItem
       label="Shifts"
-      icon="lucide-calendar-days"
+       :icon="CalendarDays"
       to="/shifts"
       :active="isShifts"
     />
@@ -64,14 +65,14 @@ const isChat = computed(() =>
 
     <MobileNavItem
       label="Forms"
-      icon="lucide-clipboard-list"
+       :icon="ClipboardList"
       to="/forms"
       :active="isForms"
     />
 
     <MobileNavItem
       label="Chat"
-      icon="lucide-message-circle"
+       :icon="MessageCircle"
       :to="generalChatRoute"
       :active="isChat"
     />
