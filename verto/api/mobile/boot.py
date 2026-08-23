@@ -47,6 +47,26 @@ def get_setting(settings, fieldname, default=None):
     return value
 
 
+def get_enabled_rows(settings, fieldname, fields):
+    """Return enabled child-table rows as plain dictionaries for mobile boot."""
+    if not settings or not settings.meta.has_field(fieldname):
+        return []
+
+    rows = []
+
+    for row in settings.get(fieldname) or []:
+        if row.meta.has_field("enabled") and not row.get("enabled"):
+            continue
+
+        rows.append({
+            field: row.get(field)
+            for field in fields
+            if row.meta.has_field(field)
+        })
+
+    return rows
+
+
 def get_site_base_url():
     """
     Return the current tenant/site base URL.
@@ -215,6 +235,31 @@ def get_mobile_boot():
         user_details.get("user_image")
     )
 
+    mobile_configuration = {
+        "forms": {
+            "generic": get_enabled_rows(
+                settings,
+                "generic_forms",
+                ["doc_type", "label"],
+            ),
+            "project": get_enabled_rows(
+                settings,
+                "project_forms",
+                ["doc_type", "label"],
+            ),
+            "project_ccvs": get_enabled_rows(
+                settings,
+                "project_ccvs",
+                ["doc_type", "label"],
+            ),
+        },
+        "project_tools": get_enabled_rows(
+            settings,
+            "project_tools",
+            ["tool_key", "label", "description"],
+        ),
+    }
+
     return {
         "site_name": frappe.local.site,
         "base_url": get_site_base_url(),
@@ -255,6 +300,9 @@ def get_mobile_boot():
         # API helpers
         "api_method_base": "/api/method",
         "api_resource_base": "/api/resource",
+
+        # Administrator-controlled mobile application configuration
+        "configuration": mobile_configuration,
 
         # Current user
         "user": frappe.session.user,
