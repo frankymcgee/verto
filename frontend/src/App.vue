@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { FrappeUIProvider } from 'frappe-ui'
 import { useMobileBoot } from './lib/mobileBoot'
 
 const route = useRoute()
@@ -155,7 +156,9 @@ watch(
 </script>
 
 <template>
-  <div class="min-h-screen bg-surface-gray-1 text-ink-gray-9 antialiased">
-    <RouterView />
-  </div>
+  <FrappeUIProvider>
+    <div class="min-h-screen bg-surface-gray-1 text-ink-gray-9 antialiased">
+      <RouterView />
+    </div>
+  </FrappeUIProvider>
 </template>
