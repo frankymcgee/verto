@@ -40,6 +40,41 @@ ALLOWED_MOBILE_DOCTYPES = {
 }
 
 
+
+MOBILE_SETTINGS_DOCTYPE = "Verto Mobile Settings"
+MOBILE_FORM_TABLES = ("generic_forms", "project_forms", "project_ccvs")
+
+
+def get_mobile_doctype_map():
+    """Resolve the allowlist from Verto Mobile Settings with a safe legacy fallback."""
+    configured = {}
+
+    if frappe.db.exists("DocType", MOBILE_SETTINGS_DOCTYPE):
+        try:
+            settings = frappe.get_cached_doc(MOBILE_SETTINGS_DOCTYPE)
+
+            for fieldname in MOBILE_FORM_TABLES:
+                if not settings.meta.has_field(fieldname):
+                    continue
+
+                for row in settings.get(fieldname) or []:
+                    if row.meta.has_field("enabled") and not row.get("enabled"):
+                        continue
+
+                    doctype = str(row.get("doc_type") or "").strip()
+
+                    if doctype:
+                        configured[normalise_mobile_doctype_key(doctype)] = doctype
+        except Exception:
+            frappe.log_error(
+                frappe.get_traceback(),
+                "Verto mobile form configuration",
+            )
+
+    # Existing sites remain operational until their settings tables are populated.
+    return configured or ALLOWED_MOBILE_DOCTYPES.copy()
+
+
 SKIP_FIELD_TYPES = {
     "Column Break",
     "Fold",
@@ -105,19 +140,21 @@ def get_allowed_doctype(mobile_doctype):
 
     normalised_key = normalise_mobile_doctype_key(decoded_value)
 
+    allowed_mobile_doctypes = get_mobile_doctype_map()
+
     # 1. Standard mobile slug lookup:
     # field-interaction -> Field Interaction
-    if normalised_key in ALLOWED_MOBILE_DOCTYPES:
-        return ALLOWED_MOBILE_DOCTYPES[normalised_key]
+    if normalised_key in allowed_mobile_doctypes:
+        return allowed_mobile_doctypes[normalised_key]
 
     # 2. Raw key lookup, just in case:
     # field-interaction exactly as provided
-    if raw_value in ALLOWED_MOBILE_DOCTYPES:
-        return ALLOWED_MOBILE_DOCTYPES[raw_value]
+    if raw_value in allowed_mobile_doctypes:
+        return allowed_mobile_doctypes[raw_value]
 
     # 3. Allow actual DocType names if they are in the allowed mobile map:
     # Field Interaction -> Field Interaction
-    allowed_doctypes = set(ALLOWED_MOBILE_DOCTYPES.values())
+    allowed_doctypes = set(allowed_mobile_doctypes.values())
 
     if decoded_value in allowed_doctypes:
         return decoded_value
@@ -137,7 +174,7 @@ def get_allowed_doctype(mobile_doctype):
 def get_mobile_slug_for_doctype(doctype):
     doctype = str(doctype or "").strip()
 
-    for mobile_doctype, mapped_doctype in ALLOWED_MOBILE_DOCTYPES.items():
+    for mobile_doctype, mapped_doctype in get_mobile_doctype_map().items():
         if mapped_doctype == doctype:
             return mobile_doctype
 
