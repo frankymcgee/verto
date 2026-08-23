@@ -8,6 +8,7 @@ import {
 } from 'frappe-ui'
 import AppHeader from '../components/AppHeader.vue'
 import BottomTabs from '../components/BottomTabs.vue'
+import MobileBottomNav from '../components/MobileBottomNav.vue'
 import AppBrowserDrawer from '../components/AppBrowserDrawer.vue'
 import PwaUpdatePrompt from '../components/PwaUpdatePrompt.vue'
 import PwaInstallPrompt from '../components/PwaInstallPrompt.vue'
@@ -51,7 +52,7 @@ onMounted(() => {
       </div>
 
       <template #nav>
-        <BottomTabs />
+        <MobileBottomNav />
       </template>
     </FrappeMobileShell>
 
