@@ -4,7 +4,16 @@ import {
   getCachedShiftForDate,
   queueMobileDocumentAction,
 } from '../pwa/offlineQueue'
-import { getOfflineActor } from '../pwa/offlineBootstrap'
+
+const OFFLINE_ACTOR_STORAGE_KEY = 'verto:offline-actor'
+
+function getOfflineActor() {
+  try {
+    return String(window.localStorage.getItem(OFFLINE_ACTOR_STORAGE_KEY) || '').trim()
+  } catch {
+    return ''
+  }
+}
 
 function getRedirectPath() {
   const path = window.location.pathname + window.location.search + window.location.hash
