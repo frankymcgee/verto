@@ -1,8 +1,12 @@
 import { apiRequest } from '../lib/api'
-import { cacheApiResponse } from './offlineQueue'
+import {
+  cacheApiResponse,
+  setOfflineActor,
+} from './offlineQueue'
 
 export type OfflineBootstrapPayload = {
   generated_at?: string
+  user?: string
   schemas?: Record<string, any>
   shift_calendar?: {
     user?: string
@@ -15,6 +19,7 @@ export type OfflineBootstrapPayload = {
     end_date?: string
   }
   edit_docs?: Record<string, any>
+  link_options?: Record<string, Array<{ name: string; description?: string }>>
 }
 
 type FrappeResponse<T> = {
@@ -81,6 +86,11 @@ export async function primeOfflineData() {
   )
 
   const bootstrap = data.message || {}
+  const actor = bootstrap.user || bootstrap.shift_calendar?.user || ''
+
+  if (actor) {
+    await setOfflineActor(actor)
+  }
 
   for (const [mobileDoctype, schema] of Object.entries(bootstrap.schemas || {})) {
     const params = new URLSearchParams({
@@ -135,6 +145,14 @@ export async function primeOfflineData() {
       key,
       { message: payload },
       'edit-document'
+    )
+  }
+
+  for (const [doctype, options] of Object.entries(bootstrap.link_options || {})) {
+    await cacheApiResponse(
+      `link-options:${doctype}`,
+      options || [],
+      `link-options:${doctype}`
     )
   }
 
