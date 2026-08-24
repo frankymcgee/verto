@@ -355,11 +355,11 @@
       <Transition name="drawer-fade-slide">
         <div
           v-if="projectToolsOpen && projectToolsScope"
-          class="fixed inset-0 z-[60] flex items-end bg-black/40"
+          class="bottom-sheet-overlay fixed inset-0 z-[60] flex items-end bg-black/40"
           @click.self="closeProjectTools"
         >
-          <Card class="drawer-panel max-h-[82dvh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
-          <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+          <Card class="bottom-sheet-panel drawer-panel flex w-full min-w-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
+          <div class="z-10 flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
             <div class="min-w-0">
               <h2 class="truncate text-lg font-semibold text-ink-gray-9">
                 Project Tools
@@ -379,7 +379,7 @@
             </Button>
           </div>
 
-          <div class="grid max-h-[calc(82dvh-72px)] grid-cols-2 gap-3 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+          <div class="bottom-sheet-body grid grid-cols-2 content-start gap-3 p-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             <button
               v-for="tool in projectToolDefinitions"
               :key="tool.key"
@@ -406,11 +406,11 @@
       <Transition name="drawer-fade-slide">
         <div
           v-if="pickerOpen"
-          class="fixed inset-0 z-[60] flex items-end bg-black/40"
+          class="bottom-sheet-overlay fixed inset-0 z-[60] flex items-end bg-black/40"
           @click.self="closePicker"
         >
-          <Card class="drawer-panel max-h-[75dvh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
-        <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+          <Card class="bottom-sheet-panel drawer-panel flex w-full min-w-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
+        <div class="z-10 flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
           <div class="min-w-0">
             <h2 class="truncate text-lg font-semibold text-ink-gray-9">
               {{ pickerTitle }}
@@ -433,7 +433,7 @@
           </Button>
         </div>
 
-        <div class="grid max-h-[calc(75dvh-72px)] grid-cols-1 gap-2 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div class="bottom-sheet-body grid grid-cols-1 content-start gap-2 p-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <button
             v-for="button in pickerButtons"
             :key="button.mobile_doctype"
@@ -473,11 +473,11 @@
       <Transition name="drawer-fade-slide">
         <div
           v-if="personnelOpen"
-          class="fixed inset-0 z-[60] flex items-end bg-black/40"
+          class="bottom-sheet-overlay fixed inset-0 z-[60] flex items-end bg-black/40"
           @click.self="closePersonnelDrawer"
         >
-          <Card class="drawer-panel max-h-[80dvh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
-          <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+          <Card class="bottom-sheet-panel drawer-panel flex w-full min-w-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
+          <div class="z-10 flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
             <div class="min-w-0">
               <h2 class="truncate text-lg font-semibold text-ink-gray-9">
                 Project Personnel
@@ -500,7 +500,7 @@
             </Button>
           </div>
 
-          <div class="max-h-[calc(80dvh-72px)] space-y-3 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
+          <div class="bottom-sheet-body space-y-3 p-4 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
             <div
               v-if="personnelLoading"
               class="space-y-2"
@@ -644,7 +644,7 @@
       <Transition name="checklist-toast">
         <div
           v-if="checklistToast"
-          class="fixed inset-x-0 bottom-0 z-[80] w-full rounded-b-none rounded-t-2xl border border-b-0 bg-surface-white px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-2xl"
+          class="bottom-toast fixed inset-x-0 bottom-0 z-[80] w-full rounded-b-none rounded-t-2xl border border-b-0 bg-surface-white px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-2xl"
           :class="getChecklistToastClass(checklistToast.tone)"
           :role="checklistToast.tone === 'error' ? 'alert' : 'status'"
           aria-live="polite"
@@ -1980,6 +1980,39 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.bottom-sheet-overlay {
+  padding-top: max(env(safe-area-inset-top, 0px), 0.75rem);
+}
+
+.bottom-sheet-panel {
+  max-height: min(
+    82dvh,
+    calc(100dvh - max(env(safe-area-inset-top, 0px), 0.75rem))
+  );
+  min-height: 0;
+}
+
+.bottom-sheet-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bottom-toast {
+  max-height: calc(
+    100dvh - max(env(safe-area-inset-top, 0px), 0.75rem)
+  );
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
 .checklist-toast-enter-active,
 .checklist-toast-leave-active {
   transition: opacity 0.18s ease, transform 0.18s ease;
