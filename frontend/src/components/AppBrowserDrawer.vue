@@ -7,7 +7,7 @@
       @click.self="closeBrowser"
     >
       <section
-        class="app-browser-panel mx-auto flex w-full max-w-[var(--verto-shell-max-width,56rem)] flex-col overflow-hidden bg-surface-white shadow-2xl"
+        class="app-browser-panel flex w-full flex-col overflow-hidden bg-surface-white shadow-2xl"
         :class="hideAndroidBrowserBanner
           ? 'h-[100dvh] rounded-none border-0'
           : 'h-[92dvh] rounded-t-3xl border border-outline-gray-1'"
