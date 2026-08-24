@@ -399,11 +399,11 @@
       <Transition name="drawer-fade-slide">
         <div
           v-if="previewAttachment"
-          class="fixed inset-0 z-[70] flex items-end bg-black/60"
+          class="fixed inset-0 z-[70] flex items-end bg-black/60 pt-[max(env(safe-area-inset-top,0px),0.75rem)]"
           @click.self="closePreview"
         >
-          <Card class="drawer-panel flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
-        <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+          <Card class="drawer-panel flex max-h-full w-full min-w-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
+        <div class="z-10 flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
           <div class="min-w-0">
             <p class="truncate text-sm font-semibold text-ink-gray-9">
               {{ previewAttachment.file_name || 'Attachment' }}
@@ -423,7 +423,7 @@
           </Button>
         </div>
 
-        <div class="flex-1 overflow-auto bg-surface-gray-1 p-3">
+        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-gray-1 p-3 [-webkit-overflow-scrolling:touch]">
           <img
             v-if="isImageAttachment(previewAttachment)"
             :src="previewAttachment.file_url"
@@ -480,11 +480,11 @@
       <Transition name="drawer-fade-slide">
         <div
           v-if="threadOpen"
-          class="fixed inset-0 z-[65] flex items-end bg-black/50"
+          class="fixed inset-0 z-[65] flex items-end bg-black/50 pt-[max(env(safe-area-inset-top,0px),0.75rem)]"
           @click.self="closeThread"
         >
-          <Card class="drawer-panel flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
-        <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+          <Card class="drawer-panel flex max-h-full w-full min-w-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
+        <div class="z-10 flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
           <div class="min-w-0">
             <p class="truncate text-base font-semibold text-ink-gray-9">
               Thread
@@ -506,7 +506,7 @@
 
         <div
           ref="threadMessagesEl"
-          class="flex-1 space-y-3 overflow-y-auto bg-surface-gray-1 p-3"
+          class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-surface-gray-1 p-3 [-webkit-overflow-scrolling:touch]"
         >
           <Card
             v-if="threadLoading"
@@ -713,7 +713,7 @@
         </div>
 
         <form
-          class="sticky bottom-0 z-10 border-t border-outline-gray-1 bg-surface-white p-3"
+          class="z-10 shrink-0 border-t border-outline-gray-1 bg-surface-white p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
           @submit.prevent="sendThreadReply"
         >
           <div class="flex items-end gap-2">
