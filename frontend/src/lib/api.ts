@@ -4,6 +4,7 @@ import {
   getCachedShiftForDate,
   queueMobileDocumentAction,
 } from '../pwa/offlineQueue'
+import { getOfflineActor } from '../pwa/offlineBootstrap'
 
 function getRedirectPath() {
   const path = window.location.pathname + window.location.search + window.location.hash
@@ -247,10 +248,25 @@ function parseValues(body: BodyInit | null | undefined) {
   }
 }
 
+function valuesWithOfflineActor(values: Record<string, any>) {
+  const actor = getOfflineActor()
+
+  if (!actor) {
+    throw new Error(
+      'Offline data is not initialised for this user yet. Reconnect once before submitting forms offline.'
+    )
+  }
+
+  return {
+    ...(values || {}),
+    __verto_offline_user: actor,
+  }
+}
+
 async function queueOfflineWrite<T>(url: string, options: RequestInit): Promise<T | null> {
   if (url.includes('/api/method/verto.api.mobile.documents.create_mobile_doc')) {
     const mobileDoctype = getFormValue(options.body, 'mobile_doctype')
-    const values = parseValues(options.body)
+    const values = valuesWithOfflineActor(parseValues(options.body))
     const item = await queueMobileDocumentAction({
       actionType: 'create',
       mobileDoctype,
@@ -271,7 +287,7 @@ async function queueOfflineWrite<T>(url: string, options: RequestInit): Promise<
   if (url.includes('/api/method/verto.api.mobile.documents.update_mobile_doc')) {
     const mobileDoctype = getFormValue(options.body, 'mobile_doctype')
     const docname = getFormValue(options.body, 'docname')
-    const values = parseValues(options.body)
+    const values = valuesWithOfflineActor(parseValues(options.body))
     const item = await queueMobileDocumentAction({
       actionType: 'update',
       mobileDoctype,
