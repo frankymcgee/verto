@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, add_months, getdate, now_datetime, today
+from frappe.utils import add_days, add_months, cint, cstr, getdate, now_datetime, today
 
 
 QUALIFICATIONS_FIELD = "qualifications"
@@ -240,7 +240,20 @@ def _verification_details_changed(row, previous_row) -> bool:
 		"does_not_expire",
 		"evidence",
 	)
-	return any(row.get(fieldname) != previous_row.get(fieldname) for fieldname in audited_fields)
+	return any(
+		_normalize_audited_value(fieldname, row.get(fieldname))
+		!= _normalize_audited_value(fieldname, previous_row.get(fieldname))
+		for fieldname in audited_fields
+	)
+
+
+def _normalize_audited_value(fieldname, value):
+	"""Normalize equivalent form and database values before audit comparison."""
+	if fieldname == "does_not_expire":
+		return cint(value)
+	if fieldname in {"issue_date", "expiry_date"}:
+		return getdate(value) if value else None
+	return cstr(value or "")
 
 
 def _get_previous_rows(doc):
