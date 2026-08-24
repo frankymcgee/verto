@@ -1,8 +1,7 @@
 import { apiRequest } from '../lib/api'
-import {
-  cacheApiResponse,
-  setOfflineActor,
-} from './offlineQueue'
+import { cacheApiResponse } from './offlineQueue'
+
+export const OFFLINE_ACTOR_STORAGE_KEY = 'verto:offline-actor'
 
 export type OfflineBootstrapPayload = {
   generated_at?: string
@@ -76,6 +75,23 @@ function serialisePostFields(fields: Record<string, string>) {
   return JSON.stringify(entries)
 }
 
+export function getOfflineActor() {
+  try {
+    return String(window.localStorage.getItem(OFFLINE_ACTOR_STORAGE_KEY) || '').trim()
+  } catch {
+    return ''
+  }
+}
+
+function setOfflineActor(user: string) {
+  try {
+    window.localStorage.setItem(OFFLINE_ACTOR_STORAGE_KEY, user)
+  } catch {
+    // IndexedDB still contains the cached data; user validation will fail safe if
+    // localStorage is unavailable and a queued write is attempted.
+  }
+}
+
 export async function primeOfflineData() {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     return null
@@ -89,7 +105,7 @@ export async function primeOfflineData() {
   const actor = bootstrap.user || bootstrap.shift_calendar?.user || ''
 
   if (actor) {
-    await setOfflineActor(actor)
+    setOfflineActor(actor)
   }
 
   for (const [mobileDoctype, schema] of Object.entries(bootstrap.schemas || {})) {
