@@ -45,7 +45,8 @@
       <div class="relative shrink-0">
         <button
           type="button"
-          class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-outline-gray-2 bg-surface-gray-1 text-sm font-semibold text-ink-gray-8 shadow-sm active:scale-95"
+          class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 bg-surface-gray-1 text-sm font-semibold text-ink-gray-8 shadow-sm transition-colors active:scale-95"
+          :class="avatarStatusClass"
           aria-label="Open profile menu"
           :aria-expanded="menuOpen"
           @click="toggleMenu"
@@ -69,7 +70,10 @@
         >
           <div class="border-b border-outline-gray-1 px-3 py-2">
             <div class="flex items-center gap-2">
-              <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-gray-2 text-sm font-semibold text-ink-gray-8">
+              <div
+                class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 bg-surface-gray-2 text-sm font-semibold text-ink-gray-8 transition-colors"
+                :class="avatarStatusClass"
+              >
                 <img
                   v-if="resolvedUserImage"
                   :src="resolvedUserImage"
@@ -138,6 +142,52 @@
             </p>
           </div>
 
+          <div class="border-b border-outline-gray-1 px-3 py-2.5">
+            <div class="flex items-start justify-between gap-3">
+              <span class="min-w-0">
+                <span class="block text-sm font-medium text-ink-gray-9">
+                  Offline data
+                </span>
+
+                <span class="mt-0.5 block text-xs leading-4 text-ink-gray-5">
+                  {{ offlineDataStatus }}
+                </span>
+              </span>
+
+              <button
+                type="button"
+                class="shrink-0 rounded-lg bg-surface-gray-2 px-2.5 py-1.5 text-xs font-semibold text-ink-gray-8 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="!offlineIsOnline || offlineIsPriming || offlineIsSyncing"
+                @click="handleOfflineRefresh"
+              >
+                {{ offlineIsPriming ? 'Refreshing' : 'Refresh' }}
+              </button>
+            </div>
+
+            <button
+              v-if="offlineSummary.total > 0"
+              type="button"
+              class="mt-2 flex w-full items-center justify-between gap-3 rounded-lg bg-blue-50 px-2.5 py-2 text-left text-xs font-semibold text-blue-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="!offlineIsOnline || offlineIsSyncing || offlineIsPriming"
+              @click="syncNow"
+            >
+              <span>
+                {{ offlineIsSyncing ? 'Syncing offline work…' : 'Sync offline work' }}
+              </span>
+
+              <span>
+                {{ offlineSummary.total }}
+              </span>
+            </button>
+
+            <p
+              v-if="offlineRefreshError"
+              class="mt-2 text-xs leading-4 text-red-600"
+            >
+              {{ offlineRefreshError }}
+            </p>
+          </div>
+
           <button
             type="button"
             class="block w-full px-3 py-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1"
@@ -196,6 +246,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMobileBoot } from '../lib/mobileBoot'
 import { openAppBrowser } from '../lib/appBrowser'
+import { useOfflineSync } from '../pwa/useOfflineSync'
 import { usePushNotifications } from '../pwa/usePushNotifications'
 
 const props = withDefaults(
@@ -232,6 +283,17 @@ const {
   enablePushNotifications,
   disablePushNotifications,
 } = usePushNotifications()
+
+const {
+  isOnline: offlineIsOnline,
+  isSyncing: offlineIsSyncing,
+  isPriming: offlineIsPriming,
+  lastOfflineRefreshAt,
+  offlineRefreshError,
+  summary: offlineSummary,
+  primeNow,
+  syncNow,
+} = useOfflineSync()
 
 const menuOpen = ref(false)
 const iconFailed = ref(false)
@@ -336,6 +398,78 @@ const notificationStatus = computed(() => {
     ? 'Enabled on this device'
     : 'Disabled on this device'
 })
+
+const offlineDataStatus = computed(() => {
+  if (!offlineIsOnline.value) {
+    return offlineSummary.value.total > 0
+      ? `${offlineSummary.value.total} item${offlineSummary.value.total === 1 ? '' : 's'} saved offline`
+      : 'Offline mode active'
+  }
+
+  if (offlineIsSyncing.value) {
+    return 'Syncing saved work…'
+  }
+
+  if (offlineIsPriming.value) {
+    return 'Updating forms and shifts…'
+  }
+
+  if (offlineSummary.value.failed > 0) {
+    return `${offlineSummary.value.failed} item${offlineSummary.value.failed === 1 ? '' : 's'} failed to sync`
+  }
+
+  if (offlineSummary.value.total > 0) {
+    return `${offlineSummary.value.total} item${offlineSummary.value.total === 1 ? '' : 's'} waiting to sync`
+  }
+
+  if (!lastOfflineRefreshAt.value) {
+    return 'Not prepared on this device'
+  }
+
+  const date = new Date(lastOfflineRefreshAt.value)
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Ready for offline use'
+  }
+
+  const formatted = new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date)
+
+  return `Updated ${formatted}`
+})
+
+const avatarStatusClass = computed(() => {
+  if (!offlineIsOnline.value) {
+    return 'border-amber-400'
+  }
+
+  if (offlineSummary.value.failed > 0 || offlineRefreshError.value) {
+    return 'border-red-500'
+  }
+
+  if (
+    offlineIsSyncing.value ||
+    offlineIsPriming.value ||
+    offlineSummary.value.total > 0
+  ) {
+    return 'border-blue-500'
+  }
+
+  if (lastOfflineRefreshAt.value) {
+    return 'border-green-500'
+  }
+
+  return 'border-outline-gray-2'
+})
+
+function handleOfflineRefresh() {
+  void primeNow()
+}
 
 watch(
   () => appIconUrl.value,

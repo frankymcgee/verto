@@ -13,6 +13,7 @@ const LAST_OFFLINE_REFRESH_KEY = 'verto:offline-last-refresh-at'
 const isOnline = ref(typeof navigator === 'undefined' ? true : navigator.onLine)
 const isSyncing = ref(false)
 const isPriming = ref(false)
+const showReadyConfirmation = ref(false)
 const lastOfflineRefreshAt = ref(readLastOfflineRefreshAt())
 const offlineRefreshError = ref('')
 const lastSyncMessage = ref('')
@@ -26,6 +27,7 @@ const summary = ref<OfflineQueueSummary>({
 let refreshTimer: number | undefined
 let autoSyncTimer: number | undefined
 let primeTimer: number | undefined
+let readyConfirmationTimer: number | undefined
 let watcherCount = 0
 
 function readLastOfflineRefreshAt() {
@@ -48,6 +50,19 @@ function saveLastOfflineRefreshAt(value: string) {
   }
 }
 
+function brieflyShowReadyConfirmation() {
+  showReadyConfirmation.value = true
+
+  if (readyConfirmationTimer) {
+    window.clearTimeout(readyConfirmationTimer)
+  }
+
+  readyConfirmationTimer = window.setTimeout(() => {
+    showReadyConfirmation.value = false
+    readyConfirmationTimer = undefined
+  }, 5000)
+}
+
 async function refreshSummary() {
   try {
     summary.value = await getOfflineQueueSummary()
@@ -56,7 +71,7 @@ async function refreshSummary() {
   }
 }
 
-async function primeNow() {
+async function primeNow(options: { showConfirmation?: boolean } = {}) {
   if (!isOnline.value || isPriming.value) {
     return false
   }
@@ -72,6 +87,11 @@ async function primeNow() {
     }
 
     saveLastOfflineRefreshAt(new Date().toISOString())
+
+    if (options.showConfirmation !== false) {
+      brieflyShowReadyConfirmation()
+    }
+
     return true
   } catch (err) {
     offlineRefreshError.value = 'Could not update offline data. Check your connection and try again.'
@@ -174,7 +194,7 @@ function startOfflineSyncWatcher() {
 
   primeTimer = window.setInterval(() => {
     if (navigator.onLine) {
-      void primeNow()
+      void primeNow({ showConfirmation: false })
     }
   }, 15 * 60 * 1000)
 }
@@ -256,6 +276,7 @@ export function useOfflineSync() {
     isOnline,
     isSyncing,
     isPriming,
+    showReadyConfirmation,
     lastOfflineRefreshAt,
     offlineRefreshError,
     summary,
