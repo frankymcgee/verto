@@ -1,0 +1,122 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-08-24 11:47:24.806100",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "qualification",
+  "qualification_category",
+  "certificate_number",
+  "issuing_authority",
+  "issue_date",
+  "expiry_date",
+  "does_not_expire",
+  "evidence",
+  "verification_status",
+  "validity_status",
+  "verified_by",
+  "verified_on",
+  "is_current",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "qualification",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Qualification",
+   "options": "Skill",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "qualification.qualification_category",
+   "fieldname": "qualification_category",
+   "fieldtype": "Data",
+   "label": "Category"
+  },
+  {
+   "fieldname": "certificate_number",
+   "fieldtype": "Data",
+   "label": "Certificate / Licence No."
+  },
+  {
+   "fieldname": "issuing_authority",
+   "fieldtype": "Data",
+   "label": "Issuing Authority"
+  },
+  {
+   "fieldname": "issue_date",
+   "fieldtype": "Date",
+   "label": "Issue Date"
+  },
+  {
+   "fieldname": "expiry_date",
+   "fieldtype": "Date",
+   "label": "Expiry Date"
+  },
+  {
+   "default": "0",
+   "fieldname": "does_not_expire",
+   "fieldtype": "Check",
+   "label": "Does Not Expire"
+  },
+  {
+   "fieldname": "evidence",
+   "fieldtype": "Attach",
+   "label": "Evidence"
+  },
+  {
+   "fieldname": "verification_status",
+   "fieldtype": "Select",
+   "label": "Verification Status",
+   "options": "\nPending Verification\nVerified\nRejected"
+  },
+  {
+   "fieldname": "validity_status",
+   "fieldtype": "Select",
+   "label": "Validity Status",
+   "options": "\nValid\nExpiring Soon\nExpired\nSuperseded"
+  },
+  {
+   "fieldname": "verified_by",
+   "fieldtype": "Link",
+   "label": "Verified By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "verified_on",
+   "fieldtype": "Datetime",
+   "label": "Verified On",
+   "read_only": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "is_current",
+   "fieldtype": "Check",
+   "label": "Current Record"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-24 11:52:15.733416",
+ "modified_by": "Administrator",
+ "module": "Verto",
+ "name": "Employee Qualification Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
