@@ -1,4 +1,4 @@
-<!-- VERTO_MOBILE_SHELL_PUSH_NOTIFICATIONS_2026_08_09 -->
+<!-- VERTO_MOBILE_SHELL_OFFLINE_SYNC_2026_08_24 -->
 <template>
   <div
     class="mobile-shell min-h-[100dvh] overflow-hidden bg-gray-50 text-gray-900"
@@ -36,6 +36,7 @@ import { useRoute } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import BottomTabs from '../components/BottomTabs.vue'
 import AppBrowserDrawer from '../components/AppBrowserDrawer.vue'
+import OfflineSyncStatus from '../components/OfflineSyncStatus.vue'
 import PwaUpdatePrompt from '../components/PwaUpdatePrompt.vue'
 import PwaInstallPrompt from '../components/PwaInstallPrompt.vue'
 import { handleAppBrowserLinkClick } from '../lib/appBrowser'
