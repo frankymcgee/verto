@@ -90,14 +90,14 @@
         v-else-if="search"
         class="px-3 py-3 text-sm text-ink-gray-5"
       >
-        No results found.
+        No cached results found.
       </div>
 
       <div
         v-else
         class="px-3 py-3 text-sm text-ink-gray-5"
       >
-        Start typing to search {{ field.options || 'records' }}.
+        {{ isOffline ? 'Cached records available offline.' : `Start typing to search ${field.options || 'records'}.` }}
       </div>
     </div>
   </div>
@@ -107,6 +107,10 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { TextInput } from 'frappe-ui'
 import { apiRequest } from '../../lib/api'
+import {
+  getCachedLinkOptions,
+  mergeCachedLinkOptions,
+} from '../../pwa/offlineQueue'
 import type { MobileField } from '../../pages/NewDocument.vue'
 
 type LinkOption = {
@@ -136,6 +140,7 @@ const options = ref<LinkOption[]>([])
 const showOptions = ref(false)
 const loading = ref(false)
 const highlightedIndex = ref(-1)
+const isOffline = ref(typeof navigator === 'undefined' ? false : !navigator.onLine)
 
 let timer: number | undefined
 let latestRequestId = 0
@@ -243,6 +248,23 @@ function handleClickOutside(event: MouseEvent) {
   }
 }
 
+async function loadCachedOptions(requestId: number) {
+  if (!props.field.options) {
+    options.value = []
+    return
+  }
+
+  const cached = await getCachedLinkOptions(
+    String(props.field.options),
+    search.value || ''
+  )
+
+  if (requestId !== latestRequestId) return
+
+  options.value = cached
+  highlightedIndex.value = options.value.length ? 0 : -1
+}
+
 function loadOptions() {
   if (props.disabled) return
 
@@ -257,11 +279,23 @@ function loadOptions() {
 
     const requestId = latestRequestId + 1
     latestRequestId = requestId
+    isOffline.value = typeof navigator !== 'undefined' && !navigator.onLine
     loading.value = true
+
+    if (isOffline.value) {
+      try {
+        await loadCachedOptions(requestId)
+      } finally {
+        if (requestId === latestRequestId) {
+          loading.value = false
+        }
+      }
+      return
+    }
 
     try {
       const params = new URLSearchParams({
-        doctype: props.field.options,
+        doctype: String(props.field.options),
         txt: search.value || '',
         page_length: '20',
       })
@@ -276,10 +310,14 @@ function loadOptions() {
 
       options.value = data.message || []
       highlightedIndex.value = options.value.length ? 0 : -1
+
+      void mergeCachedLinkOptions(
+        String(props.field.options),
+        options.value
+      )
     } catch {
-      if (requestId === latestRequestId) {
-        options.value = []
-      }
+      isOffline.value = typeof navigator !== 'undefined' && !navigator.onLine
+      await loadCachedOptions(requestId)
     } finally {
       if (requestId === latestRequestId) {
         loading.value = false
