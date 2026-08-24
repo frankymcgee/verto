@@ -212,6 +212,7 @@ scheduler_events = {
 #	],
     "daily": [
         "verto.api.qualifications.refresh_qualification_statuses",
+        "verto.api.qualifications.send_qualification_expiry_notifications",
     ],
     # "hourly": [
     #     "verto.jobs.hourly.escalate_overdue_actions",
@@ -323,4 +324,3 @@ website_route_rules = [
     {"from_route": "/verto-mobile/<path:app_path>", "to_route": "verto-mobile"},
     {"from_route": "/planner/<path:app_path>", "to_route": "planner"},
 ]
-
