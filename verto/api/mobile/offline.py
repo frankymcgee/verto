@@ -1,5 +1,4 @@
 import json
-from datetime import timedelta
 
 import frappe
 from frappe.utils import add_days, getdate, now_datetime, today
@@ -8,6 +7,8 @@ from verto.api.mobile import documents, shifts
 
 
 RECEIPT_DOCTYPE = "Verto Offline Receipt"
+OFFLINE_USER_KEY = "__verto_offline_user"
+MAX_LINK_OPTIONS_PER_DOCTYPE = 250
 
 
 def require_login():
@@ -100,9 +101,86 @@ def _serialise_edit_doc(doctype, docname):
     }
 
 
+def _collect_link_doctypes_from_field(field, result):
+    if not isinstance(field, dict):
+        return
+
+    if field.get("fieldtype") == "Link" and field.get("options"):
+        result.add(str(field.get("options")).strip())
+
+    for child_field in field.get("child_fields") or []:
+        _collect_link_doctypes_from_field(child_field, result)
+
+
+def _get_link_options(schemas):
+    link_doctypes = set()
+
+    for schema in schemas.values():
+        for field in schema.get("fields") or []:
+            _collect_link_doctypes_from_field(field, link_doctypes)
+
+    options = {}
+
+    for doctype in sorted(link_doctypes):
+        if not doctype or not frappe.db.exists("DocType", doctype):
+            continue
+
+        if not frappe.has_permission(doctype, "read"):
+            continue
+
+        fields = ["name"]
+        meta = frappe.get_meta(doctype)
+        title_field = meta.title_field
+
+        if title_field and title_field != "name":
+            fields.append(title_field)
+
+        rows = frappe.get_list(
+            doctype,
+            fields=fields,
+            order_by="modified desc",
+            limit_page_length=MAX_LINK_OPTIONS_PER_DOCTYPE,
+        )
+
+        values = []
+
+        for row in rows:
+            name = row.get("name")
+
+            if not name:
+                continue
+
+            description = row.get(title_field) if title_field else None
+
+            values.append({
+                "name": name,
+                "description": description if description and description != name else None,
+            })
+
+        options[doctype] = values
+
+    return options
+
+
+def _validate_offline_actor(values):
+    client_user = str(values.pop(OFFLINE_USER_KEY, "") or "").strip()
+
+    if not client_user:
+        frappe.throw(
+            "Offline operation is missing its original user. Reconnect and submit again.",
+            frappe.PermissionError,
+        )
+
+    if client_user != frappe.session.user:
+        frappe.throw(
+            "This offline operation belongs to another signed-in user and will not be synced.",
+            frappe.PermissionError,
+        )
+
+
 @frappe.whitelist()
 def get_offline_bootstrap():
-    """Return the minimum dataset needed to keep core Verto Mobile usable offline."""
+    """Return the dataset needed to keep core Verto Mobile functions available offline."""
     require_login()
 
     schemas = {}
@@ -135,6 +213,7 @@ def get_offline_bootstrap():
 
     return {
         "generated_at": now_datetime(),
+        "user": frappe.session.user,
         "schemas": schemas,
         "shift_calendar": shift_calendar,
         "shift_range": {
@@ -142,6 +221,7 @@ def get_offline_bootstrap():
             "end_date": getdate(end_date),
         },
         "edit_docs": edit_docs,
+        "link_options": _get_link_options(schemas),
     }
 
 
@@ -170,7 +250,8 @@ def sync_action(
     if isinstance(values, str):
         values = json.loads(values or "{}")
 
-    values = values or {}
+    values = dict(values or {})
+    _validate_offline_actor(values)
     action_type = str(action_type or "").strip().lower()
 
     if action_type == "create":
@@ -216,10 +297,28 @@ def upload_attachment(
     target_doctype,
     target_name,
 ):
-    """Upload one offline attachment idempotently."""
+    """Upload one attachment for a previously replayed offline document action."""
     require_login()
 
-    receipt_id = f"{_receipt_name(operation_id)}::{_receipt_name(attachment_id)}"
+    operation_id = _receipt_name(operation_id)
+    parent_receipt = _get_receipt(operation_id)
+
+    if not parent_receipt:
+        frappe.throw(
+            "The parent offline document has not been synced yet.",
+            frappe.ValidationError,
+        )
+
+    if (
+        parent_receipt.get("target_doctype") != target_doctype
+        or parent_receipt.get("target_name") != target_name
+    ):
+        frappe.throw(
+            "Offline attachment target does not match the synced document.",
+            frappe.PermissionError,
+        )
+
+    receipt_id = f"{operation_id}::{_receipt_name(attachment_id)}"
     existing = _get_receipt(receipt_id)
 
     if existing:
