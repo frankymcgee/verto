@@ -6,8 +6,4 @@ from frappe.model.document import Document
 
 
 class VertoOfflineReceipt(Document):
-<<<<<<< HEAD
     pass
-=======
-	pass
->>>>>>> 526ba8b (verto offline)
