@@ -351,13 +351,14 @@
     </main>
 
     <!-- Project Tools Sheet -->
-    <Transition name="drawer-fade-slide">
-      <div
-        v-if="projectToolsOpen && projectToolsScope"
-        class="fixed inset-0 z-[60] flex items-end bg-black/40 px-0 lg:items-center lg:justify-center lg:px-6"
-        @click.self="closeProjectTools"
-      >
-        <Card class="drawer-panel max-h-[82vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white lg:max-w-2xl lg:rounded-3xl">
+    <Teleport to="body">
+      <Transition name="drawer-fade-slide">
+        <div
+          v-if="projectToolsOpen && projectToolsScope"
+          class="fixed inset-0 z-[60] flex items-end bg-black/40"
+          @click.self="closeProjectTools"
+        >
+          <Card class="drawer-panel max-h-[82dvh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
           <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
             <div class="min-w-0">
               <h2 class="truncate text-lg font-semibold text-ink-gray-9">
@@ -378,7 +379,7 @@
             </Button>
           </div>
 
-          <div class="grid max-h-[calc(82vh-72px)] grid-cols-2 gap-3 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] sm:grid-cols-3 lg:pb-4">
+          <div class="grid max-h-[calc(82dvh-72px)] grid-cols-2 gap-3 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             <button
               v-for="tool in projectToolDefinitions"
               :key="tool.key"
@@ -395,18 +396,20 @@
               </p>
             </button>
           </div>
-        </Card>
-      </div>
-    </Transition>
+          </Card>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Picker Sheet -->
-    <Transition name="drawer-fade-slide">
-      <div
-        v-if="pickerOpen"
-        class="fixed inset-0 z-[60] flex items-end bg-black/40 px-0 lg:items-center lg:px-6"
-        @click.self="closePicker"
-      >
-        <Card class="drawer-panel max-h-[75vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white lg:max-w-2xl lg:rounded-3xl">
+    <Teleport to="body">
+      <Transition name="drawer-fade-slide">
+        <div
+          v-if="pickerOpen"
+          class="fixed inset-0 z-[60] flex items-end bg-black/40"
+          @click.self="closePicker"
+        >
+          <Card class="drawer-panel max-h-[75dvh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
         <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
           <div class="min-w-0">
             <h2 class="truncate text-lg font-semibold text-ink-gray-9">
@@ -430,12 +433,12 @@
           </Button>
         </div>
 
-        <div class="max-h-[calc(75vh-72px)] space-y-2 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]">
+        <div class="grid max-h-[calc(75dvh-72px)] grid-cols-1 gap-2 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <button
             v-for="button in pickerButtons"
             :key="button.mobile_doctype"
             type="button"
-            class="w-full rounded-xl border border-outline-gray-1 bg-surface-white p-3 text-left shadow-sm transition active:scale-[0.99]"
+            class="w-full rounded-xl border border-outline-gray-1 bg-surface-white p-3 text-left shadow-sm transition hover:border-outline-gray-2 hover:bg-surface-gray-1 active:scale-[0.99]"
             @click="createFromPicker(button)"
           >
             <p class="font-semibold text-ink-gray-9">
@@ -449,7 +452,7 @@
 
           <div
             v-if="pickerButtons.length === 0"
-            class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center"
+            class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center sm:col-span-2 lg:col-span-3 xl:col-span-4"
           >
             <p class="text-sm font-medium text-ink-gray-7">
               No forms available.
@@ -459,24 +462,21 @@
               Check the mobile form configuration for this action.
             </p>
           </div>
-          <div
-            data-picker-bottom-spacer="true"
-            class="h-24 shrink-0"
-            aria-hidden="true"
-          />
         </div>
-        </Card>
-      </div>
-    </Transition>
+          </Card>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Personnel Sheet -->
-    <Transition name="drawer-fade-slide">
-      <div
-        v-if="personnelOpen"
-        class="fixed inset-0 z-[60] flex items-end bg-black/40 px-0 lg:items-center lg:px-6"
-        @click.self="closePersonnelDrawer"
-      >
-        <Card class="drawer-panel max-h-[80vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white lg:max-w-2xl lg:rounded-3xl">
+    <Teleport to="body">
+      <Transition name="drawer-fade-slide">
+        <div
+          v-if="personnelOpen"
+          class="fixed inset-0 z-[60] flex items-end bg-black/40"
+          @click.self="closePersonnelDrawer"
+        >
+          <Card class="drawer-panel max-h-[80dvh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
           <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
             <div class="min-w-0">
               <h2 class="truncate text-lg font-semibold text-ink-gray-9">
@@ -500,7 +500,7 @@
             </Button>
           </div>
 
-          <div class="max-h-[calc(80vh-72px)] space-y-3 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]">
+          <div class="max-h-[calc(80dvh-72px)] space-y-3 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
             <div
               v-if="personnelLoading"
               class="space-y-2"
@@ -625,14 +625,11 @@
               </div>
             </div>
 
-            <div
-              class="h-24 shrink-0"
-              aria-hidden="true"
-            />
           </div>
-        </Card>
-      </div>
-    </Transition>
+          </Card>
+        </div>
+      </Transition>
+    </Teleport>
 
     <input
       ref="checklistEvidenceInput"
@@ -643,46 +640,48 @@
       @cancel="cancelChecklistEvidenceSelection"
     >
 
-    <Transition name="checklist-toast">
-      <div
-        v-if="checklistToast"
-        class="fixed bottom-[calc(68px+env(safe-area-inset-bottom)+1rem)] left-1/2 z-[80] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-xl border bg-surface-white p-3 shadow-xl lg:bottom-6 lg:left-auto lg:right-6 lg:translate-x-0"
-        :class="getChecklistToastClass(checklistToast.tone)"
-        :role="checklistToast.tone === 'error' ? 'alert' : 'status'"
-        aria-live="polite"
-      >
-        <div class="flex items-start gap-3">
-          <div class="min-w-0 flex-1">
-            <p class="text-sm font-semibold text-ink-gray-9">
-              {{ checklistToast.title }}
-            </p>
+    <Teleport to="body">
+      <Transition name="checklist-toast">
+        <div
+          v-if="checklistToast"
+          class="fixed inset-x-0 bottom-0 z-[80] w-full rounded-b-none rounded-t-2xl border border-b-0 bg-surface-white px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-2xl"
+          :class="getChecklistToastClass(checklistToast.tone)"
+          :role="checklistToast.tone === 'error' ? 'alert' : 'status'"
+          aria-live="polite"
+        >
+          <div class="flex items-start gap-3">
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold text-ink-gray-9">
+                {{ checklistToast.title }}
+              </p>
 
-            <p class="mt-1 text-sm leading-5 text-ink-gray-6">
-              {{ checklistToast.message }}
-            </p>
+              <p class="mt-1 text-sm leading-5 text-ink-gray-6">
+                {{ checklistToast.message }}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              class="shrink-0 rounded-md px-1.5 py-1 text-xs font-medium text-ink-gray-5 hover:bg-surface-gray-2 hover:text-ink-gray-8"
+              @click="dismissChecklistToast"
+            >
+              {{ checklistEvidenceRequest ? 'Not now' : 'Close' }}
+            </button>
           </div>
 
-          <button
-            type="button"
-            class="shrink-0 rounded-md px-1.5 py-1 text-xs font-medium text-ink-gray-5 hover:bg-surface-gray-2 hover:text-ink-gray-8"
-            @click="dismissChecklistToast"
+          <Button
+            v-if="checklistToast.actionLabel"
+            variant="solid"
+            theme="gray"
+            size="sm"
+            class="mt-3 w-full justify-center"
+            @click="chooseChecklistEvidence"
           >
-            {{ checklistEvidenceRequest ? 'Not now' : 'Close' }}
-          </button>
+            {{ checklistToast.actionLabel }}
+          </Button>
         </div>
-
-        <Button
-          v-if="checklistToast.actionLabel"
-          variant="solid"
-          theme="gray"
-          size="sm"
-          class="mt-3 w-full justify-center"
-          @click="chooseChecklistEvidence"
-        >
-          {{ checklistToast.actionLabel }}
-        </Button>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
   </section>
 </template>
 
@@ -1989,14 +1988,7 @@ onBeforeUnmount(() => {
 .checklist-toast-enter-from,
 .checklist-toast-leave-to {
   opacity: 0;
-  transform: translate(-50%, 0.75rem);
-}
-
-@media (min-width: 1024px) {
-  .checklist-toast-enter-from,
-  .checklist-toast-leave-to {
-    transform: translate(0, 0.75rem);
-  }
+  transform: translateY(100%);
 }
 
 .drawer-fade-slide-enter-active,
