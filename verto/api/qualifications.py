@@ -191,7 +191,7 @@ def send_qualification_expiry_notifications(target_date=None, dry_run=False):
 		if new_recipients and not dry_run:
 			from verto.api.mobile.push_notifications import queue_push_to_users
 
-			queued_job = queue_push_to_users(
+			queue_push_to_users(
 				new_recipients,
 				{
 					"title": candidate["title"],
@@ -201,8 +201,9 @@ def send_qualification_expiry_notifications(target_date=None, dry_run=False):
 				},
 				notification_type="qualification_expiry",
 			)
-			if queued_job:
-				queued_push_count += 1
+			# enqueue_after_commit may intentionally return None while the transaction
+			# is open, even though the job has been registered for delivery.
+			queued_push_count += 1
 
 	return {
 		"date": target_date.isoformat(),
@@ -411,11 +412,6 @@ def _create_qualification_notification_log(candidate, user):
 		notification.email_content = candidate["message"]
 	if meta.has_field("link"):
 		notification.link = candidate["link"]
-	if meta.has_field("type"):
-		for notification_type in ("Alert", "Default"):
-			if frappe.db.exists("Notification Type", notification_type):
-				notification.type = notification_type
-				break
 
 	notification.insert(ignore_permissions=True)
 
