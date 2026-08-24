@@ -395,13 +395,14 @@
     </main>
 
     <!-- File Attachment Preview Drawer -->
-    <Transition name="drawer-fade-slide">
-      <div
-        v-if="previewAttachment"
-        class="fixed inset-0 z-[70] flex items-end bg-black/60"
-        @click.self="closePreview"
-      >
-        <Card class="drawer-panel flex max-h-[92vh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
+    <Teleport to="body">
+      <Transition name="drawer-fade-slide">
+        <div
+          v-if="previewAttachment"
+          class="fixed inset-0 z-[70] flex items-end bg-black/60"
+          @click.self="closePreview"
+        >
+          <Card class="drawer-panel flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
         <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
           <div class="min-w-0">
             <p class="truncate text-sm font-semibold text-ink-gray-9">
@@ -469,18 +470,20 @@
             </Button>
           </Card>
         </div>
-        </Card>
-      </div>
-    </Transition>
+          </Card>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Thread Drawer -->
-    <Transition name="drawer-fade-slide">
-      <div
-        v-if="threadOpen"
-        class="fixed inset-0 z-[65] flex items-end bg-black/50"
-        @click.self="closeThread"
-      >
-        <Card class="drawer-panel flex max-h-[88vh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
+    <Teleport to="body">
+      <Transition name="drawer-fade-slide">
+        <div
+          v-if="threadOpen"
+          class="fixed inset-0 z-[65] flex items-end bg-black/50"
+          @click.self="closeThread"
+        >
+          <Card class="drawer-panel flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
         <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
           <div class="min-w-0">
             <p class="truncate text-base font-semibold text-ink-gray-9">
@@ -734,9 +737,10 @@
             </Button>
           </div>
         </form>
-        </Card>
-      </div>
-    </Transition>
+          </Card>
+        </div>
+      </Transition>
+    </Teleport>
   </section>
 </template>
 
