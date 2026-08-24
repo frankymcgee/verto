@@ -8,9 +8,13 @@ import {
 } from './offlineQueue'
 import { primeOfflineData } from './offlineBootstrap'
 
+const LAST_OFFLINE_REFRESH_KEY = 'verto:offline-last-refresh-at'
+
 const isOnline = ref(typeof navigator === 'undefined' ? true : navigator.onLine)
 const isSyncing = ref(false)
 const isPriming = ref(false)
+const lastOfflineRefreshAt = ref(readLastOfflineRefreshAt())
+const offlineRefreshError = ref('')
 const lastSyncMessage = ref('')
 const summary = ref<OfflineQueueSummary>({
   queued: 0,
@@ -24,6 +28,26 @@ let autoSyncTimer: number | undefined
 let primeTimer: number | undefined
 let watcherCount = 0
 
+function readLastOfflineRefreshAt() {
+  if (typeof window === 'undefined') return ''
+
+  try {
+    return String(window.localStorage.getItem(LAST_OFFLINE_REFRESH_KEY) || '')
+  } catch {
+    return ''
+  }
+}
+
+function saveLastOfflineRefreshAt(value: string) {
+  lastOfflineRefreshAt.value = value
+
+  try {
+    window.localStorage.setItem(LAST_OFFLINE_REFRESH_KEY, value)
+  } catch {
+    // The current session can still display the successful refresh time.
+  }
+}
+
 async function refreshSummary() {
   try {
     summary.value = await getOfflineQueueSummary()
@@ -34,15 +58,25 @@ async function refreshSummary() {
 
 async function primeNow() {
   if (!isOnline.value || isPriming.value) {
-    return
+    return false
   }
 
   isPriming.value = true
+  offlineRefreshError.value = ''
 
   try {
-    await primeOfflineData()
+    const bootstrap = await primeOfflineData()
+
+    if (!bootstrap) {
+      return false
+    }
+
+    saveLastOfflineRefreshAt(new Date().toISOString())
+    return true
   } catch (err) {
+    offlineRefreshError.value = 'Could not update offline data. Check your connection and try again.'
     console.warn('[verto offline sync] Could not refresh offline dataset', err)
+    return false
   } finally {
     isPriming.value = false
   }
@@ -100,6 +134,18 @@ function handleServiceWorkerMessage(event: MessageEvent) {
   }
 }
 
+async function initialiseOfflineSync() {
+  await refreshSummary()
+
+  if (!isOnline.value) return
+
+  await primeNow()
+
+  if (summary.value.total > 0) {
+    await syncNow()
+  }
+}
+
 function startOfflineSyncWatcher() {
   watcherCount += 1
 
@@ -108,15 +154,7 @@ function startOfflineSyncWatcher() {
     return
   }
 
-  void refreshSummary()
-
-  if (isOnline.value) {
-    void primeNow()
-
-    if (summary.value.total > 0) {
-      void syncNow()
-    }
-  }
+  void initialiseOfflineSync()
 
   window.addEventListener('online', handleOnline)
   window.addEventListener('offline', handleOffline)
@@ -200,16 +238,26 @@ export function useOfflineSync() {
     }
 
     if (isPriming.value) {
-      return 'Updating offline data...'
+      return lastOfflineRefreshAt.value
+        ? 'Refreshing offline data...'
+        : 'Preparing offline data...'
     }
 
-    return 'Online'
+    if (offlineRefreshError.value) {
+      return 'Offline data refresh failed'
+    }
+
+    return lastOfflineRefreshAt.value
+      ? 'Offline data ready'
+      : 'Offline data not prepared'
   })
 
   return {
     isOnline,
     isSyncing,
     isPriming,
+    lastOfflineRefreshAt,
+    offlineRefreshError,
     summary,
     hasQueuedItems,
     statusLabel,
