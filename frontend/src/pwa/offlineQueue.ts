@@ -1,19 +1,46 @@
-// VERTO_PWA_STAGE2_OFFLINE_QUEUE_2026_06_10
+// VERTO_OFFLINE_DOCUMENT_SYNC_QUEUE_2026_08_24
 
 export type OfflineQueueItemStatus = 'queued' | 'syncing' | 'synced' | 'failed'
+export type OfflineQueueItemKind = 'mobile_document' | 'attachment_upload' | 'legacy_request'
+export type OfflineDocumentAction = 'create' | 'update'
+
+export type OfflineAttachment = {
+  id: string
+  name: string
+  type: string
+  size: number
+  last_modified: number
+  blob: Blob
+}
 
 export type OfflineQueueItem = {
   id: string
+  kind: OfflineQueueItemKind
   type: string
-  url: string
-  method: string
-  headers?: Record<string, string>
-  body?: any
   created_at: string
   updated_at: string
   attempts: number
   status: OfflineQueueItemStatus
   last_error?: string
+
+  // Mobile document operations.
+  action_type?: OfflineDocumentAction
+  mobile_doctype?: string
+  docname?: string
+  values?: Record<string, any>
+  attachments?: OfflineAttachment[]
+  server_result?: Record<string, any> | null
+
+  // Standalone attachment uploads for an existing document.
+  target_doctype?: string
+  target_name?: string
+  attachment?: OfflineAttachment
+
+  // Backwards compatibility with the original generic queue.
+  url?: string
+  method?: string
+  headers?: Record<string, string>
+  body?: any
 }
 
 export type OfflineQueueSummary = {
@@ -23,16 +50,30 @@ export type OfflineQueueSummary = {
   total: number
 }
 
-const DB_NAME = 'verto-mobile-offline-db'
-const DB_VERSION = 1
-const STORE_NAME = 'offline_queue'
+export type OfflineApiCacheEntry<T = any> = {
+  key: string
+  group: string
+  value: T
+  updated_at: string
+}
 
-function createId() {
+const DB_NAME = 'verto-mobile-offline-db'
+const DB_VERSION = 3
+const QUEUE_STORE = 'offline_queue'
+const API_CACHE_STORE = 'api_cache'
+
+function dispatchQueueUpdated() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('verto:offline-queue-updated'))
+  }
+}
+
+export function createOfflineId(prefix = 'offline') {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
+    return `${prefix}-${crypto.randomUUID()}`
   }
 
-  return `offline-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 function nowIso() {
@@ -43,19 +84,45 @@ function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION)
 
-    request.onerror = () => reject(request.error || new Error('Could not open offline queue database.'))
+    request.onerror = () => reject(request.error || new Error('Could not open the Verto offline database.'))
 
     request.onupgradeneeded = () => {
       const db = request.result
+      const transaction = request.transaction
 
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, {
+      let queueStore: IDBObjectStore
+
+      if (!db.objectStoreNames.contains(QUEUE_STORE)) {
+        queueStore = db.createObjectStore(QUEUE_STORE, {
           keyPath: 'id',
         })
+      } else {
+        queueStore = transaction!.objectStore(QUEUE_STORE)
+      }
 
-        store.createIndex('status', 'status', { unique: false })
-        store.createIndex('created_at', 'created_at', { unique: false })
-        store.createIndex('type', 'type', { unique: false })
+      if (!queueStore.indexNames.contains('status')) {
+        queueStore.createIndex('status', 'status', { unique: false })
+      }
+
+      if (!queueStore.indexNames.contains('created_at')) {
+        queueStore.createIndex('created_at', 'created_at', { unique: false })
+      }
+
+      if (!queueStore.indexNames.contains('type')) {
+        queueStore.createIndex('type', 'type', { unique: false })
+      }
+
+      if (!queueStore.indexNames.contains('kind')) {
+        queueStore.createIndex('kind', 'kind', { unique: false })
+      }
+
+      if (!db.objectStoreNames.contains(API_CACHE_STORE)) {
+        const cacheStore = db.createObjectStore(API_CACHE_STORE, {
+          keyPath: 'key',
+        })
+
+        cacheStore.createIndex('group', 'group', { unique: false })
+        cacheStore.createIndex('updated_at', 'updated_at', { unique: false })
       }
     }
 
@@ -63,37 +130,191 @@ function openDatabase(): Promise<IDBDatabase> {
   })
 }
 
-async function withStore<T>(mode: IDBTransactionMode, callback: (store: IDBObjectStore) => IDBRequest<T> | void): Promise<T | void> {
+function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error || new Error('IndexedDB request failed.'))
+  })
+}
+
+async function withStore<T>(
+  storeName: string,
+  mode: IDBTransactionMode,
+  callback: (store: IDBObjectStore) => Promise<T> | T
+): Promise<T> {
   const db = await openDatabase()
 
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, mode)
-    const store = tx.objectStore(STORE_NAME)
-    const request = callback(store)
-    let resolved = false
+  try {
+    const transaction = db.transaction(storeName, mode)
+    const store = transaction.objectStore(storeName)
+    const result = await callback(store)
 
-    if (request) {
-      request.onsuccess = () => {
-        resolved = true
-        resolve(request.result)
-      }
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve()
+      transaction.onerror = () => reject(transaction.error || new Error('IndexedDB transaction failed.'))
+      transaction.onabort = () => reject(transaction.error || new Error('IndexedDB transaction was aborted.'))
+    })
 
-      request.onerror = () => reject(request.error || new Error('Offline queue request failed.'))
-    }
+    return result
+  } finally {
+    db.close()
+  }
+}
 
-    tx.oncomplete = () => {
-      db.close()
+export async function cacheApiResponse<T>(
+  key: string,
+  value: T,
+  group = 'api'
+) {
+  const entry: OfflineApiCacheEntry<T> = {
+    key,
+    group,
+    value,
+    updated_at: nowIso(),
+  }
 
-      if (!request && !resolved) {
-        resolve()
-      }
-    }
-
-    tx.onerror = () => {
-      db.close()
-      reject(tx.error || new Error('Offline queue transaction failed.'))
-    }
+  await withStore(API_CACHE_STORE, 'readwrite', async (store) => {
+    await requestToPromise(store.put(entry))
   })
+
+  return entry
+}
+
+export async function getCachedApiResponse<T>(key: string): Promise<T | null> {
+  const entry = await withStore<OfflineApiCacheEntry<T> | undefined>(
+    API_CACHE_STORE,
+    'readonly',
+    (store) => requestToPromise(store.get(key))
+  )
+
+  return entry?.value ?? null
+}
+
+export async function getApiCacheEntriesByGroup<T = any>(group: string) {
+  return withStore<OfflineApiCacheEntry<T>[]>(API_CACHE_STORE, 'readonly', async (store) => {
+    const index = store.index('group')
+    return requestToPromise(index.getAll(IDBKeyRange.only(group)))
+  })
+}
+
+export async function mergeCachedLinkOptions(
+  doctype: string,
+  options: Array<{ name: string; description?: string }>
+) {
+  const group = `link-options:${doctype}`
+  const key = group
+  const existing = await getCachedApiResponse<Array<{ name: string; description?: string }>>(key) || []
+  const merged = new Map<string, { name: string; description?: string }>()
+
+  for (const option of [...existing, ...(options || [])]) {
+    const name = String(option?.name || '').trim()
+
+    if (!name) continue
+
+    merged.set(name, {
+      name,
+      description: option?.description,
+    })
+  }
+
+  const values = Array.from(merged.values())
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .slice(0, 500)
+
+  await cacheApiResponse(key, values, group)
+  return values
+}
+
+export async function getCachedLinkOptions(doctype: string, txt = '') {
+  const values = await getCachedApiResponse<Array<{ name: string; description?: string }>>(
+    `link-options:${doctype}`
+  ) || []
+
+  const search = String(txt || '').trim().toLowerCase()
+
+  if (!search) {
+    return values.slice(0, 20)
+  }
+
+  return values
+    .filter((option) => {
+      return option.name.toLowerCase().includes(search) ||
+        String(option.description || '').toLowerCase().includes(search)
+    })
+    .slice(0, 20)
+}
+
+function toDateKey(value?: string | null) {
+  if (!value) return ''
+  return String(value).slice(0, 10)
+}
+
+function shiftOverlapsRange(shift: any, startDate: string, endDate: string) {
+  const start = toDateKey(shift?.start_date)
+  const end = toDateKey(shift?.end_date || shift?.start_date)
+
+  return Boolean(start && end && start <= endDate && end >= startDate)
+}
+
+export async function getCachedShiftCalendar(startDate: string, endDate: string) {
+  const entries = await getApiCacheEntriesByGroup<any>('shift-calendar')
+  const shiftMap = new Map<string, any>()
+  const timesheetMap = new Map<string, any>()
+  let user = ''
+  let userFullname = ''
+
+  for (const entry of entries) {
+    const payload = entry.value?.message || entry.value
+
+    if (!payload || typeof payload !== 'object') continue
+
+    user = user || payload.user || ''
+    userFullname = userFullname || payload.user_fullname || ''
+
+    for (const shift of payload.shifts || []) {
+      if (!shiftOverlapsRange(shift, startDate, endDate)) continue
+      const key = String(shift.name || `${shift.start_date}:${shift.end_date}:${shift.shift_type}`)
+      shiftMap.set(key, shift)
+    }
+
+    for (const timesheet of payload.timesheets || []) {
+      const date = toDateKey(timesheet?.date)
+      if (!date || date < startDate || date > endDate) continue
+      const key = String(timesheet.name || `${date}:${timesheet.start_time || ''}`)
+      timesheetMap.set(key, timesheet)
+    }
+  }
+
+  if (!shiftMap.size && !timesheetMap.size && !user && !userFullname) {
+    return null
+  }
+
+  return {
+    message: {
+      user,
+      user_fullname: userFullname,
+      shifts: Array.from(shiftMap.values()),
+      timesheets: Array.from(timesheetMap.values()),
+      offline_cached: true,
+    },
+  }
+}
+
+export async function getCachedShiftForDate(date: string) {
+  const calendar = await getCachedShiftCalendar(date, date)
+  const payload = calendar?.message
+
+  if (!payload) return null
+
+  const shift = (payload.shifts || []).find((item: any) => {
+    return shiftOverlapsRange(item, date, date)
+  })
+
+  return {
+    shift: shift || null,
+    user: payload.user || '',
+    user_fullname: payload.user_fullname || '',
+  }
 }
 
 export async function addOfflineQueueItem(input: {
@@ -106,7 +327,8 @@ export async function addOfflineQueueItem(input: {
   const timestamp = nowIso()
 
   const item: OfflineQueueItem = {
-    id: createId(),
+    id: createOfflineId('legacy'),
+    kind: 'legacy_request',
     type: input.type,
     url: input.url,
     method: input.method || 'POST',
@@ -118,82 +340,358 @@ export async function addOfflineQueueItem(input: {
     status: 'queued',
   }
 
-  await withStore('readwrite', (store) => store.put(item))
-
-  window.dispatchEvent(new CustomEvent('verto:offline-queue-updated'))
-
+  await putOfflineQueueItem(item)
   return item
 }
 
+export async function queueMobileDocumentAction(input: {
+  actionType: OfflineDocumentAction
+  mobileDoctype: string
+  values: Record<string, any>
+  docname?: string
+}) {
+  const timestamp = nowIso()
+
+  const item: OfflineQueueItem = {
+    id: createOfflineId('document'),
+    kind: 'mobile_document',
+    type: `mobile_document_${input.actionType}`,
+    action_type: input.actionType,
+    mobile_doctype: input.mobileDoctype,
+    docname: input.docname,
+    values: input.values || {},
+    attachments: [],
+    server_result: null,
+    created_at: timestamp,
+    updated_at: timestamp,
+    attempts: 0,
+    status: 'queued',
+  }
+
+  await putOfflineQueueItem(item)
+  return item
+}
+
+export async function queueAttachmentUpload(input: {
+  targetDoctype: string
+  targetName: string
+  file: File | Blob
+  fileName?: string
+  contentType?: string
+  lastModified?: number
+}) {
+  const timestamp = nowIso()
+  const attachment = makeOfflineAttachment(
+    input.file,
+    input.fileName,
+    input.contentType,
+    input.lastModified
+  )
+
+  const item: OfflineQueueItem = {
+    id: createOfflineId('attachment'),
+    kind: 'attachment_upload',
+    type: 'attachment_upload',
+    target_doctype: input.targetDoctype,
+    target_name: input.targetName,
+    attachment,
+    created_at: timestamp,
+    updated_at: timestamp,
+    attempts: 0,
+    status: 'queued',
+  }
+
+  await putOfflineQueueItem(item)
+  return item
+}
+
+export function makeOfflineAttachment(
+  blob: File | Blob,
+  fileName?: string,
+  contentType?: string,
+  lastModified?: number
+): OfflineAttachment {
+  const possibleFile = blob as File
+  const name = fileName || possibleFile.name || `attachment-${Date.now()}`
+
+  return {
+    id: createOfflineId('file'),
+    name,
+    type: contentType || blob.type || 'application/octet-stream',
+    size: blob.size,
+    last_modified: lastModified || possibleFile.lastModified || Date.now(),
+    blob,
+  }
+}
+
+export async function attachFileToCreateOperation(
+  operationId: string,
+  attachment: OfflineAttachment
+) {
+  const item = await getOfflineQueueItem(operationId)
+
+  if (!item || item.kind !== 'mobile_document' || item.action_type !== 'create') {
+    throw new Error('The offline document queue item could not be found.')
+  }
+
+  const attachments = [...(item.attachments || [])]
+  attachments.push(attachment)
+
+  await putOfflineQueueItem({
+    ...item,
+    attachments,
+    updated_at: nowIso(),
+  })
+}
+
+export async function getOfflineQueueItem(id: string) {
+  return withStore<OfflineQueueItem | undefined>(QUEUE_STORE, 'readonly', (store) => {
+    return requestToPromise(store.get(id))
+  })
+}
+
 export async function getOfflineQueueItems() {
-  const items = await withStore<OfflineQueueItem[]>('readonly', (store) => store.getAll())
+  const items = await withStore<OfflineQueueItem[]>(QUEUE_STORE, 'readonly', (store) => {
+    return requestToPromise(store.getAll())
+  })
 
   return (items || []).sort((a, b) => a.created_at.localeCompare(b.created_at))
 }
 
 export async function getOfflineQueueSummary(): Promise<OfflineQueueSummary> {
   const items = await getOfflineQueueItems()
+  const active = items.filter((item) => item.status !== 'synced')
 
   return {
-    queued: items.filter((item) => item.status === 'queued').length,
-    syncing: items.filter((item) => item.status === 'syncing').length,
-    failed: items.filter((item) => item.status === 'failed').length,
-    total: items.filter((item) => item.status !== 'synced').length,
+    queued: active.filter((item) => item.status === 'queued').length,
+    syncing: active.filter((item) => item.status === 'syncing').length,
+    failed: active.filter((item) => item.status === 'failed').length,
+    total: active.length,
   }
 }
 
-export async function updateOfflineQueueItem(item: OfflineQueueItem) {
-  await withStore('readwrite', (store) => store.put({
-    ...item,
-    updated_at: nowIso(),
-  }))
+export async function putOfflineQueueItem(item: OfflineQueueItem) {
+  await withStore(QUEUE_STORE, 'readwrite', async (store) => {
+    await requestToPromise(store.put({
+      ...item,
+      updated_at: nowIso(),
+    }))
+  })
 
-  window.dispatchEvent(new CustomEvent('verto:offline-queue-updated'))
+  dispatchQueueUpdated()
+}
+
+export async function updateOfflineQueueItem(item: OfflineQueueItem) {
+  await putOfflineQueueItem(item)
 }
 
 export async function deleteOfflineQueueItem(id: string) {
-  await withStore('readwrite', (store) => store.delete(id))
+  await withStore(QUEUE_STORE, 'readwrite', async (store) => {
+    await requestToPromise(store.delete(id))
+  })
 
-  window.dispatchEvent(new CustomEvent('verto:offline-queue-updated'))
+  dispatchQueueUpdated()
 }
 
 export async function clearSyncedOfflineQueueItems() {
   const items = await getOfflineQueueItems()
-  const synced = items.filter((item) => item.status === 'synced')
-
-  await Promise.all(synced.map((item) => deleteOfflineQueueItem(item.id)))
+  await Promise.all(
+    items
+      .filter((item) => item.status === 'synced')
+      .map((item) => deleteOfflineQueueItem(item.id))
+  )
 }
 
-async function replayQueueItem(item: OfflineQueueItem) {
+function extractServerError(data: any, fallback: string) {
+  const raw = data?._server_messages || data?.exception || data?.exc || data?.message
+
+  if (!raw) return fallback
+
+  if (typeof raw !== 'string') {
+    return typeof raw?.message === 'string' ? raw.message : fallback
+  }
+
+  try {
+    const parsed = JSON.parse(raw)
+
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((entry) => {
+          try {
+            const value = typeof entry === 'string' ? JSON.parse(entry) : entry
+            return value?.message || value?.title || String(entry)
+          } catch {
+            return String(entry)
+          }
+        })
+        .filter(Boolean)
+        .join('\n')
+    }
+  } catch {
+    // Use the raw server error below.
+  }
+
+  return raw
+}
+
+async function readJsonResponse(response: Response) {
+  const text = await response.text().catch(() => '')
+
+  if (!text) return null
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
+async function ensureSyncResponse(response: Response) {
+  const data = await readJsonResponse(response)
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error('Login required before offline items can sync.')
+  }
+
+  if (!response.ok) {
+    throw new Error(extractServerError(data, `Sync failed with HTTP ${response.status}.`))
+  }
+
+  if (data?.message?.ok === false) {
+    throw new Error(data.message.error || 'The server rejected the offline item.')
+  }
+
+  return data?.message ?? data
+}
+
+async function uploadQueuedAttachment(input: {
+  operationId: string
+  attachment: OfflineAttachment
+  targetDoctype: string
+  targetName: string
+}) {
+  const formData = new FormData()
+  formData.append('operation_id', input.operationId)
+  formData.append('attachment_id', input.attachment.id)
+  formData.append('target_doctype', input.targetDoctype)
+  formData.append('target_name', input.targetName)
+  formData.append('file', input.attachment.blob, input.attachment.name)
+
+  const response = await fetch('/api/method/verto.api.mobile.offline.upload_attachment', {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  })
+
+  return ensureSyncResponse(response)
+}
+
+async function syncMobileDocumentItem(item: OfflineQueueItem) {
+  if (!item.action_type || !item.mobile_doctype) {
+    throw new Error('Offline document action is incomplete.')
+  }
+
+  const formData = new FormData()
+  formData.append('operation_id', item.id)
+  formData.append('action_type', item.action_type)
+  formData.append('mobile_doctype', item.mobile_doctype)
+  formData.append('values', JSON.stringify(item.values || {}))
+  formData.append('client_created_at', item.created_at)
+
+  if (item.docname) {
+    formData.append('docname', item.docname)
+  }
+
+  const response = await fetch('/api/method/verto.api.mobile.offline.sync_action', {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  })
+
+  const message = await ensureSyncResponse(response)
+  const result = message?.result || message || {}
+  const targetDoctype = String(result.doctype || item.server_result?.doctype || '')
+  const targetName = String(result.name || item.server_result?.name || item.docname || '')
+
+  if (!targetDoctype || !targetName) {
+    throw new Error('The server did not return the synced document details.')
+  }
+
+  await putOfflineQueueItem({
+    ...item,
+    server_result: result,
+    status: 'syncing',
+  })
+
+  for (const attachment of item.attachments || []) {
+    await uploadQueuedAttachment({
+      operationId: item.id,
+      attachment,
+      targetDoctype,
+      targetName,
+    })
+  }
+
+  return result
+}
+
+async function syncAttachmentUploadItem(item: OfflineQueueItem) {
+  if (!item.target_doctype || !item.target_name || !item.attachment) {
+    throw new Error('Offline attachment upload is incomplete.')
+  }
+
+  return uploadQueuedAttachment({
+    operationId: item.id,
+    attachment: item.attachment,
+    targetDoctype: item.target_doctype,
+    targetName: item.target_name,
+  })
+}
+
+async function replayLegacyQueueItem(item: OfflineQueueItem) {
+  if (!item.url) {
+    throw new Error('Legacy offline request is missing its URL.')
+  }
+
   const headers = {
     ...(item.headers || {}),
   }
 
   let body: BodyInit | undefined
 
-  if (item.body instanceof FormData) {
-    body = item.body
-  } else if (item.body !== null && item.body !== undefined) {
+  if (item.body !== null && item.body !== undefined) {
     headers['Content-Type'] = headers['Content-Type'] || 'application/json'
     body = typeof item.body === 'string' ? item.body : JSON.stringify(item.body)
   }
 
   const response = await fetch(item.url, {
-    method: item.method,
+    method: item.method || 'POST',
     credentials: 'include',
     headers,
     body,
   })
 
   if (!response.ok) {
-    throw new Error(`Sync failed with HTTP ${response.status}`)
+    throw new Error(`Sync failed with HTTP ${response.status}.`)
   }
 
   return response
 }
 
+async function replayQueueItem(item: OfflineQueueItem) {
+  if (item.kind === 'mobile_document') {
+    return syncMobileDocumentItem(item)
+  }
+
+  if (item.kind === 'attachment_upload') {
+    return syncAttachmentUploadItem(item)
+  }
+
+  return replayLegacyQueueItem(item)
+}
+
 export async function syncOfflineQueue() {
-  if (!navigator.onLine) {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
     return {
       synced: 0,
       failed: 0,
@@ -202,7 +700,9 @@ export async function syncOfflineQueue() {
   }
 
   const items = await getOfflineQueueItems()
-  const pending = items.filter((item) => item.status === 'queued' || item.status === 'failed')
+  const pending = items.filter((item) => {
+    return item.status === 'queued' || item.status === 'failed' || item.status === 'syncing'
+  })
 
   let synced = 0
   let failed = 0
@@ -215,37 +715,35 @@ export async function syncOfflineQueue() {
       last_error: '',
     }
 
-    await updateOfflineQueueItem(syncingItem)
+    await putOfflineQueueItem(syncingItem)
 
     try {
       await replayQueueItem(syncingItem)
-
       synced += 1
-
-      await updateOfflineQueueItem({
-        ...syncingItem,
-        status: 'synced',
-        last_error: '',
-      })
-
       await deleteOfflineQueueItem(syncingItem.id)
     } catch (err) {
       failed += 1
 
-      await updateOfflineQueueItem({
+      await putOfflineQueueItem({
         ...syncingItem,
         status: 'failed',
         last_error: err instanceof Error ? err.message : 'Sync failed.',
       })
+
+      if (err instanceof Error && err.message.toLowerCase().includes('login required')) {
+        break
+      }
     }
   }
 
-  window.dispatchEvent(new CustomEvent('verto:offline-queue-synced', {
-    detail: {
-      synced,
-      failed,
-    },
-  }))
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('verto:offline-queue-synced', {
+      detail: {
+        synced,
+        failed,
+      },
+    }))
+  }
 
   return {
     synced,
