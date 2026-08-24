@@ -4,7 +4,7 @@ from frappe.utils.pdf import get_pdf
 
 
 @frappe.whitelist()
-def fetch_created_records():
+def fetch_created_records(start_date=None, end_date=None):
     if frappe.session.user == "Guest":
         frappe.throw("Login required", frappe.PermissionError)
 
@@ -33,8 +33,8 @@ def fetch_created_records():
         "CCV - Vehicles and Mobile Equipment",
         "CCV - Working Near Water"
     ]
-    start_date = frappe.form_dict.get("start_date") or "2000-01-01"
-    end_date = frappe.form_dict.get("end_date") or frappe.utils.nowdate()
+    start_date = start_date or frappe.form_dict.get("start_date") or "2000-01-01"
+    end_date = end_date or frappe.form_dict.get("end_date") or frappe.utils.nowdate()
 
     # Check if the logged-in user is Administrator or Lead HSE Advisor
     current_user = frappe.session.user

@@ -173,12 +173,29 @@
                 {{ (selectedTimesheet.duration / 3600).toFixed(2) }} hours submitted
               </p>
 
+              <p
+                v-if="selectedTimesheet?.offline_queued"
+                class="mt-2 text-sm font-medium text-amber-700"
+              >
+                Saved offline — waiting to sync
+              </p>
+
               <div
                 v-if="!selectedShift || !isUnavailableShift(selectedShift)"
                 class="mt-4"
               >
                 <Button
-                  v-if="selectedTimesheet"
+                  v-if="selectedTimesheet?.offline_queued"
+                  variant="subtle"
+                  theme="gray"
+                  class="w-full justify-center"
+                  disabled
+                >
+                  Waiting to Sync
+                </Button>
+
+                <Button
+                  v-else-if="selectedTimesheet"
                   variant="solid"
                   theme="gray"
                   class="w-full justify-center"
@@ -210,7 +227,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Button,
@@ -244,6 +261,8 @@ type TimesheetItem = {
   project_name?: string
   custom_project?: string
   link_task?: string
+  offline_queued?: boolean
+  offline_operation_id?: string
 }
 
 type ShiftPayload = {
@@ -531,7 +550,16 @@ async function loadCalendar() {
   }
 }
 
+function handleOfflineQueueSynced() {
+  void loadCalendar()
+}
+
 onMounted(() => {
+  window.addEventListener('verto:offline-queue-synced', handleOfflineQueueSynced)
   loadCalendar()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('verto:offline-queue-synced', handleOfflineQueueSynced)
 })
 </script>

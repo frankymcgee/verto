@@ -3,6 +3,7 @@ import json
 import frappe
 from frappe.utils import add_days, getdate, now_datetime, today
 
+from verto.api import fetch_records
 from verto.api.mobile import documents, shifts
 
 
@@ -197,6 +198,12 @@ def get_offline_bootstrap():
     start_date = add_days(today(), -62)
     end_date = add_days(today(), 124)
     shift_calendar = shifts.get_shift_calendar(start_date=start_date, end_date=end_date)
+    completed_forms_start = add_days(today(), -28)
+    completed_forms_end = today()
+    completed_forms = fetch_records.fetch_created_records(
+        start_date=completed_forms_start,
+        end_date=completed_forms_end,
+    )
 
     edit_docs = {}
 
@@ -219,6 +226,11 @@ def get_offline_bootstrap():
         "shift_range": {
             "start_date": getdate(start_date),
             "end_date": getdate(end_date),
+        },
+        "completed_forms": completed_forms,
+        "completed_forms_range": {
+            "start_date": getdate(completed_forms_start),
+            "end_date": getdate(completed_forms_end),
         },
         "edit_docs": edit_docs,
         "link_options": _get_link_options(schemas),
@@ -254,32 +266,59 @@ def sync_action(
     _validate_offline_actor(values)
     action_type = str(action_type or "").strip().lower()
 
+    if action_type not in ("create", "update"):
+        frappe.throw("Unsupported offline action type.", frappe.ValidationError)
+
+    if action_type == "update" and not docname:
+        frappe.throw("Document name is required for offline updates.", frappe.ValidationError)
+
+    # Fetch fields that the online form normally resolves as Link values change.
+    # This keeps offline submissions consistent even though those client-side
+    # lookups cannot run while the device has no connection.
+    fetched = documents.apply_fetch_from(
+        mobile_doctype=mobile_doctype,
+        values=values,
+        docname=docname if action_type == "update" else None,
+    ) or {}
+    values.update(fetched.get("values") or {})
+
     if action_type == "create":
         result = documents.create_mobile_doc(
             mobile_doctype=mobile_doctype,
             values=json.dumps(values),
         )
-    elif action_type == "update":
-        if not docname:
-            frappe.throw("Document name is required for offline updates.", frappe.ValidationError)
-
+    else:
         result = documents.update_mobile_doc(
             mobile_doctype=mobile_doctype,
             docname=docname,
             values=json.dumps(values),
         )
-    else:
-        frappe.throw("Unsupported offline action type.", frappe.ValidationError)
 
-    frappe.db.commit()
+    # Keep the document write and its idempotency receipt in one transaction.
+    # If two tabs replay the same operation concurrently, the unique receipt ID
+    # rolls the losing transaction back instead of leaving a duplicate document.
+    try:
+        _save_receipt(
+            receipt_id=operation_id,
+            receipt_type=f"document_{action_type}",
+            result=result,
+            target_doctype=result.get("doctype"),
+            target_name=result.get("name"),
+        )
+    except frappe.DuplicateEntryError:
+        # Another tab/device won the same operation ID race. Roll back this
+        # transaction (including its document write), then return the winner.
+        frappe.db.rollback()
+        existing = _get_receipt(operation_id)
 
-    _save_receipt(
-        receipt_id=operation_id,
-        receipt_type=f"document_{action_type}",
-        result=result,
-        target_doctype=result.get("doctype"),
-        target_name=result.get("name"),
-    )
+        if existing:
+            return {
+                "ok": True,
+                "duplicate": True,
+                "result": existing.get("result") or {},
+            }
+
+        raise
 
     frappe.db.commit()
 

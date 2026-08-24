@@ -18,6 +18,11 @@ export type OfflineBootstrapPayload = {
     start_date?: string
     end_date?: string
   }
+  completed_forms?: any[]
+  completed_forms_range?: {
+    start_date?: string
+    end_date?: string
+  }
   edit_docs?: Record<string, any>
   link_options?: Record<string, Array<{ name: string; description?: string }>>
 }
@@ -146,6 +151,26 @@ export async function primeOfflineData() {
 
       await cacheApiResponse(key, filtered, 'shift-calendar')
     }
+  }
+
+  const completedFormsRange = bootstrap.completed_forms_range
+
+  if (
+    completedFormsRange?.start_date &&
+    completedFormsRange?.end_date
+  ) {
+    const body = serialisePostFields({
+      start_date: completedFormsRange.start_date,
+      end_date: completedFormsRange.end_date,
+    })
+    const url = '/api/method/verto.api.fetch_records.fetch_created_records'
+    const key = `request:POST:${url}:${body}`
+
+    await cacheApiResponse(
+      key,
+      { message: bootstrap.completed_forms || [] },
+      'completed-forms'
+    )
   }
 
   for (const [cacheId, payload] of Object.entries(bootstrap.edit_docs || {})) {

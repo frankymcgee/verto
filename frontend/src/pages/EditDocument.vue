@@ -405,6 +405,10 @@ import {
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
 import {
+  attachFileToDocumentOperation,
+  makeOfflineAttachment,
+} from '../pwa/offlineQueue'
+import {
   evaluateDependsOn,
   evaluateMandatoryDependsOn,
   evaluateReadOnlyDependsOn,
@@ -443,6 +447,8 @@ type UpdateDocumentPayload = {
   docstatus?: number
   values?: Record<string, any>
   files?: ExistingFile[]
+  offline_queued?: boolean
+  offline_operation_id?: string
 }
 
 type DynamicFieldChangeResponse = {
@@ -1152,8 +1158,20 @@ async function loadEditDocument() {
   }
 }
 
-async function uploadFiles(doctype: string, targetDocname: string) {
+async function uploadFiles(
+  doctype: string,
+  targetDocname: string,
+  offlineOperationId?: string
+) {
   for (const file of files.value) {
+    if (offlineOperationId) {
+      await attachFileToDocumentOperation(
+        offlineOperationId,
+        makeOfflineAttachment(file)
+      )
+      continue
+    }
+
     const formData = new FormData()
 
     formData.append('file', file)
@@ -1201,6 +1219,8 @@ async function saveDocument() {
 
   existingFiles.value = message.files || existingFiles.value
   docstatus.value = Number(message.docstatus || docstatus.value || 0)
+
+  return message
 }
 
 async function saveForm() {
@@ -1224,10 +1244,14 @@ async function saveForm() {
       }
     }
 
-    await saveDocument()
+    const savedDocument = await saveDocument()
 
     if (schema.value?.doctype && files.value.length) {
-      await uploadFiles(schema.value.doctype, docname)
+      await uploadFiles(
+        schema.value.doctype,
+        docname,
+        savedDocument.offline_operation_id
+      )
     }
 
     files.value = []

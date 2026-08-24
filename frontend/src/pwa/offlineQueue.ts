@@ -57,6 +57,29 @@ export type OfflineApiCacheEntry<T = any> = {
   updated_at: string
 }
 
+export class OfflineSyncError extends Error {
+  retryable: boolean
+  auth: boolean
+
+  constructor(message: string, options: { retryable?: boolean; auth?: boolean } = {}) {
+    super(message)
+    this.name = 'OfflineSyncError'
+    this.retryable = Boolean(options.retryable)
+    this.auth = Boolean(options.auth)
+  }
+}
+
+export function isRetryableOfflineSyncError(error: unknown) {
+  return error instanceof TypeError ||
+    (error instanceof OfflineSyncError && error.retryable) ||
+    String((error as any)?.message || '').toLowerCase().includes('failed to fetch') ||
+    String((error as any)?.message || '').toLowerCase().includes('network')
+}
+
+export function isOfflineSyncAuthError(error: unknown) {
+  return error instanceof OfflineSyncError && error.auth
+}
+
 const DB_NAME = 'verto-mobile-offline-db'
 const DB_VERSION = 3
 const QUEUE_STORE = 'offline_queue'
@@ -285,6 +308,50 @@ export async function getCachedShiftCalendar(startDate: string, endDate: string)
     }
   }
 
+  // Reflect unsynced Daily Timesheets in the calendar immediately. This keeps
+  // an offline submission visible after the create page routes back to Shifts
+  // and prevents the user from submitting the same date a second time.
+  const queuedItems = await getOfflineQueueItems()
+
+  for (const item of queuedItems) {
+    if (
+      item.kind !== 'mobile_document' ||
+      item.mobile_doctype !== 'daily-timesheet' ||
+      item.status === 'synced'
+    ) {
+      continue
+    }
+
+    const values = item.values || {}
+    const date = toDateKey(values.date || values.timesheet_date || values.attendance_date)
+
+    if (!date || date < startDate || date > endDate) continue
+
+    if (item.action_type === 'update' && item.docname) {
+      const current = timesheetMap.get(item.docname) || { name: item.docname }
+
+      timesheetMap.set(item.docname, {
+        ...current,
+        ...values,
+        name: item.docname,
+        date,
+        offline_queued: true,
+        offline_operation_id: item.id,
+      })
+      continue
+    }
+
+    if (item.action_type === 'create') {
+      timesheetMap.set(item.id, {
+        ...values,
+        name: item.id,
+        date,
+        offline_queued: true,
+        offline_operation_id: item.id,
+      })
+    }
+  }
+
   if (!shiftMap.size && !timesheetMap.size && !user && !userFullname) {
     return null
   }
@@ -424,13 +491,13 @@ export function makeOfflineAttachment(
   }
 }
 
-export async function attachFileToCreateOperation(
+export async function attachFileToDocumentOperation(
   operationId: string,
   attachment: OfflineAttachment
 ) {
   const item = await getOfflineQueueItem(operationId)
 
-  if (!item || item.kind !== 'mobile_document' || item.action_type !== 'create') {
+  if (!item || item.kind !== 'mobile_document') {
     throw new Error('The offline document queue item could not be found.')
   }
 
@@ -443,6 +510,10 @@ export async function attachFileToCreateOperation(
     updated_at: nowIso(),
   })
 }
+
+// Retained for compatibility with any callers from the first offline queue
+// implementation.
+export const attachFileToCreateOperation = attachFileToDocumentOperation
 
 export async function getOfflineQueueItem(id: string) {
   return withStore<OfflineQueueItem | undefined>(QUEUE_STORE, 'readonly', (store) => {
@@ -548,17 +619,41 @@ async function readJsonResponse(response: Response) {
 
 async function ensureSyncResponse(response: Response) {
   const data = await readJsonResponse(response)
+  const serverMessage = extractServerError(
+    data,
+    `Sync failed with HTTP ${response.status}.`
+  )
+  const normalisedMessage = String(serverMessage || '').toLowerCase()
+  const isAuthFailure = response.status === 401 || (
+    response.status === 403 && [
+      'login required',
+      'session expired',
+      'session has expired',
+      'not logged in',
+      'please login',
+      'please log in',
+    ].some((message) => normalisedMessage.includes(message))
+  )
 
-  if (response.status === 401 || response.status === 403) {
-    throw new Error('Login required before offline items can sync.')
+  if (isAuthFailure) {
+    throw new OfflineSyncError('Login required before offline items can sync.', {
+      auth: true,
+    })
   }
 
   if (!response.ok) {
-    throw new Error(extractServerError(data, `Sync failed with HTTP ${response.status}.`))
+    throw new OfflineSyncError(
+      serverMessage,
+      {
+        retryable: [408, 425, 429, 500, 502, 503, 504].includes(response.status),
+      }
+    )
   }
 
   if (data?.message?.ok === false) {
-    throw new Error(data.message.error || 'The server rejected the offline item.')
+    throw new OfflineSyncError(
+      data.message.error || 'The server rejected the offline item.'
+    )
   }
 
   return data?.message ?? data
@@ -690,6 +785,48 @@ async function replayQueueItem(item: OfflineQueueItem) {
   return replayLegacyQueueItem(item)
 }
 
+export async function syncOfflineQueueItem(
+  id: string,
+  options: { deleteOnPermanentFailure?: boolean } = {}
+) {
+  const item = await getOfflineQueueItem(id)
+
+  if (!item) {
+    throw new Error('The offline queue item could not be found.')
+  }
+
+  const syncingItem: OfflineQueueItem = {
+    ...item,
+    status: 'syncing',
+    attempts: item.attempts + 1,
+    last_error: '',
+  }
+
+  await putOfflineQueueItem(syncingItem)
+
+  try {
+    const result = await replayQueueItem(syncingItem)
+    await deleteOfflineQueueItem(syncingItem.id)
+    return result
+  } catch (error) {
+    const shouldDelete = Boolean(options.deleteOnPermanentFailure) &&
+      !isRetryableOfflineSyncError(error) &&
+      !isOfflineSyncAuthError(error)
+
+    if (shouldDelete) {
+      await deleteOfflineQueueItem(syncingItem.id)
+    } else {
+      await putOfflineQueueItem({
+        ...syncingItem,
+        status: 'failed',
+        last_error: error instanceof Error ? error.message : 'Sync failed.',
+      })
+    }
+
+    throw error
+  }
+}
+
 export async function syncOfflineQueue() {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     return {
@@ -708,29 +845,13 @@ export async function syncOfflineQueue() {
   let failed = 0
 
   for (const item of pending) {
-    const syncingItem: OfflineQueueItem = {
-      ...item,
-      status: 'syncing',
-      attempts: item.attempts + 1,
-      last_error: '',
-    }
-
-    await putOfflineQueueItem(syncingItem)
-
     try {
-      await replayQueueItem(syncingItem)
+      await syncOfflineQueueItem(item.id)
       synced += 1
-      await deleteOfflineQueueItem(syncingItem.id)
     } catch (err) {
       failed += 1
 
-      await putOfflineQueueItem({
-        ...syncingItem,
-        status: 'failed',
-        last_error: err instanceof Error ? err.message : 'Sync failed.',
-      })
-
-      if (err instanceof Error && err.message.toLowerCase().includes('login required')) {
+      if (isOfflineSyncAuthError(err)) {
         break
       }
     }

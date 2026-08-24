@@ -432,6 +432,10 @@ import {
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
 import {
+  attachFileToDocumentOperation,
+  makeOfflineAttachment,
+} from '../pwa/offlineQueue'
+import {
   evaluateDependsOn,
   evaluateMandatoryDependsOn,
   evaluateReadOnlyDependsOn,
@@ -492,6 +496,8 @@ type CreateDocumentPayload = {
   doctype: string
   name: string
   route?: string
+  offline_queued?: boolean
+  offline_operation_id?: string
 }
 
 type DynamicFieldChangeResponse = {
@@ -1322,8 +1328,20 @@ async function loadNewDocument(restoreDraft = true) {
   }
 }
 
-async function uploadFiles(doctype: string, targetDocname: string) {
+async function uploadFiles(
+  doctype: string,
+  targetDocname: string,
+  offlineOperationId?: string
+) {
   for (const file of files.value) {
+    if (offlineOperationId) {
+      await attachFileToDocumentOperation(
+        offlineOperationId,
+        makeOfflineAttachment(file)
+      )
+      continue
+    }
+
     const formData = new FormData()
 
     formData.append('file', file)
@@ -1383,7 +1401,11 @@ async function submitForm() {
     const created = await createDocument()
 
     if (schema.value?.doctype && created.name && files.value.length) {
-      await uploadFiles(schema.value.doctype, created.name)
+      await uploadFiles(
+        schema.value.doctype,
+        created.name,
+        created.offline_operation_id
+      )
     }
 
     clearStoredDraft()

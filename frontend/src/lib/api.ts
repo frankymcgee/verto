@@ -2,16 +2,30 @@ import {
   cacheApiResponse,
   getCachedApiResponse,
   getCachedShiftForDate,
+  getOfflineQueueItems,
+  isOfflineSyncAuthError,
+  isRetryableOfflineSyncError,
   queueMobileDocumentAction,
+  syncOfflineQueueItem,
 } from '../pwa/offlineQueue'
+import { clearOfflineReadCache } from '../pwa/offlineSecurity'
 
 const OFFLINE_ACTOR_STORAGE_KEY = 'verto:offline-actor'
+let offlineActorVerified = false
 
 function getOfflineActor() {
   try {
     return String(window.localStorage.getItem(OFFLINE_ACTOR_STORAGE_KEY) || '').trim()
   } catch {
     return ''
+  }
+}
+
+function setOfflineActor(user: string) {
+  try {
+    window.localStorage.setItem(OFFLINE_ACTOR_STORAGE_KEY, user)
+  } catch {
+    // Offline writes fail safe below when browser storage is unavailable.
   }
 }
 
@@ -115,6 +129,60 @@ function isNetworkFailure(error: unknown) {
     String((error as any)?.message || '').toLowerCase().includes('failed to fetch')
 }
 
+async function ensureOfflineActorForWrite() {
+  const storedActor = getOfflineActor()
+
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return storedActor
+  }
+
+  if (offlineActorVerified && storedActor) {
+    return storedActor
+  }
+
+  try {
+    const response = await fetch('/api/method/frappe.auth.get_logged_user', {
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+      },
+    })
+    const rawText = await response.text().catch(() => '')
+    const data = parseJsonMaybe(rawText)
+
+    if (isAuthFailure(response, data, rawText)) {
+      redirectToLogin()
+      throw new Error('Login required')
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        extractErrorMessage(data, `Could not verify the signed-in user (${response.status}).`)
+      )
+    }
+
+    const currentActor = String(data?.message || '').trim()
+
+    if (!currentActor) {
+      throw new Error('Could not verify the signed-in user.')
+    }
+
+    if (storedActor && storedActor !== currentActor) {
+      await clearOfflineReadCache()
+    }
+
+    setOfflineActor(currentActor)
+    offlineActorVerified = true
+    return currentActor
+  } catch (error) {
+    if (isNetworkFailure(error) && storedActor) {
+      return storedActor
+    }
+
+    throw error
+  }
+}
+
 function getMethod(options: RequestInit) {
   return String(options.method || 'GET').toUpperCase()
 }
@@ -159,7 +227,8 @@ function isCacheableRead(url: string, options: RequestInit) {
 
   if (method !== 'POST') return false
 
-  return url.includes('get_mobile_doc_for_edit')
+  return url.includes('get_mobile_doc_for_edit') ||
+    url.includes('/api/method/verto.api.fetch_records.fetch_created_records')
 }
 
 function isProcessFieldChange(url: string) {
@@ -176,11 +245,44 @@ async function getOfflinePrefillFallback<T>(url: string): Promise<T | null> {
   const parsed = new URL(url, window.location.origin)
   const mobileDoctype = parsed.searchParams.get('mobile_doctype') || ''
   const date = parsed.searchParams.get('date') || ''
+  const project = parsed.searchParams.get('project') || ''
+  const linkTask = parsed.searchParams.get('link_task') || ''
+  const workOrderNumber = parsed.searchParams.get('work_order_number') || ''
+  const projectScopeName = parsed.searchParams.get('project_scope_name') || ''
+  const parentTaskName = parsed.searchParams.get('parent_task_name') || ''
   const values: Record<string, any> = {}
 
-  if (date) {
-    values.date = date
+  const setAliases = (fieldnames: string[], value: string) => {
+    if (!value) return
+
+    for (const fieldname of fieldnames) {
+      values[fieldname] = value
+    }
   }
+
+  // These mirror the server-side get_prefill_values aliases. NewDocument only
+  // applies keys that exist in the cached schema, so supplying every supported
+  // alias is safe and preserves project/task linkage while offline.
+  setAliases(['project', 'custom_project', 'link_project'], project)
+  setAliases(['link_task', 'task', 'task_name'], linkTask)
+  setAliases([
+    'work_summary',
+    'parent_task_name',
+    'work_scope',
+    'scope_of_work',
+    'custom_work_summary',
+    'custom_work_scope',
+  ], parentTaskName)
+  setAliases([
+    'work_area',
+    'project_scope_name',
+    'area',
+    'scope_name',
+    'custom_work_area',
+    'custom_project_scope_name',
+  ], projectScopeName)
+  setAliases(['work_order_number', 'wo_number'], workOrderNumber)
+  setAliases(['date', 'attendance_date', 'timesheet_date'], date)
 
   if (mobileDoctype === 'daily-timesheet' && date) {
     const cached = await getCachedShiftForDate(date)
@@ -212,11 +314,62 @@ async function getOfflinePrefillFallback<T>(url: string): Promise<T | null> {
   } as T
 }
 
+async function applyQueuedDocumentUpdates<T>(
+  url: string,
+  options: RequestInit,
+  cached: T
+): Promise<T> {
+  if (
+    !url.includes('get_mobile_doc_for_edit') ||
+    !cached ||
+    typeof cached !== 'object'
+  ) {
+    return cached
+  }
+
+  const mobileDoctype = getFormValue(options.body, 'mobile_doctype')
+  const docname = getFormValue(options.body, 'docname')
+
+  if (!mobileDoctype || !docname) return cached
+
+  const queuedItems = await getOfflineQueueItems()
+  const pendingUpdates = queuedItems.filter((item) => {
+    return item.kind === 'mobile_document' &&
+      item.action_type === 'update' &&
+      item.mobile_doctype === mobileDoctype &&
+      item.docname === docname &&
+      item.status !== 'synced'
+  })
+
+  if (!pendingUpdates.length) return cached
+
+  const cachedResponse = cached as any
+  const mergedValues = {
+    ...(cachedResponse.message?.values || {}),
+  }
+
+  for (const item of pendingUpdates) {
+    for (const [fieldname, value] of Object.entries(item.values || {})) {
+      if (fieldname === '__verto_offline_user') continue
+      mergedValues[fieldname] = value
+    }
+  }
+
+  return {
+    ...cachedResponse,
+    message: {
+      ...(cachedResponse.message || {}),
+      values: mergedValues,
+      offline_queued: true,
+    },
+  } as T
+}
+
 async function getOfflineReadFallback<T>(url: string, options: RequestInit, cacheKey: string) {
   const cached = await getCachedApiResponse<T>(cacheKey)
 
   if (cached) {
-    return cached
+    return applyQueuedDocumentUpdates(url, options, cached)
   }
 
   const prefill = await getOfflinePrefillFallback<T>(url)
@@ -318,6 +471,53 @@ async function queueOfflineWrite<T>(url: string, options: RequestInit): Promise<
   return null
 }
 
+function isMobileDocumentWrite(url: string, options: RequestInit) {
+  if (getMethod(options) !== 'POST') return false
+
+  return url.includes('/api/method/verto.api.mobile.documents.create_mobile_doc') ||
+    url.includes('/api/method/verto.api.mobile.documents.update_mobile_doc')
+}
+
+async function submitDurableMobileDocumentWrite<T>(url: string, options: RequestInit) {
+  await ensureOfflineActorForWrite()
+
+  const queuedResponse = await queueOfflineWrite<T>(url, options)
+
+  if (!queuedResponse) {
+    throw new Error('This document action cannot be saved offline.')
+  }
+
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return queuedResponse
+  }
+
+  const operationId = String((queuedResponse as any)?.message?.offline_operation_id || '')
+
+  try {
+    const result = await syncOfflineQueueItem(operationId, {
+      deleteOnPermanentFailure: true,
+    })
+
+    return {
+      message: result,
+    } as T
+  } catch (error) {
+    if (isOfflineSyncAuthError(error)) {
+      redirectToLogin()
+      throw new Error('Login required')
+    }
+
+    // An ambiguous network/server outage keeps the operation in IndexedDB and
+    // returns the normal queued response. The idempotency receipt makes a later
+    // replay safe even if the server accepted the first attempt.
+    if (isRetryableOfflineSyncError(error)) {
+      return queuedResponse
+    }
+
+    throw error
+  }
+}
+
 export function redirectToLogin() {
   if (isLoginRoute()) {
     return
@@ -330,6 +530,10 @@ export async function apiRequest<T>(url: string, options: RequestInit = {}): Pro
   const cacheableRead = isCacheableRead(url, options)
   const cacheKey = cacheableRead ? await makeCacheKey(url, options) : ''
   const method = getMethod(options)
+
+  if (isMobileDocumentWrite(url, options)) {
+    return submitDurableMobileDocumentWrite<T>(url, options)
+  }
 
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     if (method !== 'GET') {
