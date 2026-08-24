@@ -474,7 +474,7 @@
    "property": "field_order",
    "property_type": "Data",
    "row_name": null,
-   "value": "[\"skill_name\", \"description\", \"custom_is_qualification\", \"custom_qualification_category\", \"custom_requires_evidence\", \"custom_has_expiry\", \"custom_default_validity_months\", \"custom_expiry_warning_days\", \"governing_body\"]"
+   "value": "[\"skill_name\",\"description\",\"is_qualification\",\"qualification_category\",\"requires_evidence\",\"has_expiry\",\"default_validity_months\",\"expiry_warning_days\",\"governing_body\"]"
   }
  ],
  "sync_on_migrate": 1

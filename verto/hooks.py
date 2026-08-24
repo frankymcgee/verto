@@ -77,6 +77,10 @@ website_context = {
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
+doctype_js = {
+	"Employee": "public/js/employee.js",
+}
+
 # Svg Icons
 # ------------------
 # include app icons in desk
@@ -175,6 +179,9 @@ doc_events = {
     "Task": {
         "before_validate": "verto.api.mobile.task_checklist.sync_task_checklist_progress",
     },
+    "Employee": {
+        "before_validate": "verto.api.qualifications.validate_employee_qualifications",
+    },
     "Project": {
         "after_insert": "verto.api.hooks.create_project_handover_records",
         "on_update": "verto.api.hooks.create_project_handover_records",
@@ -203,9 +210,9 @@ scheduler_events = {
 #	"all": [
 #		"verto.tasks.all"
 #	],
-    # "daily": [
-    #     "verto.jobs.daily.populate_kpi_snapshots",
-    # ],
+    "daily": [
+        "verto.api.qualifications.refresh_qualification_statuses",
+    ],
     # "hourly": [
     #     "verto.jobs.hourly.escalate_overdue_actions",
     # ],
@@ -316,3 +323,4 @@ website_route_rules = [
     {"from_route": "/verto-mobile/<path:app_path>", "to_route": "verto-mobile"},
     {"from_route": "/planner/<path:app_path>", "to_route": "planner"},
 ]
+

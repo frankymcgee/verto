@@ -34,7 +34,9 @@
    "fetch_from": "qualification.qualification_category",
    "fieldname": "qualification_category",
    "fieldtype": "Data",
-   "label": "Category"
+   "label": "Category",
+   "read_only": 1,
+   "in_list_view": 1
   },
   {
    "fieldname": "certificate_number",
@@ -54,7 +56,8 @@
   {
    "fieldname": "expiry_date",
    "fieldtype": "Date",
-   "label": "Expiry Date"
+   "label": "Expiry Date",
+   "in_list_view": 1
   },
   {
    "default": "0",
@@ -71,13 +74,17 @@
    "fieldname": "verification_status",
    "fieldtype": "Select",
    "label": "Verification Status",
-   "options": "\nPending Verification\nVerified\nRejected"
+   "options": "\nPending Verification\nVerified\nRejected",
+   "default": "Pending Verification",
+   "in_list_view": 1
   },
   {
    "fieldname": "validity_status",
    "fieldtype": "Select",
    "label": "Validity Status",
-   "options": "\nValid\nExpiring Soon\nExpired\nSuperseded"
+   "options": "\nValid\nExpiring Soon\nExpired\nSuperseded",
+   "read_only": 1,
+   "in_list_view": 1
   },
   {
    "fieldname": "verified_by",
