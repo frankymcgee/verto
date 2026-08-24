@@ -1,5 +1,6 @@
 import { apiRequest } from '../lib/api'
 import { cacheApiResponse } from './offlineQueue'
+import { clearOfflineReadCache } from './offlineSecurity'
 
 export const OFFLINE_ACTOR_STORAGE_KEY = 'verto:offline-actor'
 
@@ -87,8 +88,7 @@ function setOfflineActor(user: string) {
   try {
     window.localStorage.setItem(OFFLINE_ACTOR_STORAGE_KEY, user)
   } catch {
-    // IndexedDB still contains the cached data; user validation will fail safe if
-    // localStorage is unavailable and a queued write is attempted.
+    // Queue writes fail safe if browser storage is unavailable.
   }
 }
 
@@ -103,6 +103,11 @@ export async function primeOfflineData() {
 
   const bootstrap = data.message || {}
   const actor = bootstrap.user || bootstrap.shift_calendar?.user || ''
+  const previousActor = getOfflineActor()
+
+  if (actor && previousActor && previousActor !== actor) {
+    await clearOfflineReadCache()
+  }
 
   if (actor) {
     setOfflineActor(actor)
