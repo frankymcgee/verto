@@ -14,6 +14,10 @@ dependencies = [
 
 [tool.bench.frappe-dependencies]
 frappe = ">=15.0.0,<17.0.0"
+erpnext = ">=15.0.0,<17.0.0"
+hrms = ">=15.0.0,<17.0.0"
+gameplan = ">=0.0.1"
+raven = ">=2.0.0,<5.0.0"
 
 [build-system]
 requires = ["flit_core >=3.4,<4"]
