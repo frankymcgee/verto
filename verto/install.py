@@ -109,31 +109,30 @@ def _ensure_integration_defaults() -> bool:
 
 
 def _ensure_project_raven_channel_default() -> bool:
-    """Replace the legacy MSS-specific Project channel default with Raven's default.
+    """Clear legacy Project Raven defaults without touching Project data.
 
-    Raven creates a channel named ``general`` during installation. Older Verto
-    customizations still carried ``mss-general`` as the default for Project.raven_channel,
-    which breaks fresh-site test record creation because that channel does not exist.
-    Preserve any explicitly customized value and only migrate the legacy default.
+    The Raven channel on Project is optional. App chat defaults belong in Verto
+    Mobile Settings; using one as a Project field default prevents ordinary
+    Project creation when that channel does not exist yet. Clear only the legacy
+    metadata values and preserve explicitly stored channels on Project records.
     """
     custom_field = "Project-custom_raven_channel"
     if not frappe.db.exists("Custom Field", custom_field):
         return False
 
     current_default = frappe.db.get_value("Custom Field", custom_field, "default")
-    if current_default != "mss-general":
+    if current_default not in {"mss-general", "general"}:
         return False
 
     frappe.db.set_value(
         "Custom Field",
         custom_field,
         "default",
-        "general",
+        None,
         update_modified=False,
     )
     frappe.clear_cache(doctype="Project")
     return True
-
 
 def _ensure_site_pwa_manifest() -> bool:
     """Create/update the site-local PWA manifest and generated icons."""

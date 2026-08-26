@@ -128,6 +128,51 @@ class TestVertoMobileSettings(FrappeTestCase):
         self.assertEqual(config["public_key"], "legacy-public")
         self.assertEqual(config["private_key"], "legacy-private")
 
+    def test_project_raven_channel_is_optional_and_has_no_default(self):
+        field = frappe.get_meta("Project").get_field("raven_channel")
+
+        self.assertIsNotNone(field)
+        self.assertFalse(field.reqd)
+        self.assertFalse(field.default)
+
+        project = frappe.new_doc("Project")
+        self.assertFalse(project.raven_channel)
+
+    def test_project_raven_default_repair_clears_legacy_metadata(self):
+        from verto.install import _ensure_project_raven_channel_default
+
+        custom_field = "Project-custom_raven_channel"
+        original_default = frappe.db.get_value(
+            "Custom Field", custom_field, "default"
+        )
+
+        try:
+            for legacy_default in ("mss-general", "general"):
+                frappe.db.set_value(
+                    "Custom Field",
+                    custom_field,
+                    "default",
+                    legacy_default,
+                    update_modified=False,
+                )
+                frappe.clear_cache(doctype="Project")
+
+                self.assertTrue(_ensure_project_raven_channel_default())
+                self.assertFalse(
+                    frappe.db.get_value(
+                        "Custom Field", custom_field, "default"
+                    )
+                )
+        finally:
+            frappe.db.set_value(
+                "Custom Field",
+                custom_field,
+                "default",
+                original_default,
+                update_modified=False,
+            )
+            frappe.clear_cache(doctype="Project")
+
     def test_setup_is_idempotent(self):
         from verto.install import ensure_verto_setup
 
