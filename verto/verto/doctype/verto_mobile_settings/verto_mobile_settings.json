@@ -45,6 +45,13 @@
   "planner_icon",
   "planner_view_default",
   "push_notifications_tab",
+  "push_configuration_section",
+  "push_notifications_enabled",
+  "vapid_subject",
+  "column_break_push",
+  "vapid_public_key",
+  "vapid_private_key",
+  "vapid_generated_on",
   "timesheet_reminder_exclusions"
  ],
  "fields": [
@@ -252,6 +259,48 @@
    "label": "Push Notifications"
   },
   {
+   "fieldname": "push_configuration_section",
+   "fieldtype": "Section Break",
+   "label": "Web Push Configuration"
+  },
+  {
+   "default": "1",
+   "description": "Enable Verto web push notifications for this site.",
+   "fieldname": "push_notifications_enabled",
+   "fieldtype": "Check",
+   "label": "Push Notifications Enabled"
+  },
+  {
+   "default": "mailto:support@webwire.com.au",
+   "description": "VAPID subject. Use a mailto: address or an HTTPS URL.",
+   "fieldname": "vapid_subject",
+   "fieldtype": "Data",
+   "label": "VAPID Subject"
+  },
+  {
+   "fieldname": "column_break_push",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Generated automatically. Used by browsers when creating push subscriptions.",
+   "fieldname": "vapid_public_key",
+   "fieldtype": "Small Text",
+   "label": "VAPID Public Key",
+   "read_only": 1
+  },
+  {
+   "description": "Generated automatically and encrypted by Frappe. Rotating this key invalidates existing browser subscriptions.",
+   "fieldname": "vapid_private_key",
+   "fieldtype": "Password",
+   "label": "VAPID Private Key"
+  },
+  {
+   "fieldname": "vapid_generated_on",
+   "fieldtype": "Datetime",
+   "label": "VAPID Keys Generated On",
+   "read_only": 1
+  },
+  {
    "fieldname": "timesheet_reminder_exclusions",
    "fieldtype": "Table",
    "label": "Timesheet Reminder Exclusions",
@@ -272,7 +321,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-08-20 10:40:20.160875",
+ "modified": "2026-08-26 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Verto Mobile Settings",
