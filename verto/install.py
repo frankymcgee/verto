@@ -36,6 +36,7 @@ def ensure_verto_setup():
         "settings": False,
         "pwa_manifest": False,
         "push_notifications": False,
+        "optional_integrations": {},
     }
 
     if frappe.db.exists("DocType", SETTINGS_DOCTYPE):
@@ -43,6 +44,7 @@ def ensure_verto_setup():
         results["pwa_manifest"] = _ensure_site_pwa_manifest()
         results["push_notifications"] = _ensure_push_notifications()
 
+    results["optional_integrations"] = _ensure_optional_integrations()
     frappe.clear_cache()
     return results
 
@@ -63,14 +65,10 @@ def _ensure_mobile_settings_defaults() -> bool:
 
 
 def _ensure_site_pwa_manifest() -> bool:
-    """Create/update the site-local PWA manifest without requiring an app logo.
-
-    The manual Generate PWA Manifest action can still create client-specific
-    icon sizes later. Fresh installs always receive a valid manifest using the
-    packaged Verto fallback icons.
-    """
+    """Create/update the site-local PWA manifest and generated icons."""
     try:
         from verto.api.mobile.pwa_manifest import (
+            _generate_pwa_icons_from_app_logo,
             _get_existing_or_generated_icon_urls,
             _save_generated_values_to_settings,
             _write_site_manifest,
@@ -78,7 +76,19 @@ def _ensure_site_pwa_manifest() -> bool:
         )
 
         settings = frappe.get_single(SETTINGS_DOCTYPE)
-        icon_urls = _get_existing_or_generated_icon_urls(settings)
+
+        if settings.meta.has_field("app_logo") and settings.get("app_logo"):
+            try:
+                icon_urls = _generate_pwa_icons_from_app_logo(settings)
+            except Exception:
+                frappe.log_error(
+                    title="Verto automatic PWA icon generation failed",
+                    message=frappe.get_traceback(),
+                )
+                icon_urls = _get_existing_or_generated_icon_urls(settings)
+        else:
+            icon_urls = _get_existing_or_generated_icon_urls(settings)
+
         manifest = build_manifest_from_settings(settings, icon_urls)
         manifest_json = json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
         manifest_url = _write_site_manifest(manifest_json)
@@ -105,3 +115,31 @@ def _ensure_push_notifications() -> bool:
             message=frappe.get_traceback(),
         )
         return False
+
+
+def _ensure_optional_integrations() -> dict:
+    try:
+        from verto.optional_integrations import sync_optional_customizations
+
+        return sync_optional_customizations()
+    except Exception:
+        frappe.log_error(
+            title="Verto optional integration setup failed",
+            message=frappe.get_traceback(),
+        )
+        return {}
+
+
+def refresh_mobile_settings_configuration(doc=None, method=None):
+    """Keep runtime/PWA configuration aligned whenever settings are saved."""
+    _ensure_site_pwa_manifest()
+
+    try:
+        from verto.runtime_config import apply_runtime_config
+
+        apply_runtime_config()
+    except Exception:
+        frappe.log_error(
+            title="Verto runtime configuration refresh failed",
+            message=frappe.get_traceback(),
+        )
