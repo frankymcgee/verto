@@ -8,6 +8,24 @@ frappe.ui.form.on('Verto Mobile Settings', {
       () => generate_pwa_manifest(frm),
       __('PWA')
     )
+
+    frm.add_custom_button(
+      __('Regenerate VAPID Keys'),
+      () => regenerate_vapid_keys(frm),
+      __('Push Notifications')
+    )
+
+    frm.add_custom_button(
+      __('Run System Health Check'),
+      () => run_system_health_check(),
+      __('Setup')
+    )
+
+    frm.add_custom_button(
+      __('Repair Verto Setup'),
+      () => repair_verto_setup(frm),
+      __('Setup')
+    )
   },
 })
 
@@ -24,7 +42,6 @@ async function generate_pwa_manifest(frm) {
       const message = response.message || {}
       const manifestUrl = message.manifest_url || ''
       const assetManifestUrl = message.asset_manifest_url || ''
-
       const links = []
 
       if (manifestUrl) {
@@ -67,6 +84,94 @@ async function generate_pwa_manifest(frm) {
         indicator: 'red',
         message: __('Check the server error log for details.'),
       })
+    },
+  })
+}
+
+function regenerate_vapid_keys(frm) {
+  frappe.confirm(
+    __('Regenerating VAPID keys will invalidate existing browser push subscriptions. Users will need to enable push notifications again. Continue?'),
+    () => {
+      frappe.call({
+        method: 'verto.runtime_config.generate_vapid_keys',
+        args: { force: 1 },
+        freeze: true,
+        freeze_message: __('Generating VAPID keys...'),
+        callback(response) {
+          const message = response.message || {}
+          frappe.msgprint({
+            title: __('VAPID Keys Generated'),
+            indicator: 'green',
+            message: `
+              <p>${__('Push notification keys are now managed by Verto Mobile Settings.')}</p>
+              <p><strong>${__('Public Key')}:</strong><br>${frappe.utils.escape_html(message.public_key || '')}</p>
+            `,
+          })
+          frm.reload_doc()
+        },
+      })
+    }
+  )
+}
+
+function health_html(health) {
+  const checks = health.checks || []
+  const rows = checks.map((item) => {
+    const indicator = item.ok ? 'green' : 'red'
+    const status = item.ok ? __('OK') : __('Needs Attention')
+    return `
+      <div class="mb-3">
+        <div>
+          <span class="indicator-pill ${indicator}">${frappe.utils.escape_html(status)}</span>
+          <strong>${frappe.utils.escape_html(item.label || '')}</strong>
+        </div>
+        <div class="text-muted mt-1">${frappe.utils.escape_html(item.detail || '')}</div>
+      </div>
+    `
+  })
+
+  return `
+    <div>
+      <p><strong>${health.healthy ? __('Verto setup is healthy.') : __('Some Verto setup items need attention.')}</strong></p>
+      ${rows.join('')}
+    </div>
+  `
+}
+
+function run_system_health_check() {
+  frappe.call({
+    method: 'verto.health.get_system_health',
+    freeze: true,
+    freeze_message: __('Checking Verto setup...'),
+    callback(response) {
+      const health = response.message || {}
+      frappe.msgprint({
+        title: __('Verto System Health'),
+        indicator: health.healthy ? 'green' : 'orange',
+        message: health_html(health),
+      })
+    },
+  })
+}
+
+async function repair_verto_setup(frm) {
+  if (frm.is_dirty()) {
+    await frm.save()
+  }
+
+  frappe.call({
+    method: 'verto.health.repair_setup',
+    freeze: true,
+    freeze_message: __('Repairing Verto setup...'),
+    callback(response) {
+      const result = response.message || {}
+      const health = result.health || {}
+      frappe.msgprint({
+        title: __('Verto Setup Repair Complete'),
+        indicator: health.healthy ? 'green' : 'orange',
+        message: health_html(health),
+      })
+      frm.reload_doc()
     },
   })
 }
