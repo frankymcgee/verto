@@ -97,6 +97,41 @@ def collect_system_health() -> dict:
     except Exception:
         checks.append(_check("Push notifications", False, "Could not read push configuration", repairable=True))
 
+    if "raven" in installed_apps and frappe.db.exists("DocType", "Raven Workspace"):
+        workspace_count = frappe.db.count("Raven Workspace")
+        general_channel = (
+            frappe.db.exists("Raven Channel", "general")
+            if frappe.db.exists("DocType", "Raven Channel")
+            else False
+        )
+        checks.append(
+            _check(
+                "Raven defaults",
+                bool(workspace_count and general_channel),
+                "Raven workspace and General channel are available"
+                if workspace_count and general_channel
+                else "Raven workspace or General channel is missing",
+                repairable=True,
+            )
+        )
+
+        try:
+            settings = frappe.get_single("Verto Mobile Settings")
+            workspace_configured = bool(settings.get("default_workspace"))
+            channel_configured = bool(settings.get("default_chat_channel"))
+            checks.append(
+                _check(
+                    "Verto Raven integration",
+                    workspace_configured and channel_configured,
+                    "Verto is linked to its default Raven workspace/channel"
+                    if workspace_configured and channel_configured
+                    else "Default Raven workspace/channel has not been adopted by Verto",
+                    repairable=True,
+                )
+            )
+        except Exception:
+            checks.append(_check("Verto Raven integration", False, "Could not read Raven defaults", repairable=True))
+
     try:
         from frappe.utils.scheduler import is_scheduler_inactive
 
@@ -156,3 +191,24 @@ def repair_setup():
         "repaired": repaired,
         "health": collect_system_health(),
     }
+
+
+@frappe.whitelist()
+def enable_site_scheduler():
+    """Enable the Frappe scheduler from Desk without requiring bench console access."""
+    if not frappe.has_permission("System Settings", ptype="write"):
+        frappe.throw(_("You do not have permission to enable the scheduler."), frappe.PermissionError)
+
+    if frappe.conf.get("disable_scheduler") or frappe.conf.get("pause_scheduler"):
+        frappe.throw(
+            _(
+                "The scheduler is disabled at site/bench configuration level. "
+                "Remove disable_scheduler/pause_scheduler from the infrastructure configuration first."
+            )
+        )
+
+    from frappe.utils.scheduler import enable_scheduler
+
+    enable_scheduler()
+    frappe.db.commit()
+    return collect_system_health()
