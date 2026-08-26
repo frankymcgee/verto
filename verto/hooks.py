@@ -53,6 +53,7 @@ doctype_js = {
 # ----------------------------------
 after_install = "verto.install.after_install"
 after_migrate = "verto.install.after_migrate"
+after_app_install = "verto.optional_integrations.after_app_install"
 
 # Apply site-managed runtime configuration before normal web and worker code.
 # This removes the need to manually duplicate Verto settings into site_config.json.
@@ -62,6 +63,9 @@ before_job = ["verto.runtime_config.apply_runtime_config"]
 # Document events
 # ---------------
 doc_events = {
+    "Verto Mobile Settings": {
+        "on_update": "verto.install.refresh_mobile_settings_configuration",
+    },
     "Task": {
         "before_validate": "verto.api.mobile.task_checklist.sync_task_checklist_progress",
     },
