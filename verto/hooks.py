@@ -7,7 +7,7 @@ app_license = "apache-2.0"
 # Apps
 # ------------------
 
-required_apps = ["erpnext", "hrms", "raven"]
+required_apps = ["erpnext", "hrms", "raven", "gameplan"]
 
 # Each item in the list will be shown as an app in the apps page
 add_to_apps_screen = [
