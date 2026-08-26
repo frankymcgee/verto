@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import frappe
 
 
@@ -64,9 +66,19 @@ def _ensure_site_pwa_manifest() -> bool:
     packaged Verto fallback icons.
     """
     try:
-        from verto.api.mobile.pwa_manifest import ensure_site_manifest
+        from verto.api.mobile.pwa_manifest import (
+            _get_existing_or_generated_icon_urls,
+            _save_generated_values_to_settings,
+            _write_site_manifest,
+            build_manifest_from_settings,
+        )
 
-        ensure_site_manifest()
+        settings = frappe.get_single(SETTINGS_DOCTYPE)
+        icon_urls = _get_existing_or_generated_icon_urls(settings)
+        manifest = build_manifest_from_settings(settings, icon_urls)
+        manifest_json = json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
+        manifest_url = _write_site_manifest(manifest_json)
+        _save_generated_values_to_settings(settings, manifest_url, icon_urls)
         return True
     except Exception:
         frappe.log_error(
