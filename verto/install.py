@@ -34,6 +34,7 @@ def after_migrate():
 def ensure_verto_setup():
     results = {
         "settings": False,
+        "integration_defaults": False,
         "pwa_manifest": False,
         "push_notifications": False,
         "optional_integrations": {},
@@ -41,6 +42,7 @@ def ensure_verto_setup():
 
     if frappe.db.exists("DocType", SETTINGS_DOCTYPE):
         results["settings"] = _ensure_mobile_settings_defaults()
+        results["integration_defaults"] = _ensure_integration_defaults()
         results["pwa_manifest"] = _ensure_site_pwa_manifest()
         results["push_notifications"] = _ensure_push_notifications()
 
@@ -56,6 +58,47 @@ def _ensure_mobile_settings_defaults() -> bool:
     for fieldname, default_value in DEFAULT_SETTINGS.items():
         if settings.meta.has_field(fieldname) and settings.get(fieldname) in (None, ""):
             settings.set(fieldname, default_value)
+            changed = True
+
+    if changed:
+        settings.save(ignore_permissions=True)
+
+    return changed
+
+
+def _ensure_integration_defaults() -> bool:
+    """Adopt safe defaults created by required apps instead of manual setup."""
+    settings = frappe.get_single(SETTINGS_DOCTYPE)
+    changed = False
+
+    if (
+        settings.meta.has_field("default_workspace")
+        and not settings.get("default_workspace")
+        and frappe.db.exists("DocType", "Raven Workspace")
+    ):
+        workspace = (
+            frappe.db.get_value("Raven Workspace", {"workspace_name": "Raven"}, "name")
+            or frappe.db.get_value("Raven Workspace", {}, "name")
+        )
+        if workspace:
+            settings.set("default_workspace", workspace)
+            changed = True
+
+    if (
+        settings.meta.has_field("default_chat_channel")
+        and not settings.get("default_chat_channel")
+        and frappe.db.exists("DocType", "Raven Channel")
+    ):
+        channel = (
+            frappe.db.get_value("Raven Channel", {"name": "general"}, "name")
+            or frappe.db.get_value(
+                "Raven Channel",
+                {"channel_name": "General", "is_direct_message": 0},
+                "name",
+            )
+        )
+        if channel:
+            settings.set("default_chat_channel", channel)
             changed = True
 
     if changed:
