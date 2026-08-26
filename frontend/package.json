@@ -30,5 +30,33 @@
     "vue-tsc": "^2.2.0",
     "workbox-core": "^7.4.1",
     "workbox-precaching": "^7.4.1"
+  },
+  "resolutions": {
+    "@tiptap/core": "3.30.3",
+    "@tiptap/extension-bubble-menu": "3.30.3",
+    "@tiptap/extension-code": "3.30.3",
+    "@tiptap/extension-code-block": "3.30.3",
+    "@tiptap/extension-code-block-lowlight": "3.30.3",
+    "@tiptap/extension-color": "3.30.3",
+    "@tiptap/extension-floating-menu": "3.30.3",
+    "@tiptap/extension-heading": "3.30.3",
+    "@tiptap/extension-highlight": "3.30.3",
+    "@tiptap/extension-image": "3.30.3",
+    "@tiptap/extension-link": "3.30.3",
+    "@tiptap/extension-list": "3.30.3",
+    "@tiptap/extension-mention": "3.30.3",
+    "@tiptap/extension-node-range": "3.30.3",
+    "@tiptap/extension-placeholder": "3.30.3",
+    "@tiptap/extension-table": "3.30.3",
+    "@tiptap/extension-task-item": "3.30.3",
+    "@tiptap/extension-task-list": "3.30.3",
+    "@tiptap/extension-text-align": "3.30.3",
+    "@tiptap/extension-text-style": "3.30.3",
+    "@tiptap/extension-typography": "3.30.3",
+    "@tiptap/extensions": "3.30.3",
+    "@tiptap/pm": "3.30.3",
+    "@tiptap/starter-kit": "3.30.3",
+    "@tiptap/suggestion": "3.30.3",
+    "@tiptap/vue-3": "3.30.3"
   }
 }
