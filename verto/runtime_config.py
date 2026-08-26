@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import base64
-from datetime import datetime
 
 import frappe
 from frappe import _
+from frappe.utils import cint, now_datetime
 
 
 SETTINGS_DOCTYPE = "Verto Mobile Settings"
@@ -66,7 +66,7 @@ def get_push_settings_config() -> dict:
 
     enabled = True
     if settings.meta.has_field("push_notifications_enabled"):
-        enabled = bool(settings.get("push_notifications_enabled"))
+        enabled = bool(cint(settings.get("push_notifications_enabled")))
 
     public_key = (
         _clean(settings.get("vapid_public_key"))
@@ -92,17 +92,26 @@ def get_push_settings_config() -> dict:
 def apply_runtime_config(**kwargs):
     """Expose Verto settings through frappe.conf for legacy consumers.
 
-    Push notification code historically read VAPID values from site_config.json.
-    Keeping these runtime aliases lets existing code continue to work while the
-    source of truth moves into Verto Mobile Settings.
+    If a site has not migrated its old site_config VAPID keys yet, leave those
+    values untouched so the migration routine can still discover them. Once DB
+    settings are configured they become the source of truth.
     """
     try:
         config = get_push_settings_config()
     except Exception:
         return
 
-    frappe.local.conf[VAPID_PUBLIC_KEY_CONFIG] = config["public_key"] if config["enabled"] else ""
-    frappe.local.conf[VAPID_PRIVATE_KEY_CONFIG] = config["private_key"] if config["enabled"] else ""
+    if not config["enabled"]:
+        frappe.local.conf[VAPID_PUBLIC_KEY_CONFIG] = ""
+        frappe.local.conf[VAPID_PRIVATE_KEY_CONFIG] = ""
+        frappe.local.conf[VAPID_SUBJECT_CONFIG] = config["subject"]
+        return
+
+    if not config["configured"]:
+        return
+
+    frappe.local.conf[VAPID_PUBLIC_KEY_CONFIG] = config["public_key"]
+    frappe.local.conf[VAPID_PRIVATE_KEY_CONFIG] = config["private_key"]
     frappe.local.conf[VAPID_SUBJECT_CONFIG] = config["subject"]
 
 
@@ -180,7 +189,7 @@ def ensure_push_configuration(force: bool = False) -> dict:
     settings.set("vapid_subject", subject)
 
     if settings.meta.has_field("vapid_generated_on"):
-        settings.set("vapid_generated_on", datetime.now())
+        settings.set("vapid_generated_on", now_datetime())
 
     settings.save(ignore_permissions=True)
     frappe.clear_cache(doctype=SETTINGS_DOCTYPE)
@@ -200,5 +209,5 @@ def generate_vapid_keys(force: int = 0):
     if not frappe.has_permission(SETTINGS_DOCTYPE, ptype="write"):
         frappe.throw(_("You do not have permission to configure Verto push notifications."), frappe.PermissionError)
 
-    force = bool(int(force or 0))
+    force = bool(cint(force))
     return ensure_push_configuration(force=force)
