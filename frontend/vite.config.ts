@@ -7,14 +7,16 @@ import Icons from 'unplugin-icons/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import type { ManifestOptions } from 'vite-plugin-pwa'
 
-const mssManifest = {
-  name: 'MSS Dashboard',
-  short_name: 'MSS',
+// This is only a build-time fallback. The installed site manifest is generated
+// from Verto Mobile Settings by verto.install.ensure_verto_setup().
+const fallbackManifest = {
+  name: 'Verto Mobile',
+  short_name: 'Verto',
   id: '/verto-mobile',
   start_url: '/verto-mobile',
   scope: '/verto-mobile',
   display: 'standalone',
-  description: 'PWA Companion app for Mine Site Support',
+  description: 'Mobile companion app for Verto',
   lang: 'en-AU',
   dir: 'auto',
   theme_color: '#171717',
@@ -53,32 +55,7 @@ const mssManifest = {
       purpose: 'any',
     },
   ],
-  screenshots: [
-    {
-      src: 'https://dashboard.minesitesupport.com.au/files/screen1.png',
-      sizes: '1242x2688',
-      type: 'image/png',
-      description: 'Companion app for Mine Site Support',
-    },
-    {
-      src: 'https://dashboard.minesitesupport.com.au/files/screen2.png',
-      sizes: '1242x2688',
-      type: 'image/png',
-      description: 'Complete Site Forms online',
-    },
-    {
-      src: 'https://dashboard.minesitesupport.com.au/files/screen3.png',
-      sizes: '1242x2688',
-      type: 'image/png',
-      description: 'Chat with teams on any jobsite',
-    },
-    {
-      src: 'https://dashboard.minesitesupport.com.au/files/screen4.png',
-      sizes: '1242x2688',
-      type: 'image/png',
-      description: 'Direct message other team members',
-    },
-  ],
+  screenshots: [],
   categories: [
     'business',
     'productivity',
@@ -145,6 +122,7 @@ function copyVertoServiceWorkerPlugin(): Plugin {
 
 export default defineConfig(({ command }) => {
   const isDev = command === 'serve'
+  const devProxyTarget = process.env.VERTO_DEV_PROXY_TARGET || 'http://localhost:8000'
 
   return {
     base: isDev
@@ -196,7 +174,7 @@ export default defineConfig(({ command }) => {
         },
 
         manifestFilename: 'manifest.webmanifest',
-        manifest: mssManifest,
+        manifest: fallbackManifest,
       }),
       copyVertoServiceWorkerPlugin(),
     ],
@@ -205,7 +183,7 @@ export default defineConfig(({ command }) => {
       host: '0.0.0.0',
       proxy: {
         '/api': {
-          target: 'https://dashboard.minesitesupport.com.au',
+          target: devProxyTarget,
           changeOrigin: true,
           secure: false,
         },
