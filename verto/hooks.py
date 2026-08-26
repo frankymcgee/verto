@@ -55,6 +55,10 @@ after_install = "verto.install.after_install"
 after_migrate = "verto.install.after_migrate"
 after_app_install = "verto.optional_integrations.after_app_install"
 
+# Test preparation
+# ----------------
+before_tests = "verto.tests.before_tests"
+
 # Apply site-managed runtime configuration before normal web and worker code.
 # This removes the need to manually duplicate Verto settings into site_config.json.
 before_request = ["verto.runtime_config.apply_runtime_config"]
