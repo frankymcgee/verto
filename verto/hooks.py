@@ -1,7 +1,7 @@
 app_name = "verto"
 app_title = "Verto"
 app_publisher = "Webwire"
-app_description = "Fully customised instance for ERPNext Version-15"
+app_description = "Fully customised Verto application for ERPNext Version-16"
 app_email = "support@webwire.com.au"
 app_license = "apache-2.0"
 # Apps
@@ -115,8 +115,8 @@ doctype_js = {
 # Installation
 # ------------
 
-# before_install = "verto.install.before_install"
-# after_install = "verto.install.after_install"
+after_install = "verto.install.after_install"
+after_migrate = "verto.install.after_migrate"
 
 # Uninstallation
 # ------------
@@ -248,7 +248,7 @@ scheduler_events = {
 # ------------------------------
 #
 # override_whitelisted_methods = {
-#	"frappe.desk.doctype.event.event.get_events": "verto.event.get_events"
+#	"frappe.desk.doctype.event.event.get_events": "verto.event.get_events",
 # }
 override_whitelisted_methods = {
     "frappe.geo.utils.get_coords": "verto.geo.utils.verto_get_coords",
@@ -319,6 +319,10 @@ override_whitelisted_methods = {
 #	"Logging DocType Name": 30  # days to retain logs
 # }
 
+# Custom page renderers
+# ---------------------
+# Serve the Verto service worker from the site root so no nginx alias is needed.
+page_renderer = ["verto.pwa.VertoServiceWorkerRenderer"]
 
 website_route_rules = [
     {"from_route": "/verto-mobile/<path:app_path>", "to_route": "verto-mobile"},
