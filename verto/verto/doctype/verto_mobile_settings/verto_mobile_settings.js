@@ -26,6 +26,12 @@ frappe.ui.form.on('Verto Mobile Settings', {
       () => repair_verto_setup(frm),
       __('Setup')
     )
+
+    frm.add_custom_button(
+      __('Enable Scheduler'),
+      () => enable_scheduler(),
+      __('Setup')
+    )
   },
 })
 
@@ -174,4 +180,25 @@ async function repair_verto_setup(frm) {
       frm.reload_doc()
     },
   })
+}
+
+function enable_scheduler() {
+  frappe.confirm(
+    __('Enable the Frappe scheduler for this site? This allows Verto reminders, qualification checks and scheduled timesheet tasks to run.'),
+    () => {
+      frappe.call({
+        method: 'verto.health.enable_site_scheduler',
+        freeze: true,
+        freeze_message: __('Enabling scheduler...'),
+        callback(response) {
+          const health = response.message || {}
+          frappe.msgprint({
+            title: __('Scheduler Updated'),
+            indicator: health.healthy ? 'green' : 'orange',
+            message: health_html(health),
+          })
+        },
+      })
+    }
+  )
 }
