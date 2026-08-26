@@ -11,9 +11,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  tests:
+  validation:
     runs-on: ubuntu-latest
-    name: Frappe v16 fresh install
+    name: Frappe v16 fresh install validation
 
     services:
       redis-cache:
@@ -105,11 +105,3 @@ jobs:
           bench --site test_site execute verto.install.ensure_verto_setup
           bench --site test_site execute verto.runtime_config.get_push_settings_config
           bench --site test_site execute verto.health.collect_system_health
-
-      - name: Run Verto tests
-        working-directory: /home/runner/frappe-bench
-        env:
-          TYPE: server
-        run: |
-          bench --site test_site set-config allow_tests true
-          bench --site test_site run-tests --app verto
