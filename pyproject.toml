@@ -9,6 +9,7 @@ readme = "README.md"
 dynamic = ["version"]
 dependencies = [
     # "frappe~=15.0.0" # Installed and managed by bench.
+    "python-docx>=1.1.0",
 ]
 
 [tool.bench.frappe-dependencies]
