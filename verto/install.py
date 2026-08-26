@@ -69,7 +69,8 @@ def _ensure_mobile_settings_defaults() -> bool:
 def _ensure_integration_defaults() -> bool:
     """Adopt safe defaults created by required apps instead of manual setup."""
     settings = frappe.get_single(SETTINGS_DOCTYPE)
-    changed = False
+    settings_changed = False
+    project_default_changed = _ensure_project_raven_channel_default()
 
     if (
         settings.meta.has_field("default_workspace")
@@ -82,7 +83,7 @@ def _ensure_integration_defaults() -> bool:
         )
         if workspace:
             settings.set("default_workspace", workspace)
-            changed = True
+            settings_changed = True
 
     if (
         settings.meta.has_field("default_chat_channel")
@@ -99,12 +100,39 @@ def _ensure_integration_defaults() -> bool:
         )
         if channel:
             settings.set("default_chat_channel", channel)
-            changed = True
+            settings_changed = True
 
-    if changed:
+    if settings_changed:
         settings.save(ignore_permissions=True)
 
-    return changed
+    return settings_changed or project_default_changed
+
+
+def _ensure_project_raven_channel_default() -> bool:
+    """Replace the legacy MSS-specific Project channel default with Raven's default.
+
+    Raven creates a channel named ``general`` during installation. Older Verto
+    customizations still carried ``mss-general`` as the default for Project.raven_channel,
+    which breaks fresh-site test record creation because that channel does not exist.
+    Preserve any explicitly customized value and only migrate the legacy default.
+    """
+    custom_field = "Project-custom_raven_channel"
+    if not frappe.db.exists("Custom Field", custom_field):
+        return False
+
+    current_default = frappe.db.get_value("Custom Field", custom_field, "default")
+    if current_default != "mss-general":
+        return False
+
+    frappe.db.set_value(
+        "Custom Field",
+        custom_field,
+        "default",
+        "general",
+        update_modified=False,
+    )
+    frappe.clear_cache(doctype="Project")
+    return True
 
 
 def _ensure_site_pwa_manifest() -> bool:
