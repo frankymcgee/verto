@@ -3,12 +3,13 @@ name = "verto"
 authors = [
     { name = "Webwire", email = "support@webwire.com.au"}
 ]
-description = "a custom app developed for integrating a Work Health and Safety Managemnet System for business using ERPNext"
+description = "Verto operations, safety, planning and mobile workflows for ERPNext Version 16"
 requires-python = ">=3.14,<3.15"
 readme = "README.md"
 dynamic = ["version"]
 dependencies = [
     "python-docx>=1.1.0",
+    "pywebpush>=2.3,<3",
 ]
 
 [tool.bench.frappe-dependencies]
@@ -22,6 +23,5 @@ raven = ">=2.0.0,<5.0.0"
 requires = ["flit_core >=3.4,<4"]
 build-backend = "flit_core.buildapi"
 
-# These dependencies are only installed when developer mode is enabled
 [tool.bench.dev-dependencies]
 # package_name = "~=1.1.0"
