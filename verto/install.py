@@ -12,6 +12,8 @@ DEFAULT_SETTINGS = {
     "fallback_home_route": "/",
     "planner_app_name": "Planner",
     "planner_view_default": "Month",
+    "push_notifications_enabled": 1,
+    "vapid_subject": "mailto:support@webwire.com.au",
 }
 
 
@@ -33,11 +35,13 @@ def ensure_verto_setup():
     results = {
         "settings": False,
         "pwa_manifest": False,
+        "push_notifications": False,
     }
 
     if frappe.db.exists("DocType", SETTINGS_DOCTYPE):
         results["settings"] = _ensure_mobile_settings_defaults()
         results["pwa_manifest"] = _ensure_site_pwa_manifest()
+        results["push_notifications"] = _ensure_push_notifications()
 
     frappe.clear_cache()
     return results
@@ -48,7 +52,7 @@ def _ensure_mobile_settings_defaults() -> bool:
     changed = False
 
     for fieldname, default_value in DEFAULT_SETTINGS.items():
-        if settings.meta.has_field(fieldname) and not settings.get(fieldname):
+        if settings.meta.has_field(fieldname) and settings.get(fieldname) in (None, ""):
             settings.set(fieldname, default_value)
             changed = True
 
@@ -83,6 +87,21 @@ def _ensure_site_pwa_manifest() -> bool:
     except Exception:
         frappe.log_error(
             title="Verto automatic PWA manifest setup failed",
+            message=frappe.get_traceback(),
+        )
+        return False
+
+
+def _ensure_push_notifications() -> bool:
+    """Migrate legacy VAPID config or generate keys for a new v16 site."""
+    try:
+        from verto.runtime_config import ensure_push_configuration
+
+        result = ensure_push_configuration(force=False)
+        return bool(result.get("configured"))
+    except Exception:
+        frappe.log_error(
+            title="Verto automatic push notification setup failed",
             message=frappe.get_traceback(),
         )
         return False
