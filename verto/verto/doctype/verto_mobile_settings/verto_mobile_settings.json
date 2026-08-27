@@ -67,6 +67,12 @@
   "column_break_map_terrain",
   "map_terrain_max_zoom",
   "map_terrain_opacity",
+  "rail_map_layer_section",
+  "map_rail_tile_url",
+  "map_rail_attribution",
+  "column_break_map_rail",
+  "map_rail_max_zoom",
+  "map_rail_opacity",
   "push_notifications_tab",
   "push_configuration_section",
   "push_notifications_enabled",
@@ -471,13 +477,49 @@
    "fieldtype": "Float",
    "label": "Opacity",
    "precision": "2"
+  },
+  {
+   "fieldname": "rail_map_layer_section",
+   "fieldtype": "Section Break",
+   "label": "Rail Overlay"
+  },
+  {
+   "default": "https://tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+   "description": "Transparent railway infrastructure overlay supplied by OpenRailwayMap.",
+   "fieldname": "map_rail_tile_url",
+   "fieldtype": "Small Text",
+   "label": "Tile URL"
+  },
+  {
+   "default": "&copy; <a href=\"https://www.openrailwaymap.org/\">OpenRailwayMap</a>, data &copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors",
+   "fieldname": "map_rail_attribution",
+   "fieldtype": "Small Text",
+   "label": "Attribution"
+  },
+  {
+   "fieldname": "column_break_map_rail",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "19",
+   "fieldname": "map_rail_max_zoom",
+   "fieldtype": "Int",
+   "label": "Maximum Zoom"
+  },
+  {
+   "default": "1",
+   "description": "Value from 0 (transparent) to 1 (opaque).",
+   "fieldname": "map_rail_opacity",
+   "fieldtype": "Float",
+   "label": "Opacity",
+   "precision": "2"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-08-27 14:30:00.000000",
+ "modified": "2026-08-27 15:15:00.000000",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Verto Mobile Settings",

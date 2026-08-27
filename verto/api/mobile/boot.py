@@ -33,6 +33,14 @@ DEFAULT_MAP_SETTINGS = {
     "terrain_attribution": "Terrain &copy; Esri",
     "terrain_max_zoom": 13,
     "terrain_opacity": 0.45,
+    "rail_tile_url": "https://tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+    "rail_attribution": (
+        '&copy; <a href="https://www.openrailwaymap.org/">OpenRailwayMap</a>, '
+        'data &copy; <a href="https://www.openstreetmap.org/copyright">'
+        "OpenStreetMap</a> contributors"
+    ),
+    "rail_max_zoom": 19,
+    "rail_opacity": 1.0,
 }
 
 
@@ -288,6 +296,24 @@ def get_map_settings():
                 settings,
                 "map_terrain_opacity",
                 DEFAULT_MAP_SETTINGS["terrain_opacity"],
+            )
+        ),
+        "rail_tile_url": get_setting(
+            settings, "map_rail_tile_url", DEFAULT_MAP_SETTINGS["rail_tile_url"]
+        ),
+        "rail_attribution": get_setting(
+            settings,
+            "map_rail_attribution",
+            DEFAULT_MAP_SETTINGS["rail_attribution"],
+        ),
+        "rail_max_zoom": cint(
+            get_setting(
+                settings, "map_rail_max_zoom", DEFAULT_MAP_SETTINGS["rail_max_zoom"]
+            )
+        ),
+        "rail_opacity": flt(
+            get_setting(
+                settings, "map_rail_opacity", DEFAULT_MAP_SETTINGS["rail_opacity"]
             )
         ),
     }

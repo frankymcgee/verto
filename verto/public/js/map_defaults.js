@@ -33,6 +33,7 @@ const existing_default = existing_tiles.default_tile || {};
 const existing_satellite = existing_tiles.satellite_tile || {};
 const existing_labels = existing_tiles.labels_tail || {};
 const existing_terrain = existing_tiles.terrain_lines_tail || {};
+const existing_rail = existing_tiles.rail_tail || {};
 
 map_settings.tiles = {
 	...existing_tiles,
@@ -86,6 +87,37 @@ map_settings.tiles = {
 			attribution: setting_or(
 				configured_map.labels_attribution,
 				existing_labels.options?.attribution || "Labels &copy; Esri"
+			),
+		},
+	},
+
+	rail_tail: {
+		url: setting_or(
+			configured_map.rail_tile_url,
+			existing_rail.url ||
+				"https://tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png"
+		),
+		options: {
+			...(existing_rail.options || {}),
+			minZoom: map_settings.minZoom,
+			maxZoom: number_or(
+				configured_map.rail_max_zoom,
+				existing_rail.options?.maxZoom ?? 19
+			),
+			opacity: Math.min(
+				1,
+				Math.max(
+					0,
+					number_or(
+						configured_map.rail_opacity,
+						existing_rail.options?.opacity ?? 1
+					)
+				)
+			),
+			attribution: setting_or(
+				configured_map.rail_attribution,
+				existing_rail.options?.attribution ||
+					'&copy; <a href="https://www.openrailwaymap.org/">OpenRailwayMap</a>, data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 			),
 		},
 	},
