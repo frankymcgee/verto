@@ -11,7 +11,7 @@ required_apps = ["erpnext", "hrms", "raven", "gameplan"]
 
 add_to_apps_screen = [
     {
-        "name": "verto_planner",
+        "name": "verto",
         "logo": "/assets/verto/images/marketplace-logo.png",
         "title": "Verto Planner",
         "route": "/planner",
