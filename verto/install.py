@@ -32,7 +32,10 @@ def after_migrate():
 
 
 def ensure_verto_setup():
+    from verto.access import ensure_access_roles_and_profiles
+
     results = {
+        "access_profiles": ensure_access_roles_and_profiles(),
         "settings": False,
         "integration_defaults": False,
         "pwa_manifest": False,
@@ -133,6 +136,7 @@ def _ensure_project_raven_channel_default() -> bool:
     )
     frappe.clear_cache(doctype="Project")
     return True
+
 
 def _ensure_site_pwa_manifest() -> bool:
     """Create/update the site-local PWA manifest and generated icons."""

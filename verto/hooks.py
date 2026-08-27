@@ -4,17 +4,26 @@ app_publisher = "Webwire"
 app_description = "Fully customised Verto application for ERPNext Version-16"
 app_email = "support@webwire.com.au"
 app_license = "apache-2.0"
+app_logo = "/assets/verto/images/marketplace-logo.png"
+app_logo_url = "/assets/verto/images/marketplace-logo.png"
 
 required_apps = ["erpnext", "hrms", "raven", "gameplan"]
 
 add_to_apps_screen = [
     {
-        "name": "Planner",
-        "logo": "/assets/verto/images/verto.png",
-        "title": "Planner",
+        "name": "verto_planner",
+        "logo": "/assets/verto/images/marketplace-logo.png",
+        "title": "Verto Planner",
         "route": "/planner",
-        "has_permission": "verto.api.planner.check_app_permission",
-    }
+        "has_permission": "verto.access.can_view_planner_app",
+    },
+    {
+        "name": "verto_mobile",
+        "logo": "/assets/verto/images/marketplace-logo.png",
+        "title": "Verto Mobile",
+        "route": "/verto-mobile",
+        "has_permission": "verto.access.can_view_mobile_app",
+    },
 ]
 
 app_include_css = [
