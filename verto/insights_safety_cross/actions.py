@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import shlex
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -131,13 +133,26 @@ def _source_status() -> dict[str, Any]:
     return current
 
 
+def _find_bench_executable(bench_root: Path) -> str:
+    candidates = (
+        shutil.which("bench"),
+        str(Path(sys.executable).with_name("bench")),
+        str(Path.home() / ".local" / "bin" / "bench"),
+        str(bench_root / "env" / "bin" / "bench"),
+    )
+    for candidate in candidates:
+        if candidate and Path(candidate).is_file() and os.access(candidate, os.X_OK):
+            return candidate
+    return ""
+
+
 def _build_insights(insights_root: Path) -> None:
     bench_root = installer._bench_root(insights_root)
-    bench_executable = shutil.which("bench")
+    bench_executable = _find_bench_executable(bench_root)
     if not bench_executable:
         raise RuntimeError(
             "The Safety Cross source was installed, but the bench executable was not "
-            "found in PATH. Rebuild Insights from Pilot or the Bench console."
+            "found. Rebuild Insights from Pilot or the Bench console."
         )
 
     command = [bench_executable, "build", "--app", "insights"]
@@ -186,14 +201,6 @@ def queue_install_and_rebuild() -> dict[str, Any]:
         if detail:
             message = f"{message}\n\n{detail}"
         frappe.throw(message)
-
-    deployment = current.get("deployment") or {}
-    if deployment.get("state") in {"queued", "running"}:
-        return {
-            "queued": False,
-            "already_running": True,
-            "status": current,
-        }
 
     requested_by = frappe.session.user
     _set_deployment_state(
