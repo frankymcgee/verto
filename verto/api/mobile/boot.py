@@ -1,8 +1,39 @@
 import frappe
-from frappe.utils import get_url
+from frappe.utils import cint, flt, get_url
 
 
 SETTINGS_DOCTYPE = "Verto Mobile Settings"
+
+
+DEFAULT_MAP_SETTINGS = {
+    "center_latitude": -32.5279,
+    "center_longitude": 115.7189,
+    "default_zoom": 6,
+    "min_zoom": 0,
+    "max_zoom": 19,
+    "default_tile_url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    "default_attribution": (
+        '&copy; <a href="https://www.openstreetmap.org/copyright">'
+        "OpenStreetMap</a> contributors"
+    ),
+    "satellite_tile_url": (
+        "https://server.arcgisonline.com/ArcGIS/rest/services/"
+        "World_Imagery/MapServer/tile/{z}/{y}/{x}"
+    ),
+    "satellite_attribution": "Tiles &copy; Esri and the GIS User Community",
+    "labels_tile_url": (
+        "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/"
+        "World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+    ),
+    "labels_attribution": "Labels &copy; Esri",
+    "terrain_tile_url": (
+        "https://server.arcgisonline.com/ArcGIS/rest/services/"
+        "World_Terrain_Base/MapServer/tile/{z}/{y}/{x}"
+    ),
+    "terrain_attribution": "Terrain &copy; Esri",
+    "terrain_max_zoom": 13,
+    "terrain_opacity": 0.45,
+}
 
 
 DEFAULT_BOOT = {
@@ -171,6 +202,100 @@ def get_peri_bot_image_from_raven(bot_name):
             return bot_doc.get(fieldname)
 
     return ""
+
+
+def get_map_settings():
+    """Return validated map configuration from Verto Mobile Settings."""
+    settings = get_mobile_settings()
+
+    return {
+        "center_latitude": flt(
+            get_setting(
+                settings,
+                "map_center_latitude",
+                DEFAULT_MAP_SETTINGS["center_latitude"],
+            )
+        ),
+        "center_longitude": flt(
+            get_setting(
+                settings,
+                "map_center_longitude",
+                DEFAULT_MAP_SETTINGS["center_longitude"],
+            )
+        ),
+        "default_zoom": cint(
+            get_setting(
+                settings,
+                "map_default_zoom",
+                DEFAULT_MAP_SETTINGS["default_zoom"],
+            )
+        ),
+        "min_zoom": cint(
+            get_setting(settings, "map_min_zoom", DEFAULT_MAP_SETTINGS["min_zoom"])
+        ),
+        "max_zoom": cint(
+            get_setting(settings, "map_max_zoom", DEFAULT_MAP_SETTINGS["max_zoom"])
+        ),
+        "default_tile_url": get_setting(
+            settings,
+            "map_default_tile_url",
+            DEFAULT_MAP_SETTINGS["default_tile_url"],
+        ),
+        "default_attribution": get_setting(
+            settings,
+            "map_default_attribution",
+            DEFAULT_MAP_SETTINGS["default_attribution"],
+        ),
+        "satellite_tile_url": get_setting(
+            settings,
+            "map_satellite_tile_url",
+            DEFAULT_MAP_SETTINGS["satellite_tile_url"],
+        ),
+        "satellite_attribution": get_setting(
+            settings,
+            "map_satellite_attribution",
+            DEFAULT_MAP_SETTINGS["satellite_attribution"],
+        ),
+        "labels_tile_url": get_setting(
+            settings,
+            "map_labels_tile_url",
+            DEFAULT_MAP_SETTINGS["labels_tile_url"],
+        ),
+        "labels_attribution": get_setting(
+            settings,
+            "map_labels_attribution",
+            DEFAULT_MAP_SETTINGS["labels_attribution"],
+        ),
+        "terrain_tile_url": get_setting(
+            settings,
+            "map_terrain_tile_url",
+            DEFAULT_MAP_SETTINGS["terrain_tile_url"],
+        ),
+        "terrain_attribution": get_setting(
+            settings,
+            "map_terrain_attribution",
+            DEFAULT_MAP_SETTINGS["terrain_attribution"],
+        ),
+        "terrain_max_zoom": cint(
+            get_setting(
+                settings,
+                "map_terrain_max_zoom",
+                DEFAULT_MAP_SETTINGS["terrain_max_zoom"],
+            )
+        ),
+        "terrain_opacity": flt(
+            get_setting(
+                settings,
+                "map_terrain_opacity",
+                DEFAULT_MAP_SETTINGS["terrain_opacity"],
+            )
+        ),
+    }
+
+
+def add_map_settings_to_boot(bootinfo):
+    """Expose site map settings to Desk before map controls initialise."""
+    bootinfo.verto_map_settings = get_map_settings()
 
 
 @frappe.whitelist()

@@ -64,6 +64,8 @@ after_install = "verto.install.after_install"
 after_migrate = "verto.install.after_migrate"
 after_app_install = "verto.optional_integrations.after_app_install"
 
+extend_bootinfo = ["verto.api.mobile.boot.add_map_settings_to_boot"]
+
 # Apply site-managed runtime configuration before normal web and worker code.
 # This removes the need to manually duplicate Verto settings into site_config.json.
 before_request = ["verto.runtime_config.apply_runtime_config"]
