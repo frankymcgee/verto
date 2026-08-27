@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import os
 import shlex
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -133,33 +131,50 @@ def _source_status() -> dict[str, Any]:
     return current
 
 
-def _find_bench_executable(bench_root: Path) -> str:
-    candidates = (
-        shutil.which("bench"),
-        str(Path(sys.executable).with_name("bench")),
-        str(Path.home() / ".local" / "bin" / "bench"),
-        str(bench_root / "env" / "bin" / "bench"),
+def _bench_python(bench_root: Path) -> str:
+    """Return the Bench virtualenv Python used by Pilot and Frappe workers."""
+    candidate = bench_root / "env" / "bin" / "python"
+    if candidate.is_file():
+        return str(candidate)
+
+    # A normal Frappe background worker itself runs inside the Bench virtualenv,
+    # so sys.executable is the safest fallback when the conventional path differs.
+    if sys.executable and Path(sys.executable).is_file():
+        return sys.executable
+
+    raise RuntimeError(
+        "The Safety Cross source was installed, but the Bench Python executable "
+        "could not be located. Rebuild Insights from Pilot or the Bench console."
     )
-    for candidate in candidates:
-        if candidate and Path(candidate).is_file() and os.access(candidate, os.X_OK):
-            return candidate
-    return ""
 
 
 def _build_insights(insights_root: Path) -> None:
     bench_root = installer._bench_root(insights_root)
-    bench_executable = _find_bench_executable(bench_root)
-    if not bench_executable:
+    sites_root = bench_root / "sites"
+    if not sites_root.is_dir():
         raise RuntimeError(
-            "The Safety Cross source was installed, but the bench executable was not "
-            "found. Rebuild Insights from Pilot or the Bench console."
+            f"The Safety Cross source was installed, but the Bench sites directory "
+            f"could not be found at {sites_root}."
         )
 
-    command = [bench_executable, "build", "--app", "insights"]
+    # Pilot does not install a standalone `bench` executable inside every Bench.
+    # It invokes the Frappe CLI through the Bench virtualenv Python instead:
+    #   <bench>/env/bin/python -m frappe.utils.bench_helper frappe ...
+    # Running from sites/ is required so bench_helper can resolve apps.txt and
+    # common_site_config.json for this Bench.
+    command = [
+        _bench_python(bench_root),
+        "-m",
+        "frappe.utils.bench_helper",
+        "frappe",
+        "build",
+        "--app",
+        "insights",
+    ]
     print(f"[Safety Cross] build Insights: {shlex.join(command)}")
     result = subprocess.run(
         command,
-        cwd=str(bench_root),
+        cwd=str(sites_root),
         capture_output=True,
         check=False,
         text=True,
@@ -167,7 +182,7 @@ def _build_insights(insights_root: Path) -> None:
     if result.returncode == 0:
         return
 
-    details = (result.stderr or result.stdout or "").strip()
+    details = "\n".join(part for part in (result.stdout, result.stderr) if part).strip()
     if len(details) > 6000:
         details = details[-6000:]
     raise RuntimeError(
