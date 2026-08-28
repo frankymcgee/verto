@@ -3,7 +3,7 @@
   <header
     :class="props.compact
       ? 'app-profile-compact pointer-events-none fixed z-40'
-      : 'app-header-safe z-40 shrink-0 border-b border-outline-gray-1 bg-surface-white/95 backdrop-blur'"
+      : 'app-header-safe relative z-40 shrink-0 border-b border-outline-gray-1 bg-surface-white/95 backdrop-blur'"
   >
     <div
       :class="props.compact
