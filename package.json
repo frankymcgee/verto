@@ -4,7 +4,7 @@
   "private": true,
   "description": "Webwire Verto custom app for ERPNext",
   "dependencies": {
-    "@excalidraw/excalidraw": "latest",
+    "@excalidraw/excalidraw": "0.18.1",
     "react": "^19.0.1",
     "react-dom": "^19.0.1"
   },

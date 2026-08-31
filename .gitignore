@@ -15,9 +15,5 @@ verto/public/verto-mobile/assets/
 /verto/public/planner/index.html
 /verto/www/planner.html
 
-# Yarn lock files
-yarn.lock
-**/yarn.lock
-
 # Frappe-generated build assets
 verto/public/dist/
