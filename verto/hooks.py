@@ -32,6 +32,8 @@ app_include_css = [
     "/assets/verto/css/leaflet.draw.css",
     "/assets/verto/css/easy-button.css",
     "/assets/verto/css/L.Control.Locate.css",
+	"/assets/verto/css/whiteboard.css",
+    "/assets/verto/css/excalidraw.css",
 ]
 
 app_include_js = [
@@ -42,7 +44,8 @@ app_include_js = [
     "/assets/verto/js/project_calendar.js",
     "/assets/verto/js/map_view.js",
     "/assets/verto/js/raven_peri_auto_command.js",
-]
+    "/assets/verto/js/whiteboard_custom.js",
+]	
 
 web_include_js = [
     "/assets/verto/js/raven_peri_auto_command.js",

@@ -12,6 +12,7 @@ ALLOWED_MOBILE_DOCTYPES = {
     "job-hazard-analysis-review": "Job Hazard Analysis Review",
     "contractor-management-audit-checklist": "Contractor Management Audit Checklist",
     "prohibited-and-restricted-tooling-checklist": "Prohibited and Restricted Tooling Checklist",
+    "safe-zone-supervisor-check-in": "Safe Zone Supervisor Check-in",
     "safety-identification-rectification": "Safety Identification Rectification",
     "supervisor-batb": "Supervisor BATB",
     "weekly-summary": "Weekly Summary",

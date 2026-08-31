@@ -1,0 +1,328 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-08-27 11:45:12.118359",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "task_information_section",
+  "naming_series",
+  "link_project",
+  "project_name",
+  "column_break_bsvb",
+  "scope_or_wo",
+  "work_scope",
+  "column_break_xkpp",
+  "link_task",
+  "work_order_number",
+  "work_area",
+  "people_section",
+  "mindset_check",
+  "fitness_for_work",
+  "communication",
+  "people_comments",
+  "place_section",
+  "place_hazards",
+  "place_segregation",
+  "equipment_readiness",
+  "environmental_conditions",
+  "place_comments",
+  "practices_section",
+  "practices_documentation",
+  "practices_controls",
+  "prictices_hold_points",
+  "practices_changes",
+  "practices_captured",
+  "practices_lifting",
+  "clear_role",
+  "practices_comments",
+  "win_section",
+  "win_identified",
+  "win_reflect",
+  "win_comments",
+  "eos_section",
+  "eos_keep_in_zone",
+  "eos_outside_zone",
+  "eos_adjust",
+  "eos_comments"
+ ],
+ "fields": [
+  {
+   "fieldname": "task_information_section",
+   "fieldtype": "Section Break",
+   "label": "Task Information"
+  },
+  {
+   "default": "SZC-.YY..MM..DD.-.##",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "SZC-.YY..MM..DD.-.##",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "fetch_from": "link_task.project",
+   "fetch_if_empty": 1,
+   "fieldname": "link_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "options": "Project",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.link_project !== \"\"",
+   "fetch_from": "link_project.project_name",
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name"
+  },
+  {
+   "fieldname": "column_break_bsvb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Work Scope",
+   "fieldname": "scope_or_wo",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Work Scope or WO Number?",
+   "options": "Work Scope\nWork Order Number",
+   "print_hide": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "work_scope",
+   "fieldtype": "Data",
+   "label": "Work Summary"
+  },
+  {
+   "fieldname": "column_break_xkpp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+   "fieldname": "link_task",
+   "fieldtype": "Link",
+   "label": "Work Scope",
+   "link_filters": "[[\"Task\",\"project\",\"=\",\"eval: doc.link_project\"],[\"Task\",\"type\",\"=\",\"Work Summary\"]]",
+   "mandatory_depends_on": "eval:doc.scope_or_wo == \"Work Scope\"",
+   "options": "Task",
+   "print_hide": 1,
+   "search_index": 1
+  },
+  {
+   "depends_on": "eval:doc.scope_or_wo == \"Work Order Number\"",
+   "fetch_from": "link_task.work_order_number",
+   "fetch_if_empty": 1,
+   "fieldname": "work_order_number",
+   "fieldtype": "Data",
+   "label": "Work Order Number",
+   "mandatory_depends_on": "eval:doc.scope_or_wo == \"Work Order Number\""
+  },
+  {
+   "depends_on": "eval:doc.link_task !==\"\";",
+   "fetch_from": "link_task.parent_task_name",
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area"
+  },
+  {
+   "fieldname": "people_section",
+   "fieldtype": "Section Break",
+   "label": "People - are we switched on and in the zone?"
+  },
+  {
+   "fieldname": "mindset_check",
+   "fieldtype": "Select",
+   "label": "Is anyone stressed, distracted or frustrated?",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "fitness_for_work",
+   "fieldtype": "Select",
+   "label": "Are there any physical, fatigue or mental concerns?",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "communication",
+   "fieldtype": "Select",
+   "label": "Does everyone understand today's task?",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "people_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "place_section",
+   "fieldtype": "Section Break",
+   "label": "Place - is our area in the zone?"
+  },
+  {
+   "fieldname": "place_hazards",
+   "fieldtype": "Select",
+   "label": "Have we identified the hazards in the work area right now?",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "place_segregation",
+   "fieldtype": "Select",
+   "label": "Verify barricades, exclusion zones and traffic paths are in place.",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "equipment_readiness",
+   "fieldtype": "Select",
+   "label": "Tools, lifting gear, machinery, PPE available & fit for use.",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "environmental_conditions",
+   "fieldtype": "Select",
+   "label": "Heat, wind, noise and lighting reviewed.",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "place_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "practices_section",
+   "fieldtype": "Section Break",
+   "label": "Practices - are we doing it the right way"
+  },
+  {
+   "fieldname": "practices_documentation",
+   "fieldtype": "Select",
+   "label": "JHA, SWMS & permits are all signed and approved?",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "practices_controls",
+   "fieldtype": "Select",
+   "label": "All controls listed in the JHA, SWMS & permits are in place and effective?",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "prictices_hold_points",
+   "fieldtype": "Select",
+   "label": "Have we had all Hold Points confirmed and signed off?",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "practices_changes",
+   "fieldtype": "Select",
+   "label": "Has there been any changes requiring STOP-and-review?",
+   "options": "\nYes\nNo"
+  },
+  {
+   "depends_on": "eval:doc.practices_changes == \"Yes\"",
+   "fieldname": "practices_captured",
+   "fieldtype": "Select",
+   "label": " Is this captured in the JHA, SWMS or permits?",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "practices_lifting",
+   "fieldtype": "Select",
+   "label": "Lifting / Operational setup verified against the Cranes and Lifting procedure. ",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "clear_role",
+   "fieldtype": "Select",
+   "label": "Everyone knows their part.",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "practices_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "win_section",
+   "fieldtype": "Section Break",
+   "label": "What's Important Now (WIN)"
+  },
+  {
+   "fieldname": "win_identified",
+   "fieldtype": "Select",
+   "label": "Have we identified what our WIN is now?",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "win_reflect",
+   "fieldtype": "Select",
+   "label": "Reinforce this focus with the whole team.",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "win_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "eos_section",
+   "fieldtype": "Section Break",
+   "label": "End of shift reflection (optional)"
+  },
+  {
+   "fieldname": "eos_keep_in_zone",
+   "fieldtype": "Small Text",
+   "label": "What helped keep us in the zone today?"
+  },
+  {
+   "fieldname": "eos_outside_zone",
+   "fieldtype": "Small Text",
+   "label": "What slipped outside the zone?"
+  },
+  {
+   "fieldname": "eos_adjust",
+   "fieldtype": "Small Text",
+   "label": "What do we adjust tomorrow to improve?"
+  },
+  {
+   "fieldname": "eos_comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-27 12:09:44.710855",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Safe Zone Supervisor Check-in",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}
