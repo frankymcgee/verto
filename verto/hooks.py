@@ -29,7 +29,8 @@ app_include_css = [
     "/assets/verto/css/leaflet.css",
     "/assets/verto/css/leaflet.draw.css",
     "/assets/verto/css/easy-button.css",
-    "/assets/verto/css/L.Control.Locate.css"
+    "/assets/verto/css/L.Control.Locate.css",
+	"/assets/verto/css/whiteboard.css",
 ]
 app_include_js = [
 	"/assets/verto/js/gantt_view.js",
@@ -43,6 +44,8 @@ app_include_js = [
     #"/assets/verto/js/easy-button.js",
     #"/assets/verto/js/L.Control.Locate.js"
     "/assets/verto/js/raven_peri_auto_command.js",
+    "/assets/verto/js/whiteboard.js"
+    "/assets/verto/js/whiteboard_custom.js"
 ]	
 
 # include js, css files in header of web template
