@@ -77,16 +77,17 @@ def _site_config_value(key: str, default=""):
     return getattr(frappe.conf, key, None) or default
 
 
-def _get_vapid_config() -> dict:
-    public_key = _clean(_site_config_value(VAPID_PUBLIC_KEY_CONFIG))
-    private_key = _clean(_site_config_value(VAPID_PRIVATE_KEY_CONFIG))
-    subject = _clean(_site_config_value(VAPID_SUBJECT_CONFIG, DEFAULT_VAPID_SUBJECT))
+def _normalise_vapid_config(public_key="", private_key="", subject="") -> dict:
+    public_key = _clean(public_key)
+    private_key = _clean(private_key)
+    subject = _clean(subject) or DEFAULT_VAPID_SUBJECT
 
     if not subject.startswith(("mailto:", "https://", "http://")):
         subject = f"mailto:{subject}" if "@" in subject else DEFAULT_VAPID_SUBJECT
 
-    # site_config.json may contain an escaped PEM value. A filesystem path can also
-    # be supplied and is passed through unchanged for pywebpush to load.
+    # Legacy site_config.json values may contain an escaped PEM value. A
+    # filesystem path can also be supplied and is passed through unchanged for
+    # pywebpush to load.
     if "\\n" in private_key and "-----BEGIN" in private_key:
         private_key = private_key.replace("\\n", "\n")
 
@@ -96,6 +97,55 @@ def _get_vapid_config() -> dict:
         "subject": subject,
         "configured": bool(public_key and private_key),
     }
+
+
+def _get_vapid_config() -> dict:
+    """Read VAPID configuration from Verto Mobile Settings first.
+
+    ``site_config.json`` remains a transitional fallback only for sites that
+    have not migrated their legacy VAPID values yet. Once Verto Mobile Settings
+    contains push configuration, it is authoritative. In particular, an
+    explicit disabled setting must not be overridden by stale legacy values.
+    """
+    settings_available = False
+    try:
+        settings_available = bool(
+            frappe.db and frappe.db.exists("DocType", SETTINGS_DOCTYPE)
+        )
+    except Exception:
+        settings_available = False
+
+    if settings_available:
+        try:
+            from verto.runtime_config import get_push_settings_config
+
+            settings_config = get_push_settings_config()
+        except Exception:
+            settings_config = {}
+
+        if settings_config:
+            if not settings_config.get("enabled", True):
+                return _normalise_vapid_config(
+                    subject=settings_config.get("subject") or DEFAULT_VAPID_SUBJECT
+                )
+
+            # Prefer even a partially-entered settings keypair over legacy
+            # values. This makes configuration errors visible instead of
+            # silently falling back to stale credentials.
+            if settings_config.get("public_key") or settings_config.get("private_key"):
+                return _normalise_vapid_config(
+                    public_key=settings_config.get("public_key"),
+                    private_key=settings_config.get("private_key"),
+                    subject=settings_config.get("subject"),
+                )
+
+    # Transitional compatibility for sites whose legacy keys have not yet been
+    # migrated by verto.runtime_config.ensure_push_configuration().
+    return _normalise_vapid_config(
+        public_key=_site_config_value(VAPID_PUBLIC_KEY_CONFIG),
+        private_key=_site_config_value(VAPID_PRIVATE_KEY_CONFIG),
+        subject=_site_config_value(VAPID_SUBJECT_CONFIG, DEFAULT_VAPID_SUBJECT),
+    )
 
 
 def _validate_subscription(subscription: dict) -> dict:

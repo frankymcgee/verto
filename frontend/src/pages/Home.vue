@@ -294,7 +294,7 @@
                         class="w-full justify-center"
                         @click="openPicker('form', task)"
                       >
-                        + Form
+                        
                       </Button>
 
                       <Button

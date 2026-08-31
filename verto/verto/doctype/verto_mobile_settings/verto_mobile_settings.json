@@ -44,7 +44,43 @@
   "desk_icon",
   "planner_icon",
   "planner_view_default",
+  "map_settings_tab",
+  "map_view_section",
+  "map_center_latitude",
+  "map_center_longitude",
+  "column_break_map_view",
+  "map_default_zoom",
+  "map_min_zoom",
+  "map_max_zoom",
+  "default_map_layer_section",
+  "map_default_tile_url",
+  "map_default_attribution",
+  "satellite_map_layer_section",
+  "map_satellite_tile_url",
+  "map_satellite_attribution",
+  "labels_map_layer_section",
+  "map_labels_tile_url",
+  "map_labels_attribution",
+  "terrain_map_layer_section",
+  "map_terrain_tile_url",
+  "map_terrain_attribution",
+  "column_break_map_terrain",
+  "map_terrain_max_zoom",
+  "map_terrain_opacity",
+  "rail_map_layer_section",
+  "map_rail_tile_url",
+  "map_rail_attribution",
+  "column_break_map_rail",
+  "map_rail_max_zoom",
+  "map_rail_opacity",
   "push_notifications_tab",
+  "push_configuration_section",
+  "push_notifications_enabled",
+  "vapid_subject",
+  "column_break_push",
+  "vapid_public_key",
+  "vapid_private_key",
+  "vapid_generated_on",
   "timesheet_reminder_exclusions"
  ],
  "fields": [
@@ -252,6 +288,48 @@
    "label": "Push Notifications"
   },
   {
+   "fieldname": "push_configuration_section",
+   "fieldtype": "Section Break",
+   "label": "Web Push Configuration"
+  },
+  {
+   "default": "1",
+   "description": "Enable Verto web push notifications for this site.",
+   "fieldname": "push_notifications_enabled",
+   "fieldtype": "Check",
+   "label": "Push Notifications Enabled"
+  },
+  {
+   "default": "mailto:support@webwire.com.au",
+   "description": "VAPID subject. Use a mailto: address or an HTTPS URL.",
+   "fieldname": "vapid_subject",
+   "fieldtype": "Data",
+   "label": "VAPID Subject"
+  },
+  {
+   "fieldname": "column_break_push",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Generated automatically. Used by browsers when creating push subscriptions.",
+   "fieldname": "vapid_public_key",
+   "fieldtype": "Small Text",
+   "label": "VAPID Public Key",
+   "read_only": 1
+  },
+  {
+   "description": "Generated automatically and encrypted by Frappe. Rotating this key invalidates existing browser subscriptions.",
+   "fieldname": "vapid_private_key",
+   "fieldtype": "Password",
+   "label": "VAPID Private Key"
+  },
+  {
+   "fieldname": "vapid_generated_on",
+   "fieldtype": "Datetime",
+   "label": "VAPID Keys Generated On",
+   "read_only": 1
+  },
+  {
    "fieldname": "timesheet_reminder_exclusions",
    "fieldtype": "Table",
    "label": "Timesheet Reminder Exclusions",
@@ -266,13 +344,182 @@
    "fieldtype": "Table",
    "label": "Project Tools",
    "options": "Verto Mobile Project Tool"
+  },
+  {
+   "fieldname": "map_settings_tab",
+   "fieldtype": "Tab Break",
+   "label": "Map Settings"
+  },
+  {
+   "fieldname": "map_view_section",
+   "fieldtype": "Section Break",
+   "label": "Default Map View"
+  },
+  {
+   "default": "-32.5279",
+   "description": "Initial latitude used when a map has no saved location.",
+   "fieldname": "map_center_latitude",
+   "fieldtype": "Float",
+   "label": "Centre Latitude"
+  },
+  {
+   "default": "115.7189",
+   "description": "Initial longitude used when a map has no saved location.",
+   "fieldname": "map_center_longitude",
+   "fieldtype": "Float",
+   "label": "Centre Longitude"
+  },
+  {
+   "fieldname": "column_break_map_view",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "6",
+   "fieldname": "map_default_zoom",
+   "fieldtype": "Int",
+   "label": "Default Zoom"
+  },
+  {
+   "default": "0",
+   "fieldname": "map_min_zoom",
+   "fieldtype": "Int",
+   "label": "Minimum Zoom"
+  },
+  {
+   "default": "19",
+   "fieldname": "map_max_zoom",
+   "fieldtype": "Int",
+   "label": "Maximum Zoom"
+  },
+  {
+   "fieldname": "default_map_layer_section",
+   "fieldtype": "Section Break",
+   "label": "Default Street Layer"
+  },
+  {
+   "default": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+   "description": "Leaflet tile URL. The {s}, {z}, {x}, and {y} placeholders are supported.",
+   "fieldname": "map_default_tile_url",
+   "fieldtype": "Small Text",
+   "label": "Tile URL"
+  },
+  {
+   "default": "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors",
+   "fieldname": "map_default_attribution",
+   "fieldtype": "Small Text",
+   "label": "Attribution"
+  },
+  {
+   "fieldname": "satellite_map_layer_section",
+   "fieldtype": "Section Break",
+   "label": "Satellite Layer"
+  },
+  {
+   "default": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+   "fieldname": "map_satellite_tile_url",
+   "fieldtype": "Small Text",
+   "label": "Tile URL"
+  },
+  {
+   "default": "Tiles &copy; Esri and the GIS User Community",
+   "fieldname": "map_satellite_attribution",
+   "fieldtype": "Small Text",
+   "label": "Attribution"
+  },
+  {
+   "fieldname": "labels_map_layer_section",
+   "fieldtype": "Section Break",
+   "label": "Labels Overlay"
+  },
+  {
+   "default": "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+   "fieldname": "map_labels_tile_url",
+   "fieldtype": "Small Text",
+   "label": "Tile URL"
+  },
+  {
+   "default": "Labels &copy; Esri",
+   "fieldname": "map_labels_attribution",
+   "fieldtype": "Small Text",
+   "label": "Attribution"
+  },
+  {
+   "fieldname": "terrain_map_layer_section",
+   "fieldtype": "Section Break",
+   "label": "Terrain Overlay"
+  },
+  {
+   "default": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}",
+   "fieldname": "map_terrain_tile_url",
+   "fieldtype": "Small Text",
+   "label": "Tile URL"
+  },
+  {
+   "default": "Terrain &copy; Esri",
+   "fieldname": "map_terrain_attribution",
+   "fieldtype": "Small Text",
+   "label": "Attribution"
+  },
+  {
+   "fieldname": "column_break_map_terrain",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "13",
+   "fieldname": "map_terrain_max_zoom",
+   "fieldtype": "Int",
+   "label": "Maximum Zoom"
+  },
+  {
+   "default": "0.45",
+   "description": "Value from 0 (transparent) to 1 (opaque).",
+   "fieldname": "map_terrain_opacity",
+   "fieldtype": "Float",
+   "label": "Opacity",
+   "precision": "2"
+  },
+  {
+   "fieldname": "rail_map_layer_section",
+   "fieldtype": "Section Break",
+   "label": "Rail Overlay"
+  },
+  {
+   "default": "https://tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+   "description": "Transparent railway infrastructure overlay supplied by OpenRailwayMap.",
+   "fieldname": "map_rail_tile_url",
+   "fieldtype": "Small Text",
+   "label": "Tile URL"
+  },
+  {
+   "default": "&copy; <a href=\"https://www.openrailwaymap.org/\">OpenRailwayMap</a>, data &copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors",
+   "fieldname": "map_rail_attribution",
+   "fieldtype": "Small Text",
+   "label": "Attribution"
+  },
+  {
+   "fieldname": "column_break_map_rail",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "19",
+   "fieldname": "map_rail_max_zoom",
+   "fieldtype": "Int",
+   "label": "Maximum Zoom"
+  },
+  {
+   "default": "1",
+   "description": "Value from 0 (transparent) to 1 (opaque).",
+   "fieldname": "map_rail_opacity",
+   "fieldtype": "Float",
+   "label": "Opacity",
+   "precision": "2"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-08-20 10:40:20.160875",
+ "modified": "2026-08-27 15:15:00.000000",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Verto Mobile Settings",

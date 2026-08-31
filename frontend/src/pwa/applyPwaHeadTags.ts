@@ -17,8 +17,8 @@ type PwaMetadata = {
   background_color?: string
 }
 
-const FALLBACK_TITLE = 'MSS'
-const FALLBACK_DESCRIPTION = 'PWA Companion app for Mine Site Support'
+const FALLBACK_TITLE = 'Verto'
+const FALLBACK_DESCRIPTION = 'Mobile companion app for Verto'
 const FALLBACK_MANIFEST_HREF = '/files/verto-mobile-manifest.webmanifest'
 const FALLBACK_APPLE_TOUCH_ICON = '/assets/verto/manifest/apple-touch-icon.png'
 const FALLBACK_ICON = '/assets/verto/manifest/mss-pwa-192.png'

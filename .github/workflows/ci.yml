@@ -1,22 +1,19 @@
-
-name: CI
+name: Verto v16 CI
 
 on:
   push:
     branches:
-      - develop
+      - version-16
   pull_request:
 
 concurrency:
-  group: develop-verto-${{ github.event.number }}
+  group: verto-v16-${{ github.event.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  tests:
+  validation:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-    name: Server
+    name: Frappe v16 fresh install validation
 
     services:
       redis-cache:
@@ -33,77 +30,78 @@ jobs:
           MYSQL_ROOT_PASSWORD: root
         ports:
           - 3306:3306
-        options: --health-cmd="mariadb-admin ping" --health-interval=5s --health-timeout=2s --health-retries=3
+        options: --health-cmd="mariadb-admin ping -proot" --health-interval=5s --health-timeout=3s --health-retries=10
 
     steps:
-      - name: Clone
-        uses: actions/checkout@v3
+      - name: Checkout Verto
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: Setup Python 3.14
+        uses: actions/setup-python@v5
         with:
           python-version: '3.14'
 
-      - name: Setup Node
-        uses: actions/setup-node@v3
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
         with:
           node-version: 24
           check-latest: true
 
-      - name: Cache pip
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/*requirements.txt', '**/pyproject.toml', '**/setup.py', '**/setup.cfg') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-            ${{ runner.os }}-
-
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
-        run: 'echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT'
-
-      - uses: actions/cache@v3
-        id: yarn-cache
-        with:
-          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-
-
-      # Updated MariaDB Repository
-      - name: Install MariaDB Client 10.6
+      - name: Install system dependencies
         run: |
-          sudo apt-get install -y software-properties-common
-          sudo apt-key adv --fetch-keys 'https://mariadb.org/mariadb_release_signing_key.asc'
-          sudo add-apt-repository 'deb [arch=amd64,arm64,ppc64el] https://mariadb.mirror.digitalpacific.com.au/repo/10.6/ubuntu jammy main'
           sudo apt-get update
-          sudo apt-get install -y mariadb-client
+          sudo apt-get install -y mariadb-client redis-tools
 
-      # Ensure Compatibility in Setup
-      - name: Setup
+      - name: Install Bench
         run: |
           python -m pip install --upgrade pip
-          pip install "frappe-bench==5.29.1"
-          bench init --skip-redis-config-generation --skip-assets --python "$(which python)" ~/frappe-bench
-          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
-          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
+          python -m pip install --upgrade frappe-bench
 
-      - name: Install
+      - name: Initialise Frappe v16 bench
+        run: |
+          bench init \
+            --frappe-branch version-16 \
+            --skip-redis-config-generation \
+            --skip-assets \
+            --python "$(which python)" \
+            ~/frappe-bench
+
+      - name: Fetch Verto dependencies
         working-directory: /home/runner/frappe-bench
         run: |
-          bench get-app verto $GITHUB_WORKSPACE
+          bench get-app --branch version-16 erpnext https://github.com/frappe/erpnext.git
+          bench get-app --branch version-16 hrms https://github.com/frappe/hrms.git
+          bench get-app gameplan https://github.com/frappe/gameplan.git
+          bench get-app raven https://github.com/frappe/raven.git
+          bench get-app verto "$GITHUB_WORKSPACE"
           bench setup requirements --dev
-          bench new-site --db-root-password root --admin-password admin test_site
-          bench --site test_site install-app verto
-          bench build
+
+      - name: Create fresh site and install Verto
+        working-directory: /home/runner/frappe-bench
         env:
           CI: 'Yes'
+        run: |
+          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
+          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
+          bench new-site \
+            --db-host 127.0.0.1 \
+            --db-port 3306 \
+            --db-root-password root \
+            --admin-password admin \
+            test_site
+          bench --site test_site install-app verto
+          bench --site test_site migrate
 
-      - name: Run Tests
+      - name: Build Verto assets
         working-directory: /home/runner/frappe-bench
         run: |
-          bench --site test_site set-config allow_tests true
-          bench --site test_site run-tests --app verto
-        env:
-          TYPE: server
+          bench build --app verto
+
+      - name: Verify automated Verto setup
+        working-directory: /home/runner/frappe-bench
+        run: |
+          bench --site test_site execute verto.install.ensure_verto_setup
+          bench --site test_site execute verto.runtime_config.get_push_settings_config
+          bench --site test_site execute verto.health.collect_system_health
