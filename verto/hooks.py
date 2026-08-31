@@ -44,7 +44,6 @@ app_include_js = [
     #"/assets/verto/js/easy-button.js",
     #"/assets/verto/js/L.Control.Locate.js"
     "/assets/verto/js/raven_peri_auto_command.js",
-    "/assets/verto/js/whiteboard.js"
     "/assets/verto/js/whiteboard_custom.js"
 ]	
 
