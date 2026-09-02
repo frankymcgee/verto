@@ -19,7 +19,7 @@ type PwaMetadata = {
 
 const FALLBACK_TITLE = 'Verto'
 const FALLBACK_DESCRIPTION = 'Mobile companion app for Verto'
-const FALLBACK_MANIFEST_HREF = '/files/verto-mobile-manifest.webmanifest'
+const FALLBACK_MANIFEST_HREF = '/assets/verto/verto-mobile/manifest.webmanifest'
 const FALLBACK_APPLE_TOUCH_ICON = '/assets/verto/manifest/apple-touch-icon.png'
 const FALLBACK_ICON = '/assets/verto/manifest/mss-pwa-192.png'
 const FALLBACK_MASK_ICON = '/assets/verto/manifest/mss-pwa-maskable-512.png'

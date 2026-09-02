@@ -18,6 +18,7 @@ SITE_MANIFEST_PUBLIC_URL = f"/files/{SITE_MANIFEST_FILENAME}"
 
 ASSET_MANIFEST_RELATIVE_PATH = ("public", "verto-mobile", "manifest.webmanifest")
 ASSET_MANIFEST_PUBLIC_URL = "/assets/verto/verto-mobile/manifest.webmanifest"
+DEFAULT_MANIFEST_PUBLIC_URL = ASSET_MANIFEST_PUBLIC_URL
 
 DEFAULT_MANIFEST_ID = "/verto-mobile/"
 DEFAULT_START_URL = "/verto-mobile"
@@ -646,13 +647,14 @@ def generate_manifest_from_settings():
     site_manifest_url = _write_site_manifest(manifest_json)
     asset_manifest_url = _write_asset_manifest(manifest_json)
 
-    _save_generated_values_to_settings(settings, site_manifest_url, generated_icon_urls)
+    canonical_manifest_url = asset_manifest_url or site_manifest_url
+    _save_generated_values_to_settings(settings, canonical_manifest_url, generated_icon_urls)
 
     frappe.clear_cache(doctype=SETTINGS_DOCTYPE)
 
     return {
         "manifest": manifest,
-        "manifest_url": site_manifest_url,
+        "manifest_url": canonical_manifest_url,
         "asset_manifest_url": asset_manifest_url,
         "generated_icons": generated_icon_urls,
         "written_files": [
@@ -675,7 +677,7 @@ def get_pwa_metadata():
             "app_name": DEFAULT_APP_NAME,
             "short_name": DEFAULT_SHORT_NAME,
             "description": _build_manifest_description(DEFAULT_APP_NAME),
-            "manifest_url": SITE_MANIFEST_PUBLIC_URL,
+            "manifest_url": DEFAULT_MANIFEST_PUBLIC_URL,
             "apple_touch_icon": _generated_icon_url("apple_touch_icon", cache_bust=False),
             "icon": _generated_icon_url("icon_192", cache_bust=False),
             "theme_color": DEFAULT_THEME_COLOR,
@@ -689,14 +691,20 @@ def get_pwa_metadata():
     manifest_url = _get_first(
         settings,
         ["pwa_manifest_url", "manifest_url"],
-        SITE_MANIFEST_PUBLIC_URL,
+        DEFAULT_MANIFEST_PUBLIC_URL,
     )
+
+    # Older installations stored the site-local URL even when that generated
+    # file was not persisted by the hosting platform. The asset manifest ships
+    # with the app and is the reliable public URL on those deployments.
+    if _clean_path_or_url(manifest_url) == SITE_MANIFEST_PUBLIC_URL:
+        manifest_url = DEFAULT_MANIFEST_PUBLIC_URL
 
     return {
         "app_name": app_name,
         "short_name": short_name,
         "description": _build_manifest_description(app_name),
-        "manifest_url": _clean_path_or_url(manifest_url) or SITE_MANIFEST_PUBLIC_URL,
+        "manifest_url": _clean_path_or_url(manifest_url) or DEFAULT_MANIFEST_PUBLIC_URL,
         "apple_touch_icon": icon_urls["apple_touch_icon"],
         "icon": icon_urls["icon_192"],
         "theme_color": _normalise_color(

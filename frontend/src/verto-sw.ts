@@ -280,6 +280,7 @@ async function notifyOfflineQueueUpdated() {
 async function queueUploadRequest(request: Request) {
   const formData = await request.formData()
   const value = formData.get('file')
+  const fileName = String(formData.get('file_name') || '').trim()
   const doctype = String(formData.get('doctype') || '').trim()
   const docname = String(formData.get('docname') || '').trim()
 
@@ -287,7 +288,7 @@ async function queueUploadRequest(request: Request) {
     throw new Error('Offline attachment request is incomplete.')
   }
 
-  const attachment = makeOfflineAttachment(value, (value as File).name)
+  const attachment = makeOfflineAttachment(value, fileName || (value as File).name)
   let operation = await findDocumentOperation(docname)
 
   if (!operation) {
@@ -497,7 +498,10 @@ self.addEventListener('fetch', (event) => {
 
   if (
     request.method === 'POST' &&
-    url.pathname === '/api/method/upload_file'
+    (
+      url.pathname === '/api/method/upload_file' ||
+      url.pathname === '/api/method/verto.api.mobile.documents.upload_mobile_attachment'
+    )
   ) {
     event.respondWith(handleUploadRequest(request))
     return

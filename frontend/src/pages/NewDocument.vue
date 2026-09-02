@@ -1350,13 +1350,14 @@ async function uploadFiles(
     // third argument, some multipart requests arrive in Frappe as an unnamed
     // blob, leaving the File document with neither file_name nor file_url.
     formData.append('file', file, file.name)
+    formData.append('file_name', file.name)
     formData.append('doctype', doctype)
     formData.append('docname', targetDocname)
     formData.append('is_private', '1')
 
     let response: Response
     try {
-      response = await fetch('/api/method/upload_file', {
+      response = await fetch('/api/method/verto.api.mobile.documents.upload_mobile_attachment', {
         method: 'POST',
         credentials: 'include',
         headers: withCsrfHeaders(undefined, 'POST'),

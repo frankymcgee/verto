@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 import frappe
 from frappe.utils import cint, getdate, now_datetime, today
+from frappe.utils.file_manager import save_file
 
 
 MOBILE_SETTINGS_DOCTYPE = "Verto Mobile Settings"
@@ -402,6 +403,55 @@ def get_existing_files_for_doc(doctype, docname):
         ],
         order_by="creation desc",
     )
+
+
+@frappe.whitelist(methods=["POST"])
+def upload_mobile_attachment(doctype, docname, file_name=None, is_private=1):
+    """Attach an uploaded file without relying on Frappe's generic upload handler.
+
+    Mobile Safari can submit a valid multipart blob without a filename that the
+    generic handler recognises. The PWA therefore sends file_name separately and
+    this endpoint deliberately preserves it when saving the File document.
+    """
+    require_login()
+
+    allowed_doctype = get_allowed_doctype(doctype)
+    if not docname or not frappe.db.exists(allowed_doctype, docname):
+        frappe.throw("Attachment target was not found.", frappe.DoesNotExistError)
+
+    target_doc = frappe.get_doc(allowed_doctype, docname)
+    require_desk_doc_write(target_doc)
+
+    files = getattr(frappe.request, "files", None) or {}
+    uploaded = files.get("file")
+    if not uploaded:
+        frappe.throw("Attachment file was not received.", frappe.ValidationError)
+
+    filename = str(file_name or uploaded.filename or "").strip()
+    if not filename:
+        frappe.throw("Attachment filename was not received.", frappe.ValidationError)
+
+    content = uploaded.stream.read()
+    if not content:
+        frappe.throw("Attachment file is empty.", frappe.ValidationError)
+
+    file_doc = save_file(
+        filename,
+        content,
+        allowed_doctype,
+        docname,
+        is_private=cint(is_private),
+    )
+
+    return {
+        "name": file_doc.name,
+        "file_name": file_doc.file_name,
+        "file_url": file_doc.file_url,
+        "file_size": file_doc.file_size,
+        "is_private": cint(file_doc.is_private),
+        "doctype": allowed_doctype,
+        "docname": docname,
+    }
 
 
 def set_doc_values_from_mobile(doc, values):

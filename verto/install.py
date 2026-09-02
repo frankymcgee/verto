@@ -147,6 +147,7 @@ def _ensure_site_pwa_manifest() -> bool:
             _generate_pwa_icons_from_app_logo,
             _get_existing_or_generated_icon_urls,
             _save_generated_values_to_settings,
+            _write_asset_manifest,
             _write_site_manifest,
             build_manifest_from_settings,
         )
@@ -167,7 +168,8 @@ def _ensure_site_pwa_manifest() -> bool:
 
         manifest = build_manifest_from_settings(settings, icon_urls)
         manifest_json = json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
-        manifest_url = _write_site_manifest(manifest_json)
+        site_manifest_url = _write_site_manifest(manifest_json)
+        manifest_url = _write_asset_manifest(manifest_json) or site_manifest_url
         _save_generated_values_to_settings(settings, manifest_url, icon_urls)
         return True
     except Exception:
