@@ -95,8 +95,6 @@ function removeExistingFavicons() {
     [
       'link[rel="icon"]',
       'link[rel="shortcut icon"]',
-      'link[rel="apple-touch-icon"]',
-      'link[rel="mask-icon"]',
     ].join(',')
   )
 
@@ -133,7 +131,6 @@ function setFavicon(href: string) {
 
   appendIcon('icon', cacheBustedHref, type)
   appendIcon('shortcut icon', cacheBustedHref, type)
-  appendIcon('apple-touch-icon', cacheBustedHref)
 }
 
 function setBrowserTitle() {

@@ -93,6 +93,12 @@ def get_site_base_url():
     frappe.utils.get_url() will use the active request/site context, and can
     also use host_name from site_config when needed.
     """
+    forwarded_proto = str(frappe.get_request_header("X-Forwarded-Proto") or "").split(",")[0].strip()
+    forwarded_host = str(frappe.get_request_header("X-Forwarded-Host") or "").split(",")[0].strip()
+
+    if forwarded_proto in {"http", "https"} and forwarded_host:
+        return f"{forwarded_proto}://{forwarded_host}".rstrip("/")
+
     return get_url().rstrip("/")
 
 
@@ -116,18 +122,14 @@ def normalise_asset_url(value):
 
 
 def absolute_url(value):
+    """Return a browser-safe asset URL without exposing an internal Bench port."""
     if not value:
         return ""
 
-    value = str(value).strip()
-
-    if value.startswith(("http://", "https://", "data:")):
-        return value
-
-    if not value.startswith("/"):
-        value = f"/{value}"
-
-    return get_url(value)
+    # Browser clients resolve same-site paths against their actual public origin.
+    # Calling get_url(value) here can leak site_config.host_name (often :8000
+    # behind Pilot/nginx) into image and icon requests.
+    return normalise_asset_url(value)
 
 
 def get_user_image(user):

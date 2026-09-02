@@ -307,17 +307,8 @@ def _get_existing_or_generated_icon_urls(settings) -> dict[str, str]:
             for key in GENERATED_ICON_FILES
         }
 
-    app_logo = _clean_path_or_url(_get_first(settings, ["app_logo"], ""))
-
-    if app_logo:
-        return {
-            "icon_192": app_logo,
-            "icon_512": app_logo,
-            "maskable_192": app_logo,
-            "maskable_512": app_logo,
-            "apple_touch_icon": app_logo,
-        }
-
+    # Never claim an arbitrary App Logo has 180/192/512 dimensions. Browsers
+    # reject manifest icons when their real dimensions do not match `sizes`.
     return {
         "icon_192": "/assets/verto/manifest/mss-pwa-192.png",
         "icon_512": "/assets/verto/manifest/mss-pwa-512.png",

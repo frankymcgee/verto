@@ -168,15 +168,27 @@ function getAbsoluteUrl(path?: string) {
     return ''
   }
 
-  if (
-    value.startsWith('http://') ||
-    value.startsWith('https://') ||
-    value.startsWith('data:')
-  ) {
+  if (value.startsWith('data:')) {
     return value
   }
 
-  return `${boot.value.base_url}${value}`
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    try {
+      const parsed = new URL(value)
+
+      // Repair legacy boot/settings values that contain the public hostname
+      // with an internal Bench port such as :8000.
+      if (parsed.hostname === window.location.hostname) {
+        return `${window.location.origin}${parsed.pathname}${parsed.search}${parsed.hash}`
+      }
+    } catch {
+      return value
+    }
+
+    return value
+  }
+
+  return `${window.location.origin}${value}`
 }
 
 function getApiMethodUrl(method: string) {
@@ -209,23 +221,23 @@ export function useMobileBoot() {
 
     appName: computed(() => boot.value.app_name || defaultBoot.app_name),
     appIcon: computed(() => boot.value.app_icon || defaultBoot.app_icon),
-    appIconUrl: computed(() => boot.value.app_icon_url || getAbsoluteUrl(boot.value.app_icon)),
+    appIconUrl: computed(() => getAbsoluteUrl(boot.value.app_icon_url || boot.value.app_icon)),
     appLogo: computed(() => boot.value.app_logo),
-    appLogoUrl: computed(() => boot.value.app_logo_url || getAbsoluteUrl(boot.value.app_logo)),
+    appLogoUrl: computed(() => getAbsoluteUrl(boot.value.app_logo_url || boot.value.app_logo)),
     favicon: computed(() => boot.value.favicon || ''),
-    faviconUrl: computed(() => boot.value.favicon_url || getAbsoluteUrl(boot.value.favicon)),
+    faviconUrl: computed(() => getAbsoluteUrl(boot.value.favicon_url || boot.value.favicon)),
 
     user: computed(() => boot.value.user),
     userFullname: computed(() => boot.value.user_fullname || boot.value.user),
     userImage: computed(() => boot.value.user_image || ''),
-    userImageUrl: computed(() => boot.value.user_image_url || getAbsoluteUrl(boot.value.user_image)),
+    userImageUrl: computed(() => getAbsoluteUrl(boot.value.user_image_url || boot.value.user_image)),
 
     defaultWorkspace: computed(() => boot.value.default_workspace),
     defaultChatChannel: computed(() => boot.value.default_chat_channel || 'general'),
     periBotName: computed(() => boot.value.peri_bot_name || 'P.E.R.I.'),
     periBotUser: computed(() => boot.value.peri_bot_user),
     periBotImage: computed(() => boot.value.peri_bot_image || ''),
-    periBotImageUrl: computed(() => boot.value.peri_bot_image_url || getAbsoluteUrl(boot.value.peri_bot_image)),
+    periBotImageUrl: computed(() => getAbsoluteUrl(boot.value.peri_bot_image_url || boot.value.peri_bot_image)),
 
     loadMobileBoot,
     reloadMobileBoot,
