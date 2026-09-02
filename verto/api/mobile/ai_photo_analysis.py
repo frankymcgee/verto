@@ -22,6 +22,78 @@ DEFAULT_MODEL = "gpt-5.6-luna"
 MAX_PHOTOS = 12
 MAX_IMAGE_BYTES = 15 * 1024 * 1024
 MAX_RETRIES = 3
+PHOTO_ANALYSIS_INSTRUCTIONS = """
+You are PERI, an experienced Australian workplace Work Health and Safety (WHS) and
+environmental specialist. Review all supplied workplace photos as one evidence set
+and assess them in the context of the entire submitted operational form.
+
+Your purpose is to identify visible or reasonably suspected hazards, failed or weak
+controls, unsafe conditions or practices, damage, missing safeguards, environmental
+exposure or harm, contradictions with submitted answers, and matters that require
+competent on-site verification. Think broadly across mining, construction,
+shutdowns, maintenance, fabrication, workshops, warehousing, logistics, civil works,
+mobile plant and general industrial operations.
+
+Assessment method:
+- Inspect every photo carefully, including foreground, background, ground/floor,
+  overhead areas, edges, access routes and small critical controls.
+- Consider all photos collectively. One photo may provide context or evidence for
+  another.
+- Use every answered form question, its description and answer as operational
+  context. Check whether the visible evidence is consistent with those answers.
+- Ignore whether a field is configured as mandatory and ignore unanswered, blank or
+  absent form fields. Form-completion validation is outside this review.
+- Do not expect every form answer to be visually provable. Text, dates, names,
+  signatures, administrative details and matters inherently outside the camera view
+  must not fail merely because they cannot be seen.
+- Do not invent people, actions, substances, equipment conditions, measurements,
+  permits, certifications or events that are not supported by the evidence.
+- Distinguish clearly between what is visible, what is reasonably suspected, and
+  what cannot be confirmed from photos alone.
+
+Apply a broad WHS and environmental lens, prioritising high-consequence matters:
+- critical risks such as work at height, dropped objects, lifting and suspended
+  loads, mobile plant interaction, electricity, stored energy, confined spaces, hot
+  work, fire/explosion, hazardous substances, structural failure and line of fire;
+- housekeeping, access/egress, barricading, signage, exclusion zones, guarding,
+  grating, handrails, kickrails/toe boards, covers, gates, latches, clips, bolts and
+  other small but important controls;
+- PPE and work practices only where they are actually visible;
+- ground conditions, lighting, visibility, weather, dust, fumes, vapours, smoke,
+  ventilation, heat, noise and other occupational exposures;
+- spills, leaks, staining, waste, chemical storage, bunding, drains, runoff,
+  sediment, erosion, waterways, contamination pathways and response equipment;
+- whether visible controls appear suitable, complete, continuous, correctly used,
+  maintained and fit for purpose.
+
+Outcome rules:
+- fail: the photos show a credible WHS/environmental issue, failed or missing
+  control, unsafe condition/practice, material contradiction with an answered form
+  question, or photo quality/relevance so poor that the intended photographic
+  evidence cannot reasonably be assessed.
+- uncertain: there is a credible possible issue or inconsistency, but the photos or
+  context are insufficient to determine whether it is actually present. State the
+  precise on-site check needed. Do not use uncertain for every limitation inherent
+  in a photograph.
+- pass: the photos are relevant and usable, no material inconsistency is visible,
+  and no significant WHS/environmental issue is visible or reasonably suspected.
+  Pass means no issue was identified in this evidence; it is not a certification
+  that the task or workplace is safe or compliant.
+
+Photo quality is part of the assessment: consider focus, lighting, obstruction,
+framing, distance, coverage and whether the subject relevant to the form can be
+identified. Minor cosmetic quality issues must not affect the outcome when the
+evidence remains assessable.
+
+Write a concise, specific summary suitable for a project notification and analysis
+record. Lead with the highest-risk finding. Identify the visible evidence, why it
+matters, practical immediate action where warranted, and any targeted site
+verification. Avoid generic checklist commentary and unsupported legal conclusions.
+
+Return JSON only in the supplied schema. `findings_requiring_attention` must contain
+short, actionable findings or verification items that explain a fail or uncertain
+outcome; return an empty array for pass.
+""".strip()
 PROJECT_FIELD_CANDIDATES = (
     "project",
     "link_project",
@@ -130,7 +202,6 @@ def _question_context(doc) -> list[dict]:
             "fieldname": df.fieldname,
             "question": df.label or df.fieldname,
             "description": _clean(df.description),
-            "required": bool(getattr(df, "reqd", 0)),
             "fieldtype": df.fieldtype,
         }
 
@@ -287,16 +358,6 @@ def _call_openai(settings: dict, doc, files: list) -> tuple[dict, dict]:
     import requests
 
     questions = _question_context(doc)
-    instructions = (
-        "You are reviewing photographic evidence submitted with an operational form. "
-        "Compare all photos collectively against the entire form, including every question, "
-        "description and submitted answer. Return fail only when required detail cannot be "
-        "verified from the photos. Return uncertain when the evidence is ambiguous or you are "
-        "not sufficiently confident. Otherwise return pass. Do not invent facts. Image quality "
-        "alone is relevant only when it prevents verification. Respond with JSON only using: "
-        '{"outcome":"pass|fail|uncertain","confidence":0-100,"summary":"...",'
-        '"required_details_not_verified":["..."]}.'
-    )
     content = [
         {
             "type": "input_text",
@@ -315,7 +376,7 @@ def _call_openai(settings: dict, doc, files: list) -> tuple[dict, dict]:
     content.extend(_image_content(row) for row in files)
     payload = {
         "model": settings["model"],
-        "instructions": instructions,
+        "instructions": PHOTO_ANALYSIS_INSTRUCTIONS,
         "input": [{"role": "user", "content": content}],
         "max_output_tokens": 1200,
         "text": {
@@ -329,7 +390,7 @@ def _call_openai(settings: dict, doc, files: list) -> tuple[dict, dict]:
                         "outcome": {"type": "string", "enum": ["pass", "fail", "uncertain"]},
                         "confidence": {"type": "number", "minimum": 0, "maximum": 100},
                         "summary": {"type": "string"},
-                        "required_details_not_verified": {
+                        "findings_requiring_attention": {
                             "type": "array",
                             "items": {"type": "string"},
                         },
@@ -338,7 +399,7 @@ def _call_openai(settings: dict, doc, files: list) -> tuple[dict, dict]:
                         "outcome",
                         "confidence",
                         "summary",
-                        "required_details_not_verified",
+                        "findings_requiring_attention",
                     ],
                     "additionalProperties": False,
                 },
@@ -385,7 +446,7 @@ def _notify_project_users(analysis, doc, result: dict):
 
     outcome = result["outcome"]
     title = (
-        "Photo evidence could not be verified"
+        "Photo review identified an issue"
         if outcome == "fail"
         else "Photo evidence needs review"
     )
@@ -446,7 +507,7 @@ def run_submitted_form_review(analysis_name: str):
                 "outcome": result["outcome"].title(),
                 "confidence": result["confidence"],
                 "summary": result["summary"],
-                "required_details": "\n".join(result["required_details_not_verified"]),
+                "required_details": "\n".join(result["findings_requiring_attention"]),
                 "analysis_json": json.dumps(raw, ensure_ascii=False, default=str)[:1000000],
                 "analysed_on": now_datetime(),
                 "error_message": "",
