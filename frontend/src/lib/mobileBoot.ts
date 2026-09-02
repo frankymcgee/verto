@@ -4,6 +4,7 @@ import { apiRequest } from './api'
 export type MobileBoot = {
   site_name: string
   base_url: string
+  csrf_token: string
 
   app_name: string
   app_icon: string
@@ -39,6 +40,7 @@ type FrappeResponse<T> = {
 const defaultBoot: MobileBoot = {
   site_name: '',
   base_url: window.location.origin,
+  csrf_token: '',
 
   app_name: 'Verto Mobile',
   app_icon: '/assets/verto/images/verto-icon.png',
@@ -100,6 +102,14 @@ async function loadMobileBoot(force = false) {
   )
     .then((response) => {
       const merged = mergeBoot(response.message)
+
+      if (merged.csrf_token) {
+        window.csrf_token = merged.csrf_token
+
+        if (window.frappe) {
+          window.frappe.csrf_token = merged.csrf_token
+        }
+      }
 
       loaded.value = true
 
