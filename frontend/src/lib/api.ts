@@ -10,6 +10,7 @@ import {
 } from '../pwa/offlineQueue'
 import { clearOfflineReadCache } from '../pwa/offlineSecurity'
 import { withCsrfHeaders } from './csrf'
+import { reportClientError } from './diagnostics'
 
 const OFFLINE_ACTOR_STORAGE_KEY = 'verto:offline-actor'
 let offlineActorVerified = false
@@ -157,6 +158,17 @@ async function ensureOfflineActorForWrite() {
     }
 
     if (!response.ok) {
+      void reportClientError({
+        message: extractErrorMessage(data, `Request failed with status ${response.status}`),
+        source: 'apiRequest',
+        details: {
+          method,
+          endpoint: new URL(url, window.location.origin).pathname,
+          status: response.status,
+          status_text: response.statusText,
+          server_response: rawText,
+        },
+      })
       throw new Error(
         extractErrorMessage(data, `Could not verify the signed-in user (${response.status}).`)
       )

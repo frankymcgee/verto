@@ -5,10 +5,13 @@ import './style.css'
 import { setupFrappeRealtime } from './lib/frappeRealtime'
 import { registerVertoServiceWorker } from './pwa/registerServiceWorker'
 import { applyVertoPwaHeadTags } from './pwa/applyPwaHeadTags'
+import { installClientDiagnostics } from './lib/diagnostics'
 
 setupFrappeRealtime()
 
 const app = createApp(App)
+
+installClientDiagnostics(app)
 
 app.use(router)
 
