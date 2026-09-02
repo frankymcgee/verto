@@ -9,6 +9,7 @@
   "personnel_information_section",
   "employee_id",
   "full_name",
+  "manual_full_name",
   "column_break_ckti",
   "date",
   "column_break_obpg",
@@ -143,12 +144,18 @@
    "fieldtype": "Data",
    "hidden": 1,
    "label": "Full Name"
+  },
+  {
+   "depends_on": "eval:doc.employee_id == \"\";",
+   "fieldname": "manual_full_name",
+   "fieldtype": "Data",
+   "label": "Full Name"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-26 20:59:38.700309",
+ "modified": "2026-09-01 13:29:51.093343",
  "modified_by": "sean@minesitesupport.com.au",
  "module": "Safety",
  "name": "Personal Fatigue Assessment",

@@ -32,10 +32,12 @@
   "peri_bot_user",
   "peri_bot_image",
   "section_break_rtpg",
-  "generic_forms",
+  "core_mobile_forms",
   "column_break_ufwo",
-  "project_forms",
+  "generic_forms",
   "column_break_uzjk",
+  "project_forms",
+  "column_break_gvvx",
   "project_ccvs",
   "section_break_kvpd",
   "project_tools",
@@ -513,13 +515,23 @@
    "fieldtype": "Float",
    "label": "Opacity",
    "precision": "2"
+  },
+  {
+   "fieldname": "core_mobile_forms",
+   "fieldtype": "Table",
+   "label": "Core Mobile Forms",
+   "options": "Verto Mobile Form Shortcut"
+  },
+  {
+   "fieldname": "column_break_gvvx",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-08-27 15:15:00.000000",
+ "modified": "2026-09-02 08:00:07.036246",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Verto Mobile Settings",
