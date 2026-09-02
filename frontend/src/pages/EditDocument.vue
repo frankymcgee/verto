@@ -405,6 +405,7 @@ import {
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
 import { withCsrfHeaders } from '../lib/csrf'
+import { reportClientError } from '../lib/diagnostics'
 import {
   attachFileToDocumentOperation,
   makeOfflineAttachment,
@@ -1180,12 +1181,29 @@ async function uploadFiles(
     formData.append('docname', targetDocname)
     formData.append('is_private', '1')
 
-    const response = await fetch('/api/method/upload_file', {
-      method: 'POST',
-      credentials: 'include',
-      headers: withCsrfHeaders(undefined, 'POST'),
-      body: formData,
-    })
+    let response: Response
+    try {
+      response = await fetch('/api/method/upload_file', {
+        method: 'POST',
+        credentials: 'include',
+        headers: withCsrfHeaders(undefined, 'POST'),
+        body: formData,
+      })
+    } catch (error) {
+      void reportClientError({
+        message: error instanceof Error ? error.message : 'Photo upload network failure',
+        stack: error instanceof Error ? error.stack : '',
+        source: 'form.photo_upload.network',
+        details: {
+          doctype,
+          docname: targetDocname,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+        },
+      })
+      throw error
+    }
 
     if (response.status === 401 || response.status === 403) {
       window.location.href = `/login?redirect-to=${encodeURIComponent(window.location.pathname + window.location.search)}`
@@ -1193,7 +1211,26 @@ async function uploadFiles(
     }
 
     if (!response.ok) {
-      throw new Error(`Failed to upload ${file.name}`)
+      const serverResponse = await response.text().catch(() => '')
+      void reportClientError({
+        message: `Failed to upload ${file.name}`,
+        source: 'form.photo_upload',
+        details: {
+          doctype,
+          docname: targetDocname,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+          status: response.status,
+          status_text: response.statusText,
+          server_response: serverResponse,
+        },
+      })
+      throw new Error(
+        serverResponse
+          ? `Failed to upload ${file.name}: ${serverResponse.slice(0, 500)}`
+          : `Failed to upload ${file.name} (${response.status})`
+      )
     }
   }
 }

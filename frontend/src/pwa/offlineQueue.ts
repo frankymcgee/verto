@@ -1,6 +1,7 @@
 // VERTO_OFFLINE_DOCUMENT_SYNC_QUEUE_2026_08_24
 
 import { withCsrfHeaders } from '../lib/csrf'
+import { reportClientError } from '../lib/diagnostics'
 
 export type OfflineQueueItemStatus = 'queued' | 'syncing' | 'synced' | 'failed'
 export type OfflineQueueItemKind = 'mobile_document' | 'attachment_upload' | 'legacy_request'
@@ -644,6 +645,15 @@ async function ensureSyncResponse(response: Response) {
   }
 
   if (!response.ok) {
+    void reportClientError({
+      message: serverMessage,
+      source: 'offline.sync.http',
+      details: {
+        endpoint: new URL(response.url || window.location.href).pathname,
+        status: response.status,
+        status_text: response.statusText,
+      },
+    })
     throw new OfflineSyncError(
       serverMessage,
       {
@@ -653,6 +663,14 @@ async function ensureSyncResponse(response: Response) {
   }
 
   if (data?.message?.ok === false) {
+    void reportClientError({
+      message: data.message.error || 'The server rejected the offline item.',
+      source: 'offline.sync.rejected',
+      details: {
+        endpoint: new URL(response.url || window.location.href).pathname,
+        status: response.status,
+      },
+    })
     throw new OfflineSyncError(
       data.message.error || 'The server rejected the offline item.'
     )
