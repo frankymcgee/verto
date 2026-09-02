@@ -684,6 +684,24 @@ async function uploadQueuedAttachment(input: {
   return ensureSyncResponse(response)
 }
 
+async function queuePhotoAnalysis(targetDoctype: string, targetName: string) {
+  const formData = new FormData()
+  formData.append('doctype', targetDoctype)
+  formData.append('docname', targetName)
+
+  const response = await fetch(
+    '/api/method/verto.api.mobile.ai_photo_analysis.queue_submitted_form_review',
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: withCsrfHeaders(undefined, 'POST'),
+      body: formData,
+    }
+  )
+
+  return ensureSyncResponse(response)
+}
+
 async function syncMobileDocumentItem(item: OfflineQueueItem) {
   if (!item.action_type || !item.mobile_doctype) {
     throw new Error('Offline document action is incomplete.')
@@ -731,6 +749,10 @@ async function syncMobileDocumentItem(item: OfflineQueueItem) {
     })
   }
 
+  if ((item.attachments || []).length) {
+    await queuePhotoAnalysis(targetDoctype, targetName)
+  }
+
   return result
 }
 
@@ -739,12 +761,15 @@ async function syncAttachmentUploadItem(item: OfflineQueueItem) {
     throw new Error('Offline attachment upload is incomplete.')
   }
 
-  return uploadQueuedAttachment({
+  const result = await uploadQueuedAttachment({
     operationId: item.id,
     attachment: item.attachment,
     targetDoctype: item.target_doctype,
     targetName: item.target_name,
   })
+
+  await queuePhotoAnalysis(item.target_doctype, item.target_name)
+  return result
 }
 
 async function replayLegacyQueueItem(item: OfflineQueueItem) {

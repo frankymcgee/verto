@@ -14,6 +14,8 @@ DEFAULT_SETTINGS = {
     "planner_view_default": "Month",
     "push_notifications_enabled": 1,
     "vapid_subject": "mailto:support@webwire.com.au",
+    "ai_photo_analysis_enabled": 0,
+    "ai_photo_analysis_model": "gpt-5.6-luna",
 }
 
 

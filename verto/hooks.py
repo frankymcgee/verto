@@ -111,6 +111,9 @@ doc_events = {
 # Scheduled tasks
 # ---------------
 scheduler_events = {
+    "hourly": [
+        "verto.api.mobile.ai_photo_analysis.retry_failed_reviews",
+    ],
     "daily": [
         "verto.api.qualifications.refresh_qualification_statuses",
         "verto.api.qualifications.send_qualification_expiry_notifications",
