@@ -1,5 +1,7 @@
 // VERTO_OFFLINE_DOCUMENT_SYNC_QUEUE_2026_08_24
 
+import { withCsrfHeaders } from '../lib/csrf'
+
 export type OfflineQueueItemStatus = 'queued' | 'syncing' | 'synced' | 'failed'
 export type OfflineQueueItemKind = 'mobile_document' | 'attachment_upload' | 'legacy_request'
 export type OfflineDocumentAction = 'create' | 'update'
@@ -675,6 +677,7 @@ async function uploadQueuedAttachment(input: {
   const response = await fetch('/api/method/verto.api.mobile.offline.upload_attachment', {
     method: 'POST',
     credentials: 'include',
+    headers: withCsrfHeaders(undefined, 'POST'),
     body: formData,
   })
 
@@ -700,6 +703,7 @@ async function syncMobileDocumentItem(item: OfflineQueueItem) {
   const response = await fetch('/api/method/verto.api.mobile.offline.sync_action', {
     method: 'POST',
     credentials: 'include',
+    headers: withCsrfHeaders(undefined, 'POST'),
     body: formData,
   })
 
@@ -748,14 +752,16 @@ async function replayLegacyQueueItem(item: OfflineQueueItem) {
     throw new Error('Legacy offline request is missing its URL.')
   }
 
-  const headers = {
+  const headers = withCsrfHeaders({
     ...(item.headers || {}),
-  }
+  }, item.method || 'POST')
 
   let body: BodyInit | undefined
 
   if (item.body !== null && item.body !== undefined) {
-    headers['Content-Type'] = headers['Content-Type'] || 'application/json'
+    if (!headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json')
+    }
     body = typeof item.body === 'string' ? item.body : JSON.stringify(item.body)
   }
 
