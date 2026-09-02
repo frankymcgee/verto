@@ -87,8 +87,9 @@
   "ai_photo_analysis_tab",
   "ai_photo_analysis_section",
   "ai_photo_analysis_enabled",
-  "ai_photo_analysis_model",
+  "ai_photo_analysis_bot",
   "column_break_ai_photo",
+  "ai_photo_analysis_model",
   "ai_photo_analysis_api_key"
  ],
  "fields": [
@@ -550,28 +551,37 @@
    "label": "Enable AI Photo Analysis"
   },
   {
-   "default": "gpt-5.6-luna",
-   "description": "OpenAI vision-capable model used for form evidence review.",
+   "depends_on": "eval:doc.ai_photo_analysis_enabled",
+   "description": "OpenAI-backed Raven AI bot whose Raven Settings credentials, vision-capable model and high-level instructions will be used for photo review. The same bot sends failed or uncertain results as direct messages to assigned Project users.",
+   "fieldname": "ai_photo_analysis_bot",
+   "fieldtype": "Link",
+   "label": "AI Photo Analysis Bot",
+   "options": "Raven Bot"
+  },
+  {
+   "description": "Legacy field retained for data compatibility. Photo analysis now uses the selected Raven Bot model.",
    "fieldname": "ai_photo_analysis_model",
    "fieldtype": "Data",
-   "label": "OpenAI Model"
+   "hidden": 1,
+   "label": "Legacy OpenAI Model"
   },
   {
    "fieldname": "column_break_ai_photo",
    "fieldtype": "Column Break"
   },
   {
-   "description": "Encrypted by Frappe. The key is only read by background workers.",
+   "description": "Legacy encrypted value retained for data compatibility. Photo analysis now uses Raven Settings credentials.",
    "fieldname": "ai_photo_analysis_api_key",
    "fieldtype": "Password",
-   "label": "OpenAI API Key"
+   "hidden": 1,
+   "label": "Legacy OpenAI API Key"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-09-02 13:41:06.853132",
+ "modified": "2026-09-02 19:31:06.424904",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Verto Mobile Settings",

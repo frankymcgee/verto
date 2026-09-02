@@ -2,6 +2,12 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on('Verto Mobile Settings', {
+  setup(frm) {
+    frm.set_query('ai_photo_analysis_bot', () => ({
+      filters: { is_ai_bot: 1, model_provider: 'OpenAI' },
+    }))
+  },
+
   refresh(frm) {
     frm.add_custom_button(
       __('Generate PWA Manifest'),

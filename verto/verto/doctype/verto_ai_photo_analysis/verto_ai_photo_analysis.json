@@ -21,6 +21,7 @@
   "photo_files",
   "technical_section",
   "request_fingerprint",
+  "ai_bot",
   "model",
   "retry_count",
   "analysis_json",
@@ -93,7 +94,7 @@
   {
    "fieldname": "required_details",
    "fieldtype": "Long Text",
-   "label": "Required Details Not Verified",
+   "label": "Findings Requiring Attention",
    "read_only": 1
   },
   {
@@ -114,6 +115,13 @@
    "label": "Request Fingerprint",
    "read_only": 1,
    "unique": 1
+  },
+  {
+   "fieldname": "ai_bot",
+   "fieldtype": "Link",
+   "label": "Raven AI Bot",
+   "options": "Raven Bot",
+   "read_only": 1
   },
   {
    "fieldname": "model",
@@ -151,7 +159,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-02 13:37:00.021788",
+ "modified": "2026-09-02 19:31:06.424904",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Verto AI Photo Analysis",

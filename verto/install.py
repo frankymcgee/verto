@@ -15,7 +15,6 @@ DEFAULT_SETTINGS = {
     "push_notifications_enabled": 1,
     "vapid_subject": "mailto:support@webwire.com.au",
     "ai_photo_analysis_enabled": 0,
-    "ai_photo_analysis_model": "gpt-5.6-luna",
 }
 
 
@@ -77,6 +76,11 @@ def _ensure_integration_defaults() -> bool:
     settings_changed = False
     project_default_changed = _ensure_project_raven_channel_default()
 
+    analysis_bot = _resolve_existing_photo_analysis_bot(settings)
+    if analysis_bot:
+        settings.set("ai_photo_analysis_bot", analysis_bot)
+        settings_changed = True
+
     if (
         settings.meta.has_field("default_workspace")
         and not settings.get("default_workspace")
@@ -111,6 +115,59 @@ def _ensure_integration_defaults() -> bool:
         settings.save(ignore_permissions=True)
 
     return settings_changed or project_default_changed
+
+
+def _resolve_existing_photo_analysis_bot(settings) -> str:
+    """Adopt the configured PERI AI bot during the settings migration.
+
+    An explicit photo-analysis selection is never overwritten. This helper is
+    intentionally best-effort so sites without a PERI bot can migrate and then
+    select their nominated Raven bot in Verto Mobile Settings.
+    """
+    if (
+        not settings.meta.has_field("ai_photo_analysis_bot")
+        or settings.get("ai_photo_analysis_bot")
+        or not frappe.db.exists("DocType", "Raven Bot")
+    ):
+        return ""
+
+    candidates = []
+    if (
+        settings.meta.has_field("peri_bot_user")
+        and settings.get("peri_bot_user")
+        and frappe.db.exists("DocType", "Raven User")
+        and frappe.get_meta("Raven User").has_field("bot")
+    ):
+        candidates.append(
+            frappe.db.get_value("Raven User", settings.get("peri_bot_user"), "bot")
+        )
+
+    if settings.meta.has_field("peri_bot_name") and settings.get("peri_bot_name"):
+        peri_bot_name = settings.get("peri_bot_name")
+        candidates.append(peri_bot_name)
+        if frappe.get_meta("Raven Bot").has_field("bot_name"):
+            candidates.append(
+                frappe.db.get_value("Raven Bot", {"bot_name": peri_bot_name}, "name")
+            )
+
+    bot_meta = frappe.get_meta("Raven Bot")
+    for candidate in dict.fromkeys(candidate for candidate in candidates if candidate):
+        if not frappe.db.exists("Raven Bot", candidate):
+            continue
+        if bot_meta.has_field("is_ai_bot") and not frappe.db.get_value(
+            "Raven Bot", candidate, "is_ai_bot"
+        ):
+            continue
+        if bot_meta.has_field("model_provider") and frappe.db.get_value(
+            "Raven Bot", candidate, "model_provider"
+        ) != "OpenAI":
+            continue
+        if bot_meta.has_field("model") and not frappe.db.get_value(
+            "Raven Bot", candidate, "model"
+        ):
+            continue
+        return candidate
+    return ""
 
 
 def _ensure_project_raven_channel_default() -> bool:

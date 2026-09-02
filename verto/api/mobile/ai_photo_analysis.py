@@ -4,13 +4,14 @@ import base64
 import hashlib
 import json
 import mimetypes
-from urllib.parse import quote
 
 import frappe
 from frappe import _
 from frappe.utils import cint, now_datetime
 
 from verto.api.mobile.ai_photo_analysis_parsing import (
+    build_review_dm_html,
+    deliver_direct_messages,
     extract_output_text,
     parse_assigned_users,
     parse_result,
@@ -19,14 +20,14 @@ from verto.api.mobile.ai_photo_analysis_parsing import (
 
 SETTINGS_DOCTYPE = "Verto Mobile Settings"
 ANALYSIS_DOCTYPE = "Verto AI Photo Analysis"
-DEFAULT_MODEL = "gpt-5.6-luna"
 MAX_PHOTOS = 12
 MAX_IMAGE_BYTES = 15 * 1024 * 1024
 MAX_RETRIES = 3
 PHOTO_ANALYSIS_INSTRUCTIONS = """
-You are PERI, an experienced Australian workplace Work Health and Safety (WHS) and
-environmental specialist. Review all supplied workplace photos as one evidence set
-and assess them in the context of the entire submitted operational form.
+Act as an experienced Australian workplace Work Health and Safety (WHS) and
+environmental specialist for this task. Review all supplied workplace photos as one
+evidence set and assess them in the context of the entire submitted operational
+form. Retain the identity and high-level behaviour of the nominated Raven AI bot.
 
 Your purpose is to identify visible or reasonably suspected hazards, failed or weak
 controls, unsafe conditions or practices, damage, missing safeguards, environmental
@@ -91,7 +92,9 @@ record. Lead with the highest-risk finding. Identify the visible evidence, why i
 matters, practical immediate action where warranted, and any targeted site
 verification. Avoid generic checklist commentary and unsupported legal conclusions.
 
-Return JSON only in the supplied schema. `findings_requiring_attention` must contain
+Return JSON only with exactly these keys: `outcome` (`pass`, `fail` or `uncertain`),
+`confidence` (a number from 0 to 100), `summary` (a string), and
+`findings_requiring_attention` (an array of strings). The findings array must contain
 short, actionable findings or verification items that explain a fail or uncertain
 outcome; return an empty array for pass.
 """.strip()
@@ -124,28 +127,84 @@ def _get_settings() -> dict:
     try:
         settings = frappe.get_single(SETTINGS_DOCTYPE)
     except frappe.DoesNotExistError:
-        return {"enabled": False, "api_key": "", "model": DEFAULT_MODEL}
+        return {"enabled": False, "bot": ""}
 
     enabled = bool(
         settings.meta.has_field("ai_photo_analysis_enabled")
         and cint(settings.get("ai_photo_analysis_enabled"))
     )
-    model = (
-        _clean(settings.get("ai_photo_analysis_model"))
-        if settings.meta.has_field("ai_photo_analysis_model")
+    bot_name = (
+        _clean(settings.get("ai_photo_analysis_bot"))
+        if settings.meta.has_field("ai_photo_analysis_bot")
         else ""
-    ) or DEFAULT_MODEL
+    )
 
-    api_key = ""
-    if settings.meta.has_field("ai_photo_analysis_api_key"):
-        try:
-            api_key = _clean(
-                settings.get_password("ai_photo_analysis_api_key", raise_exception=False)
+    # The legacy Verto model and API-key fields are deliberately ignored. The
+    # selected Raven Bot and Raven Settings are now authoritative.
+    return {"enabled": enabled, "bot": bot_name}
+
+
+def _get_analysis_bot(bot_name: str, *, for_inference: bool = True):
+    bot_name = _clean(bot_name)
+    if not bot_name:
+        raise ValueError("Select an AI Photo Analysis Bot in Verto Mobile Settings.")
+    if not frappe.db.exists("DocType", "Raven Bot"):
+        raise ValueError("Raven Bot is not installed on this site.")
+    if not frappe.db.exists("Raven Bot", bot_name):
+        raise ValueError(f"The selected Raven Bot {bot_name!r} no longer exists.")
+
+    bot = frappe.get_cached_doc("Raven Bot", bot_name)
+    if not cint(getattr(bot, "is_ai_bot", 0)):
+        raise ValueError(f"The selected Raven Bot {bot_name!r} is not an AI bot.")
+    if not _clean(getattr(bot, "raven_user", None)):
+        raise ValueError(f"The selected Raven Bot {bot_name!r} has no Raven User.")
+    if for_inference:
+        if not _clean(getattr(bot, "model", None)):
+            raise ValueError(f"The selected Raven Bot {bot_name!r} has no model configured.")
+
+        provider = _clean(getattr(bot, "model_provider", None)) or "OpenAI"
+        if provider != "OpenAI":
+            raise ValueError(
+                "AI photo analysis currently requires a Raven Bot using the OpenAI "
+                "provider and a vision-capable model."
             )
-        except Exception:
-            api_key = ""
+    return bot
 
-    return {"enabled": enabled, "api_key": api_key, "model": model}
+
+def _get_raven_ai_client():
+    """Use Raven's credential authority without enabling conversational tools.
+
+    Photo review is a deterministic background classification task. Calling the
+    general Raven agent runner here would allow unrelated bot write tools and
+    would not consistently preserve multimodal input across Raven providers.
+    """
+    from raven.ai.openai_client import get_open_ai_client
+
+    return get_open_ai_client()
+
+
+def _get_bot_instructions(bot, instruction_user: str = "") -> str:
+    stored_instruction = _clean(getattr(bot, "instruction", None))
+    if not cint(getattr(bot, "dynamic_instructions", 0)):
+        return stored_instruction
+
+    try:
+        from raven.ai.handler import get_instructions
+    except ImportError:
+        return stored_instruction
+
+    # Scheduled retries can run as Administrator. Render Raven's dynamic bot
+    # prompt as the original form submitter so the same bot context is used on
+    # the initial review and every retry.
+    original_user = frappe.session.user
+    should_switch_user = bool(instruction_user and instruction_user != original_user)
+    if should_switch_user:
+        frappe.set_user(instruction_user)
+    try:
+        return _clean(get_instructions(bot) or stored_instruction)
+    finally:
+        if should_switch_user:
+            frappe.set_user(original_user)
 
 
 def _canonical_project(value: str) -> str:
@@ -268,20 +327,21 @@ def _fingerprint(doc, files: list) -> str:
     ).hexdigest()
 
 
-def _create_analysis(doc, project: str, files: list, fingerprint: str, model: str):
-    return frappe.get_doc(
-        {
-            "doctype": ANALYSIS_DOCTYPE,
-            "source_doctype": doc.doctype,
-            "source_name": doc.name,
-            "project": project,
-            "submitted_by": doc.owner,
-            "status": "Queued",
-            "request_fingerprint": fingerprint,
-            "model": model,
-            "photo_files": "\n".join(row.file_url or row.file_name for row in files),
-        }
-    ).insert(ignore_permissions=True)
+def _create_analysis(doc, project: str, files: list, fingerprint: str, bot):
+    values = {
+        "doctype": ANALYSIS_DOCTYPE,
+        "source_doctype": doc.doctype,
+        "source_name": doc.name,
+        "project": project,
+        "submitted_by": doc.owner,
+        "status": "Queued",
+        "request_fingerprint": fingerprint,
+        "model": _clean(getattr(bot, "model", None)),
+        "photo_files": "\n".join(row.file_url or row.file_name for row in files),
+    }
+    if frappe.get_meta(ANALYSIS_DOCTYPE).has_field("ai_bot"):
+        values["ai_bot"] = bot.name
+    return frappe.get_doc(values).insert(ignore_permissions=True)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -303,12 +363,22 @@ def queue_submitted_form_review(doctype: str, docname: str):
     settings = _get_settings()
     if not settings["enabled"]:
         return {"queued": False, "reason": "disabled"}
-    if not settings["api_key"]:
+
+    try:
+        bot = _get_analysis_bot(settings["bot"])
+        # This validates Raven Settings and constructs the configured client;
+        # it does not make a network request in the form-save path.
+        _get_raven_ai_client()
+    except Exception as error:
         frappe.log_error(
-            title="Verto AI photo analysis is not configured",
-            message="Enable AI Photo Analysis and add an OpenAI API key in Verto Mobile Settings.",
+            title="Verto AI photo analysis bot is not configured",
+            message=_clean(error),
         )
-        return {"queued": False, "reason": "missing_api_key"}
+        return {
+            "queued": False,
+            "reason": "missing_ai_bot" if not settings["bot"] else "invalid_ai_bot",
+            "message": _clean(error),
+        }
 
     files = _get_image_files(doctype, docname)
     if not files:
@@ -323,7 +393,7 @@ def queue_submitted_form_review(doctype: str, docname: str):
 
     project = _resolve_project(doc)
     try:
-        analysis = _create_analysis(doc, project, files, fingerprint, settings["model"])
+        analysis = _create_analysis(doc, project, files, fingerprint, bot)
     except frappe.DuplicateEntryError:
         existing = frappe.db.get_value(
             ANALYSIS_DOCTYPE,
@@ -355,70 +425,172 @@ def _image_content(file_row) -> dict:
     }
 
 
-def _call_openai(settings: dict, doc, files: list) -> tuple[dict, dict]:
-    import requests
+def _analysis_schema() -> dict:
+    return {
+        "type": "object",
+        "properties": {
+            "outcome": {"type": "string", "enum": ["pass", "fail", "uncertain"]},
+            "confidence": {"type": "number", "minimum": 0, "maximum": 100},
+            "summary": {"type": "string"},
+            "findings_requiring_attention": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+        },
+        "required": [
+            "outcome",
+            "confidence",
+            "summary",
+            "findings_requiring_attention",
+        ],
+        "additionalProperties": False,
+    }
 
+
+def _serialise_ai_response(response) -> dict:
+    if isinstance(response, dict):
+        return response
+    if hasattr(response, "model_dump"):
+        try:
+            return response.model_dump(mode="json")
+        except TypeError:
+            return response.model_dump()
+    if hasattr(response, "to_dict"):
+        return response.to_dict()
+    raise ValueError("Raven's AI client returned an unsupported response object.")
+
+
+def _validate_ai_response(response_data: dict, api: str):
+    if response_data.get("error"):
+        raise ValueError(f"Raven AI response error: {response_data['error']}")
+
+    if api == "responses" and response_data.get("status") == "incomplete":
+        details = response_data.get("incomplete_details") or "output was incomplete"
+        raise ValueError(f"Raven AI response incomplete: {details}")
+
+    if api == "chat_completions":
+        choice = (response_data.get("choices") or [{}])[0]
+        finish_reason = choice.get("finish_reason")
+        if finish_reason in {"length", "content_filter"}:
+            raise ValueError(f"Raven AI response stopped because of {finish_reason}.")
+        refusal = (choice.get("message") or {}).get("refusal")
+        if refusal:
+            raise ValueError(f"Raven AI refused the photo review: {refusal}")
+
+
+def _call_raven_bot(
+    bot,
+    client,
+    doc,
+    files: list,
+    *,
+    instruction_user: str = "",
+) -> tuple[dict, dict]:
     questions = _question_context(doc)
-    content = [
+    context_text = json.dumps(
+        {
+            "form_doctype": doc.doctype,
+            "form_name": doc.name,
+            "questions": questions,
+            "photo_count": len(files),
+        },
+        ensure_ascii=False,
+        default=str,
+    )
+    responses_content = [
         {
             "type": "input_text",
-            "text": json.dumps(
-                {
-                    "form_doctype": doc.doctype,
-                    "form_name": doc.name,
-                    "questions": questions,
-                    "photo_count": len(files),
-                },
-                ensure_ascii=False,
-                default=str,
-            ),
+            "text": context_text,
         }
     ]
-    content.extend(_image_content(row) for row in files)
-    payload = {
-        "model": settings["model"],
-        "instructions": PHOTO_ANALYSIS_INSTRUCTIONS,
-        "input": [{"role": "user", "content": content}],
-        "max_output_tokens": 1200,
-        "text": {
-            "format": {
-                "type": "json_schema",
-                "name": "verto_photo_evidence_review",
-                "strict": True,
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "outcome": {"type": "string", "enum": ["pass", "fail", "uncertain"]},
-                        "confidence": {"type": "number", "minimum": 0, "maximum": 100},
-                        "summary": {"type": "string"},
-                        "findings_requiring_attention": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        },
-                    },
-                    "required": [
-                        "outcome",
-                        "confidence",
-                        "summary",
-                        "findings_requiring_attention",
-                    ],
-                    "additionalProperties": False,
-                },
-            }
-        },
-    }
-    response = requests.post(
-        "https://api.openai.com/v1/responses",
-        headers={
-            "Authorization": f"Bearer {settings['api_key']}",
-            "Content-Type": "application/json",
-        },
-        json=payload,
-        timeout=180,
+    responses_content.extend(_image_content(row) for row in files)
+    instructions = "\n\n".join(
+        part
+        for part in (
+            _get_bot_instructions(bot, instruction_user),
+            PHOTO_ANALYSIS_INSTRUCTIONS,
+        )
+        if part
     )
-    response.raise_for_status()
-    raw = response.json()
-    return parse_result(extract_output_text(raw)), raw
+    request_client = (
+        client.with_options(timeout=180)
+        if hasattr(client, "with_options")
+        else client
+    )
+
+    if hasattr(request_client, "responses"):
+        response = request_client.responses.create(
+            model=bot.model,
+            instructions=instructions,
+            input=[{"role": "user", "content": responses_content}],
+            max_output_tokens=3000,
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "verto_photo_evidence_review",
+                    "strict": True,
+                    "schema": _analysis_schema(),
+                }
+            },
+        )
+        api = "responses"
+    else:
+        # Raven 2 installations using an older OpenAI SDK may not expose the
+        # Responses API. Preserve bot-owned credentials/model/instructions and
+        # use its multimodal Chat Completions client without sampling options.
+        chat_content = [{"type": "text", "text": context_text}]
+        for item in responses_content[1:]:
+            chat_content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": item["image_url"], "detail": "high"},
+                }
+            )
+        chat_parameters = {
+            "model": bot.model,
+            "messages": [
+                {"role": "system", "content": instructions},
+                {"role": "user", "content": chat_content},
+            ],
+            "response_format": {"type": "json_object"},
+        }
+        if _clean(bot.model).lower().startswith(("gpt-5", "o1", "o3", "o4")):
+            chat_parameters["max_completion_tokens"] = 3000
+        else:
+            chat_parameters["max_tokens"] = 3000
+        response = request_client.chat.completions.create(**chat_parameters)
+        api = "chat_completions"
+
+    response_data = _serialise_ai_response(response)
+    _validate_ai_response(response_data, api)
+    output_text = extract_output_text(response_data)
+    if not output_text:
+        raise ValueError("The nominated Raven AI bot returned no analysis text.")
+    result = parse_result(output_text)
+    raw = {
+        "raven_bot": bot.name,
+        "provider": _clean(getattr(bot, "model_provider", None)) or "OpenAI",
+        "model": bot.model,
+        "api": api,
+        "response": response_data,
+    }
+    return result, raw
+
+
+def _stored_analysis_result(analysis):
+    """Reuse a successful inference when only Raven DM delivery needs retrying."""
+    try:
+        raw = json.loads(analysis.analysis_json or "{}")
+    except (TypeError, ValueError):
+        return None
+
+    result = raw.get("normalised_result") if isinstance(raw, dict) else None
+    if not isinstance(result, dict):
+        return None
+    try:
+        return parse_result(json.dumps(result)), raw
+    except (TypeError, ValueError):
+        return None
 
 
 def _project_assignees(project: str) -> list[str]:
@@ -434,35 +606,90 @@ def _project_assignees(project: str) -> list[str]:
     ]
 
 
-def _notify_project_assignees(analysis, doc, result: dict):
+def _has_enabled_raven_user(user: str) -> bool:
+    if not frappe.db.exists("DocType", "Raven User"):
+        return False
+    meta = frappe.get_meta("Raven User")
+    if not meta.has_field("user"):
+        return False
+
+    fields = ["name"]
+    if meta.has_field("enabled"):
+        fields.append("enabled")
+    raven_user = frappe.db.get_value(
+        "Raven User",
+        {"user": user},
+        fields,
+        as_dict=True,
+    )
+    return bool(
+        raven_user
+        and (not meta.has_field("enabled") or cint(raven_user.get("enabled")))
+    )
+
+
+def _dm_was_sent(bot, notification_name: str) -> bool:
+    if not frappe.db.exists("DocType", "Raven Message"):
+        return False
+    meta = frappe.get_meta("Raven Message")
+    if not meta.has_field("notification"):
+        return False
+
+    filters = {"notification": notification_name}
+    if meta.has_field("bot"):
+        filters["bot"] = bot.raven_user
+    return bool(frappe.db.exists("Raven Message", filters))
+
+
+def _message_project_assignees(analysis, doc, result: dict, bot) -> dict:
     users = _project_assignees(analysis.project)
     if not users:
-        return
-    from verto.api.mobile.documents import get_mobile_slug_for_doctype
-    from verto.api.mobile.push_notifications import queue_push_to_users
+        return {"sent": [], "already_sent": [], "skipped": [], "failed": []}
 
-    outcome = result["outcome"]
-    title = (
-        "Photo review identified an issue"
-        if outcome == "fail"
-        else "Photo evidence needs review"
-    )
     project_label = (
         frappe.db.get_value("Project", analysis.project, "project_name") or analysis.project
     )
-    body = f"{doc.doctype} {doc.name} for {project_label}: {result['summary']}"
-    slug = get_mobile_slug_for_doctype(doc.doctype)
-    url = f"/verto-mobile/edit/{quote(slug)}/{quote(doc.name)}"
-    queue_push_to_users(
-        users,
-        {
-            "title": title,
-            "body": body[:240],
-            "url": url,
-            "tag": f"ai-photo-{analysis.name}",
-        },
-        notification_type=f"ai_photo_{outcome}",
+    message = build_review_dm_html(
+        result,
+        source_doctype=doc.doctype,
+        source_name=doc.name,
+        project_label=project_label,
     )
+
+    def send_message(user, notification_name):
+        return bot.send_direct_message(
+            user_id=user,
+            text=message,
+            link_doctype=doc.doctype,
+            link_document=doc.name,
+            markdown=False,
+            notification_name=notification_name,
+        )
+
+    def log_delivery_error(user, error):
+        frappe.log_error(
+            title=f"Verto AI photo DM failed: {analysis.name}",
+            message=f"Recipient: {user}\nError: {_clean(error)}\n\n{frappe.get_traceback()}",
+        )
+
+    delivery = deliver_direct_messages(
+        users,
+        analysis_name=analysis.name,
+        can_receive=_has_enabled_raven_user,
+        was_sent=lambda notification_name: _dm_was_sent(bot, notification_name),
+        send_message=send_message,
+        on_error=log_delivery_error,
+    )
+
+    if delivery["skipped"]:
+        frappe.log_error(
+            title=f"Verto AI photo DM recipients unavailable: {analysis.name}",
+            message=(
+                "These assigned Project users do not have an enabled Raven User: "
+                + ", ".join(delivery["skipped"])
+            ),
+        )
+    return delivery
 
 
 def run_submitted_form_review(analysis_name: str):
@@ -476,44 +703,110 @@ def run_submitted_form_review(analysis_name: str):
     try:
         analysis.db_set("status", "Processing", update_modified=False)
         settings = _get_settings()
-        if not settings["enabled"] or not settings["api_key"]:
+        if not settings["enabled"]:
             analysis.db_set(
                 {
                     "status": "Skipped",
-                    "error_message": "AI photo analysis is disabled or not configured.",
+                    "error_message": "AI photo analysis is disabled in Verto Mobile Settings.",
                 },
                 update_modified=False,
             )
-            return {"ok": False, "reason": "not_configured"}
+            return {"ok": False, "reason": "disabled"}
+
+        stored_analysis = _stored_analysis_result(analysis)
+        bot_name = _clean(getattr(analysis, "ai_bot", None)) or settings["bot"]
+        try:
+            bot = _get_analysis_bot(bot_name, for_inference=not bool(stored_analysis))
+        except Exception as error:
+            analysis.db_set(
+                {
+                    "status": "Skipped",
+                    "error_message": _clean(error)[:4000],
+                    "analysed_on": now_datetime(),
+                },
+                update_modified=False,
+            )
+            frappe.log_error(
+                title=f"Verto AI photo analysis bot is not configured: {analysis.name}",
+                message=_clean(error),
+            )
+            return {"ok": False, "reason": "not_configured", "error": _clean(error)}
 
         if not frappe.db.exists(analysis.source_doctype, analysis.source_name):
             raise frappe.DoesNotExistError("The submitted form no longer exists.")
         doc = frappe.get_doc(analysis.source_doctype, analysis.source_name)
-        files = _get_image_files(doc.doctype, doc.name)
-        if not files:
-            analysis.db_set(
-                {"status": "Skipped", "error_message": "No supported photos remain attached."},
-                update_modified=False,
-            )
-            return {"ok": False, "reason": "no_photos"}
 
-        result, raw = _call_openai(settings, doc, files)
-        analysis.db_set(
-            {
-                "status": "Completed",
-                "outcome": result["outcome"].title(),
-                "confidence": result["confidence"],
-                "summary": result["summary"],
-                "required_details": "\n".join(result["findings_requiring_attention"]),
-                "analysis_json": json.dumps(raw, ensure_ascii=False, default=str)[:1000000],
-                "analysed_on": now_datetime(),
-                "error_message": "",
-            },
-            update_modified=False,
-        )
+        if stored_analysis:
+            result, raw = stored_analysis
+        else:
+            client = _get_raven_ai_client()
+            files = _get_image_files(doc.doctype, doc.name)
+            if not files:
+                analysis.db_set(
+                    {
+                        "status": "Skipped",
+                        "error_message": "No supported photos remain attached.",
+                    },
+                    update_modified=False,
+                )
+                return {"ok": False, "reason": "no_photos"}
+            result, raw = _call_raven_bot(
+                bot,
+                client,
+                doc,
+                files,
+                instruction_user=analysis.submitted_by,
+            )
+        raw["normalised_result"] = result
+        delivery = {"sent": [], "already_sent": [], "skipped": [], "failed": []}
         if result["outcome"] in {"fail", "uncertain"}:
-            _notify_project_assignees(analysis, doc, result)
-        return {"ok": True, "outcome": result["outcome"]}
+            delivery = _message_project_assignees(analysis, doc, result, bot)
+        raw["dm_delivery"] = delivery
+        model_name = (
+            _clean(getattr(bot, "model", None))
+            or _clean(raw.get("model"))
+            or _clean(analysis.model)
+        )
+
+        result_values = {
+            "outcome": result["outcome"].title(),
+            "confidence": result["confidence"],
+            "summary": result["summary"],
+            "required_details": "\n".join(result["findings_requiring_attention"]),
+            "model": model_name,
+            "analysis_json": json.dumps(raw, ensure_ascii=False, default=str)[:1000000],
+            "analysed_on": now_datetime(),
+            "error_message": "",
+        }
+        if analysis.meta.has_field("ai_bot"):
+            result_values["ai_bot"] = bot.name
+
+        if delivery["failed"]:
+            result_values.update(
+                {
+                    "status": "Failed",
+                    "retry_count": cint(analysis.retry_count) + 1,
+                    "error_message": (
+                        "Photo analysis completed, but Raven direct-message delivery "
+                        "failed for: " + ", ".join(delivery["failed"])
+                    )[:4000],
+                }
+            )
+            analysis.db_set(result_values, update_modified=False)
+            return {
+                "ok": False,
+                "reason": "dm_delivery_failed",
+                "outcome": result["outcome"],
+                "dm_delivery": delivery,
+            }
+
+        result_values["status"] = "Completed"
+        analysis.db_set(result_values, update_modified=False)
+        return {
+            "ok": True,
+            "outcome": result["outcome"],
+            "dm_delivery": delivery,
+        }
     except Exception as error:
         analysis.db_set(
             {
