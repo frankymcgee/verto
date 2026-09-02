@@ -266,6 +266,7 @@ import {
   FormControl,
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
+import { withCsrfHeaders } from '../lib/csrf'
 
 type FrappeResponse<T> = {
   message: T
@@ -480,9 +481,10 @@ async function downloadPdf(record: CompletedFormRecord) {
         doctype: record.doctype,
         name: record.name,
       }),
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: withCsrfHeaders(
+        { 'Content-Type': 'application/json' },
+        'POST'
+      ),
     })
 
     if (response.status === 401 || response.status === 403) {
