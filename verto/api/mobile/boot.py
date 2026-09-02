@@ -369,6 +369,7 @@ def get_mobile_boot():
     return {
         "site_name": frappe.local.site,
         "base_url": get_site_base_url(),
+        "csrf_token": frappe.sessions.get_csrf_token(),
 
         # App identity
         "app_name": get_setting(settings, "app_name", DEFAULT_BOOT["app_name"]),
