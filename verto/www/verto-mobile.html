@@ -26,6 +26,10 @@
 <body>
   <div id="app"></div>
 
+  <script>
+    window.csrf_token = "{{ frappe.session.csrf_token }}"
+  </script>
+
   <script
     type="module"
     src="/assets/verto/verto-mobile/assets/index.js"
