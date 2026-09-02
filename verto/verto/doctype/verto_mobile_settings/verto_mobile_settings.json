@@ -83,7 +83,13 @@
   "vapid_public_key",
   "vapid_private_key",
   "vapid_generated_on",
-  "timesheet_reminder_exclusions"
+  "timesheet_reminder_exclusions",
+  "ai_photo_analysis_tab",
+  "ai_photo_analysis_section",
+  "ai_photo_analysis_enabled",
+  "ai_photo_analysis_model",
+  "column_break_ai_photo",
+  "ai_photo_analysis_api_key"
  ],
  "fields": [
   {
@@ -525,13 +531,47 @@
   {
    "fieldname": "column_break_gvvx",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ai_photo_analysis_tab",
+   "fieldtype": "Tab Break",
+   "label": "AI Photo Analysis"
+  },
+  {
+   "fieldname": "ai_photo_analysis_section",
+   "fieldtype": "Section Break",
+   "label": "Submitted Form Photo Review"
+  },
+  {
+   "default": "0",
+   "description": "Analyse photos after a Verto Mobile form and all of its attachments have been saved.",
+   "fieldname": "ai_photo_analysis_enabled",
+   "fieldtype": "Check",
+   "label": "Enable AI Photo Analysis"
+  },
+  {
+   "default": "gpt-5.6-luna",
+   "description": "OpenAI vision-capable model used for form evidence review.",
+   "fieldname": "ai_photo_analysis_model",
+   "fieldtype": "Data",
+   "label": "OpenAI Model"
+  },
+  {
+   "fieldname": "column_break_ai_photo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Encrypted by Frappe. The key is only read by background workers.",
+   "fieldname": "ai_photo_analysis_api_key",
+   "fieldtype": "Password",
+   "label": "OpenAI API Key"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-09-02 08:00:07.036246",
+ "modified": "2026-09-02 13:41:06.853132",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Verto Mobile Settings",

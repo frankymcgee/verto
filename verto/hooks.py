@@ -30,7 +30,7 @@ app_include_css = [
     "/assets/verto/css/verto.css",
     "/assets/verto/css/leaflet.css",
     "/assets/verto/css/leaflet.draw.css",
-#    "/assets/verto/css/easy-button.css",
+    "/assets/verto/css/easy-button.css",
     "/assets/verto/css/L.Control.Locate.css",
 	"/assets/verto/css/whiteboard.css",
     "/assets/verto/css/excalidraw.css",
