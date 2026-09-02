@@ -1198,6 +1198,21 @@ async function uploadFiles(
   }
 }
 
+async function queuePhotoAnalysis(doctype: string, targetDocname: string) {
+  const payload = new FormData()
+  payload.append('doctype', doctype)
+  payload.append('docname', targetDocname)
+
+  try {
+    await apiRequest(
+      '/api/method/verto.api.mobile.ai_photo_analysis.queue_submitted_form_review',
+      { method: 'POST', body: payload }
+    )
+  } catch (err) {
+    console.error('[Verto AI photo analysis] Could not queue review', err)
+  }
+}
+
 async function saveDocument() {
   const payload = new FormData()
 
@@ -1254,6 +1269,10 @@ async function saveForm() {
         docname,
         savedDocument.offline_operation_id
       )
+
+      if (!savedDocument.offline_operation_id) {
+        await queuePhotoAnalysis(schema.value.doctype, docname)
+      }
     }
 
     files.value = []
