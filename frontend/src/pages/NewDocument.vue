@@ -431,6 +431,7 @@ import {
   Textarea,
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
+import { withCsrfHeaders } from '../lib/csrf'
 import {
   attachFileToDocumentOperation,
   makeOfflineAttachment,
@@ -1352,6 +1353,7 @@ async function uploadFiles(
     const response = await fetch('/api/method/upload_file', {
       method: 'POST',
       credentials: 'include',
+      headers: withCsrfHeaders(undefined, 'POST'),
       body: formData,
     })
 
