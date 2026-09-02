@@ -186,7 +186,7 @@ def get_offline_bootstrap():
 
     schemas = {}
 
-    for mobile_doctype, doctype in documents.ALLOWED_MOBILE_DOCTYPES.items():
+    for mobile_doctype, doctype in documents.get_allowed_mobile_doctypes().items():
         if not (
             frappe.has_permission(doctype, "create")
             or frappe.has_permission(doctype, "read")

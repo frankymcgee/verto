@@ -2,43 +2,16 @@ import json
 from datetime import datetime, timedelta
 
 import frappe
-from frappe.utils import getdate, now_datetime, today
+from frappe.utils import cint, getdate, now_datetime, today
 
 
-ALLOWED_MOBILE_DOCTYPES = {
-    "field-interaction": "Field Interaction",
-    "commitment-interaction": "Commitment Interaction",
-    "workplace-inspection": "Workplace Inspection",
-    "job-hazard-analysis-review": "Job Hazard Analysis Review",
-    "contractor-management-audit-checklist": "Contractor Management Audit Checklist",
-    "prohibited-and-restricted-tooling-checklist": "Prohibited and Restricted Tooling Checklist",
-    "safe-zone-supervisor-check-in": "Safe Zone Supervisor Check-in",
-    "safety-identification-rectification": "Safety Identification Rectification",
-    "supervisor-batb": "Supervisor BATB",
-    "weekly-summary": "Weekly Summary",
-
-    "safety-handover": "Safety Handover",
-    "lead-safety-handover": "Lead Safety Handover",
-
-    "lv-pre-start": "LV Pre-Start",
-    "take-5": "Take 5",
-    "shift-request": "Shift Request",
-    "leave-application": "Leave Application",
-    "personal-fatigue-assessment": "Personal Fatigue Assessment",
-
-    "daily-timesheet": "Daily Timesheet",
-
-    "ccv---confined-space": "CCV - Confined Space",
-    "ccv---contact-with-electricity": "CCV - Contact with Electricity",
-    "ccv---dropped-objects": "CCV - Dropped Objects",
-    "ccv---entanglement-and-crushing": "CCV - Entanglement and Crushing",
-    "ccv---fall-from-height": "CCV - Fall From Height",
-    "ccv---hot-works": "CCV - Hot Works",
-    "ccv---lifting-operations": "CCV - Lifting Operations",
-    "ccv---uncontrolled-release-of-energy": "CCV - Uncontrolled Release of Energy",
-    "ccv---vehicles-and-mobile-equipment": "CCV - Vehicles and Mobile Equipment",
-    "ccv---working-near-water": "CCV - Working Near Water",
-}
+MOBILE_SETTINGS_DOCTYPE = "Verto Mobile Settings"
+MOBILE_FORM_TABLES = (
+    "core_mobile_forms",
+    "generic_forms",
+    "project_forms",
+    "project_ccvs",
+)
 
 
 SKIP_FIELD_TYPES = {
@@ -93,6 +66,33 @@ def normalise_mobile_doctype_key(value):
     return frappe.scrub(value).replace("_", "-")
 
 
+def get_allowed_mobile_doctypes():
+    """Return enabled DocTypes from every Verto Mobile Settings form table."""
+    try:
+        settings = frappe.get_cached_doc(MOBILE_SETTINGS_DOCTYPE)
+    except frappe.DoesNotExistError:
+        return {}
+
+    allowed = {}
+
+    for fieldname in MOBILE_FORM_TABLES:
+        if not settings.meta.has_field(fieldname):
+            continue
+
+        for row in settings.get(fieldname) or []:
+            if not cint(row.get("enabled")):
+                continue
+
+            doctype = str(row.get("doc_type") or "").strip()
+
+            if not doctype:
+                continue
+
+            allowed[normalise_mobile_doctype_key(doctype)] = doctype
+
+    return allowed
+
+
 def get_allowed_doctype(mobile_doctype):
     if not mobile_doctype:
         frappe.throw("Mobile DocType is required.", frappe.ValidationError)
@@ -106,19 +106,21 @@ def get_allowed_doctype(mobile_doctype):
 
     normalised_key = normalise_mobile_doctype_key(decoded_value)
 
+    allowed_mobile_doctypes = get_allowed_mobile_doctypes()
+
     # 1. Standard mobile slug lookup:
     # field-interaction -> Field Interaction
-    if normalised_key in ALLOWED_MOBILE_DOCTYPES:
-        return ALLOWED_MOBILE_DOCTYPES[normalised_key]
+    if normalised_key in allowed_mobile_doctypes:
+        return allowed_mobile_doctypes[normalised_key]
 
     # 2. Raw key lookup, just in case:
     # field-interaction exactly as provided
-    if raw_value in ALLOWED_MOBILE_DOCTYPES:
-        return ALLOWED_MOBILE_DOCTYPES[raw_value]
+    if raw_value in allowed_mobile_doctypes:
+        return allowed_mobile_doctypes[raw_value]
 
-    # 3. Allow actual DocType names if they are in the allowed mobile map:
+    # 3. Allow actual DocType names if they are in the configured mobile map:
     # Field Interaction -> Field Interaction
-    allowed_doctypes = set(ALLOWED_MOBILE_DOCTYPES.values())
+    allowed_doctypes = set(allowed_mobile_doctypes.values())
 
     if decoded_value in allowed_doctypes:
         return decoded_value
@@ -138,7 +140,7 @@ def get_allowed_doctype(mobile_doctype):
 def get_mobile_slug_for_doctype(doctype):
     doctype = str(doctype or "").strip()
 
-    for mobile_doctype, mapped_doctype in ALLOWED_MOBILE_DOCTYPES.items():
+    for mobile_doctype, mapped_doctype in get_allowed_mobile_doctypes().items():
         if mapped_doctype == doctype:
             return mobile_doctype
 

@@ -2,37 +2,15 @@ import frappe
 from datetime import datetime
 from frappe.utils.pdf import get_pdf
 
+from verto.api.mobile.documents import get_allowed_mobile_doctypes
+
 
 @frappe.whitelist()
 def fetch_created_records(start_date=None, end_date=None):
     if frappe.session.user == "Guest":
         frappe.throw("Login required", frappe.PermissionError)
 
-    # Define the DocTypes to include in the list
-    doctypes = [
-        "Commitment Interaction",
-        "Critical Control Verification",
-        "Field Interaction", 
-        "Job Hazard Analysis Review",
-        "LV Pre-Start",
-        "Personal Fatigue Assessment",
-        "Take 5",
-        "Supervisor BATB",
-        "Workplace Inspection",
-        "Weekly Summary",
-        "Prohibited and Restricted Tooling Checklist",
-        "Safety Identification Rectification",
-        "CCV - Confined Space",
-        "CCV - Contact with Electricity",
-        "CCV - Dropped Objects",
-        "CCV - Entanglement and Crushing",
-        "CCV - Fall From Height",
-        "CCV - Hot Works",
-        "CCV - Lifting Operations",
-        "CCV - Uncontrolled Release of Energy",
-        "CCV - Vehicles and Mobile Equipment",
-        "CCV - Working Near Water"
-    ]
+    doctypes = list(dict.fromkeys(get_allowed_mobile_doctypes().values()))
     start_date = start_date or frappe.form_dict.get("start_date") or "2000-01-01"
     end_date = end_date or frappe.form_dict.get("end_date") or frappe.utils.nowdate()
 

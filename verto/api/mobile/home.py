@@ -191,14 +191,23 @@ def get_settings_child_rows(settings, field_candidates):
 
 def get_buttons_from_settings(settings, field_candidates, fallback_buttons):
     fallback_allowed_buttons = get_allowed_buttons(fallback_buttons)
-    rows = get_settings_child_rows(settings, field_candidates)
+    configured_field = next(
+        (
+            fieldname
+            for fieldname in field_candidates
+            if has_settings_field(settings, fieldname)
+        ),
+        None,
+    )
 
-    if not rows:
+    # Retain legacy defaults only until the Settings schema has been migrated.
+    # Once a child table exists, its enabled rows are authoritative.
+    if not configured_field:
         return fallback_allowed_buttons
 
     configured_buttons = []
 
-    for row in rows:
+    for row in settings.get(configured_field) or []:
         if not is_enabled(row.get("enabled")):
             continue
 
@@ -212,15 +221,7 @@ def get_buttons_from_settings(settings, field_candidates, fallback_buttons):
             "doc_type": doctype,
         })
 
-    configured_allowed_buttons = get_allowed_buttons(configured_buttons)
-
-    # Safety fallback: if the settings table exists but no row is enabled,
-    # no row has a valid DocType, or no row passes create permission, do not
-    # blank the mobile app. Fall back to the original hardcoded list.
-    if not configured_allowed_buttons:
-        return fallback_allowed_buttons
-
-    return configured_allowed_buttons
+    return get_allowed_buttons(configured_buttons)
 
 
 def get_project_tool_key(row):

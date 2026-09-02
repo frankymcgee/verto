@@ -925,9 +925,9 @@ def notify_document_assignment(doc, method=None):
     if allocated_to == getattr(doc, "owner", None) or not _enabled_user(allocated_to):
         return
 
-    from verto.api.mobile.documents import ALLOWED_MOBILE_DOCTYPES, get_mobile_slug_for_doctype
+    from verto.api.mobile.documents import get_allowed_mobile_doctypes, get_mobile_slug_for_doctype
 
-    allowed_mobile_doctypes = set(ALLOWED_MOBILE_DOCTYPES.values())
+    allowed_mobile_doctypes = set(get_allowed_mobile_doctypes().values())
 
     if reference_type == "Task":
         title = "Task assigned"
