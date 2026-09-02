@@ -1346,7 +1346,10 @@ async function uploadFiles(
 
     const formData = new FormData()
 
-    formData.append('file', file)
+    // Supplying the filename explicitly is important on iOS Safari. Without the
+    // third argument, some multipart requests arrive in Frappe as an unnamed
+    // blob, leaving the File document with neither file_name nor file_url.
+    formData.append('file', file, file.name)
     formData.append('doctype', doctype)
     formData.append('docname', targetDocname)
     formData.append('is_private', '1')
