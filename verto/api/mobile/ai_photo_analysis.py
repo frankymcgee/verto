@@ -12,6 +12,7 @@ from frappe.utils import cint, now_datetime
 
 from verto.api.mobile.ai_photo_analysis_parsing import (
     extract_output_text,
+    parse_assigned_users,
     parse_result,
 )
 
@@ -420,25 +421,21 @@ def _call_openai(settings: dict, doc, files: list) -> tuple[dict, dict]:
     return parse_result(extract_output_text(raw)), raw
 
 
-def _project_users(project: str) -> list[str]:
+def _project_assignees(project: str) -> list[str]:
     if not project or not frappe.db.exists("Project", project):
         return []
-    project_doc = frappe.get_doc("Project", project)
-    users = []
-    seen = set()
-    for row in project_doc.get("users") or []:
-        user = _clean(row.get("user"))
-        if not user or user in seen or user == "Guest":
-            continue
-        if not frappe.db.get_value("User", user, "enabled"):
-            continue
-        seen.add(user)
-        users.append(user)
-    return users
+    assigned_users = parse_assigned_users(
+        frappe.db.get_value("Project", project, "_assign")
+    )
+    return [
+        user
+        for user in assigned_users
+        if frappe.db.get_value("User", user, "enabled")
+    ]
 
 
-def _notify_project_users(analysis, doc, result: dict):
-    users = _project_users(analysis.project)
+def _notify_project_assignees(analysis, doc, result: dict):
+    users = _project_assignees(analysis.project)
     if not users:
         return
     from verto.api.mobile.documents import get_mobile_slug_for_doctype
@@ -515,7 +512,7 @@ def run_submitted_form_review(analysis_name: str):
             update_modified=False,
         )
         if result["outcome"] in {"fail", "uncertain"}:
-            _notify_project_users(analysis, doc, result)
+            _notify_project_assignees(analysis, doc, result)
         return {"ok": True, "outcome": result["outcome"]}
     except Exception as error:
         analysis.db_set(

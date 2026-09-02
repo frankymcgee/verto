@@ -3,6 +3,28 @@ from __future__ import annotations
 import json
 
 
+def parse_assigned_users(value) -> list[str]:
+    """Return the unique users stored in Frappe's JSON `_assign` field."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value or "[]")
+        except (TypeError, ValueError):
+            return []
+
+    if not isinstance(value, (list, tuple)):
+        return []
+
+    users = []
+    seen = set()
+    for item in value:
+        user = str(item or "").strip()
+        if not user or user == "Guest" or user in seen:
+            continue
+        seen.add(user)
+        users.append(user)
+    return users
+
+
 def extract_output_text(response: dict) -> str:
     if response.get("output_text"):
         return str(response["output_text"] or "").strip()

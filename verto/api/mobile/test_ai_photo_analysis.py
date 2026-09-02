@@ -1,9 +1,25 @@
 import unittest
 
-from verto.api.mobile.ai_photo_analysis_parsing import extract_output_text, parse_result
+from verto.api.mobile.ai_photo_analysis_parsing import (
+    extract_output_text,
+    parse_assigned_users,
+    parse_result,
+)
 
 
 class TestAIPhotoAnalysisParsing(unittest.TestCase):
+    def test_parses_unique_project_assignees(self):
+        self.assertEqual(
+            parse_assigned_users(
+                '["supervisor@example.com", "worker@example.com", '
+                '"supervisor@example.com", "Guest"]'
+            ),
+            ["supervisor@example.com", "worker@example.com"],
+        )
+
+    def test_rejects_malformed_project_assignments(self):
+        self.assertEqual(parse_assigned_users("not-json"), [])
+
     def test_extracts_responses_api_output_text(self):
         payload = {
             "output": [
