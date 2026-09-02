@@ -406,7 +406,7 @@ def get_existing_files_for_doc(doctype, docname):
 
 
 @frappe.whitelist(methods=["POST"])
-def upload_mobile_attachment(doctype, docname, file_name=None, is_private=1):
+def upload_mobile_attachment(doctype=None, docname=None, file_name=None, is_private=1):
     """Attach an uploaded file without relying on Frappe's generic upload handler.
 
     Mobile Safari can submit a valid multipart blob without a filename that the
@@ -414,6 +414,12 @@ def upload_mobile_attachment(doctype, docname, file_name=None, is_private=1):
     this endpoint deliberately preserves it when saving the File document.
     """
     require_login()
+
+    request_args = getattr(frappe.request, "args", None) or {}
+    doctype = str(doctype or request_args.get("doctype") or "").strip()
+    docname = str(docname or request_args.get("docname") or "").strip()
+    file_name = str(file_name or request_args.get("file_name") or "").strip()
+    is_private = request_args.get("is_private", is_private)
 
     allowed_doctype = get_allowed_doctype(doctype)
     if not docname or not frappe.db.exists(allowed_doctype, docname):

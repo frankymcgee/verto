@@ -498,10 +498,7 @@ self.addEventListener('fetch', (event) => {
 
   if (
     request.method === 'POST' &&
-    (
-      url.pathname === '/api/method/upload_file' ||
-      url.pathname === '/api/method/verto.api.mobile.documents.upload_mobile_attachment'
-    )
+    url.pathname === '/api/method/upload_file'
   ) {
     event.respondWith(handleUploadRequest(request))
     return

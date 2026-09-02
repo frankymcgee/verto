@@ -1355,9 +1355,18 @@ async function uploadFiles(
     formData.append('docname', targetDocname)
     formData.append('is_private', '1')
 
+    // Keep attachment metadata in the URL as well as the multipart body. Some
+    // iOS service-worker versions forward the file but drop multipart text parts.
+    const uploadParams = new URLSearchParams({
+      doctype,
+      docname: targetDocname,
+      file_name: file.name,
+      is_private: '1',
+    })
+
     let response: Response
     try {
-      response = await fetch('/api/method/verto.api.mobile.documents.upload_mobile_attachment', {
+      response = await fetch(`/api/method/verto.api.mobile.documents.upload_mobile_attachment?${uploadParams}`, {
         method: 'POST',
         credentials: 'include',
         headers: withCsrfHeaders(undefined, 'POST'),
