@@ -9,6 +9,7 @@ import {
   syncOfflineQueueItem,
 } from '../pwa/offlineQueue'
 import { clearOfflineReadCache } from '../pwa/offlineSecurity'
+import { withCsrfHeaders } from './csrf'
 
 const OFFLINE_ACTOR_STORAGE_KEY = 'verto:offline-actor'
 let offlineActorVerified = false
@@ -550,13 +551,16 @@ export async function apiRequest<T>(url: string, options: RequestInit = {}): Pro
   }
 
   try {
+    const headers = withCsrfHeaders(options.headers, method)
+
+    if (!headers.has('Accept')) {
+      headers.set('Accept', 'application/json')
+    }
+
     const response = await fetch(url, {
-      credentials: 'include',
-      headers: {
-        Accept: 'application/json',
-        ...(options.headers || {}),
-      },
       ...options,
+      credentials: 'include',
+      headers,
     })
 
     const rawText = await response.text().catch(() => '')
