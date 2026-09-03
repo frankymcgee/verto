@@ -8,6 +8,7 @@ const Shifts = () => import('../pages/Shifts.vue')
 const Chat = () => import('../pages/Chat.vue')
 const NewDocument = () => import('../pages/NewDocument.vue')
 const EditDocument = () => import('../pages/EditDocument.vue')
+const VoiceJha = () => import('../pages/VoiceJha.vue')
 
 const routes = [
   {
@@ -48,6 +49,13 @@ const routes = [
         meta: {
           title: 'Ask PERI',
           mode: 'peri',
+        },
+      },
+      {
+        path: 'voice-jha/:workSummary',
+        component: VoiceJha,
+        meta: {
+          title: 'Develop JHA with PERI',
         },
       },
       {
