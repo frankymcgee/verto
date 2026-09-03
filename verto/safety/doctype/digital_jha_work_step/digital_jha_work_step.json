@@ -1,0 +1,23 @@
+{
+ "actions": [],
+ "doctype":"DocType",
+ "editable_grid":1,
+ "engine":"InnoDB",
+ "field_order":["sequence","activity","step_origin","source_step_identifier","hold_or_pause_point","hazards_and_controls"],
+ "fields":[
+  {"fieldname":"sequence","fieldtype":"Int","in_list_view":1,"label":"Sequence"},
+  {"fieldname":"activity","fieldtype":"Small Text","in_list_view":1,"label":"Activity","reqd":1},
+  {"default":"Planned","fieldname":"step_origin","fieldtype":"Select","label":"Origin","options":"Planned\nVoice-derived\nManually added"},
+  {"fieldname":"source_step_identifier","fieldtype":"Data","label":"Source Step Identifier"},
+  {"fieldname":"hold_or_pause_point","fieldtype":"Check","label":"Hold / Pause Point"},
+  {"fieldname":"hazards_and_controls","fieldtype":"Table","label":"Hazards and Controls","options":"Digital JHA Hazard Control"}
+ ],
+ "istable":1,
+ "module":"Safety",
+ "name":"Digital JHA Work Step",
+ "permissions":[],
+ "row_format":"Dynamic",
+ "sort_field":"modified",
+ "sort_order":"DESC",
+ "states":[]
+}
