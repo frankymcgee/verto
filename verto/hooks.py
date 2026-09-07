@@ -73,7 +73,7 @@ extend_bootinfo = ["verto.api.mobile.boot.add_map_settings_to_boot"]
 # Apply site-managed runtime configuration before normal web and worker code.
 # This removes the need to manually duplicate Verto settings into site_config.json.
 before_request = ["verto.runtime_config.apply_runtime_config"]
-before_job = ["verto.runtime_config.apply_runtime_config"]
+before_job = ["verto.runtime_config.apply_runtime_job_config"]
 
 # Document events
 # ---------------
