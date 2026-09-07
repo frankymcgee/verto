@@ -7,8 +7,14 @@ const callbacks = new Map<string, Set<RealtimeCallback>>()
 let socket: Socket | null = null
 let hasInitialised = false
 
-function normaliseSiteName(value?: string) {
-  return String(value || '').trim().replace(/^\/+|\/+$/g, '')
+function normaliseSiteName(value: unknown) {
+  if (typeof value !== 'string') return ''
+
+  const siteName = value.trim().replace(/^\/+|\/+$/g, '')
+
+  // Accept a site identifier, not a URL, path, or unresolved Jinja error.
+  // Site identifiers can contain dots, hyphens and underscores.
+  return /^[a-zA-Z0-9_-][a-zA-Z0-9._-]*$/.test(siteName) ? siteName : ''
 }
 
 function getSiteName() {
@@ -16,11 +22,14 @@ function getSiteName() {
     .querySelector<HTMLMetaElement>('meta[name="frappe-site-name"]')
     ?.content
 
-  return normaliseSiteName(
-    window.location.hostname ||
-    embeddedSiteName ||
-    window.frappe?.boot?.sitename ||
-    window.frappe?.boot?.site_name
+  // Pilot can serve a site through a custom domain. Frappe validates the
+  // namespace against the routed site (X-Frappe-Site-Name), not that domain.
+  // Skip malformed candidates before considering the next fallback.
+  return (
+    normaliseSiteName(embeddedSiteName) ||
+    normaliseSiteName(window.frappe?.boot?.sitename) ||
+    normaliseSiteName(window.frappe?.boot?.site_name) ||
+    normaliseSiteName(window.location.hostname)
   )
 }
 
@@ -34,6 +43,11 @@ function getSocketPath() {
 
 function makeSocket() {
   const siteName = getSiteName()
+
+  if (!siteName) {
+    throw new Error('[Verto realtime] No valid Frappe site name is available')
+  }
+
   const manager = new Manager(window.location.origin, {
     path: getSocketPath(),
     withCredentials: true,
