@@ -115,6 +115,28 @@ def apply_runtime_config(**kwargs):
     frappe.local.conf[VAPID_SUBJECT_CONFIG] = config["subject"]
 
 
+def apply_runtime_job_config(**kwargs):
+    """Apply runtime config for workers without exposing Pilot's internal port.
+
+    Pilot terminates HTTPS at its reverse proxy while Frappe workers can still
+    have ``http_port``/``webserver_port`` set to the internal backend port
+    (normally 8000). Frappe's ``get_url`` appends that port to absolute URLs
+    generated outside a request, which leaks ``:8000`` into emailed approval
+    links. When an explicit HTTPS public host is configured, the worker ports
+    are implementation details and must not be added to client-facing URLs.
+    """
+    apply_runtime_config(**kwargs)
+
+    public_host = (
+        _clean(getattr(frappe.conf, "host_name", ""))
+        or _clean(getattr(frappe.conf, "hostname", ""))
+    )
+
+    if public_host.lower().startswith("https://"):
+        frappe.local.conf["http_port"] = None
+        frappe.local.conf["webserver_port"] = None
+
+
 def _legacy_site_config() -> dict:
     return {
         "public_key": _clean(getattr(frappe.conf, VAPID_PUBLIC_KEY_CONFIG, "")),
