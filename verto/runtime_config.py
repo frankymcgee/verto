@@ -52,6 +52,18 @@ def _normalise_subject(value: str | None) -> str:
     return DEFAULT_VAPID_SUBJECT
 
 
+def _apply_public_url_config():
+    """Prevent Pilot's internal backend port from leaking into public URLs."""
+    public_host = (
+        _clean(getattr(frappe.conf, "host_name", ""))
+        or _clean(getattr(frappe.conf, "hostname", ""))
+    )
+
+    if public_host.lower().startswith("https://"):
+        frappe.local.conf["http_port"] = None
+        frappe.local.conf["webserver_port"] = None
+
+
 def get_push_settings_config() -> dict:
     settings = _get_settings()
 
@@ -92,10 +104,12 @@ def get_push_settings_config() -> dict:
 def apply_runtime_config(**kwargs):
     """Expose Verto settings through frappe.conf for legacy consumers.
 
-    If a site has not migrated its old site_config VAPID keys yet, leave those
-    values untouched so the migration routine can still discover them. Once DB
-    settings are configured they become the source of truth.
+    Also remove Pilot's internal backend port from request-local URL generation
+    when the site has an explicit HTTPS public hostname. This applies to normal
+    web requests (including System Console executions) as well as jobs.
     """
+    _apply_public_url_config()
+
     try:
         config = get_push_settings_config()
     except Exception:
@@ -116,25 +130,8 @@ def apply_runtime_config(**kwargs):
 
 
 def apply_runtime_job_config(**kwargs):
-    """Apply runtime config for workers without exposing Pilot's internal port.
-
-    Pilot terminates HTTPS at its reverse proxy while Frappe workers can still
-    have ``http_port``/``webserver_port`` set to the internal backend port
-    (normally 8000). Frappe's ``get_url`` appends that port to absolute URLs
-    generated outside a request, which leaks ``:8000`` into emailed approval
-    links. When an explicit HTTPS public host is configured, the worker ports
-    are implementation details and must not be added to client-facing URLs.
-    """
+    """Apply the same runtime configuration for background jobs."""
     apply_runtime_config(**kwargs)
-
-    public_host = (
-        _clean(getattr(frappe.conf, "host_name", ""))
-        or _clean(getattr(frappe.conf, "hostname", ""))
-    )
-
-    if public_host.lower().startswith("https://"):
-        frappe.local.conf["http_port"] = None
-        frappe.local.conf["webserver_port"] = None
 
 
 def _legacy_site_config() -> dict:
