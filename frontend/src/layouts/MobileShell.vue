@@ -1,10 +1,10 @@
 <!-- VERTO_MOBILE_SHELL_OFFLINE_SYNC_2026_08_24 -->
 <template>
   <div
-    class="mobile-shell min-h-[100dvh] overflow-hidden bg-gray-50 text-gray-900"
+    class="mobile-shell overflow-hidden bg-gray-50 text-gray-900"
     @click.capture="handleAppBrowserLinkClick"
   >
-    <div class="mobile-shell-frame mx-auto flex h-[100dvh] min-h-[100dvh] w-full flex-col overflow-hidden bg-gray-50">
+    <div class="mobile-shell-frame mx-auto flex w-full flex-col overflow-hidden bg-gray-50">
       <div class="mobile-shell-content flex min-h-0 min-w-0 flex-1 flex-col">
         <div class="mobile-shell-header">
           <AppHeader />
@@ -13,7 +13,7 @@
 
         <main
           ref="mainEl"
-          class="mobile-shell-main min-h-0 flex-1 overflow-y-auto overscroll-contain"
+          class="mobile-shell-main min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
         >
           <div class="mobile-shell-page mx-auto h-full w-full max-w-[var(--verto-shell-max-width,28rem)]">
             <router-view />
@@ -31,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import BottomTabs from '../components/BottomTabs.vue'
@@ -40,14 +40,58 @@ import OfflineSyncStatus from '../components/OfflineSyncStatus.vue'
 import PwaUpdatePrompt from '../components/PwaUpdatePrompt.vue'
 import PwaInstallPrompt from '../components/PwaInstallPrompt.vue'
 import { handleAppBrowserLinkClick } from '../lib/appBrowser'
+import { isAndroidDevice, isStandalonePwa } from '../pwa/displayMode'
 import { usePushNotifications } from '../pwa/usePushNotifications'
 
 const route = useRoute()
 const mainEl = ref<HTMLElement | null>(null)
 const { initialisePushNotifications } = usePushNotifications()
+const useAndroidBrowserViewport = isAndroidDevice() && !isStandalonePwa()
+
+function syncAndroidBrowserViewport() {
+  if (!useAndroidBrowserViewport) {
+    return
+  }
+
+  const viewportHeight = window.visualViewport?.height || window.innerHeight
+
+  if (viewportHeight > 0) {
+    document.documentElement.style.setProperty(
+      '--verto-viewport-height',
+      `${Math.round(viewportHeight)}px`
+    )
+  }
+}
+
+function installAndroidBrowserViewportSync() {
+  if (!useAndroidBrowserViewport) {
+    return
+  }
+
+  syncAndroidBrowserViewport()
+  window.addEventListener('resize', syncAndroidBrowserViewport, { passive: true })
+  window.visualViewport?.addEventListener('resize', syncAndroidBrowserViewport, { passive: true })
+  window.visualViewport?.addEventListener('scroll', syncAndroidBrowserViewport, { passive: true })
+}
+
+function removeAndroidBrowserViewportSync() {
+  if (!useAndroidBrowserViewport) {
+    return
+  }
+
+  window.removeEventListener('resize', syncAndroidBrowserViewport)
+  window.visualViewport?.removeEventListener('resize', syncAndroidBrowserViewport)
+  window.visualViewport?.removeEventListener('scroll', syncAndroidBrowserViewport)
+  document.documentElement.style.removeProperty('--verto-viewport-height')
+}
 
 onMounted(() => {
+  installAndroidBrowserViewportSync()
   void initialisePushNotifications()
+})
+
+onBeforeUnmount(() => {
+  removeAndroidBrowserViewportSync()
 })
 
 watch(
@@ -72,11 +116,14 @@ watch(
   --verto-header-safe-top: max(env(safe-area-inset-top, 0px), 20px);
   --verto-footer-safe-bottom: env(safe-area-inset-bottom, 0px);
 
+  min-height: var(--verto-viewport-height, 100dvh);
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
 }
 
 .mobile-shell-frame {
+  height: var(--verto-viewport-height, 100dvh);
+  min-height: var(--verto-viewport-height, 100dvh);
   max-width: var(--verto-shell-max-width);
 }
 
@@ -94,6 +141,8 @@ watch(
 .mobile-shell-main {
   position: relative;
   z-index: 0;
+  touch-action: pan-y;
+  overscroll-behavior-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 

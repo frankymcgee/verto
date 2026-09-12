@@ -36,8 +36,8 @@
     >
       <canvas
         ref="canvasEl"
-        class="block h-40 w-full touch-none bg-white"
-        :class="disabled ? 'cursor-not-allowed' : 'cursor-crosshair'"
+        class="block h-40 w-full bg-white"
+        :class="disabled ? 'touch-pan-y cursor-not-allowed' : 'touch-none cursor-crosshair'"
         @pointerdown="startDrawing"
         @pointermove="draw"
         @pointerup="stopDrawing"

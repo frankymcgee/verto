@@ -25,6 +25,22 @@ body {
   background: #f9fafb;
 }
 
+/* Frappe Card wraps its default slot in its own overflow:auto container.
+   Drawers already provide a dedicated vertical scroller, so flatten only that
+   generated wrapper to avoid competing nested scroll areas on mobile browsers. */
+.drawer-panel > .mt-4.flex-auto.overflow-auto {
+  display: contents;
+}
+
+/* Keep all Verto drawer/sheet scrollers touch-scrollable across Android Chrome
+   browser mode and installed PWAs while preserving iOS momentum scrolling. */
+.drawer-panel [class~='overflow-y-auto'],
+.bottom-sheet-body,
+.bottom-toast {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* Prevent iOS Safari/PWA auto-zoom when focusing form fields.
    Keep this scoped to form entry controls only so nav buttons stay small. */
 @supports (-webkit-touch-callout: none) {
