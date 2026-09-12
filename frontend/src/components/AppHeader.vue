@@ -222,6 +222,14 @@
 
           <button
             type="button"
+            class="block w-full px-3 py-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1"
+            @click="openAbout"
+          >
+            About
+          </button>
+
+          <button
+            type="button"
             class="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
             @click="logout"
           >
@@ -239,11 +247,17 @@
     aria-label="Close menu"
     @click="menuOpen = false"
   />
+
+  <AboutAppToast
+    :open="aboutOpen"
+    @close="aboutOpen = false"
+  />
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import AboutAppToast from './AboutAppToast.vue'
 import { useMobileBoot } from '../lib/mobileBoot'
 import { openAppBrowser } from '../lib/appBrowser'
 import { useOfflineSync } from '../pwa/useOfflineSync'
@@ -296,6 +310,7 @@ const {
 } = useOfflineSync()
 
 const menuOpen = ref(false)
+const aboutOpen = ref(false)
 const iconFailed = ref(false)
 const userImageFailed = ref(false)
 
@@ -489,6 +504,7 @@ watch(
   () => route.fullPath,
   () => {
     menuOpen.value = false
+    aboutOpen.value = false
   }
 )
 
@@ -569,6 +585,11 @@ function openAppList() {
     url: '/apps',
     title: 'Apps',
   })
+}
+
+function openAbout() {
+  menuOpen.value = false
+  aboutOpen.value = true
 }
 
 function logout() {
