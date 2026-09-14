@@ -20,6 +20,12 @@
   "source_revision",
   "ai_bot",
   "voice_session_reference",
+  "voice_audit_section",
+  "voice_model",
+  "voice_started_at",
+  "voice_transcription_consent_confirmed",
+  "voice_transcription_consent_confirmed_by",
+  "voice_transcription_consent_confirmed_at",
   "steps_section",
   "work_steps",
   "hazards_and_controls",
@@ -114,6 +120,43 @@
    "read_only": 1
   },
   {
+   "fieldname": "voice_audit_section",
+   "fieldtype": "Section Break",
+   "label": "Voice Session Audit"
+  },
+  {
+   "fieldname": "voice_model",
+   "fieldtype": "Data",
+   "label": "Voice Model",
+   "read_only": 1
+  },
+  {
+   "fieldname": "voice_started_at",
+   "fieldtype": "Datetime",
+   "label": "Voice Started At",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "voice_transcription_consent_confirmed",
+   "fieldtype": "Check",
+   "label": "Voice / Transcription Consent Confirmed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "voice_transcription_consent_confirmed_by",
+   "fieldtype": "Link",
+   "label": "Consent Confirmed By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "voice_transcription_consent_confirmed_at",
+   "fieldtype": "Datetime",
+   "label": "Consent Confirmed At",
+   "read_only": 1
+  },
+  {
    "fieldname": "steps_section",
    "fieldtype": "Section Break",
    "label": "Work Steps, Hazards and Controls"
@@ -160,7 +203,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-14 14:05:00.351333",
+ "modified": "2026-09-14 15:31:00.000000",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Digital Job Hazard Analysis",

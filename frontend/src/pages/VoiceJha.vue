@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Badge, Button } from 'frappe-ui'
+import { Badge, Button, Checkbox } from 'frappe-ui'
 
 import { apiRequest } from '../lib/api'
 
@@ -21,6 +21,12 @@ type JhaSnapshot = {
   ai_bot?: string
   modified?: string
   created?: boolean
+  voice_session_reference?: string
+  voice_model?: string
+  voice_started_at?: string
+  voice_transcription_consent_confirmed?: number | boolean
+  voice_transcription_consent_confirmed_by?: string
+  voice_transcription_consent_confirmed_at?: string
   work_steps?: any[]
   hazards_and_controls?: any[]
   participants?: any[]
@@ -40,20 +46,53 @@ type VoiceJhaBootstrap = {
   existing_jha?: JhaSnapshot | null
 }
 
+type VoiceCallResponse = {
+  sdp: string
+  model: string
+  session_reference?: string
+  consent_confirmed_at?: string
+  jha: JhaSnapshot
+}
+
+type TranscriptEntry = {
+  role: 'Crew' | 'PERI'
+  text: string
+}
+
 const route = useRoute()
 const router = useRouter()
 
 const loading = ref(true)
 const creating = ref(false)
 const refreshing = ref(false)
+const connecting = ref(false)
 const error = ref('')
 const context = ref<VoiceJhaBootstrap | null>(null)
 const jha = ref<JhaSnapshot | null>(null)
+const consentConfirmed = ref(false)
+const voiceConnected = ref(false)
+const voiceStatus = ref('Not connected')
+const voiceModel = ref('')
+const transcript = ref<TranscriptEntry[]>([])
+const pendingPeriTranscript = ref('')
+const remoteAudio = ref<HTMLAudioElement | null>(null)
+
+let peerConnection: RTCPeerConnection | null = null
+let localStream: MediaStream | null = null
+let dataChannel: RTCDataChannel | null = null
+let manualDisconnect = false
 
 const workSummary = computed(() => String(route.params.workSummary || ''))
 const workStepCount = computed(() => jha.value?.work_steps?.length || 0)
 const hazardCount = computed(() => jha.value?.hazards_and_controls?.length || 0)
 const participantCount = computed(() => jha.value?.participants?.length || 0)
+const canConnectVoice = computed(() => Boolean(
+  jha.value?.name &&
+  context.value?.realtime_enabled &&
+  consentConfirmed.value &&
+  !connecting.value &&
+  !voiceConnected.value
+))
 
 async function load() {
   loading.value = true
@@ -118,7 +157,261 @@ async function refreshJha() {
   }
 }
 
+function appendTranscript(role: TranscriptEntry['role'], text: unknown) {
+  const value = String(text || '').trim()
+  if (!value) {
+    return
+  }
+
+  transcript.value.push({ role, text: value })
+  if (transcript.value.length > 20) {
+    transcript.value = transcript.value.slice(-20)
+  }
+}
+
+function handleRealtimeEvent(raw: string) {
+  let event: any
+  try {
+    event = JSON.parse(raw)
+  } catch {
+    return
+  }
+
+  if (event.type === 'session.created' || event.type === 'session.updated') {
+    voiceStatus.value = 'Connected · listening'
+    return
+  }
+
+  if (event.type === 'input_audio_buffer.speech_started') {
+    voiceStatus.value = 'Listening to crew…'
+    return
+  }
+
+  if (event.type === 'input_audio_buffer.speech_stopped') {
+    voiceStatus.value = 'PERI is considering…'
+    return
+  }
+
+  if (event.type === 'conversation.item.input_audio_transcription.completed') {
+    appendTranscript('Crew', event.transcript)
+    return
+  }
+
+  if (event.type === 'response.output_audio_transcript.delta') {
+    pendingPeriTranscript.value += String(event.delta || '')
+    voiceStatus.value = 'PERI is speaking…'
+    return
+  }
+
+  if (event.type === 'response.output_audio_transcript.done') {
+    appendTranscript('PERI', event.transcript || pendingPeriTranscript.value)
+    pendingPeriTranscript.value = ''
+    return
+  }
+
+  if (event.type === 'response.done' || event.type === 'response.audio.done') {
+    voiceStatus.value = 'Connected · listening'
+    return
+  }
+
+  if (event.type === 'error') {
+    const message = event.error?.message || 'The realtime voice session reported an error.'
+    error.value = String(message)
+    voiceStatus.value = 'Voice error'
+  }
+}
+
+function configureDataChannel(channel: RTCDataChannel) {
+  dataChannel = channel
+
+  channel.onopen = () => {
+    voiceConnected.value = true
+    voiceStatus.value = 'Connected · starting PERI…'
+
+    channel.send(JSON.stringify({
+      type: 'response.create',
+      response: {
+        instructions: 'Briefly greet the crew, identify the Work Summary, remind them this is a draft JHA discussion requiring human review, then ask them to describe the job in their own words.',
+      },
+    }))
+  }
+
+  channel.onmessage = (event) => {
+    handleRealtimeEvent(String(event.data || ''))
+  }
+
+  channel.onerror = () => {
+    error.value = 'The PERI realtime data channel reported an error.'
+    voiceStatus.value = 'Voice error'
+  }
+}
+
+function cleanupVoice(status = 'Not connected') {
+  if (dataChannel) {
+    dataChannel.onopen = null
+    dataChannel.onmessage = null
+    dataChannel.onerror = null
+    try {
+      dataChannel.close()
+    } catch {
+      // already closed
+    }
+  }
+  dataChannel = null
+
+  if (peerConnection) {
+    peerConnection.ontrack = null
+    peerConnection.onconnectionstatechange = null
+    try {
+      peerConnection.close()
+    } catch {
+      // already closed
+    }
+  }
+  peerConnection = null
+
+  if (localStream) {
+    localStream.getTracks().forEach((track) => track.stop())
+  }
+  localStream = null
+
+  if (remoteAudio.value) {
+    remoteAudio.value.srcObject = null
+  }
+
+  voiceConnected.value = false
+  connecting.value = false
+  pendingPeriTranscript.value = ''
+  voiceStatus.value = status
+}
+
+function disconnectVoice() {
+  manualDisconnect = true
+  cleanupVoice('Disconnected')
+  window.setTimeout(() => {
+    manualDisconnect = false
+  }, 0)
+}
+
+async function connectVoice() {
+  if (!jha.value?.name || !consentConfirmed.value) {
+    return
+  }
+
+  if (!navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === 'undefined') {
+    error.value = 'This browser does not support the microphone/WebRTC features required for PERI voice.'
+    return
+  }
+
+  connecting.value = true
+  error.value = ''
+  voiceStatus.value = 'Requesting microphone…'
+  transcript.value = []
+  pendingPeriTranscript.value = ''
+  manualDisconnect = false
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    })
+
+    voiceStatus.value = 'Connecting to PERI…'
+
+    const pc = new RTCPeerConnection()
+    peerConnection = pc
+
+    pc.ontrack = (event) => {
+      if (!remoteAudio.value) {
+        return
+      }
+
+      const stream = event.streams?.[0] || new MediaStream([event.track])
+      remoteAudio.value.srcObject = stream
+      remoteAudio.value.play().catch(() => {
+        // The connect action is user initiated, but some mobile browsers may still
+        // delay playback until their media pipeline is ready.
+      })
+    }
+
+    pc.onconnectionstatechange = () => {
+      if (peerConnection !== pc) {
+        return
+      }
+
+      if (pc.connectionState === 'connected') {
+        voiceConnected.value = true
+        voiceStatus.value = 'Connected · listening'
+      } else if (pc.connectionState === 'failed') {
+        if (!manualDisconnect) {
+          error.value = 'The PERI voice connection failed.'
+        }
+        cleanupVoice('Connection failed')
+      } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
+        if (!manualDisconnect) {
+          cleanupVoice('Disconnected')
+        }
+      }
+    }
+
+    configureDataChannel(pc.createDataChannel('oai-events'))
+    localStream.getTracks().forEach((track) => pc.addTrack(track, localStream as MediaStream))
+
+    const offer = await pc.createOffer()
+    await pc.setLocalDescription(offer)
+
+    const offerSdp = pc.localDescription?.sdp
+    if (!offerSdp) {
+      throw new Error('Could not create the WebRTC offer.')
+    }
+
+    const payload = new FormData()
+    payload.append('jha_name', jha.value.name)
+    payload.append('sdp', offerSdp)
+    payload.append('consent_confirmed', '1')
+
+    const data = await apiRequest<FrappeResponse<VoiceCallResponse>>(
+      '/api/method/verto.api.mobile.voice_jha.start_voice_jha_call',
+      {
+        method: 'POST',
+        body: payload,
+      }
+    )
+
+    if (!data.message?.sdp) {
+      throw new Error('PERI did not return a WebRTC answer.')
+    }
+
+    await pc.setRemoteDescription({
+      type: 'answer',
+      sdp: data.message.sdp,
+    })
+
+    jha.value = data.message.jha
+    voiceModel.value = data.message.model || ''
+    voiceStatus.value = 'Connecting audio…'
+  } catch (err) {
+    const message = err instanceof DOMException && err.name === 'NotAllowedError'
+      ? 'Microphone access was not granted. Allow microphone access to use PERI voice.'
+      : err instanceof Error
+        ? err.message
+        : 'Could not connect voice with PERI.'
+
+    error.value = message
+    cleanupVoice('Not connected')
+  } finally {
+    connecting.value = false
+  }
+}
+
 onMounted(load)
+onBeforeUnmount(() => {
+  manualDisconnect = true
+  cleanupVoice('Disconnected')
+})
 </script>
 
 <template>
@@ -135,7 +428,7 @@ onMounted(load)
           theme="gray"
           size="sm"
           :loading="refreshing"
-          :disabled="refreshing"
+          :disabled="refreshing || voiceConnected || connecting"
           @click="refreshJha"
         >
           Refresh
@@ -233,37 +526,100 @@ onMounted(load)
                 <p class="mt-0.5 text-xs text-ink-gray-5">People</p>
               </div>
             </div>
-
-            <p class="mt-4 text-sm text-ink-gray-6">
-              {{ jha.created === false ? 'Existing draft resumed.' : 'Draft ready.' }} Changes made during the PERI discussion will be stored against this record.
-            </p>
           </section>
 
           <section class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
-            <div class="flex items-center justify-between gap-3">
+            <div class="flex items-start justify-between gap-3">
               <div>
                 <p class="text-base-semibold text-ink-gray-9">Voice discussion</p>
-                <p class="mt-1 text-sm text-ink-gray-5">Next workflow stage</p>
+                <p class="mt-1 text-sm text-ink-gray-5">Live crew conversation with PERI</p>
               </div>
-              <Badge variant="subtle">Not connected</Badge>
+              <Badge variant="subtle">{{ voiceConnected ? 'Microphone live' : voiceStatus }}</Badge>
+            </div>
+
+            <div v-if="!voiceConnected" class="mt-4 rounded-7 border border-outline-gray-1 bg-surface-gray-1 p-3">
+              <label class="flex cursor-pointer items-start gap-3">
+                <Checkbox
+                  class="mt-0.5 shrink-0"
+                  size="md"
+                  :model-value="consentConfirmed"
+                  :disabled="connecting"
+                  @update:model-value="(checked) => consentConfirmed = Boolean(checked)"
+                />
+                <span class="text-sm leading-5 text-ink-gray-7">
+                  I confirm everyone present has agreed to microphone use and transcription for this JHA discussion.
+                </span>
+              </label>
+
+              <p class="mt-3 text-xs leading-4 text-ink-gray-5">
+                This confirmation is recorded against the Digital JHA with your user and timestamp. Verto does not store raw audio in this workflow.
+              </p>
+            </div>
+
+            <div v-if="voiceConnected" class="mt-4 rounded-7 border border-green-200 bg-green-50 p-3">
+              <p class="text-sm-medium text-green-900">Microphone and transcription are active.</p>
+              <p class="mt-1 text-sm text-green-800">
+                {{ voiceStatus }}<span v-if="voiceModel"> · {{ voiceModel }}</span>
+              </p>
             </div>
 
             <div class="mt-4 space-y-2 text-sm text-ink-gray-6">
-              <p>1. Confirm everyone present and obtain transcription consent.</p>
-              <p>2. Discuss the job steps, hazards, credible consequences and controls with PERI.</p>
-              <p>3. PERI records structured draft entries against this JHA.</p>
-              <p>4. Crew reviews the completed JHA before individual acknowledgement and sign-on.</p>
+              <p>PERI will ask the crew to describe the work, then work through steps, hazards, consequences and controls.</p>
+              <p>PERI cannot approve, sign, submit or authorise the JHA or the work.</p>
+              <p class="text-xs text-ink-gray-5">This pilot voice milestone is discussion-only; structured JHA rows are not yet written automatically from the conversation.</p>
             </div>
 
             <Button
+              v-if="!voiceConnected"
               variant="solid"
               theme="gray"
               size="lg"
               class="mt-4 w-full justify-center"
-              disabled
+              :loading="connecting"
+              :disabled="!canConnectVoice"
+              @click="connectVoice"
             >
-              Connect Voice with PERI — next milestone
+              Connect Voice with PERI
             </Button>
+
+            <Button
+              v-else
+              variant="subtle"
+              theme="gray"
+              size="lg"
+              class="mt-4 w-full justify-center"
+              @click="disconnectVoice"
+            >
+              Disconnect Voice
+            </Button>
+
+            <audio ref="remoteAudio" autoplay playsinline class="hidden" />
+          </section>
+
+          <section
+            v-if="transcript.length || pendingPeriTranscript"
+            class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <p class="text-base-semibold text-ink-gray-9">Live transcript preview</p>
+              <Badge variant="subtle">Not saved yet</Badge>
+            </div>
+
+            <div class="mt-3 max-h-80 space-y-2 overflow-y-auto">
+              <div
+                v-for="(entry, index) in transcript"
+                :key="`${entry.role}-${index}`"
+                class="rounded-7 bg-surface-gray-1 p-3"
+              >
+                <p class="text-xs-semibold uppercase tracking-wide text-ink-gray-5">{{ entry.role }}</p>
+                <p class="mt-1 text-sm leading-5 text-ink-gray-8">{{ entry.text }}</p>
+              </div>
+
+              <div v-if="pendingPeriTranscript" class="rounded-7 bg-surface-gray-1 p-3">
+                <p class="text-xs-semibold uppercase tracking-wide text-ink-gray-5">PERI</p>
+                <p class="mt-1 text-sm leading-5 text-ink-gray-8">{{ pendingPeriTranscript }}</p>
+              </div>
+            </div>
           </section>
         </template>
 

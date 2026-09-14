@@ -55,8 +55,10 @@ def has_permission(doc, user=None, ptype=None, permission_type=None, **kwargs):
     """Restrict Digital JHAs to users assigned to the linked Work Summary.
 
     The DocType grants the authenticated `All` role the minimum base permissions
-    required by Frappe. This hook then narrows those permissions to the linked
-    Work Summary assignment. System Managers retain normal administrative access.
+    required by Frappe. This hook then narrows document permissions to the linked
+    Work Summary assignment. A doctype-level create probe is allowed so Verto can
+    advertise the configured + Form action before a document exists; the actual
+    insert is checked again against the linked Work Summary.
     """
     user = user or frappe.session.user
     ptype = ptype or permission_type or "read"
@@ -69,6 +71,12 @@ def has_permission(doc, user=None, ptype=None, permission_type=None, **kwargs):
 
     if ptype not in {"read", "write", "create", "print", "email"}:
         return False
+
+    # Frappe/Verto asks whether the user can create this DocType before a document
+    # exists when building the + Form menu. Allow that probe only; once a document
+    # is supplied, creation is still restricted by the linked Task._assign value.
+    if ptype == "create" and not doc:
+        return True
 
     work_summary = doc.get("work_summary") if doc else ""
     return user_can_access_work_summary(work_summary, user)
