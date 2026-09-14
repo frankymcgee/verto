@@ -53,9 +53,25 @@ const routes = [
       },
       {
         path: 'voice-jha/:workSummary',
+        name: 'voice-jha',
         component: VoiceJha,
         meta: {
           title: 'Develop JHA with PERI',
+        },
+      },
+      {
+        path: 'new/digital-job-hazard-analysis',
+        redirect: (to) => {
+          const workSummary = String(to.query.link_task || '').trim()
+
+          if (!workSummary) {
+            return { path: '/' }
+          }
+
+          return {
+            name: 'voice-jha',
+            params: { workSummary },
+          }
         },
       },
       {
