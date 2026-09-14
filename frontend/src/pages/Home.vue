@@ -4,25 +4,25 @@
   <section class="h-full min-h-0 bg-surface-gray-1">
     <main class="space-y-3 px-[var(--verto-page-x,0.75rem)] py-[var(--verto-page-y,0.75rem)]">
       <!-- Loading State -->
-      <Card
+      <section
         v-if="loading"
-        class="p-3"
+        class="bg-surface-base rounded-7 shadow-sm p-3"
       >
         <div class="space-y-3">
-          <div class="h-4 w-36 rounded bg-surface-gray-3" />
-          <div class="h-24 rounded-xl bg-surface-gray-2" />
-          <div class="h-24 rounded-xl bg-surface-gray-2" />
-          <div class="h-24 rounded-xl bg-surface-gray-2" />
+          <div class="h-4 w-36 rounded-4 bg-surface-gray-3" />
+          <div class="h-24 rounded-7 bg-surface-gray-2" />
+          <div class="h-24 rounded-7 bg-surface-gray-2" />
+          <div class="h-24 rounded-7 bg-surface-gray-2" />
         </div>
-      </Card>
+      </section>
 
       <!-- Error State -->
-      <Card
+      <section
         v-else-if="error"
-        class="border border-red-200 bg-red-50 p-3"
+        class="rounded-7 shadow-sm border border-red-200 bg-red-50 p-3"
       >
         <div class="space-y-2">
-          <p class="text-sm font-medium text-red-800">
+          <p class="text-sm-medium text-red-800">
             Could not load assigned work
           </p>
 
@@ -30,7 +30,7 @@
             {{ error }}
           </p>
         </div>
-      </Card>
+      </section>
 
       <template v-else>
         <!-- Refresh Row -->
@@ -48,12 +48,12 @@
         </div>
 
         <!-- Empty State -->
-        <Card
+        <section
           v-if="groupedTasks.length === 0"
-          class="p-3"
+          class="bg-surface-base rounded-7 shadow-sm p-3"
         >
-          <div class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-3 py-6 text-center">
-            <p class="text-sm font-medium text-ink-gray-7">
+          <div class="rounded-7 border border-dashed border-outline-gray-2 bg-surface-gray-1 px-3 py-6 text-center">
+            <p class="text-sm-medium text-ink-gray-7">
               No tasks allocated.
             </p>
 
@@ -61,13 +61,13 @@
               Assigned work will appear here when it is allocated to you.
             </p>
           </div>
-        </Card>
+        </section>
 
         <!-- Scope Groups -->
-        <Card
+        <section
           v-for="scope in groupedTasks"
           :key="scope.scope_name"
-          class="overflow-hidden border border-outline-gray-1 bg-surface-white !py-1 !px-1 !mt-1"
+          class="rounded-7 shadow-sm overflow-hidden border border-outline-gray-1 bg-surface-base !py-1 !px-1 !mt-1"
         >
           <!-- Scope Header -->
           <button
@@ -76,7 +76,7 @@
             @click="toggleScope(scope.scope_name)"
           >
             <div class="min-w-0">
-              <p class="truncate text-base font-semibold text-ink-gray-9">
+              <p class="truncate text-base-semibold text-ink-gray-9">
                 {{ scope.scope_name }}
               </p>
 
@@ -99,13 +99,13 @@
 
                 <span
                   v-else
-                  class="text-sm font-semibold text-ink-gray-6"
+                  class="text-sm-semibold text-ink-gray-6"
                 >
                   {{ getCustomerInitials(scope) }}
                 </span>
               </div>
 
-              <span class="text-xl font-medium text-ink-gray-5">
+              <span class="text-2xl-medium text-ink-gray-5">
                 {{ openScopes[scope.scope_name] ? '−' : '+' }}
               </span>
             </div>
@@ -117,10 +117,10 @@
             class="space-y-3 p-2"
           >
             <!-- Parent Groups -->
-            <Card
+            <section
               v-for="parent in scope.parent_groups"
               :key="parent.parent_task_name"
-              class="overflow-hidden border border-outline-gray-1 bg-surface-gray-1 !py-1 !px-1 !mt-1"
+              class="rounded-7 shadow-sm overflow-hidden border border-outline-gray-1 bg-surface-gray-1 !py-1 !px-1 !mt-1"
             >
               <button
                 type="button"
@@ -129,7 +129,7 @@
               >
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
-                    <p class="truncate text-sm font-semibold text-ink-gray-9">
+                    <p class="truncate text-sm-semibold text-ink-gray-9">
                       {{ parent.parent_task_name }}
                     </p>
                     <p class="mt-1 text-xs text-ink-gray-5">
@@ -137,22 +137,17 @@
                     </p>
                   </div>
 
-                  <span class="shrink-0 text-lg font-medium text-ink-gray-5">
+                  <span class="shrink-0 text-lg-medium text-ink-gray-5">
                     {{ openParents[getParentKey(scope, parent)] ? '−' : '+' }}
                   </span>
                 </div>
 
-                <div class="mt-3 h-2 overflow-hidden rounded-full bg-surface-gray-3">
-                  <div
-                    class="h-full rounded-full bg-blue-600 transition-all"
-                    :style="{ width: `${clampPercent(parent.progress || 0)}%` }"
-                  />
-                </div>
+                <Progress :value="clampPercent(parent.progress || 0)" size="sm" class="mt-3" aria-label="Location progress" />
               </button>
 
               <div
                 v-if="openParents[getParentKey(scope, parent)]"
-                class="space-y-3 border-t border-outline-gray-1 bg-surface-white p-2"
+                class="space-y-3 border-t border-outline-gray-1 bg-surface-base p-2"
               >
                 <Button
                   variant="subtle"
@@ -164,15 +159,15 @@
                 </Button>
 
                 <!-- Tasks -->
-                <Card
+                <section
                   v-for="task in parent.tasks"
                   :key="task.name"
-                  class="overflow-hidden border border-outline-gray-1 bg-surface-white !py-1 !px-1 !mt-1"
+                  class="rounded-7 shadow-sm overflow-hidden border border-outline-gray-1 bg-surface-base !py-1 !px-1 !mt-1"
                 >
                   <div class="space-y-3 p-3">
                     <div class="flex items-start justify-between gap-3">
                       <div class="min-w-0 flex-1">
-                        <h3 class="text-base font-semibold text-ink-gray-9">
+                        <h3 class="text-base-semibold text-ink-gray-9">
                           {{ task.subject || task.name }}
                         </h3>
 
@@ -228,14 +223,14 @@
 
                     <div
                       v-if="task.checklist?.length"
-                      class="overflow-hidden rounded-xl border border-outline-gray-1 bg-surface-gray-1"
+                      class="overflow-hidden rounded-7 border border-outline-gray-1 bg-surface-gray-1"
                     >
                       <div class="flex items-center justify-between gap-3 border-b border-outline-gray-1 px-3 py-2">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-ink-gray-6">
+                        <p class="text-xs-semibold uppercase tracking-wide text-ink-gray-6">
                           Checklist
                         </p>
 
-                        <p class="text-xs font-medium text-ink-gray-5">
+                        <p class="text-xs-medium text-ink-gray-5">
                           {{ getCompletedChecklistCount(task) }}/{{ getChecklistItemCount(task) }} complete
                         </p>
                       </div>
@@ -308,9 +303,9 @@
                       </Button>
                     </div>
                   </div>
-                </Card>
+                </section>
               </div>
-            </Card>
+            </section>
 
             <div
               class="grid gap-2"
@@ -336,7 +331,7 @@
               </Button>
             </div>
           </div>
-        </Card>
+        </section>
 
         <!-- Generic Form Button -->
         <Button
@@ -352,17 +347,12 @@
     </main>
 
     <!-- Project Tools Sheet -->
-    <Teleport to="body">
-      <Transition name="drawer-fade-slide">
-        <div
-          v-if="projectToolsOpen && projectToolsScope"
-          class="bottom-sheet-overlay fixed inset-0 z-[60] flex items-end bg-black/40"
-          @click.self="closeProjectTools"
-        >
-          <Card class="bottom-sheet-panel drawer-panel flex w-full min-w-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
-          <div class="z-10 flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+    <MobileSheet :open="Boolean(projectToolsOpen && projectToolsScope)" title="Project Tools" @update:open="!$event && closeProjectTools()">
+<template v-if="projectToolsOpen && projectToolsScope">
+          <section class="rounded-7 shadow-sm bottom-sheet-panel drawer-panel flex w-full min-w-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-base shadow-2xl">
+          <div class="z-10 flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-base px-4 py-3">
             <div class="min-w-0">
-              <h2 class="truncate text-lg font-semibold text-ink-gray-9">
+              <h2 class="truncate text-lg-semibold text-ink-gray-9">
                 Project Tools
               </h2>
 
@@ -385,10 +375,10 @@
               v-for="tool in projectToolDefinitions"
               :key="tool.key"
               type="button"
-              class="min-h-24 rounded-xl border border-outline-gray-1 bg-surface-white p-3 text-left shadow-sm transition hover:border-outline-gray-2 hover:bg-surface-gray-1 active:scale-[0.99]"
+              class="min-h-24 rounded-7 border border-outline-gray-1 bg-surface-base p-3 text-left shadow-sm transition hover:border-outline-gray-2 hover:bg-surface-gray-1 active:scale-[0.99]"
               @click="openProjectTool(tool.key)"
             >
-              <p class="text-sm font-semibold text-ink-gray-9">
+              <p class="text-sm-semibold text-ink-gray-9">
                 {{ tool.label }}
               </p>
 
@@ -397,23 +387,17 @@
               </p>
             </button>
           </div>
-          </Card>
-        </div>
-      </Transition>
-    </Teleport>
+          </section>
+        </template>
+</MobileSheet>
 
     <!-- Picker Sheet -->
-    <Teleport to="body">
-      <Transition name="drawer-fade-slide">
-        <div
-          v-if="pickerOpen"
-          class="bottom-sheet-overlay fixed inset-0 z-[60] flex items-end bg-black/40"
-          @click.self="closePicker"
-        >
-          <Card class="bottom-sheet-panel drawer-panel flex w-full min-w-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
-        <div class="z-10 flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+    <MobileSheet :open="Boolean(pickerOpen)" :title="pickerTitle" @update:open="!$event && closePicker()">
+<template v-if="pickerOpen">
+          <section class="rounded-7 shadow-sm bottom-sheet-panel drawer-panel flex w-full min-w-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-base shadow-2xl">
+        <div class="z-10 flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-base px-4 py-3">
           <div class="min-w-0">
-            <h2 class="truncate text-lg font-semibold text-ink-gray-9">
+            <h2 class="truncate text-lg-semibold text-ink-gray-9">
               {{ pickerTitle }}
             </h2>
 
@@ -439,7 +423,7 @@
             v-for="button in pickerButtons"
             :key="button.mobile_doctype"
             type="button"
-            class="w-full rounded-xl border border-outline-gray-1 bg-surface-white p-3 text-left shadow-sm transition hover:border-outline-gray-2 hover:bg-surface-gray-1 active:scale-[0.99]"
+            class="w-full rounded-7 border border-outline-gray-1 bg-surface-base p-3 text-left shadow-sm transition hover:border-outline-gray-2 hover:bg-surface-gray-1 active:scale-[0.99]"
             @click="createFromPicker(button)"
           >
             <p class="font-semibold text-ink-gray-9">
@@ -453,9 +437,9 @@
 
           <div
             v-if="pickerButtons.length === 0"
-            class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center sm:col-span-2 lg:col-span-3 xl:col-span-4"
+            class="rounded-7 border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center sm:col-span-2 lg:col-span-3 xl:col-span-4"
           >
-            <p class="text-sm font-medium text-ink-gray-7">
+            <p class="text-sm-medium text-ink-gray-7">
               No forms available.
             </p>
 
@@ -464,23 +448,17 @@
             </p>
           </div>
         </div>
-          </Card>
-        </div>
-      </Transition>
-    </Teleport>
+          </section>
+        </template>
+</MobileSheet>
 
     <!-- Personnel Sheet -->
-    <Teleport to="body">
-      <Transition name="drawer-fade-slide">
-        <div
-          v-if="personnelOpen"
-          class="bottom-sheet-overlay fixed inset-0 z-[60] flex items-end bg-black/40"
-          @click.self="closePersonnelDrawer"
-        >
-          <Card class="bottom-sheet-panel drawer-panel flex w-full min-w-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl">
-          <div class="z-10 flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+    <MobileSheet :open="Boolean(personnelOpen)" title="Project Personnel" @update:open="!$event && closePersonnelDrawer()">
+<template v-if="personnelOpen">
+          <section class="rounded-7 shadow-sm bottom-sheet-panel drawer-panel flex w-full min-w-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-base shadow-2xl">
+          <div class="z-10 flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-base px-4 py-3">
             <div class="min-w-0">
-              <h2 class="truncate text-lg font-semibold text-ink-gray-9">
+              <h2 class="truncate text-lg-semibold text-ink-gray-9">
                 Project Personnel
               </h2>
 
@@ -506,16 +484,16 @@
               v-if="personnelLoading"
               class="space-y-2"
             >
-              <div class="h-20 rounded-xl bg-surface-gray-2" />
-              <div class="h-20 rounded-xl bg-surface-gray-2" />
-              <div class="h-20 rounded-xl bg-surface-gray-2" />
+              <div class="h-20 rounded-7 bg-surface-gray-2" />
+              <div class="h-20 rounded-7 bg-surface-gray-2" />
+              <div class="h-20 rounded-7 bg-surface-gray-2" />
             </div>
 
             <div
               v-else-if="personnelError"
-              class="rounded-xl border border-red-200 bg-red-50 px-4 py-3"
+              class="rounded-7 border border-red-200 bg-red-50 px-4 py-3"
             >
-              <p class="text-sm font-medium text-red-800">
+              <p class="text-sm-medium text-red-800">
                 Could not load project personnel.
               </p>
 
@@ -526,9 +504,9 @@
 
             <div
               v-else-if="personnelRows.length === 0"
-              class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center"
+              class="rounded-7 border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center"
             >
-              <p class="text-sm font-medium text-ink-gray-7">
+              <p class="text-sm-medium text-ink-gray-7">
                 No personnel found.
               </p>
 
@@ -544,7 +522,7 @@
               <div
                 v-for="person in personnelRows"
                 :key="person.employee || person.employee_name || person.user_id"
-                class="rounded-xl border border-outline-gray-1 bg-surface-white p-3 shadow-sm"
+                class="rounded-7 border border-outline-gray-1 bg-surface-base p-3 shadow-sm"
               >
                 <div class="flex items-start gap-3">
                   <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-gray-2">
@@ -558,7 +536,7 @@
 
                     <span
                       v-else
-                      class="text-sm font-semibold text-ink-gray-7"
+                      class="text-sm-semibold text-ink-gray-7"
                     >
                       {{ getPersonnelInitials(person) }}
                     </span>
@@ -567,7 +545,7 @@
                   <div class="min-w-0 flex-1">
                     <div class="flex items-start justify-between gap-2">
                       <div class="min-w-0">
-                        <p class="truncate text-sm font-semibold text-ink-gray-9">
+                        <p class="truncate text-sm-semibold text-ink-gray-9">
                           {{ person.employee_name || person.employee || 'Unknown personnel' }}
                         </p>
 
@@ -601,7 +579,7 @@
                       <a
                         v-if="person.contact_number"
                         :href="`tel:${normaliseTel(person.contact_number)}`"
-                        class="block rounded-lg border border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-sm font-medium text-ink-gray-8"
+                        class="block rounded-6 border border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-sm-medium text-ink-gray-8"
                       >
                         Call {{ person.contact_number }}
                       </a>
@@ -609,7 +587,7 @@
                       <a
                         v-if="person.email"
                         :href="`mailto:${person.email}`"
-                        class="block rounded-lg border border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-sm font-medium text-ink-gray-8"
+                        class="block rounded-6 border border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-sm-medium text-ink-gray-8"
                       >
                         {{ person.email }}
                       </a>
@@ -627,10 +605,9 @@
             </div>
 
           </div>
-          </Card>
-        </div>
-      </Transition>
-    </Teleport>
+          </section>
+        </template>
+</MobileSheet>
 
     <input
       ref="checklistEvidenceInput"
@@ -645,14 +622,14 @@
       <Transition name="checklist-toast">
         <div
           v-if="checklistToast"
-          class="bottom-toast fixed inset-x-0 bottom-0 z-[80] w-full rounded-b-none rounded-t-2xl border border-b-0 bg-surface-white px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-2xl"
+          class="bottom-toast fixed inset-x-0 bottom-0 z-[80] w-full rounded-b-none rounded-t-8 border border-b-0 bg-surface-base px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-2xl"
           :class="getChecklistToastClass(checklistToast.tone)"
           :role="checklistToast.tone === 'error' ? 'alert' : 'status'"
           aria-live="polite"
         >
           <div class="flex items-start gap-3">
             <div class="min-w-0 flex-1">
-              <p class="text-sm font-semibold text-ink-gray-9">
+              <p class="text-sm-semibold text-ink-gray-9">
                 {{ checklistToast.title }}
               </p>
 
@@ -663,7 +640,7 @@
 
             <button
               type="button"
-              class="shrink-0 rounded-md px-1.5 py-1 text-xs font-medium text-ink-gray-5 hover:bg-surface-gray-2 hover:text-ink-gray-8"
+              class="shrink-0 rounded-5 px-1.5 py-1 text-xs-medium text-ink-gray-5 hover:bg-surface-gray-2 hover:text-ink-gray-8"
               @click="dismissChecklistToast"
             >
               {{ checklistEvidenceRequest ? 'Not now' : 'Close' }}
@@ -687,13 +664,14 @@
 </template>
 
 <script setup lang="ts">
+import MobileSheet from '../components/MobileSheet.vue'
 // VERTO_HOME_ACTION_BUTTONS_V1
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Badge,
+  Progress,
   Button,
-  Card,
   Checkbox,
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'

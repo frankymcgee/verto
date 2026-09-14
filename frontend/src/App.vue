@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { FrappeUIProvider } from 'frappe-ui'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { apiRequest } from './lib/api'
@@ -184,12 +185,14 @@ watch(
 </script>
 
 <template>
+  <FrappeUIProvider>
   <div
     class="min-h-screen bg-surface-gray-1 text-ink-gray-9 antialiased"
     :class="{ 'verto-no-employee-profile': !hasEmployeeProfile }"
   >
     <RouterView />
   </div>
+  </FrappeUIProvider>
 </template>
 
 <style>

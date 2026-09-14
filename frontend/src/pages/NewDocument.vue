@@ -8,7 +8,7 @@
             New document
           </p>
 
-          <h1 class="truncate text-base font-semibold text-ink-gray-9">
+          <h1 class="truncate text-base-semibold text-ink-gray-9">
             {{ schema?.title || 'New Form' }}
           </h1>
         </div>
@@ -24,26 +24,26 @@
       </div>
 
       <!-- Loading State -->
-      <Card
+      <section
         v-if="loading"
-        class="p-3"
+        class="bg-surface-base rounded-7 shadow-sm p-3"
       >
         <div class="space-y-3">
-          <div class="h-4 w-32 rounded bg-surface-gray-3" />
-          <div class="h-10 rounded bg-surface-gray-2" />
-          <div class="h-10 rounded bg-surface-gray-2" />
-          <div class="h-24 rounded bg-surface-gray-2" />
+          <div class="h-4 w-32 rounded-4 bg-surface-gray-3" />
+          <div class="h-10 rounded-4 bg-surface-gray-2" />
+          <div class="h-10 rounded-4 bg-surface-gray-2" />
+          <div class="h-24 rounded-4 bg-surface-gray-2" />
         </div>
-      </Card>
+      </section>
 
       <!-- Initial Load Error -->
-      <Card
+      <section
         v-else-if="loadError"
-        class="border border-red-200 bg-red-50 p-3"
+        class="rounded-7 shadow-sm border border-red-200 bg-red-50 p-3"
       >
         <div class="space-y-3">
           <div>
-            <p class="text-sm font-medium text-red-800">
+            <p class="text-sm-medium text-red-800">
               Could not load the form
             </p>
 
@@ -61,7 +61,7 @@
             Try Again
           </Button>
         </div>
-      </Card>
+      </section>
 
       <!-- Form -->
       <form
@@ -70,13 +70,13 @@
         @submit.prevent="submitForm"
       >
         <!-- Restored Draft Notice -->
-        <Card
+        <section
           v-if="draftRestored"
-          class="border border-blue-200 bg-blue-50 p-3"
+          class="rounded-7 shadow-sm border border-blue-200 bg-blue-50 p-3"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-              <p class="text-sm font-medium text-blue-900">
+              <p class="text-sm-medium text-blue-900">
                 Unsaved draft restored
               </p>
 
@@ -98,22 +98,22 @@
               Discard
             </Button>
           </div>
-        </Card>
+        </section>
 
         <!-- Warnings -->
         <div
           v-if="warnings.length"
           class="space-y-2"
         >
-          <Card
+          <section
             v-for="warning in warnings"
             :key="warning"
-            class="border border-yellow-200 bg-yellow-50 p-3"
+            class="rounded-7 shadow-sm border border-yellow-200 bg-yellow-50 p-3"
           >
             <div class="text-sm text-yellow-800">
               {{ warning }}
             </div>
-          </Card>
+          </section>
         </div>
 
         <!-- Messages -->
@@ -121,36 +121,25 @@
           v-if="messages.length"
           class="space-y-2"
         >
-          <Card
+          <section
             v-for="message in messages"
             :key="message"
-            class="border border-blue-200 bg-blue-50 p-3"
+            class="rounded-7 shadow-sm border border-blue-200 bg-blue-50 p-3"
           >
             <div class="text-sm text-blue-800">
               {{ message }}
             </div>
-          </Card>
+          </section>
         </div>
 
         <!-- Main Form Card -->
-        <Card class="overflow-hidden border border-outline-gray-1 bg-surface-white">
+        <section class="rounded-7 shadow-sm overflow-hidden border border-outline-gray-1 bg-surface-base">
           <!-- Form Tabs -->
           <div
             v-if="formTabs.length > 1"
-            class="border-b border-outline-gray-1 bg-surface-white px-3 py-3"
+            class="border-b border-outline-gray-1 bg-surface-base px-3 py-3"
           >
-            <div class="flex gap-2 overflow-x-auto">
-              <Button
-                v-for="tab in formTabs"
-                :key="tab.id"
-                :variant="activeTab === tab.id ? 'solid' : 'subtle'"
-                theme="gray"
-                size="sm"
-                @click="activeTab = tab.id"
-              >
-                {{ tab.label || 'Details' }}
-              </Button>
-            </div>
+            <TabButtons v-model="activeTab" :options="formTabs.map(tab => ({ label: tab.label || 'Details', value: tab.id }))" class="overflow-x-auto" />
           </div>
 
           <!-- Form Fields -->
@@ -172,7 +161,7 @@
                 >
                   <h2
                     v-if="field.label"
-                    class="text-base font-semibold text-ink-gray-9"
+                    class="text-base-semibold text-ink-gray-9"
                   >
                     {{ field.label }}
                   </h2>
@@ -301,13 +290,13 @@
               </template>
             </div>
           </div>
-        </Card>
+        </section>
 
         <!-- Attachments -->
-        <Card class="border border-outline-gray-1 bg-surface-white p-3">
+        <section class="rounded-7 shadow-sm border border-outline-gray-1 bg-surface-base p-3">
           <div class="space-y-3">
             <div>
-              <label class="block text-sm font-medium text-ink-gray-8">
+              <label class="block text-sm-medium text-ink-gray-8">
                 Attachments / Photos
               </label>
 
@@ -320,7 +309,7 @@
               type="file"
               multiple
               accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-              class="block w-full rounded border border-outline-gray-2 bg-surface-white px-3 py-2 text-sm text-ink-gray-7 file:mr-3 file:rounded file:border-0 file:bg-surface-gray-2 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink-gray-8"
+              class="block w-full rounded-4 border border-outline-gray-2 bg-surface-base px-3 py-2 text-sm text-ink-gray-7 file:mr-3 file:rounded-4 file:border-0 file:bg-surface-gray-2 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink-gray-8"
               @change="handleFiles"
             />
 
@@ -337,7 +326,7 @@
               </Badge>
             </div>
           </div>
-        </Card>
+        </section>
 
         <!-- Submit Button -->
         <div class="pt-1">
@@ -356,22 +345,16 @@
       </form>
     </main>
 
-    <Teleport to="body">
-      <Transition name="drawer-fade-slide">
-        <div
-          v-if="actionError"
-          class="fixed inset-0 z-[70] flex items-end bg-black/40"
-          @click.self="closeErrorDrawer"
-        >
-          <Card class="drawer-panel flex max-h-[82dvh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-xl">
-            <div class="shrink-0 border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+    <MobileSheet :open="Boolean(actionError)" :title="actionErrorTitle" @update:open="!$event && closeErrorDrawer()">
+          <section class="rounded-7 shadow-sm drawer-panel flex max-h-[82dvh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-base shadow-xl">
+            <div class="shrink-0 border-b border-outline-gray-1 bg-surface-base px-4 py-3">
               <div class="flex items-center justify-between gap-3">
                 <div class="min-w-0">
-                  <p class="text-xs font-medium uppercase tracking-wide text-red-600">
+                  <p class="text-xs-medium uppercase tracking-wide text-red-600">
                     Action required
                   </p>
 
-                  <h2 class="mt-1 truncate text-lg font-semibold text-ink-gray-9">
+                  <h2 class="mt-1 truncate text-lg-semibold text-ink-gray-9">
                     {{ actionErrorTitle }}
                   </h2>
                 </div>
@@ -388,7 +371,7 @@
             </div>
 
             <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
-              <div class="rounded-xl border border-red-200 bg-red-50 p-3">
+              <div class="rounded-7 border border-red-200 bg-red-50 p-3">
                 <p class="whitespace-pre-wrap text-sm leading-6 text-red-800">
                   {{ cleanServerMessage(actionError) }}
                 </p>
@@ -399,7 +382,7 @@
               </p>
             </div>
 
-            <div class="shrink-0 border-t border-outline-gray-1 bg-surface-white px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+            <div class="shrink-0 border-t border-outline-gray-1 bg-surface-base px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
               <div class="flex gap-2">
                 <Button
                   variant="subtle"
@@ -411,20 +394,19 @@
                 </Button>
               </div>
             </div>
-          </Card>
-        </div>
-      </Transition>
-    </Teleport>
+          </section>
+        </MobileSheet>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import MobileSheet from '../components/MobileSheet.vue'
+import { defineAsyncComponent, computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Badge,
+  TabButtons,
   Button,
-  Card,
   Checkbox,
   FormControl,
   Select,
@@ -445,7 +427,7 @@ import {
 import LinkField from '../components/mobile-fields/LinkField.vue'
 import ChildTableField from '../components/mobile-fields/ChildTableField.vue'
 import SignatureField from '../components/mobile-fields/SignatureField.vue'
-import RichTextEditorField from '../components/mobile-fields/RichTextEditorField.vue'
+const RichTextEditorField = defineAsyncComponent(() => import('../components/mobile-fields/RichTextEditorField.vue'))
 
 export type MobileField = {
   fieldname: string

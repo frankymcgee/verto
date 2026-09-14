@@ -15,7 +15,7 @@
       </div>
 
       <!-- Calendar -->
-      <Card class=" px-1 py-1 overflow-hidden border border-outline-gray-1 bg-surface-white !py-1 !px-1 !mt-1">
+      <section class="rounded-7 shadow-sm  px-1 py-1 overflow-hidden border border-outline-gray-1 bg-surface-base !py-1 !px-1 !mt-1">
         <!-- Month Controls -->
         <div class="flex items-center justify-between border-b border-outline-gray-1 px-3 py-3">
           <Button
@@ -28,7 +28,7 @@
           </Button>
 
           <div class="text-center">
-            <h2 class="text-lg font-semibold text-ink-gray-9">
+            <h2 class="text-lg-semibold text-ink-gray-9">
               {{ currentMonthName }}
             </h2>
 
@@ -63,7 +63,7 @@
           v-if="loading"
           class="p-3"
         >
-          <div class="rounded-xl bg-surface-gray-1 p-4 text-sm text-ink-gray-5">
+          <div class="rounded-7 bg-surface-gray-1 p-4 text-sm text-ink-gray-5">
             Loading shifts...
           </div>
         </div>
@@ -73,7 +73,7 @@
           v-else-if="error"
           class="p-3"
         >
-          <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div class="rounded-7 border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {{ error }}
           </div>
         </div>
@@ -93,7 +93,7 @@
             v-for="day in daysInMonth"
             :key="day.date"
             type="button"
-            class="relative flex flex-col items-center justify-start rounded-xl px-1 py-2 text-sm font-medium transition active:scale-95"
+            class="relative flex flex-col items-center justify-start rounded-7 px-1 py-2 text-sm-medium transition active:scale-95"
             :class="getDayButtonClass(day.date)"
             @click="selectDate(day.date)"
           >
@@ -119,15 +119,15 @@
             class="min-h-12"
           />
         </div>
-      </Card>
+      </section>
 
       <!-- Selected Day Details -->
-      <Card
+      <section
         v-if="selectedDate && !loading && !error"
-        class="overflow-hidden border border-outline-gray-1 bg-surface-white !py-1 !px-1 !mt-1"
+        class="rounded-7 shadow-sm overflow-hidden border border-outline-gray-1 bg-surface-base !py-1 !px-1 !mt-1"
       >
         <div class="border-b border-outline-gray-1 px-3 py-3">
-          <h2 class="mt-1 text-lg font-semibold text-ink-gray-9">
+          <h2 class="mt-1 text-lg-semibold text-ink-gray-9">
             {{ formatFullDate(selectedDate) }}
           </h2>
         </div>
@@ -136,7 +136,7 @@
           <div class="flex items-stretch justify-between gap-3">
             <div class="min-w-0 flex-1">
               <template v-if="selectedShift">
-                <h3 class="text-base font-semibold text-ink-gray-9">
+                <h3 class="text-base-semibold text-ink-gray-9">
                   {{ getShiftDisplayName(selectedShift) }}
                 </h3>
 
@@ -157,7 +157,7 @@
               </template>
 
               <template v-else>
-                <h3 class="text-base font-semibold text-ink-gray-9">
+                <h3 class="text-base-semibold text-ink-gray-9">
                   No shift allocated
                 </h3>
 
@@ -168,14 +168,14 @@
 
               <p
                 v-if="selectedTimesheet?.duration"
-                class="mt-3 text-base font-semibold text-ink-gray-9"
+                class="mt-3 text-base-semibold text-ink-gray-9"
               >
                 {{ (selectedTimesheet.duration / 3600).toFixed(2) }} hours submitted
               </p>
 
               <p
                 v-if="selectedTimesheet?.offline_queued"
-                class="mt-2 text-sm font-medium text-amber-700"
+                class="mt-2 text-sm-medium text-amber-700"
               >
                 Saved offline — waiting to sync
               </p>
@@ -216,12 +216,12 @@
               </div>
             </div>
 
-            <div class="flex w-16 shrink-0 items-center justify-center text-3xl">
+            <div class="flex w-16 shrink-0 items-center justify-center text-4xl">
               {{ selectedShift ? getShiftIconText(selectedShift.shift_type) : '—' }}
             </div>
           </div>
         </div>
-      </Card>
+      </section>
     </main>
   </section>
 </template>
@@ -231,7 +231,6 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Button,
-  Card,
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
 
@@ -382,7 +381,7 @@ function getDayButtonClass(date: string) {
   }
 
   if (selectedDate.value === date) {
-    classes.push('ring-2 ring-blue-500 ring-offset-2 ring-offset-surface-white')
+    classes.push('ring-2 ring-blue-500 ring-offset-2 ring-offset-surface-base')
   }
 
   return classes

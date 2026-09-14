@@ -7,17 +7,17 @@
       @click.self="closeBrowser"
     >
       <section
-        class="app-browser-panel flex w-full flex-col overflow-hidden bg-surface-white shadow-2xl"
+        class="app-browser-panel flex w-full flex-col overflow-hidden bg-surface-base shadow-2xl"
         :class="hideAndroidBrowserBanner
           ? 'h-[100dvh] rounded-none border-0'
           : 'h-[92dvh] rounded-t-3xl border border-outline-gray-1'"
       >
         <header
           v-if="!hideAndroidBrowserBanner"
-          class="flex shrink-0 items-center justify-between gap-3 border-b border-outline-gray-1 bg-surface-white px-4 py-3"
+          class="flex shrink-0 items-center justify-between gap-3 border-b border-outline-gray-1 bg-surface-base px-4 py-3"
         >
           <div class="min-w-0">
-            <p class="truncate text-sm font-semibold text-ink-gray-9">
+            <p class="truncate text-sm-semibold text-ink-gray-9">
               {{ title || 'Browser' }}
             </p>
 
@@ -29,7 +29,7 @@
           <div class="flex shrink-0 items-center gap-2">
             <button
               type="button"
-              class="rounded-lg border border-outline-gray-2 bg-surface-white px-3 py-1.5 text-sm font-medium text-ink-gray-7 active:scale-95"
+              class="rounded-6 border border-outline-gray-2 bg-surface-base px-3 py-1.5 text-sm-medium text-ink-gray-7 active:scale-95"
               @click="openInNewTab"
             >
               Open
@@ -37,7 +37,7 @@
 
             <button
               type="button"
-              class="rounded-lg bg-surface-gray-2 px-3 py-1.5 text-sm font-semibold text-ink-gray-8 active:scale-95"
+              class="rounded-6 bg-surface-gray-2 px-3 py-1.5 text-sm-semibold text-ink-gray-8 active:scale-95"
               @click="closeBrowser"
             >
               Close
@@ -49,7 +49,7 @@
           <button
             v-if="hideAndroidBrowserBanner"
             type="button"
-            class="absolute right-3 top-[max(env(safe-area-inset-top,0px),0.75rem)] z-20 flex h-10 w-10 items-center justify-center rounded-full border border-outline-gray-2 bg-surface-white/95 text-xl leading-none text-ink-gray-8 shadow-lg backdrop-blur active:scale-95"
+            class="absolute right-3 top-[max(env(safe-area-inset-top,0px),0.75rem)] z-20 flex h-10 w-10 items-center justify-center rounded-full border border-outline-gray-2 bg-surface-base/95 text-2xl leading-none text-ink-gray-8 shadow-lg backdrop-blur active:scale-95"
             aria-label="Close browser"
             @click="closeBrowser"
           >
@@ -67,7 +67,7 @@
             v-if="safeUrl"
             :key="iframeKey"
             :src="safeUrl"
-            class="h-full w-full border-0 bg-surface-white"
+            class="h-full w-full border-0 bg-surface-base"
             title="Verto browser drawer"
             @load="handleLoad"
           />
@@ -76,8 +76,8 @@
             v-else
             class="flex h-full items-center justify-center p-6 text-center"
           >
-            <div class="max-w-sm rounded-2xl border border-outline-gray-1 bg-surface-white p-4 shadow-sm">
-              <p class="text-sm font-semibold text-ink-gray-9">
+            <div class="max-w-sm rounded-8 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
+              <p class="text-sm-semibold text-ink-gray-9">
                 Could not open this link.
               </p>
 

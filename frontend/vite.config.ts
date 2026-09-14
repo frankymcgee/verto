@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import Icons from 'unplugin-icons/vite'
+import { lucideIconsPlugin } from 'frappe-ui/vite/lucideIconsPlugin'
 import { VitePWA } from 'vite-plugin-pwa'
 
 function copyVertoServiceWorkerPlugin(): Plugin {
@@ -49,6 +50,7 @@ export default defineConfig(({ command }) => {
 
     plugins: [
       vue(),
+      lucideIconsPlugin(),
       Icons({
         compiler: 'vue3',
         autoInstall: true,
@@ -134,8 +136,6 @@ export default defineConfig(({ command }) => {
 
     optimizeDeps: {
       include: [
-        'frappe-ui > feather-icons',
-        'showdown',
         'engine.io-client',
       ],
     },

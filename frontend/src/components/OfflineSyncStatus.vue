@@ -7,7 +7,7 @@
     <div
       role="status"
       aria-live="polite"
-      class="rounded-xl border px-3 py-2 text-sm shadow-sm"
+      class="rounded-7 border px-3 py-2 text-sm shadow-sm"
       :class="bannerClass"
     >
       <div class="min-w-0">
@@ -122,6 +122,6 @@ const bannerClass = computed(() => {
     return 'border-green-200 bg-green-50 text-green-900'
   }
 
-  return 'border-outline-gray-2 bg-surface-white text-ink-gray-8'
+  return 'border-outline-gray-2 bg-surface-base text-ink-gray-8'
 })
 </script>

@@ -3,18 +3,18 @@
     v-if="shouldPrompt"
     class="mx-auto w-full max-w-[var(--verto-shell-max-width,28rem)] px-[var(--verto-page-x,0.75rem)] pt-2"
   >
-    <div class="relative rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-blue-950 shadow-sm">
-      <button
+    <div class="relative rounded-7 border border-blue-200 bg-blue-50 px-3 py-3 text-blue-950 shadow-sm">
+      <Button variant="ghost"
         type="button"
         class="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-blue-700 hover:bg-blue-100 active:scale-95"
         aria-label="Dismiss notification prompt"
         @click="dismissPushPrompt"
       >
         ×
-      </button>
+      </Button>
 
       <div class="pr-8">
-        <p class="text-sm font-semibold">
+        <p class="text-sm-semibold">
           Enable Verto notifications
         </p>
 
@@ -39,21 +39,22 @@
           {{ error }}
         </p>
 
-        <button
+        <Button variant="ghost"
           v-if="!needsIosInstall && permission !== 'denied'"
           type="button"
-          class="mt-2 rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm active:scale-95 disabled:opacity-60"
+          class="mt-2 rounded-6 bg-blue-700 px-3 py-1.5 text-xs-semibold text-white shadow-sm active:scale-95 disabled:opacity-60"
           :disabled="enabling || loading"
           @click="enablePushNotifications"
         >
           {{ enabling ? 'Enabling…' : 'Enable notifications' }}
-        </button>
+        </Button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { Button } from 'frappe-ui'
 import { onMounted } from 'vue'
 import { usePushNotifications } from '../pwa/usePushNotifications'
 

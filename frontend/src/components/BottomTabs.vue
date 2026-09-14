@@ -1,6 +1,6 @@
 <template>
   <nav
-    class="bottom-tabs z-40 shrink-0 border-t border-outline-gray-1 bg-surface-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur"
+    class="bottom-tabs z-40 shrink-0 border-t border-outline-gray-1 bg-surface-base/95 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur"
     :class="{ 'sidebar-collapsed': sidebarCollapsed }"
     aria-label="Primary navigation"
   >
@@ -10,7 +10,7 @@
       </div>
 
       <div class="desktop-sidebar-copy min-w-0">
-        <p class="truncate text-sm font-semibold text-ink-gray-9">
+        <p class="truncate text-sm-semibold text-ink-gray-9">
           {{ appName || 'Verto' }}
         </p>
 

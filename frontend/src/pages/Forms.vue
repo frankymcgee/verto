@@ -2,10 +2,10 @@
   <section class="h-full min-h-0 bg-surface-gray-1">
     <main class="space-y-3 px-[var(--verto-page-x,0.75rem)] py-[var(--verto-page-y,0.75rem)]">
       <!-- Filters -->
-      <Card class="p-3 !py-1 !px-1">
+      <section class="bg-surface-base rounded-7 shadow-sm p-3 !py-1 !px-1">
         <div class="space-y-4">
           <div>
-            <h2 class="text-sm font-semibold text-ink-gray-9">
+            <h2 class="text-sm-semibold text-ink-gray-9">
               Filter records
             </h2>
 
@@ -52,28 +52,28 @@
             </Button>
           </div>
         </div>
-      </Card>
+      </section>
 
       <!-- Loading State -->
-      <Card
+      <section
         v-if="loading"
-        class="p-3"
+        class="bg-surface-base rounded-7 shadow-sm p-3"
       >
         <div class="space-y-3">
-          <div class="h-4 w-40 rounded bg-surface-gray-3" />
-          <div class="h-28 rounded-xl bg-surface-gray-2" />
-          <div class="h-28 rounded-xl bg-surface-gray-2" />
-          <div class="h-28 rounded-xl bg-surface-gray-2" />
+          <div class="h-4 w-40 rounded-4 bg-surface-gray-3" />
+          <div class="h-28 rounded-7 bg-surface-gray-2" />
+          <div class="h-28 rounded-7 bg-surface-gray-2" />
+          <div class="h-28 rounded-7 bg-surface-gray-2" />
         </div>
-      </Card>
+      </section>
 
       <!-- Error State -->
-      <Card
+      <section
         v-else-if="error"
-        class="border border-red-200 bg-red-50 p-3"
+        class="rounded-7 shadow-sm border border-red-200 bg-red-50 p-3"
       >
         <div class="space-y-2">
-          <p class="text-sm font-medium text-red-800">
+          <p class="text-sm-medium text-red-800">
             Could not load completed forms
           </p>
 
@@ -81,15 +81,15 @@
             {{ error }}
           </p>
         </div>
-      </Card>
+      </section>
 
       <!-- Empty State -->
-      <Card
+      <section
         v-else-if="records.length === 0"
-        class="p-3"
+        class="bg-surface-base rounded-7 shadow-sm p-3"
       >
-        <div class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center">
-          <p class="text-sm font-medium text-ink-gray-7">
+        <div class="rounded-7 border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center">
+          <p class="text-sm-medium text-ink-gray-7">
             No completed forms found.
           </p>
 
@@ -97,7 +97,7 @@
             Try adjusting the date range and filtering again.
           </p>
         </div>
-      </Card>
+      </section>
 
       <!-- Records -->
       <div
@@ -109,21 +109,21 @@
             {{ records.length }} completed {{ records.length === 1 ? 'form' : 'forms' }}
           </p>
 
-          <p class="text-sm font-medium text-ink-gray-7">
+          <p class="text-sm-medium text-ink-gray-7">
             Page {{ currentPage }} of {{ totalPages }}
           </p>
         </div>
 
-        <Card
+        <section
           v-for="record in pagedRecords"
           :key="`${record.doctype}-${record.name}`"
-          class="overflow-hidden border border-outline-gray-1 bg-surface-white"
+          class="rounded-7 shadow-sm overflow-hidden border border-outline-gray-1 bg-surface-base"
         >
           <!-- Record Header -->
           <div class="space-y-3 border-b border-outline-gray-1 px-3 py-3">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <p class="truncate text-sm font-semibold text-ink-gray-9">
+                <p class="truncate text-sm-semibold text-ink-gray-9">
                   {{ record.doctype || 'Form' }}
                 </p>
 
@@ -132,7 +132,7 @@
                 </p>
               </div>
 
-              <div class="shrink-0 rounded-full bg-surface-gray-2 px-2.5 py-1 text-xs font-medium text-ink-gray-7">
+              <div class="shrink-0 rounded-full bg-surface-gray-2 px-2.5 py-1 text-xs-medium text-ink-gray-7">
                 {{ normalisedCompliance(record.compliance_percentage) }}
               </div>
             </div>
@@ -221,10 +221,10 @@
               </Button>
             </div>
           </div>
-        </Card>
+        </section>
 
         <!-- Pagination -->
-        <Card
+        <section
           v-if="totalPages > 1"
           class="p-3"
         >
@@ -238,7 +238,7 @@
               Prev
             </Button>
 
-            <p class="text-sm font-medium text-ink-gray-7">
+            <p class="text-sm-medium text-ink-gray-7">
               Page {{ currentPage }} of {{ totalPages }}
             </p>
 
@@ -251,7 +251,7 @@
               Next
             </Button>
           </div>
-        </Card>
+        </section>
       </div>
     </main>
   </section>
@@ -262,7 +262,6 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Button,
-  Card,
   FormControl,
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'

@@ -2,7 +2,7 @@
   <div class="space-y-2">
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
-        <label class="block text-sm font-medium text-ink-gray-8">
+        <label class="block text-sm-medium text-ink-gray-8">
           {{ label }}
           <span
             v-if="required"
@@ -31,7 +31,7 @@
     </div>
 
     <div
-      class="overflow-hidden rounded-xl border border-outline-gray-2 bg-surface-white"
+      class="overflow-hidden rounded-7 border border-outline-gray-2 bg-surface-base"
       :class="disabled ? 'opacity-75' : ''"
     >
       <canvas

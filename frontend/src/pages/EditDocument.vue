@@ -8,7 +8,7 @@
             Editing
           </p>
 
-          <h1 class="truncate text-base font-semibold text-ink-gray-9">
+          <h1 class="truncate text-base-semibold text-ink-gray-9">
             {{ schema?.title || docname || 'Edit Form' }}
           </h1>
 
@@ -31,25 +31,25 @@
       </div>
 
       <!-- Loading State -->
-      <Card
+      <section
         v-if="loading"
-        class="p-3"
+        class="bg-surface-base rounded-7 shadow-sm p-3"
       >
         <div class="space-y-3">
-          <div class="h-4 w-32 rounded bg-surface-gray-3" />
-          <div class="h-10 rounded bg-surface-gray-2" />
-          <div class="h-10 rounded bg-surface-gray-2" />
-          <div class="h-24 rounded bg-surface-gray-2" />
+          <div class="h-4 w-32 rounded-4 bg-surface-gray-3" />
+          <div class="h-10 rounded-4 bg-surface-gray-2" />
+          <div class="h-10 rounded-4 bg-surface-gray-2" />
+          <div class="h-24 rounded-4 bg-surface-gray-2" />
         </div>
-      </Card>
+      </section>
 
       <!-- Error State -->
-      <Card
+      <section
         v-else-if="error"
-        class="border border-red-200 bg-red-50 p-3"
+        class="rounded-7 shadow-sm border border-red-200 bg-red-50 p-3"
       >
         <div class="space-y-2">
-          <p class="text-sm font-medium text-red-800">
+          <p class="text-sm-medium text-red-800">
             Something went wrong
           </p>
 
@@ -57,7 +57,7 @@
             {{ cleanServerMessage(error) }}
           </p>
         </div>
-      </Card>
+      </section>
 
       <!-- Form -->
       <form
@@ -66,33 +66,33 @@
         @submit.prevent="saveForm"
       >
         <!-- Permission Warning -->
-        <Card
+        <section
           v-if="!canWrite"
-          class="border border-yellow-200 bg-yellow-50 p-3"
+          class="rounded-7 shadow-sm border border-yellow-200 bg-yellow-50 p-3"
         >
-          <p class="text-sm font-medium text-yellow-900">
+          <p class="text-sm-medium text-yellow-900">
             Read only
           </p>
 
           <p class="mt-1 text-sm text-yellow-800">
             You can view this document, but you do not have permission to save changes.
           </p>
-        </Card>
+        </section>
 
         <!-- Warnings -->
         <div
           v-if="warnings.length"
           class="space-y-2"
         >
-          <Card
+          <section
             v-for="warning in warnings"
             :key="warning"
-            class="border border-yellow-200 bg-yellow-50 p-3"
+            class="rounded-7 shadow-sm border border-yellow-200 bg-yellow-50 p-3"
           >
             <div class="text-sm text-yellow-800">
               {{ warning }}
             </div>
-          </Card>
+          </section>
         </div>
 
         <!-- Messages -->
@@ -100,46 +100,35 @@
           v-if="messages.length"
           class="space-y-2"
         >
-          <Card
+          <section
             v-for="message in messages"
             :key="message"
-            class="border border-blue-200 bg-blue-50 p-3"
+            class="rounded-7 shadow-sm border border-blue-200 bg-blue-50 p-3"
           >
             <div class="text-sm text-blue-800">
               {{ message }}
             </div>
-          </Card>
+          </section>
         </div>
 
         <!-- Saved Message -->
-        <Card
+        <section
           v-if="saved"
-          class="border border-green-200 bg-green-50 p-3"
+          class="rounded-7 shadow-sm border border-green-200 bg-green-50 p-3"
         >
           <p class="text-sm text-green-800">
             Saved successfully.
           </p>
-        </Card>
+        </section>
 
         <!-- Main Form Card -->
-        <Card class="overflow-hidden border border-outline-gray-1 bg-surface-white">
+        <section class="rounded-7 shadow-sm overflow-hidden border border-outline-gray-1 bg-surface-base">
           <!-- Form Tabs -->
           <div
             v-if="formTabs.length > 1"
-            class="border-b border-outline-gray-1 bg-surface-white px-3 py-3"
+            class="border-b border-outline-gray-1 bg-surface-base px-3 py-3"
           >
-            <div class="flex gap-2 overflow-x-auto">
-              <Button
-                v-for="tab in formTabs"
-                :key="tab.id"
-                :variant="activeTab === tab.id ? 'solid' : 'subtle'"
-                theme="gray"
-                size="sm"
-                @click="activeTab = tab.id"
-              >
-                {{ tab.label || 'Details' }}
-              </Button>
-            </div>
+            <TabButtons v-model="activeTab" :options="formTabs.map(tab => ({ label: tab.label || 'Details', value: tab.id }))" class="overflow-x-auto" />
           </div>
 
           <!-- Form Fields -->
@@ -161,7 +150,7 @@
                 >
                   <h2
                     v-if="field.label"
-                    class="text-base font-semibold text-ink-gray-9"
+                    class="text-base-semibold text-ink-gray-9"
                   >
                     {{ field.label }}
                   </h2>
@@ -291,16 +280,16 @@
               </template>
             </div>
           </div>
-        </Card>
+        </section>
 
         <!-- Existing Attachments -->
-        <Card
+        <section
           v-if="existingFiles.length"
-          class="border border-outline-gray-1 bg-surface-white p-3"
+          class="rounded-7 shadow-sm border border-outline-gray-1 bg-surface-base p-3"
         >
           <div class="space-y-3">
             <div>
-              <label class="block text-sm font-medium text-ink-gray-8">
+              <label class="block text-sm-medium text-ink-gray-8">
                 Existing Attachments
               </label>
 
@@ -316,7 +305,7 @@
                 :href="file.file_url"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="flex items-center justify-between gap-3 rounded-xl border border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-sm"
+                class="flex items-center justify-between gap-3 rounded-7 border border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-sm"
               >
                 <span class="min-w-0 truncate text-ink-gray-8">
                   {{ file.file_name || file.file_url }}
@@ -328,16 +317,16 @@
               </a>
             </div>
           </div>
-        </Card>
+        </section>
 
         <!-- New Attachments -->
-        <Card
+        <section
           v-if="canWrite"
-          class="border border-outline-gray-1 bg-surface-white p-3"
+          class="rounded-7 shadow-sm border border-outline-gray-1 bg-surface-base p-3"
         >
           <div class="space-y-3">
             <div>
-              <label class="block text-sm font-medium text-ink-gray-8">
+              <label class="block text-sm-medium text-ink-gray-8">
                 Add Attachments / Photos
               </label>
 
@@ -350,7 +339,7 @@
               type="file"
               multiple
               accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-              class="block w-full rounded border border-outline-gray-2 bg-surface-white px-3 py-2 text-sm text-ink-gray-7 file:mr-3 file:rounded file:border-0 file:bg-surface-gray-2 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink-gray-8"
+              class="block w-full rounded-4 border border-outline-gray-2 bg-surface-base px-3 py-2 text-sm text-ink-gray-7 file:mr-3 file:rounded-4 file:border-0 file:bg-surface-gray-2 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink-gray-8"
               @change="handleFiles"
             />
 
@@ -367,7 +356,7 @@
               </Badge>
             </div>
           </div>
-        </Card>
+        </section>
 
         <!-- Save Button -->
         <div
@@ -392,12 +381,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { defineAsyncComponent, computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Badge,
+  TabButtons,
   Button,
-  Card,
   Checkbox,
   FormControl,
   Select,
@@ -418,7 +407,7 @@ import {
 import LinkField from '../components/mobile-fields/LinkField.vue'
 import ChildTableField from '../components/mobile-fields/ChildTableField.vue'
 import SignatureField from '../components/mobile-fields/SignatureField.vue'
-import RichTextEditorField from '../components/mobile-fields/RichTextEditorField.vue'
+const RichTextEditorField = defineAsyncComponent(() => import('../components/mobile-fields/RichTextEditorField.vue'))
 import type { MobileField } from './NewDocument.vue'
 
 type FormSchema = {

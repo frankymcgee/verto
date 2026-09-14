@@ -1,18 +1,13 @@
 <!-- VERTO_PWA_INSTALL_PROMPT_SETTINGS_FIX_2026_06_11 -->
 <template>
-  <Transition name="drawer-fade-slide">
-    <div
-      v-if="canShowPrompt"
-      class="fixed inset-0 z-[90] flex items-end bg-black/40 px-0"
-      @click.self="dismissPrompt"
-    >
+  <MobileSheet :open="canShowPrompt" title="Install app" @update:open="!$event && dismissPrompt()">
       <div
-        class="drawer-panel install-panel flex w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-2xl"
+        class="drawer-panel install-panel flex w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-base shadow-2xl"
       >
         <div class="shrink-0 border-b border-outline-gray-1 px-4 py-3">
           <div class="flex items-center justify-between gap-3">
             <div class="flex min-w-0 items-center gap-3">
-              <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-surface-gray-2">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-8 bg-surface-gray-2">
                 <img
                   v-if="resolvedAppIcon"
                   :src="resolvedAppIcon"
@@ -23,14 +18,14 @@
 
                 <span
                   v-else
-                  class="text-sm font-bold text-ink-gray-7"
+                  class="text-sm-bold text-ink-gray-7"
                 >
                   {{ appInitials }}
                 </span>
               </div>
 
               <div class="min-w-0">
-                <h2 class="truncate text-base font-semibold text-ink-gray-9">
+                <h2 class="truncate text-base-semibold text-ink-gray-9">
                   Install {{ resolvedAppName }}
                 </h2>
 
@@ -42,7 +37,7 @@
 
             <button
               type="button"
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-gray-1 text-xl leading-none text-ink-gray-6 active:scale-95"
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-gray-1 text-2xl leading-none text-ink-gray-6 active:scale-95"
               aria-label="Close install prompt"
               @click="dismissPrompt"
             >
@@ -52,7 +47,7 @@
         </div>
 
         <div class="install-body space-y-4 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-          <div class="rounded-2xl bg-surface-gray-1 p-3">
+          <div class="rounded-8 bg-surface-gray-1 p-3">
             <p class="text-sm text-ink-gray-7">
               {{ resolvedInstallMessage }}
             </p>
@@ -60,7 +55,7 @@
 
           <template v-if="isIOS && !installPromptAvailable">
             <div class="space-y-3">
-              <p class="text-sm font-medium text-ink-gray-9">
+              <p class="text-sm-medium text-ink-gray-9">
                 Install on iPhone or iPad
               </p>
 
@@ -96,9 +91,9 @@
           <template v-else>
             <div
               v-if="isAndroid"
-              class="space-y-3 rounded-2xl border border-outline-gray-2 bg-surface-gray-1 p-3"
+              class="space-y-3 rounded-8 border border-outline-gray-2 bg-surface-gray-1 p-3"
             >
-              <p class="text-sm font-semibold text-ink-gray-9">
+              <p class="text-sm-semibold text-ink-gray-9">
                 Before installing on Android
               </p>
               <p class="text-sm text-ink-gray-7">
@@ -107,7 +102,7 @@
               </p>
               <a
                 :href="playStoreUrl"
-                class="flex min-h-11 w-full items-center justify-center rounded-lg border border-outline-gray-2 bg-surface-white px-3 py-2 text-sm font-medium text-ink-gray-9 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                class="flex min-h-11 w-full items-center justify-center rounded-6 border border-outline-gray-2 bg-surface-base px-3 py-2 text-sm-medium text-ink-gray-9 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
               >
                 Open Play Store
               </a>
@@ -143,17 +138,17 @@
 
           <p
             v-if="error"
-            class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+            class="rounded-7 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
           >
             {{ error }}
           </p>
         </div>
       </div>
-    </div>
-  </Transition>
+  </MobileSheet>
 </template>
 
 <script setup lang="ts">
+import MobileSheet from './MobileSheet.vue'
 import { computed, ref, watch } from 'vue'
 import { Button } from 'frappe-ui'
 import { useMobileBoot } from '../lib/mobileBoot'
