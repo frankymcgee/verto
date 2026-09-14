@@ -2981,12 +2981,9 @@ def _validate_project_dates_cover_tasks(project: str, start_date, end_date) -> N
 		frappe.throw(" ".join(errors))
 
 
-def _generic_task_creation_availability(doc, task_count: int, fields: dict[str, str | None]) -> tuple[bool, str]:
+def _generic_task_creation_availability(doc, fields: dict[str, str | None]) -> tuple[bool, str]:
 	if (doc.get("status") or "").strip().lower() == "cancelled":
 		return False, _("Generic tasks cannot be created for a cancelled project.")
-
-	if task_count:
-		return False, _("This project already has {0} task(s) assigned.").format(task_count)
 
 	if not frappe.has_permission("Task", ptype="create"):
 		return False, _("You do not have permission to create Tasks.")
@@ -3277,7 +3274,6 @@ def get_project_planner_details(project: str) -> dict:
 	has_tasks = task_count > 0
 	can_create_generic_tasks, generic_tasks_unavailable_reason = _generic_task_creation_availability(
 		doc,
-		task_count,
 		fields,
 	)
 
@@ -3450,10 +3446,8 @@ def create_generic_project_tasks(
 ) -> dict:
 	"""Create an Outline with one or more Location > Work Summary task pairs.
 
-	This is intentionally restricted to projects with no existing Tasks so it
-	cannot be mixed accidentally with an imported client Gantt. The Project row
-	is locked for the duration of the request so two Planner users cannot create
-	the generic hierarchy at the same time.
+	Append a new hierarchy without modifying existing tasks. Lock the Project
+	row so concurrent Planner requests allocate distinct task name sequences.
 	"""
 	if not project:
 		frappe.throw(_("Project is required"))
@@ -3468,8 +3462,7 @@ def create_generic_project_tasks(
 	project_doc.reload()
 
 	fields = _project_planner_edit_fields()
-	task_count = frappe.db.count("Task", {"project": project_doc.name})
-	can_create, unavailable_reason = _generic_task_creation_availability(project_doc, task_count, fields)
+	can_create, unavailable_reason = _generic_task_creation_availability(project_doc, fields)
 	if not can_create:
 		frappe.throw(unavailable_reason)
 

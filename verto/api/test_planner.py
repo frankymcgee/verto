@@ -101,7 +101,7 @@ class TestPlannerProjectTasks(TestCase):
 		self.assertTrue(details["has_tasks"])
 		self.assertEqual(details["execution_tasks"], self.execution_tasks)
 		self.assertTrue(details["execution_tasks"][0]["can_assign"])
-		self.assertFalse(details["can_create_generic_tasks"])
+		self.assertTrue(details["can_create_generic_tasks"])
 		self.assertTrue(details["can_update_project_dates"])
 
 	def test_project_without_tasks_keeps_creation_and_date_controls(self):
@@ -324,3 +324,76 @@ class TestPlannerTaskAssignmentChanges(TestCase):
 		self.assertEqual(result["assigned_users"], ["casey@example.com"])
 		self.add.assert_called_once()
 		self.remove.assert_not_called()
+
+
+class TestPlannerAppendGenericTasks(TestCase):
+	def setUp(self):
+		self.project = SimpleNamespace(
+			name="PROJ-1", project_name="Test project", status="Open",
+			expected_start_date="2026-09-01", expected_end_date="2026-09-30",
+			check_permission=Mock(), reload=Mock(),
+		)
+		self.project.get = lambda key: getattr(self.project, key, None)
+		self.fields = {"start_date_field": "expected_start_date", "end_date_field": "expected_end_date"}
+		self.existing = SimpleNamespace(name="PROJ-1-0008", subject="Existing imported task", progress=60)
+		self.tasks = {self.existing.name: self.existing}
+		self.enterContext(patch.object(planner.frappe, "get_doc", return_value=self.project))
+		self.permission = self.enterContext(patch.object(planner.frappe, "has_permission", return_value=True))
+		self.enterContext(patch.object(planner.frappe, "get_meta", return_value=SimpleNamespace(has_field=lambda field: True)))
+		self.enterContext(patch.object(planner, "_project_planner_edit_fields", return_value=self.fields))
+		self.enterContext(patch.object(planner, "get_project_planner_details", side_effect=lambda project: {"task_count": len(self.tasks)}))
+		self.db = Mock()
+		self.db.sql.side_effect = lambda query, *args, **kwargs: list(self.tasks) if "tabTask" in query else []
+		self.db.exists.side_effect = lambda doctype, name: name in self.tasks
+		self.enterContext(patch.object(planner.frappe, "db", self.db, create=True))
+		self.new_doc = self.enterContext(patch.object(planner.frappe, "new_doc", side_effect=self.make_task, create=True))
+
+	def make_task(self, doctype):
+		task = SimpleNamespace(doctype=doctype)
+		task.get = lambda field: getattr(task, field, None)
+		task.set = lambda field, value: setattr(task, field, value)
+		def insert(*, set_name):
+			self.assertNotIn(set_name, self.tasks)
+			task.name = set_name
+			self.tasks[set_name] = task
+		task.insert = insert
+		return task
+
+	def test_repeated_creation_appends_distinct_hierarchies(self):
+		original = vars(self.existing).copy()
+		first = planner.create_generic_project_tasks("PROJ-1", locations=["Area A", "Area B"])
+		second = planner.create_generic_project_tasks("PROJ-1", locations=["Area A"])
+		self.assertEqual([t["name"] for t in first["created_tasks"]], [f"PROJ-1-{i:04}" for i in range(9, 14)])
+		self.assertEqual([t["name"] for t in second["created_tasks"]], [f"PROJ-1-{i:04}" for i in range(14, 17)])
+		self.assertEqual(vars(self.existing), original)
+		self.assertIs(self.tasks[self.existing.name], self.existing)
+		self.assertEqual(second["project_details"]["task_count"], 9)
+		for result in (first, second):
+			created = result["created_tasks"]
+			self.assertEqual(created[0]["type"], "Outline")
+			self.assertIsNone(created[0]["parent_task"])
+			for i in range(1, len(created), 2):
+				self.assertEqual(created[i]["parent_task"], created[0]["name"])
+				self.assertEqual(created[i+1]["parent_task"], created[i]["name"])
+				self.assertEqual(created[i+1]["type"], "Work Summary")
+				self.assertEqual(self.tasks[created[i+1]["name"]].exp_end_date, "2026-09-30")
+		locks = [call for call in self.db.sql.call_args_list if "FOR UPDATE" in call.args[0]]
+		self.assertEqual(len(locks), 2)
+
+	def test_cancelled_project_still_rejected(self):
+		self.project.status = "Cancelled"
+		with self.assertRaisesRegex(frappe.ValidationError, "cancelled project"):
+			planner.create_generic_project_tasks("PROJ-1")
+		self.new_doc.assert_not_called()
+
+	def test_task_create_permission_still_required(self):
+		self.permission.return_value = False
+		with self.assertRaises(frappe.PermissionError):
+			planner.create_generic_project_tasks("PROJ-1")
+		self.new_doc.assert_not_called()
+
+	def test_missing_project_dates_still_rejected(self):
+		self.project.expected_end_date = None
+		with self.assertRaisesRegex(frappe.ValidationError, "Set the Project Start Date"):
+			planner.create_generic_project_tasks("PROJ-1")
+		self.new_doc.assert_not_called()

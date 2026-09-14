@@ -147,7 +147,56 @@
                   </div>
                 </div>
 
-                <div v-if="!form.has_tasks" class="space-y-4 p-4">
+                <div v-if="form.has_tasks" class="space-y-3 border-b border-gray-100 p-4">
+                  <div v-if="form.execution_tasks.length" class="space-y-2">
+                    <div
+                      v-for="task in form.execution_tasks"
+                      :key="task.name"
+                      class="flex items-center gap-3 rounded-md border border-gray-200 px-3 py-3"
+                    >
+                      <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                          <div class="text-sm font-semibold text-gray-800">{{ task.subject || 'Execution' }}</div>
+                          <div class="text-xs text-gray-500">{{ task.location_subject || task.parent_task }}</div>
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-1.5">
+                          <div
+                            v-for="assignee in task.assignees"
+                            :key="`${task.name}-${assignee.user}`"
+                            class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-800"
+                          >
+                            <img
+                              v-if="assignee.user_image"
+                              :src="assignee.user_image"
+                              :alt="assignee.full_name || assignee.user"
+                              class="h-4 w-4 rounded-full object-cover"
+                            />
+                            <span v-else class="flex h-4 w-4 items-center justify-center rounded-full bg-blue-200 text-[9px] font-bold text-blue-800">
+                              {{ userInitials(assignee) }}
+                            </span>
+                            {{ assignee.full_name || assignee.user }}
+                          </div>
+                          <div v-if="!task.assignees.length" class="text-xs text-gray-500">Unassigned</div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        class="flex h-8 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        :disabled="!task.can_assign"
+                        :title="task.can_assign ? `Manage personnel for ${task.subject}` : 'You do not have permission to assign this task'"
+                        :aria-label="`Manage personnel for ${task.subject}`"
+                        @click="openTaskAssignmentModal(task)"
+                      >
+                        {{ task.assignees.length ? 'Manage' : '+ Assign' }}
+                      </button>
+                    </div>
+                  </div>
+                  <div v-else class="rounded-md bg-gray-50 px-3 py-4 text-center text-sm text-gray-500">
+                    No Work Summary/Execution tasks were found for this project.
+                  </div>
+                </div>
+
+                <div class="space-y-4 p-4">
                   <div class="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
                     <div class="font-semibold">{{ form.project_name || form.project }}</div>
                     <div
@@ -232,7 +281,7 @@
 
                   <div class="flex items-center justify-between gap-3">
                     <p class="text-xs text-gray-500">
-                      The project name becomes the top-level Outline task. Existing tasks are never changed.
+                      Each submission adds a new Outline with Location and Work Summary tasks. Existing tasks are preserved.
                     </p>
                     <Button
                       size="sm"
@@ -242,57 +291,8 @@
                       :loading="createGenericTasks.loading"
                       @click="confirmCreateGenericTasks"
                     >
-                      Create {{ genericTaskTotalCount }} Generic Tasks
+                      {{ form.has_tasks ? 'Add' : 'Create' }} {{ genericTaskTotalCount }} Generic Tasks
                     </Button>
-                  </div>
-                </div>
-
-                <div v-else class="space-y-3 p-4">
-                  <div v-if="form.execution_tasks.length" class="space-y-2">
-                    <div
-                      v-for="task in form.execution_tasks"
-                      :key="task.name"
-                      class="flex items-center gap-3 rounded-md border border-gray-200 px-3 py-3"
-                    >
-                      <div class="min-w-0 flex-1">
-                        <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                          <div class="text-sm font-semibold text-gray-800">{{ task.subject || 'Execution' }}</div>
-                          <div class="text-xs text-gray-500">{{ task.location_subject || task.parent_task }}</div>
-                        </div>
-                        <div class="mt-2 flex flex-wrap gap-1.5">
-                          <div
-                            v-for="assignee in task.assignees"
-                            :key="`${task.name}-${assignee.user}`"
-                            class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-800"
-                          >
-                            <img
-                              v-if="assignee.user_image"
-                              :src="assignee.user_image"
-                              :alt="assignee.full_name || assignee.user"
-                              class="h-4 w-4 rounded-full object-cover"
-                            />
-                            <span v-else class="flex h-4 w-4 items-center justify-center rounded-full bg-blue-200 text-[9px] font-bold text-blue-800">
-                              {{ userInitials(assignee) }}
-                            </span>
-                            {{ assignee.full_name || assignee.user }}
-                          </div>
-                          <div v-if="!task.assignees.length" class="text-xs text-gray-500">Unassigned</div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        class="flex h-8 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        :disabled="!task.can_assign"
-                        :title="task.can_assign ? `Manage personnel for ${task.subject}` : 'You do not have permission to assign this task'"
-                        :aria-label="`Manage personnel for ${task.subject}`"
-                        @click="openTaskAssignmentModal(task)"
-                      >
-                        {{ task.assignees.length ? 'Manage' : '+ Assign' }}
-                      </button>
-                    </div>
-                  </div>
-                  <div v-else class="rounded-md bg-gray-50 px-3 py-4 text-center text-sm text-gray-500">
-                    No Work Summary/Execution tasks were found for this project.
                   </div>
                 </div>
               </div>
@@ -673,11 +673,11 @@ const projectDateHelpMessage = computed(() => {
 })
 
 const genericTaskStatusMessage = computed(() => {
-  if (form.has_tasks) {
-    return `This project has ${form.task_count} task(s). Use Manage or + Assign beside an Execution task to update personnel.`
-  }
-
   if (form.generic_tasks_unavailable_reason) return form.generic_tasks_unavailable_reason
+
+  if (form.has_tasks) {
+    return `This project has ${form.task_count} task(s). Add another generic task structure below, or manage personnel on the existing Execution tasks.`
+  }
 
   return 'Creates one Outline plus a Location and Work Summary pair for every location entered below.'
 })
@@ -934,7 +934,7 @@ function confirmCreateGenericTasks() {
   const confirmed = window.confirm(
     `Create the generic task hierarchy for ${form.project_name || form.project}?\n\n`
     + `This will create ${genericTaskTotalCount.value} linked Tasks across ${locationCount} ${locationLabel} `
-    + 'and lock the Project dates while those Tasks exist.',
+    + 'using the saved Project dates. Existing tasks will be preserved, and the new tasks will be appended.',
   )
   if (confirmed) createGenericTasks.submit()
 }
