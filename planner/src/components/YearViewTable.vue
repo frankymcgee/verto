@@ -546,16 +546,16 @@
     :shiftAssignmentName="shiftAssignment"
     :selectedCell="selectedCell"
     :employees="employees"
-    @fetchEvents="
-      events.fetch();
-      showShiftAssignmentDialog = false;
-    "
+    :assignmentDefaults="projectShiftDefaults"
+    @fetchEvents="onShiftAssignmentSaved"
   />
 
   <ProjectSpanDialog
     v-model="showProjectSpanDialog"
     :isDialogOpen="showProjectSpanDialog"
     :project="selectedProjectSpan"
+    :suspended="showShiftAssignmentDialog && !!projectShiftDefaults"
+    @assignShifts="openProjectShiftAssignment"
     @fetchEvents="
       events.fetch();
       showProjectSpanDialog = false;
@@ -573,6 +573,7 @@ import { dayjs, raiseToast } from '../utils'
 import type { EmployeeFilters, ShiftFilters } from '../views/MonthView.vue'
 import ShiftAssignmentDialog from './ShiftAssignmentDialog.vue'
 import ProjectSpanDialog from './ProjectSpanDialog.vue'
+import type { ProjectShiftAssignmentDefaults } from '../types/shiftAssignment'
 
 type Color =
   | 'blue'
@@ -783,9 +784,14 @@ const employeeCollapsed = ref(false)
 const projectTypeFilter = ref<'all' | 'roster' | 'shutdown'>('all')
 const shiftAssignment = ref<string>('')
 const showShiftAssignmentDialog = ref(false)
+const projectShiftDefaults = ref<ProjectShiftAssignmentDefaults | null>(null)
 const showProjectSpanDialog = ref(false)
 const selectedProjectSpan = ref<ProjectRow | null>(null)
 const selectedCell = ref<{ employee: string; date: string }>({ employee: '', date: '' })
+
+watch(showShiftAssignmentDialog, (open) => {
+  if (!open) projectShiftDefaults.value = null
+})
 
 type DraggedShift = {
   employee: string
@@ -2527,6 +2533,7 @@ function openEmployeeCell(employee: string, date: string, event?: MouseEvent) {
     clearSelectedShiftCells()
   }
 
+  projectShiftDefaults.value = null
   selectedCell.value = { employee, date }
   shiftAssignment.value = cell?.type === 'shift' ? cell.shift.name : ''
   showShiftAssignmentDialog.value = true
@@ -3033,6 +3040,23 @@ function openProjectSpanDialog(project?: ProjectRow) {
   showProjectSpanDialog.value = true
 }
 
+function openProjectShiftAssignment(defaults: ProjectShiftAssignmentDefaults) {
+  clearHoverCard()
+  projectShiftDefaults.value = defaults
+  shiftAssignment.value = ''
+  selectedCell.value = { employee: '', date: '' }
+  showShiftAssignmentDialog.value = true
+}
+
+async function onShiftAssignmentSaved() {
+  showShiftAssignmentDialog.value = false
+  try {
+    await events.fetch()
+  } catch {
+    // The resource's onError displays any roster refresh error.
+  }
+}
+
 function showProjectHover(project: ProjectRow, segment: ProjectSegment, event: MouseEvent) {
   if (!segment.active) {
     scheduleClearHoverCard()
@@ -3305,6 +3329,11 @@ const events = createResource({
   },
   onSuccess() {
     loading.value = false
+    if (selectedProjectSpan.value) {
+      selectedProjectSpan.value = allProjectRows.value.find(
+        (project) => project.project === selectedProjectSpan.value?.project,
+      ) || selectedProjectSpan.value
+    }
   },
   onError(error: { messages?: string[]; message?: string }) {
     loading.value = false

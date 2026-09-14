@@ -114,7 +114,7 @@
 								class="planner-native-control"
 							>
 								<option value="">Select Shift Location</option>
-								<option v-for="location in (shiftLocations.data || [])" :key="location" :value="location">
+								<option v-for="location in shiftLocationOptions" :key="location" :value="location">
 									{{ location }}
 								</option>
 							</select>
@@ -393,6 +393,7 @@ import {
 	createListResource,
 } from "frappe-ui";
 import { dayjs, raiseToast } from "../utils";
+import type { ProjectShiftAssignmentDefaults } from "../types/shiftAssignment";
 
 type Status = "Active" | "Inactive";
 
@@ -418,6 +419,7 @@ interface Props {
 	modelValue?: boolean;
 	isDialogOpen: boolean;
 	shiftAssignmentName?: string;
+	assignmentDefaults?: ProjectShiftAssignmentDefaults | null;
 	selectedCell?: { employee: string; date: string };
 	employees?: { name: string; employee_name: string }[];
 }
@@ -610,6 +612,8 @@ watch(
 			if (props.selectedCell) selectedDate.value = props.selectedCell.date;
 		} else {
 			Object.assign(form, formObject);
+			selectedDate.value = undefined;
+			shiftAssignment.value = undefined;
 			scheduleType.value = "Repeat On Days";
 			frequency.value = "Every Week";
 			includeFlyInFlyOut.value = true;
@@ -624,10 +628,15 @@ watch(
 				{ days_on_site: 4, days_off_site: 3 },
 			);
 			Object.assign(repeatOnDays, repeatOnDaysObject);
-			if (!props.selectedCell) return;
-			form.employee = props.selectedCell.employee;
-			form.start_date = props.selectedCell.date;
-			form.end_date = props.selectedCell.date;
+			if (props.assignmentDefaults) {
+				form.custom_project = props.assignmentDefaults.custom_project;
+				form.shift_location = props.assignmentDefaults.shift_location;
+				form.shift_type = props.assignmentDefaults.shift_type;
+			} else if (props.selectedCell) {
+				form.employee = props.selectedCell.employee;
+				form.start_date = props.selectedCell.date;
+				form.end_date = props.selectedCell.date;
+			}
 		}
 	},
 );
@@ -775,6 +784,7 @@ const shiftTypes = createListResource({
 	doctype: "Shift Type",
 	fields: ["name"],	
 	orderBy: 'name asc',
+	pageLength: 1000,
 	auto: true,
 	transform: (rows: { name: string }[]) => rows.map((r) => r.name),
 });
@@ -783,8 +793,15 @@ const shiftLocations = createListResource({
 	doctype: "Shift Location",
 	fields: ["name"],
 	orderBy: 'name asc',
+	pageLength: 1000,
 	auto: true,
 	transform: (rows: { name: string }[]) => rows.map((r) => r.name),
+});
+
+const shiftLocationOptions = computed(() => {
+	const locations: string[] = shiftLocations.data || [];
+	const selected = getId(form.shift_location);
+	return selected && !locations.includes(selected) ? [selected, ...locations] : locations;
 });
 
 // Projects: Open only, show more than 20
@@ -796,12 +813,18 @@ const projects = createListResource({
 	pageLength: 200, // ask for more than default
 	auto: true,
 });
-const projectOptions = computed(() =>
-	(projects.data || []).map((p: any) => ({
+const projectOptions = computed(() => {
+	const options = (projects.data || []).map((p: any) => ({
 		label: p.project_name || p.name,
 		value: p.name, // send ID
-	})),
-);
+	}));
+	const defaults = props.assignmentDefaults;
+	// The source project can be outside the first page or no longer be Open.
+	if (defaults?.custom_project && !options.some((option: { value: string }) => option.value === defaults.custom_project)) {
+		options.unshift({ value: defaults.custom_project, label: defaults.project_name || defaults.custom_project });
+	}
+	return options;
+});
 
 const shiftAssignments = createListResource({
 	doctype: "Shift Assignment",

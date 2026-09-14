@@ -1,13 +1,13 @@
 <template>
   <Teleport to="body">
     <div
-      v-if="isOpen"
+      v-if="isOpen && !suspended"
       class="fixed inset-0 z-[2147483000] bg-black/50"
       @click.self="closeDialog"
     />
 
     <div
-      v-if="isOpen"
+      v-if="isOpen && !suspended"
       class="fixed inset-0 z-[2147483001] flex items-start justify-center overflow-y-auto px-4 py-10"
       @click.self="closeDialog"
     >
@@ -305,7 +305,7 @@
                   </div>
                 </div>
 
-                <div class="grid grid-cols-2 divide-x divide-gray-100">
+                <div class="grid grid-cols-1 divide-y divide-gray-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
                   <div class="p-4">
                     <div class="mb-2 flex items-center justify-between gap-2">
                       <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">DS</div>
@@ -313,6 +313,14 @@
                         {{ dsPersonnel.length }}
                       </div>
                     </div>
+
+                    <Button
+                      size="sm"
+                      class="mb-3 w-full"
+                      aria-label="Assign day shifts"
+                      :disabled="!canAssignShifts"
+                      @click="assignProjectShifts('DS')"
+                    >+ Assign shifts</Button>
 
                     <div v-if="dsPersonnel.length" class="space-y-1.5">
                       <div
@@ -335,6 +343,14 @@
                         {{ nsPersonnel.length }}
                       </div>
                     </div>
+
+                    <Button
+                      size="sm"
+                      class="mb-3 w-full"
+                      aria-label="Assign night shifts"
+                      :disabled="!canAssignShifts"
+                      @click="assignProjectShifts('NS')"
+                    >+ Assign shifts</Button>
 
                     <div v-if="nsPersonnel.length" class="space-y-1.5">
                       <div
@@ -491,6 +507,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { Button, FormControl, createResource } from 'frappe-ui'
 import { raiseToast } from '../utils'
+import type { ProjectShiftAssignmentDefaults } from '../types/shiftAssignment'
 
 type ProjectDialogRow = {
   project: string
@@ -577,12 +594,14 @@ type GenericTaskResponse = {
 const props = defineProps<{
   modelValue?: boolean
   isDialogOpen: boolean
+  suspended?: boolean
   project?: ProjectDialogRow | null
 }>()
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
   (e: 'fetchEvents'): void
+  (e: 'assignShifts', defaults: ProjectShiftAssignmentDefaults): void
 }>()
 
 const isOpen = computed({
@@ -692,6 +711,19 @@ const canSubmitGenericTasks = computed(() => (
 
 const dsPersonnel = computed(() => normalisePersonnel(props.project?.ds_personnel))
 const nsPersonnel = computed(() => normalisePersonnel(props.project?.ns_personnel))
+const canAssignShifts = computed(() => Boolean(form.project)
+  && !projectDetails.loading && !updateProject.loading && !createGenericTasks.loading)
+
+function assignProjectShifts(shiftType: 'DS' | 'NS') {
+  if (!canAssignShifts.value) return
+  emit('assignShifts', {
+    custom_project: form.project,
+    project_name: form.project_name,
+    shift_location: form.custom_project_location,
+    shift_type: shiftType,
+  })
+}
+
 const showTaskAssignmentModal = ref(false)
 const selectedExecutionTask = ref<ExecutionTask | null>(null)
 const assignmentSearch = ref('')
@@ -1004,7 +1036,7 @@ const updateProject = createResource({
 })
 
 watch(
-  () => [props.isDialogOpen, props.project?.project],
+  [() => props.isDialogOpen, () => props.project?.project],
   ([open]) => {
     if (!open) return
     resetForm()
