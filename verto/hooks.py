@@ -32,7 +32,7 @@ app_include_css = [
     "/assets/verto/css/leaflet.draw.css",
     "/assets/verto/css/easy-button.css",
     "/assets/verto/css/L.Control.Locate.css",
-	"/assets/verto/css/whiteboard.css",
+    "/assets/verto/css/whiteboard.css",
     "/assets/verto/css/excalidraw.css",
 ]
 
@@ -45,7 +45,7 @@ app_include_js = [
     "/assets/verto/js/map_view.js",
     "/assets/verto/js/raven_peri_auto_command.js",
     "/assets/verto/js/whiteboard_custom.js",
-]	
+]
 
 web_include_js = [
     "/assets/verto/js/raven_peri_auto_command.js",
@@ -64,13 +64,10 @@ doctype_js = {
 
 # Installation / migration hardening
 # ----------------------------------
-after_install = [
-    "verto.install.after_install",
-    "verto.api.mobile.peri_voice_settings.after_install",
-]
+after_install = "verto.install.after_install"
 after_migrate = [
     "verto.install.after_migrate",
-    "verto.api.mobile.peri_voice_settings.after_migrate",
+    "verto.api.mobile.home_child_tasks.sync_active_jha_planned_steps",
 ]
 after_app_install = "verto.optional_integrations.after_app_install"
 
@@ -152,6 +149,7 @@ scheduler_events = {
 
 override_whitelisted_methods = {
     "frappe.geo.utils.get_coords": "verto.geo.utils.verto_get_coords",
+    "verto.api.mobile.home.get_home_summary": "verto.api.mobile.home_child_tasks.get_home_summary",
 }
 
 # Serve site-specific install metadata and the root worker through Frappe.
