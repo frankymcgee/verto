@@ -3053,6 +3053,21 @@ def _normalise_generic_task_locations(locations, legacy_location_subject=None) -
 	return subjects
 
 
+def _normalise_work_summary_subjects(values, fallback: str) -> list[str]:
+	if values is None:
+		return [fallback]
+	if not isinstance(values, list) or not 1 <= len(values) <= 100:
+		frappe.throw(_("Add between 1 and 100 Work Summaries per location."))
+	return [_normalise_generic_task_subject(value, "", _("Work Summary task name")) for value in values]
+
+
+def _get_project_location_tasks(project: str) -> list[dict]:
+	rows = frappe.get_all("Task", filters={"project": project, "type": "Location", "is_group": 1},
+		fields=["name", "subject"], order_by="name asc")
+	return [dict(name=row.name, subject=row.subject) for row in rows
+		if frappe.get_doc("Task", row.name).has_permission("write")]
+
+
 def _next_project_task_names(project: str, count: int) -> list[str]:
 	prefix = f"{project}-"
 	pattern = re.compile(rf"^{re.escape(prefix)}(\d+)$")
@@ -3305,6 +3320,7 @@ def get_project_planner_details(project: str) -> dict:
 		"task_count": task_count,
 		"has_tasks": has_tasks,
 		"execution_tasks": _get_project_execution_tasks(project),
+		"location_tasks": _get_project_location_tasks(project),
 		"can_create_generic_tasks": can_create_generic_tasks,
 		"generic_tasks_unavailable_reason": generic_tasks_unavailable_reason,
 		"can_update_po": bool(po_field),
@@ -3444,9 +3460,9 @@ def create_generic_project_tasks(
 	expected_start_time: str | None = None,
 	expected_end_time: str | None = None,
 ) -> dict:
-	"""Create an Outline with one or more Location > Work Summary task pairs.
+	"""Create Work Summaries under new or existing Location tasks.
 
-	Append a new hierarchy without modifying existing tasks. Lock the Project
+	Create an Outline only when adding new locations. Lock the Project
 	row so concurrent Planner requests allocate distinct task name sequences.
 	"""
 	if not project:
@@ -3471,12 +3487,45 @@ def create_generic_project_tasks(
 		project_doc.name,
 		_("Project task name"),
 	)
-	location_subjects = _normalise_generic_task_locations(locations, location_subject)
 	work_summary_subject = _normalise_generic_task_subject(
 		work_summary_subject,
 		GENERIC_TASK_DEFAULT_WORK_SUMMARY,
 		_("Work Summary task name"),
 	)
+	# Accept the legacy list of location names and richer per-location entries.
+	if isinstance(locations, str):
+		try:
+			locations = json.loads(locations)
+		except (TypeError, ValueError):
+			locations = [locations]
+	if locations in (None, ""):
+		locations = [location_subject or GENERIC_TASK_DEFAULT_LOCATION]
+	if isinstance(locations, dict):
+		locations = [locations]
+	if not isinstance(locations, list) or not 1 <= len(locations) <= GENERIC_TASK_MAX_LOCATIONS:
+		frappe.throw(_("Add between 1 and {0} locations.").format(GENERIC_TASK_MAX_LOCATIONS))
+	entries = []
+	new_subjects = []
+	for entry in locations:
+		entry = entry if isinstance(entry, dict) else {"subject": entry}
+		parent = None
+		if entry.get("task"):
+			parent = frappe.get_doc("Task", entry["task"], for_update=True)
+			parent.check_permission("write")
+			if parent.project != project or parent.get("type") != "Location" or not parent.get("is_group"):
+				frappe.throw(_("Select a Location group task belonging to this project."))
+			if parent.get("status") == "Cancelled":
+				frappe.throw(_("Work Summaries cannot be added to a cancelled Location."))
+			subject = parent.subject
+		else:
+			subject = entry.get("subject") or entry.get("location_subject") or entry.get("name")
+			subject = _normalise_generic_task_subject(subject, "", _("Location task name"))
+			new_subjects.append(subject)
+		entries.append((subject, parent, _normalise_work_summary_subjects(entry.get("work_summaries"), work_summary_subject)))
+	if new_subjects:
+		_normalise_generic_task_locations(new_subjects)
+	if sum(len(summaries) for _, _, summaries in entries) > 500:
+		frappe.throw(_("A maximum of 500 Work Summaries can be created at once."))
 	start_time = _normalise_generic_task_time(
 		expected_start_time,
 		GENERIC_TASK_DEFAULT_START_TIME,
@@ -3498,51 +3547,45 @@ def create_generic_project_tasks(
 		frappe.throw(_("The generic task end date and time must be after its start date and time."))
 	expected_time = round((end_datetime - start_datetime).total_seconds() / 3600, 2)
 
-	task_names = _next_project_task_names(project_doc.name, 1 + (len(location_subjects) * 2))
-	outline_task = _insert_generic_project_task(
-		name=task_names[0],
-		project_doc=project_doc,
-		subject=outline_subject,
-		task_type="Outline",
-		is_group=True,
-		start_date=start_date,
-		end_date=end_date,
-		start_time=start_time,
-		end_time=end_time,
-		expected_time=expected_time,
-	)
-	created_tasks = [outline_task]
-	task_name_index = 1
-	for location_subject in location_subjects:
-		location_task = _insert_generic_project_task(
-			name=task_names[task_name_index],
-			project_doc=project_doc,
-			subject=location_subject,
-			task_type="Location",
-			is_group=True,
-			start_date=start_date,
-			end_date=end_date,
-			start_time=start_time,
-			end_time=end_time,
-			expected_time=expected_time,
-			parent_task=outline_task,
+	# Existing locations keep their own date range, contained by the project.
+	planned = []
+	for subject, parent, summaries in entries:
+		location_start = _normalise_project_date_for_update(parent.get("exp_start_date")) if parent else None
+		location_end = _normalise_project_date_for_update(parent.get("exp_end_date")) if parent else None
+		location_start, location_end = location_start or start_date, location_end or end_date
+		_validate_project_date_range(location_start, location_end)
+		if getdate(location_start) < getdate(start_date) or getdate(location_end) > getdate(end_date):
+			frappe.throw(_("Location {0} has dates outside the Project date range. Update its dates before adding Work Summaries.").format(subject))
+		hours = (get_datetime(f"{location_end} {end_time}") - get_datetime(f"{location_start} {start_time}")).total_seconds() / 3600
+		if hours <= 0:
+			frappe.throw(_("Work Summary end date and time must be after its start date and time."))
+		planned.append((subject, parent, summaries, location_start, location_end, round(hours, 2)))
+
+	count = (1 if new_subjects else 0) + len(new_subjects) + sum(len(summaries) for _, _, summaries in entries)
+	task_names = iter(_next_project_task_names(project_doc.name, count))
+	created_tasks = []
+	outline_task = None
+	if new_subjects:
+		outline_task = _insert_generic_project_task(
+			name=next(task_names), project_doc=project_doc, subject=outline_subject,
+			task_type="Outline", is_group=True, start_date=start_date, end_date=end_date,
+			start_time=start_time, end_time=end_time, expected_time=expected_time,
 		)
-		task_name_index += 1
-		work_summary_task = _insert_generic_project_task(
-			name=task_names[task_name_index],
-			project_doc=project_doc,
-			subject=work_summary_subject,
-			task_type="Work Summary",
-			is_group=False,
-			start_date=start_date,
-			end_date=end_date,
-			start_time=start_time,
-			end_time=end_time,
-			expected_time=expected_time,
-			parent_task=location_task,
-		)
-		task_name_index += 1
-		created_tasks.extend([location_task, work_summary_task])
+		created_tasks.append(outline_task)
+	for subject, location_task, summaries, location_start, location_end, hours in planned:
+		if location_task is None:
+			location_task = _insert_generic_project_task(
+				name=next(task_names), project_doc=project_doc, subject=subject,
+				task_type="Location", is_group=True, start_date=start_date, end_date=end_date,
+				start_time=start_time, end_time=end_time, expected_time=expected_time, parent_task=outline_task,
+			)
+			created_tasks.append(location_task)
+		for subject in summaries:
+			created_tasks.append(_insert_generic_project_task(
+				name=next(task_names), project_doc=project_doc, subject=subject,
+				task_type="Work Summary", is_group=False, start_date=location_start, end_date=location_end,
+				start_time=start_time, end_time=end_time, expected_time=hours, parent_task=location_task,
+			))
 	return {
 		"project": project_doc.name,
 		"created_tasks": [

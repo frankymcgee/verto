@@ -66,6 +66,7 @@ class TestPlannerProjectTasks(TestCase):
 		self.enterContext(patch.object(
 			planner, "_get_project_execution_tasks", return_value=self.execution_tasks,
 		))
+		self.enterContext(patch.object(planner, "_get_project_location_tasks", return_value=[]))
 		return doc
 
 	def test_counts_are_available_with_v16_field_validation(self):
@@ -396,4 +397,61 @@ class TestPlannerAppendGenericTasks(TestCase):
 		self.project.expected_end_date = None
 		with self.assertRaisesRegex(frappe.ValidationError, "Set the Project Start Date"):
 			planner.create_generic_project_tasks("PROJ-1")
+		self.new_doc.assert_not_called()
+
+
+	def test_multiple_work_summaries_per_new_location(self):
+		result = planner.create_generic_project_tasks("PROJ-1", locations=[
+			{"subject": "Area A", "work_summaries": ["Inspection", "Repair"]},
+			{"subject": "Area B", "work_summaries": ["Closeout"]},
+		])
+		created = result["created_tasks"]
+		self.assertEqual(len(created), 6)
+		self.assertEqual([row["subject"] for row in created[2:4]], ["Inspection", "Repair"])
+		self.assertEqual(created[2]["parent_task"], created[1]["name"])
+		self.assertEqual(created[3]["parent_task"], created[1]["name"])
+		self.assertEqual(created[5]["parent_task"], created[4]["name"])
+
+	def existing_location(self):
+		location = SimpleNamespace(name="PROJ-1-0007", subject="Existing location", project="PROJ-1",
+			type="Location", is_group=1, exp_start_date="2026-09-10", exp_end_date="2026-09-20",
+			check_permission=Mock())
+		location.get = lambda key: getattr(location, key, None)
+		self.tasks[location.name] = location
+		self.enterContext(patch.object(planner.frappe, "get_doc", side_effect=lambda doctype, name, **kw: self.project if doctype == "Project" else location))
+		return location
+
+	def test_existing_location_gets_only_new_summaries_with_its_dates(self):
+		location = self.existing_location()
+		result = planner.create_generic_project_tasks("PROJ-1", locations=[
+			{"task": location.name, "work_summaries": ["Inspect", "Repair"]},
+		])
+		self.assertEqual(len(result["created_tasks"]), 2)
+		for row in result["created_tasks"]:
+			self.assertEqual(row["type"], "Work Summary")
+			self.assertEqual(row["parent_task"], location.name)
+			self.assertEqual(self.tasks[row["name"]].exp_start_date, "2026-09-10")
+			self.assertEqual(self.tasks[row["name"]].exp_end_date, "2026-09-20")
+		location.check_permission.assert_called_with("write")
+
+	def test_wrong_project_or_non_location_parent_rejected(self):
+		location = self.existing_location()
+		for field, value in (("project", "OTHER"), ("type", "Outline"), ("is_group", 0)):
+			original = getattr(location, field)
+			setattr(location, field, value)
+			with self.assertRaisesRegex(frappe.ValidationError, "Location group task"):
+				planner.create_generic_project_tasks("PROJ-1", locations=[{"task": location.name}])
+			setattr(location, field, original)
+		self.new_doc.assert_not_called()
+
+	def test_parent_write_permission_required(self):
+		location = self.existing_location()
+		location.check_permission.side_effect = frappe.PermissionError("No write access")
+		with self.assertRaises(frappe.PermissionError):
+			planner.create_generic_project_tasks("PROJ-1", locations=[{"task": location.name}])
+		self.new_doc.assert_not_called()
+
+	def test_empty_summary_rejected_before_inserts(self):
+		with self.assertRaisesRegex(frappe.ValidationError, "Work Summary task name is required"):
+			planner.create_generic_project_tasks("PROJ-1", locations=[{"subject": "Area A", "work_summaries": ["Valid", " "]}])
 		self.new_doc.assert_not_called()
