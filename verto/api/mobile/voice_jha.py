@@ -300,7 +300,10 @@ def _create_realtime_call(*, sdp: str, task, jha, bot):
         },
     )
 
-    answer_sdp = str(getattr(response, "text", "") or "").strip()
+    # Keep the SDP answer byte-for-byte equivalent to OpenAI's response. In
+    # particular, do not trim the final CRLF: strict SDP parsers may reject a
+    # description whose final line terminator has been removed.
+    answer_sdp = str(getattr(response, "text", "") or "")
     if not answer_sdp:
         frappe.throw(_("OpenAI did not return a WebRTC SDP answer."), frappe.ValidationError)
 
@@ -402,7 +405,10 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0):
             frappe.ValidationError,
         )
 
-    offer_sdp = str(sdp or "").strip()
+    # SDP is a line-oriented wire format. Do not call strip()/rstrip() here:
+    # browser offers normally end in CRLF, and removing that terminator can make
+    # OpenAI's strict SDP parser fail with `failed to unmarshal SDP: EOF`.
+    offer_sdp = str(sdp or "")
     if not offer_sdp or not offer_sdp.startswith("v=0"):
         frappe.throw(_("A valid WebRTC SDP offer is required."), frappe.ValidationError)
     if len(offer_sdp) > MAX_SDP_LENGTH:
