@@ -1,0 +1,32 @@
+{
+ "actions":[],
+ "doctype":"DocType",
+ "editable_grid":1,
+ "engine":"InnoDB",
+ "field_order":["hazard_or_energy_source","people_exposed","credible_consequence","existing_controls","additional_controls","hierarchy_level","control_owner","verification_method","verification_status","critical_risk","critical_control","permit_or_ccv_required","initial_risk","residual_risk","information_source"],
+ "fields":[
+  {"fieldname":"hazard_or_energy_source","fieldtype":"Small Text","in_list_view":1,"label":"Hazard / Energy Source","reqd":1},
+  {"fieldname":"people_exposed","fieldtype":"Small Text","label":"People Exposed"},
+  {"fieldname":"credible_consequence","fieldtype":"Small Text","label":"Credible Consequence"},
+  {"fieldname":"existing_controls","fieldtype":"Small Text","label":"Existing Controls"},
+  {"fieldname":"additional_controls","fieldtype":"Small Text","label":"Additional Controls"},
+  {"fieldname":"hierarchy_level","fieldtype":"Select","label":"Highest Control Level","options":"\nElimination\nSubstitution\nIsolation\nEngineering\nAdministrative\nPPE"},
+  {"fieldname":"control_owner","fieldtype":"Data","label":"Control Owner"},
+  {"fieldname":"verification_method","fieldtype":"Small Text","label":"Verification Method"},
+  {"default":"Not Verified","fieldname":"verification_status","fieldtype":"Select","label":"Verification Status","options":"Not Verified\nReported by Team\nVerified On Site"},
+  {"fieldname":"critical_risk","fieldtype":"Check","label":"Critical Risk"},
+  {"fieldname":"critical_control","fieldtype":"Small Text","label":"Critical Control"},
+  {"fieldname":"permit_or_ccv_required","fieldtype":"Small Text","label":"Permit / CCV Required"},
+  {"fieldname":"initial_risk","fieldtype":"Data","label":"Initial Risk"},
+  {"fieldname":"residual_risk","fieldtype":"Data","label":"Residual Risk"},
+  {"default":"Team discussion","fieldname":"information_source","fieldtype":"Select","label":"Information Source","options":"Team discussion\nApproved Verto document\nAI suggestion\nOn-site verification"}
+ ],
+ "istable":1,
+ "module":"Safety",
+ "name":"Digital JHA Hazard Control",
+ "permissions":[],
+ "row_format":"Dynamic",
+ "sort_field":"modified",
+ "sort_order":"DESC",
+ "states":[]
+}

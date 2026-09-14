@@ -1,0 +1,24 @@
+{
+ "actions":[],
+ "doctype":"DocType",
+ "editable_grid":1,
+ "engine":"InnoDB",
+ "field_order":["employee","participant_name","role","present_for_discussion","transcription_consent","acknowledged","acknowledged_at"],
+ "fields":[
+  {"fieldname":"employee","fieldtype":"Link","label":"Employee","options":"Employee"},
+  {"fieldname":"participant_name","fieldtype":"Data","in_list_view":1,"label":"Participant Name","reqd":1},
+  {"fieldname":"role","fieldtype":"Data","label":"Role"},
+  {"default":"1","fieldname":"present_for_discussion","fieldtype":"Check","label":"Present for Discussion"},
+  {"fieldname":"transcription_consent","fieldtype":"Check","label":"Transcription Consent"},
+  {"fieldname":"acknowledged","fieldtype":"Check","label":"JHA Acknowledged"},
+  {"fieldname":"acknowledged_at","fieldtype":"Datetime","label":"Acknowledged At","read_only":1}
+ ],
+ "istable":1,
+ "module":"Safety",
+ "name":"Digital JHA Participant",
+ "permissions":[],
+ "row_format":"Dynamic",
+ "sort_field":"modified",
+ "sort_order":"DESC",
+ "states":[]
+}

@@ -1,0 +1,42 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:JHA-{YYYY}{MM}{DD}-{####}",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": ["project_section","project","work_summary","work_summary_title","work_order_number","work_area","status_section","jha_status","revision","source_revision","ai_bot","voice_session_reference","steps_section","work_steps","participants_section","participants","review_section","review_notes"],
+ "fields": [
+  {"fieldname":"project_section","fieldtype":"Section Break","label":"Work Context"},
+  {"fieldname":"project","fieldtype":"Link","label":"Project","options":"Project","reqd":1},
+  {"fieldname":"work_summary","fieldtype":"Link","label":"Work Summary","options":"Task","reqd":1,"link_filters":"[[\"Task\",\"type\",\"=\",\"Work Summary\"]]"},
+  {"fieldname":"work_summary_title","fieldtype":"Data","label":"Work Summary Title","read_only":1},
+  {"fieldname":"work_order_number","fieldtype":"Data","label":"Work Order Number","read_only":1},
+  {"fieldname":"work_area","fieldtype":"Data","label":"Work Area"},
+  {"fieldname":"status_section","fieldtype":"Section Break","label":"JHA Status"},
+  {"default":"Draft","fieldname":"jha_status","fieldtype":"Select","label":"Status","options":"Draft\nVoice Discussion in Progress\nIncomplete - Actions Required\nReady for Team Review\nSigned\nReview Required - Work Changed\nSuperseded\nCancelled","reqd":1},
+  {"default":"1","fieldname":"revision","fieldtype":"Int","label":"Revision","read_only":1},
+  {"fieldname":"source_revision","fieldtype":"Data","hidden":1,"label":"Source Work Summary Revision","read_only":1},
+  {"fieldname":"ai_bot","fieldtype":"Link","label":"AI Facilitator","options":"Raven Bot","read_only":1},
+  {"fieldname":"voice_session_reference","fieldtype":"Data","label":"Voice Session Reference","read_only":1},
+  {"fieldname":"steps_section","fieldtype":"Section Break","label":"Work Steps, Hazards and Controls"},
+  {"fieldname":"work_steps","fieldtype":"Table","label":"Work Steps","options":"Digital JHA Work Step"},
+  {"fieldname":"participants_section","fieldtype":"Section Break","label":"Participants"},
+  {"fieldname":"participants","fieldtype":"Table","label":"Participants","options":"Digital JHA Participant"},
+  {"fieldname":"review_section","fieldtype":"Section Break","label":"Human Review"},
+  {"fieldname":"review_notes","fieldtype":"Text Editor","label":"Review Notes"}
+ ],
+ "index_web_pages_for_search": 0,
+ "module": "Safety",
+ "name": "Digital Job Hazard Analysis",
+ "permissions": [
+  {"create":1,"delete":1,"email":1,"export":1,"print":1,"read":1,"report":1,"role":"System Manager","share":1,"write":1},
+  {"create":1,"email":1,"export":1,"print":1,"read":1,"report":1,"role":"Site Safety Advisor - External","share":1,"write":1}
+ ],
+ "row_format":"Dynamic",
+ "sort_field":"modified",
+ "sort_order":"DESC",
+ "states":[],
+ "track_changes":1,
+ "track_seen":1,
+ "track_views":1
+}
