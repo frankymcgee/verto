@@ -632,6 +632,8 @@ watch(
 				form.custom_project = props.assignmentDefaults.custom_project;
 				form.shift_location = props.assignmentDefaults.shift_location;
 				form.shift_type = props.assignmentDefaults.shift_type;
+				form.start_date = props.assignmentDefaults.start_date || "";
+				form.end_date = props.assignmentDefaults.end_date || "";
 			} else if (props.selectedCell) {
 				form.employee = props.selectedCell.employee;
 				form.start_date = props.selectedCell.date;

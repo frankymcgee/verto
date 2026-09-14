@@ -721,6 +721,8 @@ function assignProjectShifts(shiftType: 'DS' | 'NS') {
     project_name: form.project_name,
     shift_location: form.custom_project_location,
     shift_type: shiftType,
+    start_date: form.project_start_date,
+    end_date: form.project_end_date,
   })
 }
 
