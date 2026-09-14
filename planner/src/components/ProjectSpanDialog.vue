@@ -281,13 +281,13 @@
                       </div>
                       <button
                         type="button"
-                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white text-xl leading-none text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        class="flex h-8 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                         :disabled="!task.can_assign"
-                        :title="task.can_assign ? `Assign personnel to ${task.subject}` : 'You do not have permission to assign this task'"
-                        :aria-label="`Assign personnel to ${task.subject}`"
+                        :title="task.can_assign ? `Manage personnel for ${task.subject}` : 'You do not have permission to assign this task'"
+                        :aria-label="`Manage personnel for ${task.subject}`"
                         @click="openTaskAssignmentModal(task)"
                       >
-                        +
+                        {{ task.assignees.length ? 'Manage' : '+ Assign' }}
                       </button>
                     </div>
                   </div>
@@ -386,15 +386,15 @@
       @click.self="closeTaskAssignmentModal"
     >
       <div
-        class="w-full max-w-lg overflow-hidden rounded-lg bg-white shadow-2xl"
+        class="flex max-h-[calc(100dvh-4rem)] w-full max-w-lg flex-col overflow-hidden rounded-lg bg-white shadow-2xl"
         role="dialog"
         aria-modal="true"
-        aria-label="Assign personnel"
+        aria-label="Manage personnel"
         @click.stop
       >
-        <div class="flex items-start justify-between gap-3 border-b border-gray-200 px-5 py-4">
+        <div class="flex shrink-0 items-start justify-between gap-3 border-b border-gray-200 px-5 py-4">
           <div>
-            <h3 class="text-lg font-semibold text-gray-900">Assign Personnel</h3>
+            <h3 class="text-lg font-semibold text-gray-900">Manage Personnel</h3>
             <p class="mt-0.5 text-sm text-gray-500">
               {{ selectedExecutionTask?.location_subject || selectedExecutionTask?.parent_task }} ·
               {{ selectedExecutionTask?.subject || 'Execution' }}
@@ -404,13 +404,15 @@
             type="button"
             class="rounded-md p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
             aria-label="Close personnel assignment"
+            :disabled="updateExecutionTaskAssignments.loading"
             @click="closeTaskAssignmentModal"
           >
             ✕
           </button>
         </div>
 
-        <div class="space-y-3 px-5 py-4">
+        <div class="min-h-0 space-y-3 overflow-y-auto px-5 py-4">
+          <p class="text-sm text-gray-600">Tick people to assign them, or untick to remove them. Changes apply when you save.</p>
           <input
             v-model="assignmentSearch"
             type="search"
@@ -422,18 +424,18 @@
           <div v-if="assignmentUsers.loading" class="rounded-md bg-gray-50 px-3 py-8 text-center text-sm text-gray-500">
             Loading personnel...
           </div>
-          <div v-else class="max-h-80 overflow-y-auto rounded-md border border-gray-200">
+          <div v-else-if="assignmentUsersReady" class="max-h-80 overflow-y-auto rounded-md border border-gray-200">
             <label
               v-for="user in filteredAssignmentUsers"
               :key="user.user"
               class="flex items-center gap-3 border-b border-gray-100 px-3 py-2.5 last:border-b-0"
-              :class="isExistingAssignee(user.user) ? 'cursor-not-allowed bg-gray-50 opacity-70' : 'cursor-pointer hover:bg-gray-50'"
+              :class="updateExecutionTaskAssignments.loading ? 'cursor-wait opacity-70' : 'cursor-pointer hover:bg-gray-50'"
             >
               <input
                 v-model="selectedAssignmentUsers"
                 type="checkbox"
                 :value="user.user"
-                :disabled="isExistingAssignee(user.user)"
+                :disabled="updateExecutionTaskAssignments.loading"
                 class="h-4 w-4 rounded border-gray-300"
               />
               <img
@@ -449,28 +451,35 @@
                 <span class="block truncate text-sm font-medium text-gray-800">{{ user.full_name || user.user }}</span>
                 <span class="block truncate text-xs text-gray-500">{{ user.user }}</span>
               </span>
-              <span v-if="isExistingAssignee(user.user)" class="text-xs font-medium text-green-700">Assigned</span>
+              <span v-if="isExistingAssignee(user.user) && !selectedAssignmentUsers.includes(user.user)" class="text-xs font-medium text-red-700">To remove</span>
+              <span v-else-if="isExistingAssignee(user.user)" class="text-xs font-medium text-green-700">Assigned</span>
+              <span v-else-if="selectedAssignmentUsers.includes(user.user)" class="text-xs font-medium text-blue-700">To add</span>
             </label>
             <div v-if="!filteredAssignmentUsers.length" class="px-3 py-8 text-center text-sm text-gray-500">
               No matching personnel found.
             </div>
           </div>
-          <p class="text-xs text-gray-500">
-            Assignments use ERPNext's standard Task assignment and notification workflow.
-          </p>
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-xs text-gray-500" aria-live="polite">{{ assignmentChangeSummary }}</p>
+            <button
+              type="button"
+              class="shrink-0 text-xs font-medium text-red-700 disabled:opacity-40"
+              :disabled="!assignmentUsersReady || assignmentUsers.loading || updateExecutionTaskAssignments.loading || !selectedAssignmentUsers.length"
+              @click="selectedAssignmentUsers = []"
+            >Clear selection</button>
+          </div>
         </div>
 
-        <div class="flex justify-end gap-3 border-t border-gray-200 bg-gray-50 px-5 py-4">
-          <Button size="md" label="Cancel" class="w-24" @click="closeTaskAssignmentModal" />
+        <div class="flex shrink-0 justify-end gap-3 border-t border-gray-200 bg-gray-50 px-5 py-4">
+          <Button size="md" label="Cancel" class="w-24" :disabled="updateExecutionTaskAssignments.loading" @click="closeTaskAssignmentModal" />
           <Button
             size="md"
             variant="solid"
-            class="w-28"
-            :disabled="!selectedAssignmentUsers.length || assignmentUsers.loading || assignExecutionTask.loading"
-            :loading="assignExecutionTask.loading"
-            @click="assignExecutionTask.submit()"
+            :disabled="!canSaveAssignments"
+            :loading="updateExecutionTaskAssignments.loading"
+            @click="saveTaskAssignments"
           >
-            Assign
+            Save changes
           </Button>
         </div>
       </div>
@@ -542,12 +551,15 @@ type ExecutionTask = {
 type AssignmentUser = TaskAssignee
 
 type AssignmentUsersResponse = {
+  task: string
   users?: AssignmentUser[]
+  assigned_users: string[]
 }
 
 type AssignmentResponse = {
   task?: string
   assigned_users?: string[]
+  removed_users?: string[]
   project_details?: ProjectDetails
 }
 
@@ -647,7 +659,7 @@ const projectDateHelpMessage = computed(() => {
 
 const genericTaskStatusMessage = computed(() => {
   if (form.has_tasks) {
-    return `This project has ${form.task_count} task(s). Use + beside an Execution task to assign personnel.`
+    return `This project has ${form.task_count} task(s). Use Manage or + Assign beside an Execution task to update personnel.`
   }
 
   if (form.generic_tasks_unavailable_reason) return form.generic_tasks_unavailable_reason
@@ -684,13 +696,27 @@ const showTaskAssignmentModal = ref(false)
 const selectedExecutionTask = ref<ExecutionTask | null>(null)
 const assignmentSearch = ref('')
 const selectedAssignmentUsers = ref<string[]>([])
+const initialAssignmentUsers = ref<string[]>([])
+const assignmentUsersReady = computed(() => (
+  showTaskAssignmentModal.value
+  && assignmentUsers.data?.task === selectedExecutionTask.value?.name
+))
 const assignmentUserRows = computed<AssignmentUser[]>(() => {
   const data = assignmentUsers.data as AssignmentUsersResponse | undefined
-  return Array.isArray(data?.users) ? data.users : []
+  return assignmentUsersReady.value && Array.isArray(data?.users) ? data.users : []
 })
-const existingAssigneeIds = computed(() => new Set(
-  (selectedExecutionTask.value?.assignees || []).map((assignee) => assignee.user),
+const existingAssigneeIds = computed(() => new Set(initialAssignmentUsers.value))
+const assignmentAdditions = computed(() => selectedAssignmentUsers.value.filter((user) => !existingAssigneeIds.value.has(user)))
+const assignmentRemovals = computed(() => initialAssignmentUsers.value.filter((user) => !selectedAssignmentUsers.value.includes(user)))
+const canSaveAssignments = computed(() => (
+  assignmentUsersReady.value && !assignmentUsers.loading && !updateExecutionTaskAssignments.loading
+  && Boolean(assignmentAdditions.value.length || assignmentRemovals.value.length)
 ))
+const assignmentChangeSummary = computed(() => {
+  const additions = assignmentAdditions.value.length
+  const removals = assignmentRemovals.value.length
+  return additions || removals ? `${additions} to add · ${removals} to remove` : 'No changes'
+})
 const filteredAssignmentUsers = computed(() => {
   const search = assignmentSearch.value.trim().toLowerCase()
   if (!search) return assignmentUserRows.value
@@ -736,20 +762,40 @@ function isExistingAssignee(user: string) {
   return existingAssigneeIds.value.has(user)
 }
 
-function openTaskAssignmentModal(task: ExecutionTask) {
+async function openTaskAssignmentModal(task: ExecutionTask) {
   if (!task.can_assign) return
   selectedExecutionTask.value = task
   assignmentSearch.value = ''
-  selectedAssignmentUsers.value = []
+  initialAssignmentUsers.value = task.assignees.map((assignee) => assignee.user)
+  selectedAssignmentUsers.value = [...initialAssignmentUsers.value]
   showTaskAssignmentModal.value = true
-  assignmentUsers.fetch()
+  try {
+    await assignmentUsers.fetch()
+  } catch {
+    // The resource's onError reports the error and closes the picker.
+  }
 }
 
 function closeTaskAssignmentModal() {
+  if (updateExecutionTaskAssignments.loading) return
+  resetTaskAssignmentModal()
+}
+
+function resetTaskAssignmentModal() {
   showTaskAssignmentModal.value = false
   selectedExecutionTask.value = null
   assignmentSearch.value = ''
   selectedAssignmentUsers.value = []
+  initialAssignmentUsers.value = []
+}
+
+async function saveTaskAssignments() {
+  if (!canSaveAssignments.value) return
+  try {
+    await updateExecutionTaskAssignments.submit()
+  } catch {
+    // The resource's onError reports the error and preserves edits for retry.
+  }
 }
 
 function boolValue(value: unknown, fallback = false) {
@@ -829,6 +875,7 @@ function applyDetails(data: ProjectDetails | undefined) {
 }
 
 function closeDialog() {
+  if (updateExecutionTaskAssignments.loading) return
   closeTaskAssignmentModal()
   isOpen.value = false
 }
@@ -895,32 +942,38 @@ const assignmentUsers = createResource({
       task: selectedExecutionTask.value?.name,
     }
   },
+  onSuccess(data: AssignmentUsersResponse) {
+    if (data.task !== selectedExecutionTask.value?.name) return
+    initialAssignmentUsers.value = [...data.assigned_users]
+    selectedAssignmentUsers.value = [...data.assigned_users]
+  },
   onError(error: { messages?: string[]; message?: string }) {
     raiseToast('error', error?.messages?.[0] || error?.message || 'Failed to load personnel')
     closeTaskAssignmentModal()
   },
 })
 
-const assignExecutionTask = createResource({
-  url: 'verto.api.planner.assign_project_execution_task',
+const updateExecutionTaskAssignments = createResource({
+  url: 'verto.api.planner.update_project_execution_task_assignments',
   auto: false,
   makeParams() {
     return {
       project: form.project,
       task: selectedExecutionTask.value?.name,
-      users: selectedAssignmentUsers.value,
+      add_users: assignmentAdditions.value,
+      remove_users: assignmentRemovals.value,
     }
   },
   onSuccess(data: AssignmentResponse | undefined) {
-    const assignedCount = data?.assigned_users?.length || selectedAssignmentUsers.value.length
     applyDetails(data?.project_details)
-    closeTaskAssignmentModal()
-    raiseToast('success', `Assigned ${assignedCount} ${assignedCount === 1 ? 'person' : 'people'} to the execution task.`)
+    resetTaskAssignmentModal()
+    const added = data?.assigned_users?.length || 0
+    const removed = data?.removed_users?.length || 0
+    raiseToast('success', `Task personnel updated: ${added} added, ${removed} removed.`)
     emit('fetchEvents')
   },
   onError(error: { messages?: string[]; message?: string }) {
-    raiseToast('error', error?.messages?.[0] || error?.message || 'Failed to assign personnel')
-    projectDetails.fetch()
+    raiseToast('error', error?.messages?.[0] || error?.message || 'Failed to update task personnel')
   },
 })
 

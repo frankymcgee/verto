@@ -3187,13 +3187,13 @@ def _get_project_execution_tasks(project: str) -> list[dict]:
 	return result
 
 
-def _get_assignable_execution_task(project: str, task: str):
+def _get_assignable_execution_task(project: str, task: str, *, for_update: bool = False):
 	if not project:
 		frappe.throw(_("Project is required"))
 	if not task:
 		frappe.throw(_("Task is required"))
 
-	task_doc = frappe.get_doc("Task", task)
+	task_doc = frappe.get_doc("Task", task, for_update=for_update)
 	if task_doc.project != project:
 		frappe.throw(_("Task {0} does not belong to Project {1}.").format(task, project))
 	if str(task_doc.get("type") or "").strip().casefold() != "work summary":
@@ -3202,7 +3202,7 @@ def _get_assignable_execution_task(project: str, task: str):
 	return task_doc
 
 
-def _normalise_assignment_users(users) -> list[str]:
+def _normalise_assignment_users(users, *, allow_empty: bool = False, max_users: int | None = 50) -> list[str]:
 	if isinstance(users, str):
 		try:
 			users = json.loads(users)
@@ -3220,10 +3220,10 @@ def _normalise_assignment_users(users) -> list[str]:
 			continue
 		seen.add(key)
 		result.append(user)
-	if not result:
+	if not result and not allow_empty:
 		frappe.throw(_("Select at least one person to assign."))
-	if len(result) > 50:
-		frappe.throw(_("A maximum of 50 people can be assigned at once."))
+	if max_users is not None and len(result) > max_users:
+		frappe.throw(_("A maximum of {0} people can be assigned at once.").format(max_users))
 	return result
 
 
@@ -3292,8 +3292,9 @@ def get_project_planner_details(project: str) -> dict:
 
 @frappe.whitelist()
 def get_task_assignment_users(project: str, task: str) -> dict:
-	"""Return enabled ERPNext users after verifying write access to the Task."""
-	_get_assignable_execution_task(project, task)
+	"""Return available personnel and current assignees, including disabled users."""
+	task_doc = _get_assignable_execution_task(project, task)
+	assigned_users = _normalise_task_assignees(task_doc.get("_assign"))
 	users = frappe.get_all(
 		"User",
 		filters={"enabled": 1, "user_type": "System User", "name": ["!=", "Guest"]},
@@ -3301,7 +3302,22 @@ def get_task_assignment_users(project: str, task: str) -> dict:
 		order_by="full_name asc, name asc",
 		limit_page_length=1000,
 	)
+	# Existing assignees must remain visible and removable even if their account
+	# is now disabled, is a Website User, or is beyond the picker result limit.
+	available_users = {row.name for row in users}
+	missing_users = [user for user in assigned_users if user not in available_users]
+	if missing_users:
+		current_users = {
+			row.name: row for row in frappe.get_all(
+				"User", filters={"name": ["in", missing_users]},
+				fields=["name", "full_name", "user_image"], limit_page_length=len(missing_users),
+			)
+		}
+		users.extend(current_users.get(user) or frappe._dict(name=user, full_name=user, user_image=None)
+			for user in missing_users)
 	return {
+		"task": task_doc.name,
+		"assigned_users": assigned_users,
 		"users": [
 			{
 				"user": row.name,
@@ -3313,25 +3329,27 @@ def get_task_assignment_users(project: str, task: str) -> dict:
 	}
 
 
+def _validate_new_assignment_users(users: list[str]) -> None:
+	if not users:
+		return
+	valid_users = set(frappe.get_all(
+		"User",
+		filters={"name": ["in", users], "enabled": 1, "user_type": "System User"},
+		pluck="name",
+		limit_page_length=len(users),
+	))
+	invalid_users = [user for user in users if user not in valid_users or user == "Guest"]
+	if invalid_users:
+		frappe.throw(_("These personnel cannot be assigned: {0}").format(", ".join(invalid_users)))
+
+
 @frappe.whitelist()
 def assign_project_execution_task(project: str, task: str, users: list | str) -> dict:
 	"""Assign personnel through Frappe's standard Task/ToDo assignment flow."""
 	task_doc = _get_assignable_execution_task(project, task)
 	requested_users = _normalise_assignment_users(users)
 
-	valid_users = set(frappe.get_all(
-		"User",
-		filters={
-			"name": ["in", requested_users],
-			"enabled": 1,
-			"user_type": "System User",
-		},
-		pluck="name",
-		limit_page_length=len(requested_users),
-	))
-	invalid_users = [user for user in requested_users if user not in valid_users or user == "Guest"]
-	if invalid_users:
-		frappe.throw(_("These personnel cannot be assigned: {0}").format(", ".join(invalid_users)))
+	_validate_new_assignment_users(requested_users)
 
 	existing_users = set(_normalise_task_assignees(task_doc.get("_assign")))
 	new_users = [user for user in requested_users if user not in existing_users]
@@ -3349,6 +3367,44 @@ def assign_project_execution_task(project: str, task: str, users: list | str) ->
 	return {
 		"task": task_doc.name,
 		"assigned_users": new_users,
+		"project_details": get_project_planner_details(project),
+	}
+
+
+@frappe.whitelist(methods=["POST"])
+def update_project_execution_task_assignments(
+	project: str, task: str, add_users: list | str, remove_users: list | str,
+) -> dict:
+	"""Apply explicit assignment changes without overwriting other personnel.
+
+	Use the standard ToDo flow to keep Task._assign, history and notifications
+	in sync. Both operations are part of the same request transaction.
+	"""
+	task_doc = _get_assignable_execution_task(project, task, for_update=True)
+	requested_additions = _normalise_assignment_users(add_users, allow_empty=True)
+	requested_removals = _normalise_assignment_users(remove_users, allow_empty=True, max_users=None)
+	if {user.casefold() for user in requested_additions} & {user.casefold() for user in requested_removals}:
+		frappe.throw(_("The same person cannot be added and removed in one update."))
+
+	existing_users = set(_normalise_task_assignees(task_doc.get("_assign")))
+	new_users = [user for user in requested_additions if user not in existing_users]
+	removed_users = [user for user in requested_removals if user in existing_users]
+	_validate_new_assignment_users(new_users)
+
+	from frappe.desk.form.assign_to import add as add_assignment, remove as remove_assignment
+
+	if new_users:
+		add_assignment({
+			"assign_to": new_users, "doctype": "Task", "name": task_doc.name,
+			"description": task_doc.subject,
+		})
+	for user in removed_users:
+		remove_assignment("Task", task_doc.name, user)
+
+	return {
+		"task": task_doc.name,
+		"assigned_users": new_users,
+		"removed_users": removed_users,
 		"project_details": get_project_planner_details(project),
 	}
 

@@ -133,3 +133,144 @@ class TestPlannerProjectTasks(TestCase):
 			planner.update_project_planner_dates("PROJ-1", "2026-09-02", "2026-09-30")
 		doc.set.assert_not_called()
 		doc.save.assert_not_called()
+
+
+class TestPlannerTaskAssignmentChanges(TestCase):
+	def setUp(self):
+		self.current_users = ["alex@example.com", "blake@example.com"]
+		self.valid_users = {"alex@example.com", "blake@example.com", "casey@example.com"}
+		self.task = SimpleNamespace(
+			name="TASK-1", project="PROJ-1", subject="Execution Works",
+			get=lambda field: {"type": "Work Summary", "_assign": self.current_users}.get(field),
+			check_permission=Mock(),
+		)
+		self.get_doc = self.enterContext(patch.object(planner.frappe, "get_doc", return_value=self.task))
+		self.get_all = self.enterContext(patch.object(
+			planner.frappe, "get_all", side_effect=self.valid_user_query,
+		))
+		self.details = self.enterContext(patch.object(planner, "get_project_planner_details", return_value={
+			"project": "PROJ-1", "execution_tasks": [],
+		}))
+		self.add = self.enterContext(patch("frappe.desk.form.assign_to.add"))
+		self.remove = self.enterContext(patch("frappe.desk.form.assign_to.remove"))
+
+	def valid_user_query(self, doctype, *, filters, **kwargs):
+		self.assertEqual(doctype, "User")
+		self.assertEqual(filters["enabled"], 1)
+		self.assertEqual(filters["user_type"], "System User")
+		return [user for user in filters["name"][1] if user in self.valid_users]
+
+	def update(self, additions, removals):
+		return planner.update_project_execution_task_assignments("PROJ-1", "TASK-1", additions, removals)
+
+	def assert_no_mutations(self):
+		self.add.assert_not_called()
+		self.remove.assert_not_called()
+
+	def test_adds_person_without_removing_current_assignees(self):
+		result = self.update(["casey@example.com"], [])
+		self.assertEqual(result["assigned_users"], ["casey@example.com"])
+		self.assertEqual(result["removed_users"], [])
+		self.add.assert_called_once_with({
+			"assign_to": ["casey@example.com"], "doctype": "Task", "name": "TASK-1",
+			"description": "Execution Works",
+		})
+		self.remove.assert_not_called()
+		self.get_doc.assert_called_once_with("Task", "TASK-1", for_update=True)
+		self.task.check_permission.assert_called_once_with("write")
+
+	def test_removes_person_using_standard_assignment_flow(self):
+		result = self.update([], ["alex@example.com"])
+		self.assertEqual(result["removed_users"], ["alex@example.com"])
+		self.remove.assert_called_once_with("Task", "TASK-1", "alex@example.com")
+		self.add.assert_not_called()
+		self.get_all.assert_not_called()
+
+	def test_replaces_person_and_preserves_unrelated_concurrent_addition(self):
+		self.current_users.append("drew@example.com")  # added since the picker was opened
+		result = self.update(["casey@example.com"], ["alex@example.com"])
+		self.assertEqual(result["assigned_users"], ["casey@example.com"])
+		self.assertEqual(result["removed_users"], ["alex@example.com"])
+		self.remove.assert_called_once_with("Task", "TASK-1", "alex@example.com")
+		self.assertEqual(result["project_details"]["project"], "PROJ-1")
+
+	def test_can_remove_all_assignees_even_above_addition_limit(self):
+		self.current_users = [f"user-{i}@example.com" for i in range(60)]
+		result = self.update([], self.current_users)
+		self.assertEqual(len(result["removed_users"]), 60)
+		self.assertEqual(self.remove.call_count, 60)
+		self.add.assert_not_called()
+
+	def test_disabled_assignees_can_be_removed(self):
+		self.valid_users.remove("alex@example.com")
+		self.update([], ["alex@example.com"])
+		self.remove.assert_called_once_with("Task", "TASK-1", "alex@example.com")
+		self.get_all.assert_not_called()
+
+	def test_invalid_addition_prevents_removals(self):
+		for user in ("disabled@example.com", "Guest"):
+			with self.subTest(user=user), self.assertRaises(frappe.ValidationError):
+				self.update([user], ["alex@example.com"])
+		self.assert_no_mutations()
+
+	def test_failed_standard_addition_does_not_start_removals(self):
+		self.add.side_effect = frappe.PermissionError("Cannot share task")
+		with self.assertRaises(frappe.PermissionError):
+			self.update(["casey@example.com"], ["alex@example.com"])
+		self.remove.assert_not_called()
+
+	def test_conflicting_add_and_remove_is_rejected(self):
+		with self.assertRaises(frappe.ValidationError):
+			self.update(["alex@example.com"], ["ALEX@example.com"])
+		self.assert_no_mutations()
+
+	def test_malformed_lists_are_rejected(self):
+		for additions, removals in (({}, []), ([], None), (None, [])):
+			with self.subTest(additions=additions, removals=removals), self.assertRaises(frappe.ValidationError):
+				self.update(additions, removals)
+		self.assert_no_mutations()
+
+	def test_duplicate_users_are_only_changed_once(self):
+		self.update('["casey@example.com", "casey@example.com"]', '["alex@example.com", "alex@example.com"]')
+		self.assertEqual(self.add.call_args.args[0]["assign_to"], ["casey@example.com"])
+		self.remove.assert_called_once()
+
+	def test_repeated_update_is_a_noop(self):
+		self.update(["alex@example.com"], ["removed@example.com"])
+		self.assert_no_mutations()
+
+	def test_task_from_another_project_is_rejected(self):
+		self.task.project = "OTHER-PROJECT"
+		with self.assertRaises(frappe.ValidationError):
+			self.update([], ["alex@example.com"])
+		self.assert_no_mutations()
+
+	def test_read_only_task_is_rejected(self):
+		self.task.check_permission.side_effect = frappe.PermissionError("Read only")
+		with self.assertRaises(frappe.PermissionError):
+			self.update([], ["alex@example.com"])
+		self.assert_no_mutations()
+
+	def test_non_execution_task_is_rejected(self):
+		self.task.get = lambda field: "Outline" if field == "type" else self.current_users
+		with self.assertRaises(frappe.ValidationError):
+			self.update([], ["alex@example.com"])
+		self.assert_no_mutations()
+
+	def test_picker_includes_current_disabled_and_missing_accounts(self):
+		self.current_users = ["disabled@example.com", "missing@example.com"]
+		self.get_all.side_effect = [
+			[frappe._dict(name="casey@example.com", full_name="Casey", user_image=None)],
+			[frappe._dict(name="disabled@example.com", full_name="Former user", user_image=None)],
+		]
+		result = planner.get_task_assignment_users("PROJ-1", "TASK-1")
+		self.assertEqual(result["assigned_users"], self.current_users)
+		self.assertEqual({user["user"] for user in result["users"]},
+			{"casey@example.com", "disabled@example.com", "missing@example.com"})
+		self.assertEqual(result["task"], "TASK-1")
+
+	def test_legacy_add_endpoint_remains_additive(self):
+		result = planner.assign_project_execution_task("PROJ-1", "TASK-1", ["casey@example.com"])
+		self.assertEqual(result["assigned_users"], ["casey@example.com"])
+		self.add.assert_called_once()
+		self.remove.assert_not_called()
