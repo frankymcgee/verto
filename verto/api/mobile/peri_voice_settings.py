@@ -41,6 +41,14 @@ TRANSCRIPTION_DELAYS = ("minimal", "low", "medium", "high", "xhigh")
 TURN_DETECTION_MODES = ("server_vad", "semantic_vad")
 SEMANTIC_VAD_EAGERNESS = ("auto", "low", "medium", "high")
 NOISE_REDUCTION_MODES = ("far_field", "near_field", "disabled")
+RESPONSE_STYLES = ("Fast / Concise", "Normal", "Detailed")
+ACKNOWLEDGEMENT_MODES = ("None", "Minimal (max 2 words)", "Brief sentence")
+READBACK_MODES = (
+    "Final only",
+    "End of each work step + final",
+    "Checkpoints + final",
+    "Frequent",
+)
 
 DEFAULTS = {
     "enabled": True,
@@ -50,6 +58,13 @@ DEFAULTS = {
     "voice": "marin",
     "custom_voice_id": "",
     "speed": 1.0,
+    "response_style": "Fast / Concise",
+    "acknowledgement_mode": "Minimal (max 2 words)",
+    "readback_mode": "End of each work step + final",
+    "one_question_at_a_time": True,
+    "avoid_paraphrasing": True,
+    "silent_tool_success": True,
+    "max_spoken_sentences": 2,
     "transcription_model": "gpt-realtime-whisper",
     "custom_transcription_model": "",
     "transcription_language": "en",
@@ -65,6 +80,13 @@ FIELD_DEFAULTS = {
     "peri_voice_reasoning_effort": DEFAULTS["reasoning_effort"],
     "peri_voice_voice": DEFAULTS["voice"],
     "peri_voice_speed": DEFAULTS["speed"],
+    "peri_voice_response_style": DEFAULTS["response_style"],
+    "peri_voice_acknowledgement_mode": DEFAULTS["acknowledgement_mode"],
+    "peri_voice_readback_mode": DEFAULTS["readback_mode"],
+    "peri_voice_one_question_at_a_time": 1,
+    "peri_voice_avoid_paraphrasing": 1,
+    "peri_voice_silent_tool_success": 1,
+    "peri_voice_max_spoken_sentences": DEFAULTS["max_spoken_sentences"],
     "peri_voice_transcription_model": DEFAULTS["transcription_model"],
     "peri_voice_transcription_language": DEFAULTS["transcription_language"],
     "peri_voice_transcription_delay": DEFAULTS["transcription_delay"],
@@ -156,10 +178,81 @@ PERI_VOICE_FIELDS = [
         "precision": "2",
     },
     {
+        "fieldname": "peri_voice_conversation_section",
+        "label": "Conversation Behaviour",
+        "fieldtype": "Section Break",
+        "insert_after": "peri_voice_speed",
+        "depends_on": "eval:doc.peri_voice_enabled",
+    },
+    {
+        "fieldname": "peri_voice_response_style",
+        "label": "Response Style",
+        "fieldtype": "Select",
+        "insert_after": "peri_voice_conversation_section",
+        "options": _select_options(RESPONSE_STYLES),
+        "default": DEFAULTS["response_style"],
+        "description": "Fast / Concise minimizes spoken time. Normal allows modest explanation. Detailed is for training or complex discussion.",
+    },
+    {
+        "fieldname": "peri_voice_acknowledgement_mode",
+        "label": "Acknowledgement Style",
+        "fieldtype": "Select",
+        "insert_after": "peri_voice_response_style",
+        "options": _select_options(ACKNOWLEDGEMENT_MODES),
+        "default": DEFAULTS["acknowledgement_mode"],
+        "description": "Controls whether PERI says things like Recorded or Got it after crew answers and successful draft writes.",
+    },
+    {
+        "fieldname": "peri_voice_max_spoken_sentences",
+        "label": "Maximum Spoken Sentences Per Turn",
+        "fieldtype": "Int",
+        "insert_after": "peri_voice_acknowledgement_mode",
+        "default": str(DEFAULTS["max_spoken_sentences"]),
+        "description": "Soft cap for normal spoken turns. Safety-critical clarification and final review may exceed this when necessary. Recommended: 1-2 for field use.",
+    },
+    {
+        "fieldname": "peri_voice_behaviour_column",
+        "fieldtype": "Column Break",
+        "insert_after": "peri_voice_max_spoken_sentences",
+    },
+    {
+        "fieldname": "peri_voice_readback_mode",
+        "label": "Read-back Frequency",
+        "fieldtype": "Select",
+        "insert_after": "peri_voice_behaviour_column",
+        "options": _select_options(READBACK_MODES),
+        "default": DEFAULTS["readback_mode"],
+        "description": "Controls when PERI verbally summarizes recorded JHA information instead of immediately moving to the next question.",
+    },
+    {
+        "fieldname": "peri_voice_one_question_at_a_time",
+        "label": "Ask One Question at a Time",
+        "fieldtype": "Check",
+        "insert_after": "peri_voice_readback_mode",
+        "default": "1",
+        "description": "Prevents PERI from stacking several questions into a long spoken turn.",
+    },
+    {
+        "fieldname": "peri_voice_avoid_paraphrasing",
+        "label": "Avoid Repeating / Paraphrasing Crew Answers",
+        "fieldtype": "Check",
+        "insert_after": "peri_voice_one_question_at_a_time",
+        "default": "1",
+        "description": "When enabled, PERI should not repeat the crew's answer merely to confirm it unless clarification or a configured read-back is required.",
+    },
+    {
+        "fieldname": "peri_voice_silent_tool_success",
+        "label": "Keep Successful Draft Writes Silent",
+        "fieldtype": "Check",
+        "insert_after": "peri_voice_avoid_paraphrasing",
+        "default": "1",
+        "description": "When enabled, successful JHA tool writes are not narrated back to the crew; PERI immediately continues to the next missing question.",
+    },
+    {
         "fieldname": "peri_voice_input_section",
         "label": "Microphone & Transcription",
         "fieldtype": "Section Break",
-        "insert_after": "peri_voice_speed",
+        "insert_after": "peri_voice_silent_tool_success",
         "depends_on": "eval:doc.peri_voice_enabled",
     },
     {
@@ -269,6 +362,11 @@ def _get_value(settings, fieldname: str, default=None):
     return default
 
 
+def _validated_choice(settings, fieldname: str, default: str, allowed) -> str:
+    value = str(_get_value(settings, fieldname, default) or "").strip()
+    return value if value in allowed else default
+
+
 def get_peri_voice_settings() -> dict:
     try:
         settings = frappe.get_cached_doc(SETTINGS_DOCTYPE)
@@ -287,43 +385,69 @@ def get_peri_voice_settings() -> dict:
     speed = flt(_get_value(settings, "peri_voice_speed", DEFAULTS["speed"]))
     speed = max(0.25, min(1.5, speed or DEFAULTS["speed"]))
 
-    reasoning_effort = str(
-        _get_value(settings, "peri_voice_reasoning_effort", DEFAULTS["reasoning_effort"])
-    ).strip()
-    if reasoning_effort not in REASONING_EFFORTS:
-        reasoning_effort = DEFAULTS["reasoning_effort"]
-
-    voice = str(_get_value(settings, "peri_voice_voice", DEFAULTS["voice"])).strip()
-    if voice not in REALTIME_VOICES:
-        voice = DEFAULTS["voice"]
-
-    noise_reduction = str(
-        _get_value(settings, "peri_voice_noise_reduction", DEFAULTS["noise_reduction"])
-    ).strip()
-    if noise_reduction not in NOISE_REDUCTION_MODES:
-        noise_reduction = DEFAULTS["noise_reduction"]
-
-    turn_detection = str(
-        _get_value(settings, "peri_voice_turn_detection", DEFAULTS["turn_detection"])
-    ).strip()
-    if turn_detection not in TURN_DETECTION_MODES:
-        turn_detection = DEFAULTS["turn_detection"]
-
-    semantic_eagerness = str(
+    max_sentences = cint(
         _get_value(
             settings,
-            "peri_voice_semantic_vad_eagerness",
-            DEFAULTS["semantic_vad_eagerness"],
+            "peri_voice_max_spoken_sentences",
+            DEFAULTS["max_spoken_sentences"],
         )
-    ).strip()
-    if semantic_eagerness not in SEMANTIC_VAD_EAGERNESS:
-        semantic_eagerness = DEFAULTS["semantic_vad_eagerness"]
+    )
+    max_sentences = max(1, min(6, max_sentences or DEFAULTS["max_spoken_sentences"]))
 
-    transcription_delay = str(
-        _get_value(settings, "peri_voice_transcription_delay", DEFAULTS["transcription_delay"])
-    ).strip()
-    if transcription_delay not in TRANSCRIPTION_DELAYS:
-        transcription_delay = DEFAULTS["transcription_delay"]
+    reasoning_effort = _validated_choice(
+        settings,
+        "peri_voice_reasoning_effort",
+        DEFAULTS["reasoning_effort"],
+        REASONING_EFFORTS,
+    )
+    voice = _validated_choice(
+        settings,
+        "peri_voice_voice",
+        DEFAULTS["voice"],
+        REALTIME_VOICES,
+    )
+    response_style = _validated_choice(
+        settings,
+        "peri_voice_response_style",
+        DEFAULTS["response_style"],
+        RESPONSE_STYLES,
+    )
+    acknowledgement_mode = _validated_choice(
+        settings,
+        "peri_voice_acknowledgement_mode",
+        DEFAULTS["acknowledgement_mode"],
+        ACKNOWLEDGEMENT_MODES,
+    )
+    readback_mode = _validated_choice(
+        settings,
+        "peri_voice_readback_mode",
+        DEFAULTS["readback_mode"],
+        READBACK_MODES,
+    )
+    noise_reduction = _validated_choice(
+        settings,
+        "peri_voice_noise_reduction",
+        DEFAULTS["noise_reduction"],
+        NOISE_REDUCTION_MODES,
+    )
+    turn_detection = _validated_choice(
+        settings,
+        "peri_voice_turn_detection",
+        DEFAULTS["turn_detection"],
+        TURN_DETECTION_MODES,
+    )
+    semantic_eagerness = _validated_choice(
+        settings,
+        "peri_voice_semantic_vad_eagerness",
+        DEFAULTS["semantic_vad_eagerness"],
+        SEMANTIC_VAD_EAGERNESS,
+    )
+    transcription_delay = _validated_choice(
+        settings,
+        "peri_voice_transcription_delay",
+        DEFAULTS["transcription_delay"],
+        TRANSCRIPTION_DELAYS,
+    )
 
     return {
         "enabled": bool(cint(_get_value(settings, "peri_voice_enabled", 1))),
@@ -332,6 +456,19 @@ def get_peri_voice_settings() -> dict:
         "voice": voice,
         "custom_voice_id": str(_get_value(settings, "peri_voice_custom_voice_id", "") or "").strip(),
         "speed": speed,
+        "response_style": response_style,
+        "acknowledgement_mode": acknowledgement_mode,
+        "readback_mode": readback_mode,
+        "one_question_at_a_time": bool(
+            cint(_get_value(settings, "peri_voice_one_question_at_a_time", 1))
+        ),
+        "avoid_paraphrasing": bool(
+            cint(_get_value(settings, "peri_voice_avoid_paraphrasing", 1))
+        ),
+        "silent_tool_success": bool(
+            cint(_get_value(settings, "peri_voice_silent_tool_success", 1))
+        ),
+        "max_spoken_sentences": max_sentences,
         "transcription_model": transcription_model or DEFAULTS["transcription_model"],
         "transcription_language": str(
             _get_value(

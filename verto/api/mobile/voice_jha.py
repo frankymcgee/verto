@@ -206,8 +206,81 @@ def _get_jha_doc(jha_name: str):
     return doc
 
 
-def _build_voice_instructions(task, jha, bot) -> str:
+def _build_conversation_style_instructions(config: dict) -> str:
+    style = config.get("response_style") or "Fast / Concise"
+    max_sentences = cint(config.get("max_spoken_sentences") or 2)
+
+    style_rules = {
+        "Fast / Concise": (
+            "Prioritize speed. Use the fewest words needed to move the JHA forward. "
+            f"For normal turns use no more than {max_sentences} short sentence(s), and usually one."
+        ),
+        "Normal": (
+            "Be conversational but efficient. Give only enough explanation to keep the crew oriented. "
+            f"For normal turns use no more than {max_sentences} sentence(s)."
+        ),
+        "Detailed": (
+            "You may explain reasoning or context when it materially helps the crew, but avoid filler and repetition. "
+            f"For normal turns aim to stay within {max_sentences} sentence(s)."
+        ),
+    }
+
+    acknowledgement = config.get("acknowledgement_mode") or "Minimal (max 2 words)"
+    acknowledgement_rules = {
+        "None": (
+            "Do not add verbal acknowledgements after ordinary crew answers. Move directly to the next useful question."
+        ),
+        "Minimal (max 2 words)": (
+            "If an acknowledgement is socially useful, use at most two words, such as 'Recorded.' or 'Got it.'"
+        ),
+        "Brief sentence": (
+            "Acknowledgements may be one short sentence, but must not restate the crew's answer."
+        ),
+    }
+
+    readback = config.get("readback_mode") or "End of each work step + final"
+    readback_rules = {
+        "Final only": (
+            "Do not read back recorded information during normal questioning. Perform one concise read-back only at the final review, unless clarification is required earlier."
+        ),
+        "End of each work step + final": (
+            "Give one concise read-back when a work step and its hazards/controls are complete, then a final overall review. Do not read back after every answer or tool write."
+        ),
+        "Checkpoints + final": (
+            "Read back only at useful checkpoints after several related discussion points or steps, and again at final review. Avoid per-answer read-backs."
+        ),
+        "Frequent": (
+            "You may read back important information more frequently, but do not repeat every answer automatically."
+        ),
+    }
+
+    rules = [
+        "CONVERSATION BEHAVIOUR:",
+        f"- Response style: {style}. {style_rules.get(style, style_rules['Fast / Concise'])}",
+        f"- Acknowledgements: {acknowledgement}. {acknowledgement_rules.get(acknowledgement, acknowledgement_rules['Minimal (max 2 words)'])}",
+        f"- Read-back: {readback}. {readback_rules.get(readback, readback_rules['End of each work step + final'])}",
+    ]
+
+    if config.get("one_question_at_a_time", True):
+        rules.append("- Ask exactly one primary question at a time. Do not stack a list of questions into one spoken turn.")
+    if config.get("avoid_paraphrasing", True):
+        rules.append("- Do not repeat or paraphrase the crew's answer merely to show understanding. Repeat only when clarification, correction, or the configured read-back requires it.")
+    if config.get("silent_tool_success", True):
+        rules.append("- After a successful draft-write tool call, do not narrate what was saved, do not repeat the saved values, and do not explain the tool call. Continue directly to the next missing question; use only the configured acknowledgement if needed.")
+
+    rules.extend(
+        [
+            "- When a tool fails, briefly ask only for the information needed to resolve the failure.",
+            "- Never trade safety-critical clarification for brevity. If an answer is ambiguous or contradictory, clarify it before recording it.",
+            "- The final JHA review may be longer than the normal sentence limit because it is a deliberate verification checkpoint.",
+        ]
+    )
+    return "\n".join(rules)
+
+
+def _build_voice_instructions(task, jha, bot, config: dict) -> str:
     bot_instructions = _get_bot_instructions(bot)
+    conversation_style = _build_conversation_style_instructions(config)
     existing_steps = "\n".join(
         f"- Step {row.sequence or row.idx}: {row.activity}"
         for row in (jha.work_steps or [])
@@ -243,14 +316,16 @@ STRUCTURED DRAFT TOOL RULES:
 - Only call mark_ready_for_human_review after the crew says the discussion is complete and all completeness issues have been resolved. 'Ready for Team Review' still requires human review and sign-on.
 - There is deliberately no tool to submit, approve, sign, authorise work, declare work safe or close safety actions.
 
+{conversation_style}
+
 FACILITATION METHOD:
 1. Briefly greet the crew and identify the Work Summary below.
 2. Ask who is present. Record each participant only after their name/role is confirmed; record transcription consent only when explicitly confirmed.
 3. Ask the crew to describe the job in their own words before relying on the planned description.
 4. Work through the job one step at a time. Record each confirmed step.
 5. For each step discuss and record: people exposed; hazards/energy sources; credible consequences; existing controls; additional controls; hierarchy of control; control owner; verification method/status; residual risk; critical controls; permits/CCVs/SWMS; and hold/pause points where relevant.
-6. Ask concise follow-up questions rather than delivering long lectures. Challenge vague controls.
-7. Periodically read back what you understood and ask the crew to correct anything inaccurate. Update the structured draft when they correct it.
+6. Ask focused follow-up questions and challenge vague controls. Follow the configured conversation behaviour above.
+7. Read information back only at the configured checkpoints or when clarification/correction is needed. Update the structured draft when the crew corrects it.
 8. When the crew says the discussion is complete, run the completeness check. Work through every outstanding item before offering to mark the draft ready for human review.
 9. End by clearly stating that human review, acknowledgement and sign-on are still required and that you have not authorised the work.
 
@@ -278,6 +353,13 @@ def _public_voice_configuration(config: dict) -> dict:
         "reasoning_effort": config.get("reasoning_effort"),
         "voice": voice_label,
         "speed": config.get("speed"),
+        "response_style": config.get("response_style"),
+        "acknowledgement_mode": config.get("acknowledgement_mode"),
+        "readback_mode": config.get("readback_mode"),
+        "one_question_at_a_time": bool(config.get("one_question_at_a_time")),
+        "avoid_paraphrasing": bool(config.get("avoid_paraphrasing")),
+        "silent_tool_success": bool(config.get("silent_tool_success")),
+        "max_spoken_sentences": config.get("max_spoken_sentences"),
         "transcription_model": config.get("transcription_model"),
         "transcription_language": config.get("transcription_language"),
         "transcription_delay": config.get("transcription_delay"),
@@ -326,7 +408,7 @@ def _build_realtime_session(task, jha, bot, config: dict) -> dict:
     session = {
         "type": "realtime",
         "model": config["realtime_model"],
-        "instructions": _build_voice_instructions(task, jha, bot),
+        "instructions": _build_voice_instructions(task, jha, bot, config),
         "output_modalities": ["audio"],
         "tool_choice": "auto",
         "tools": get_realtime_jha_tools(),
