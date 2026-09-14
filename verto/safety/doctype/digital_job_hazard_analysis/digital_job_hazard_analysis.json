@@ -22,6 +22,7 @@
   "voice_session_reference",
   "steps_section",
   "work_steps",
+  "hazards_and_controls",
   "participants_section",
   "participants",
   "review_section",
@@ -122,6 +123,12 @@
    "fieldtype": "Table",
    "label": "Work Steps",
    "options": "Digital JHA Work Step"
+  },
+  {
+   "fieldname": "hazards_and_controls",
+   "fieldtype": "Table",
+   "label": "Hazards and Controls",
+   "options": "Digital JHA Hazard Control"
   },
   {
    "fieldname": "participants_section",

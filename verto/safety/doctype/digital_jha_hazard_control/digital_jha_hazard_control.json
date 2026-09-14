@@ -7,6 +7,8 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "work_step_sequence",
+  "work_step_reference",
   "hazard_or_energy_source",
   "people_exposed",
   "credible_consequence",
@@ -24,6 +26,18 @@
   "information_source"
  ],
  "fields": [
+  {
+   "fieldname": "work_step_sequence",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Work Step"
+  },
+  {
+   "fieldname": "work_step_reference",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Work Step Reference"
+  },
   {
    "fieldname": "hazard_or_energy_source",
    "fieldtype": "Small Text",

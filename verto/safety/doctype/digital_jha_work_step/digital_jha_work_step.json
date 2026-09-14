@@ -11,8 +11,7 @@
   "activity",
   "step_origin",
   "source_step_identifier",
-  "hold_or_pause_point",
-  "hazards_and_controls"
+  "hold_or_pause_point"
  ],
  "fields": [
   {
@@ -45,12 +44,6 @@
    "fieldname": "hold_or_pause_point",
    "fieldtype": "Check",
    "label": "Hold / Pause Point"
-  },
-  {
-   "fieldname": "hazards_and_controls",
-   "fieldtype": "Table",
-   "label": "Hazards and Controls",
-   "options": "Digital JHA Hazard Control"
   }
  ],
  "istable": 1,
