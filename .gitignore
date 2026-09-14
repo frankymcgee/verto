@@ -17,3 +17,10 @@ verto/public/verto-mobile/assets/
 
 # Frappe-generated build assets
 verto/public/dist/
+
+# Generated Verto Mobile PWA build output
+/verto/public/verto-mobile/assets/
+/verto/public/verto-mobile/index.html
+/verto/public/verto-mobile/verto-sw.js
+/verto/public/verto-mobile/manifest.webmanifest
+/verto/public/pwa/verto-mobile-sw.js
