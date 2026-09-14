@@ -64,8 +64,14 @@ doctype_js = {
 
 # Installation / migration hardening
 # ----------------------------------
-after_install = "verto.install.after_install"
-after_migrate = "verto.install.after_migrate"
+after_install = [
+    "verto.install.after_install",
+    "verto.api.mobile.peri_voice_settings.after_install",
+]
+after_migrate = [
+    "verto.install.after_migrate",
+    "verto.api.mobile.peri_voice_settings.after_migrate",
+]
 after_app_install = "verto.optional_integrations.after_app_install"
 
 extend_bootinfo = ["verto.api.mobile.boot.add_map_settings_to_boot"]

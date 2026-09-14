@@ -2,13 +2,12 @@ import frappe
 from frappe import _
 from frappe.utils import cint, now_datetime
 
+from verto.api.mobile.peri_voice_settings import get_peri_voice_settings
 from verto.api.mobile.voice_jha_permissions import user_can_access_work_summary
 
 
 SETTINGS_DOCTYPE = "Verto Mobile Settings"
 JHA_DOCTYPE = "Digital Job Hazard Analysis"
-DEFAULT_REALTIME_MODEL = "gpt-realtime-2.1"
-DEFAULT_TRANSCRIPTION_MODEL = "gpt-realtime-whisper"
 MAX_SDP_LENGTH = 250_000
 ACTIVE_JHA_STATUSES = (
     "Draft",
@@ -70,13 +69,6 @@ def _get_bot_instructions(bot) -> str:
             message=frappe.get_traceback(),
         )
         return stored
-
-
-def _get_realtime_model(bot) -> str:
-    configured = str(bot.get("model") or "").strip()
-    if configured.startswith("gpt-realtime"):
-        return configured
-    return DEFAULT_REALTIME_MODEL
 
 
 def _validate_work_summary(work_summary: str):
@@ -264,8 +256,89 @@ CURRENT STRUCTURED HAZARDS:
 """.strip()
 
 
+def _public_voice_configuration(config: dict) -> dict:
+    voice_label = config.get("custom_voice_id") or config.get("voice") or ""
+    return {
+        "enabled": bool(config.get("enabled")),
+        "realtime_model": config.get("realtime_model"),
+        "reasoning_effort": config.get("reasoning_effort"),
+        "voice": voice_label,
+        "speed": config.get("speed"),
+        "transcription_model": config.get("transcription_model"),
+        "transcription_language": config.get("transcription_language"),
+        "transcription_delay": config.get("transcription_delay"),
+        "noise_reduction": config.get("noise_reduction"),
+        "turn_detection": config.get("turn_detection"),
+        "semantic_vad_eagerness": config.get("semantic_vad_eagerness"),
+    }
+
+
+def _build_realtime_session(task, jha, bot, config: dict) -> dict:
+    transcription = {
+        "model": config["transcription_model"],
+    }
+    if config.get("transcription_language"):
+        transcription["language"] = config["transcription_language"]
+    if config["transcription_model"] == "gpt-realtime-whisper":
+        transcription["delay"] = config["transcription_delay"]
+
+    if config["turn_detection"] == "semantic_vad":
+        turn_detection = {
+            "type": "semantic_vad",
+            "create_response": True,
+            "interrupt_response": True,
+            "eagerness": config["semantic_vad_eagerness"],
+        }
+    else:
+        turn_detection = {
+            "type": "server_vad",
+            "create_response": True,
+            "interrupt_response": True,
+        }
+
+    input_audio = {
+        "transcription": transcription,
+        "turn_detection": turn_detection,
+    }
+    if config["noise_reduction"] == "disabled":
+        input_audio["noise_reduction"] = None
+    else:
+        input_audio["noise_reduction"] = {"type": config["noise_reduction"]}
+
+    voice = (
+        {"id": config["custom_voice_id"]}
+        if config.get("custom_voice_id")
+        else config["voice"]
+    )
+
+    session = {
+        "type": "realtime",
+        "model": config["realtime_model"],
+        "instructions": _build_voice_instructions(task, jha, bot),
+        "output_modalities": ["audio"],
+        "audio": {
+            "input": input_audio,
+            "output": {
+                "voice": voice,
+                "speed": config["speed"],
+            },
+        },
+    }
+
+    if config["realtime_model"].startswith("gpt-realtime-2") and config.get(
+        "reasoning_effort"
+    ):
+        session["reasoning"] = {"effort": config["reasoning_effort"]}
+
+    return session
+
+
 def _create_realtime_call(*, sdp: str, task, jha, bot):
     from raven.ai.openai_client import get_open_ai_client
+
+    config = get_peri_voice_settings()
+    if not config.get("enabled"):
+        frappe.throw(_("PERI Voice JHA is disabled in Verto Mobile Settings."), frappe.ValidationError)
 
     client = get_open_ai_client()
     realtime = getattr(client, "realtime", None)
@@ -279,25 +352,9 @@ def _create_realtime_call(*, sdp: str, task, jha, bot):
             frappe.ValidationError,
         )
 
-    model = _get_realtime_model(bot)
     response = calls.create(
         sdp=sdp,
-        session={
-            "type": "realtime",
-            "model": model,
-            "instructions": _build_voice_instructions(task, jha, bot),
-            "output_modalities": ["audio"],
-            "audio": {
-                "input": {
-                    "noise_reduction": {"type": "far_field"},
-                    "transcription": {
-                        "model": DEFAULT_TRANSCRIPTION_MODEL,
-                        "language": "en",
-                        "delay": "low",
-                    },
-                }
-            },
-        },
+        session=_build_realtime_session(task, jha, bot, config),
     )
 
     # Keep the SDP answer byte-for-byte equivalent to OpenAI's response. In
@@ -314,7 +371,8 @@ def _create_realtime_call(*, sdp: str, task, jha, bot):
 
     return {
         "sdp": answer_sdp,
-        "model": model,
+        "model": config["realtime_model"],
+        "configuration": _public_voice_configuration(config),
         "session_reference": request_id,
     }
 
@@ -334,6 +392,7 @@ def get_voice_jha_bootstrap(work_summary: str):
         existing_jha = _serialize_jha(_get_jha_doc(existing_name))
 
     peri_bot = _get_peri_bot()
+    voice_config = get_peri_voice_settings()
     return {
         "work_summary": task.name,
         "title": task.subject,
@@ -343,7 +402,8 @@ def get_voice_jha_bootstrap(work_summary: str):
         "description": task.get("description") or "",
         "peri_bot": peri_bot,
         "existing_jha": existing_jha,
-        "realtime_enabled": bool(peri_bot),
+        "realtime_enabled": bool(peri_bot and voice_config.get("enabled")),
+        "voice_configuration": _public_voice_configuration(voice_config),
         "prototype_stage": "live-voice-pilot",
         "notice": "PERI can prepare a draft JHA only. Human review and sign-on remain mandatory before work proceeds.",
     }
@@ -436,7 +496,7 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0):
             message=frappe.get_traceback(),
         )
         frappe.throw(
-            _("Could not start the PERI voice session. Check the Raven/OpenAI Realtime configuration."),
+            _("Could not start the PERI voice session. Check the Verto Mobile Settings and Raven/OpenAI Realtime configuration."),
             frappe.ValidationError,
         )
 
@@ -453,6 +513,7 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0):
     return {
         "sdp": call["sdp"],
         "model": call["model"],
+        "voice_configuration": call["configuration"],
         "session_reference": call.get("session_reference") or "",
         "consent_confirmed_at": started_at,
         "jha": _serialize_jha(jha),
