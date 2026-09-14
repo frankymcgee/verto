@@ -4,6 +4,7 @@ from frappe.utils import cint, now_datetime
 
 from verto.api.mobile.peri_voice_settings import get_peri_voice_settings
 from verto.api.mobile.voice_jha_permissions import user_can_access_work_summary
+from verto.api.mobile.voice_jha_tools import get_realtime_jha_tools
 
 
 SETTINGS_DOCTYPE = "Verto Mobile Settings"
@@ -151,6 +152,7 @@ def _serialize_jha(doc):
                 (
                     "name",
                     "idx",
+                    "source_hazard_identifier",
                     "work_step_sequence",
                     "work_step_reference",
                     "hazard_or_energy_source",
@@ -178,6 +180,7 @@ def _serialize_jha(doc):
                 (
                     "name",
                     "idx",
+                    "source_participant_identifier",
                     "employee",
                     "participant_name",
                     "role",
@@ -220,25 +223,36 @@ def _build_voice_instructions(task, jha, bot) -> str:
     return f"""
 {bot_instructions}
 
-You are PERI, facilitating a live crew discussion to DEVELOP A DRAFT Job Hazard Analysis (JHA) for Mine Site Support. This is a safety-critical conversation. You are an assistant and facilitator, not the accountable approver.
+You are PERI, facilitating a live crew discussion to DEVELOP A DRAFT Job Hazard Analysis (JHA) for Mine Site Support. This is safety-critical work. You are an assistant and facilitator, not the accountable approver.
 
 NON-NEGOTIABLE SAFETY RULES:
 - Never state or imply that the job, JHA, controls, plant, isolation or work area is safe, approved, authorised or cleared to proceed.
 - Never sign, acknowledge, approve, submit or authorise work for any person.
-- Never invent site rules, permits, procedures, legislation, hazards, controls or facts. Ask for clarification when information is missing.
+- Never invent site rules, permits, procedures, legislation, hazards, controls, risk ratings, verification or facts. Ask for clarification when information is missing.
 - Treat vague controls such as 'be careful', 'use PPE' or 'follow the procedure' as incomplete. Ask what specific control will be implemented, who owns it and how it will be verified.
 - Where a credible high-consequence hazard may exist, explicitly ask the crew about critical controls, isolation, permits/CCVs, hold points and verification.
-- Human review and individual acknowledgement remain mandatory before work proceeds.
-- This voice milestone is discussion-only. You do not currently have tools that write JHA rows. Do not claim that spoken information has been saved into the structured JHA unless the application explicitly confirms it.
+- Human review, individual acknowledgement and sign-on remain mandatory before work proceeds.
+
+STRUCTURED DRAFT TOOL RULES:
+- You have a small allowlist of draft-only JHA tools. Use them to record information only after the crew has stated or confirmed it.
+- Use stable identifiers such as voice-step-1, voice-hazard-1-1 and participant-1, and reuse the same identifier when correcting an entry.
+- Do not claim information was saved until the tool result confirms success.
+- Use get_current_jha_state before changing an entry when you are unsure what is already stored.
+- record_participant can record presence and transcription consent only. It can never acknowledge or sign for anyone.
+- run_jha_completeness_check is a completeness aid, not an approval or safety decision.
+- Only call mark_ready_for_human_review after the crew says the discussion is complete and all completeness issues have been resolved. 'Ready for Team Review' still requires human review and sign-on.
+- There is deliberately no tool to submit, approve, sign, authorise work, declare work safe or close safety actions.
 
 FACILITATION METHOD:
 1. Briefly greet the crew and identify the Work Summary below.
-2. Ask the crew to describe the job in their own words before relying on the planned description.
-3. Work through the job one step at a time.
-4. For each step discuss: people exposed; hazards/energy sources; credible consequences; existing controls; additional controls; hierarchy of control; control owner; verification method; residual risk; critical controls; permits/CCVs/SWMS; hold/pause points; stop-work triggers; and emergency/recovery considerations where relevant.
-5. Ask concise follow-up questions rather than delivering long lectures.
-6. Periodically read back what you understood and ask the crew to correct anything inaccurate.
-7. At the end, summarise unresolved items and remind the team that the structured JHA must be reviewed and completed in Verto before sign-on.
+2. Ask who is present. Record each participant only after their name/role is confirmed; record transcription consent only when explicitly confirmed.
+3. Ask the crew to describe the job in their own words before relying on the planned description.
+4. Work through the job one step at a time. Record each confirmed step.
+5. For each step discuss and record: people exposed; hazards/energy sources; credible consequences; existing controls; additional controls; hierarchy of control; control owner; verification method/status; residual risk; critical controls; permits/CCVs/SWMS; and hold/pause points where relevant.
+6. Ask concise follow-up questions rather than delivering long lectures. Challenge vague controls.
+7. Periodically read back what you understood and ask the crew to correct anything inaccurate. Update the structured draft when they correct it.
+8. When the crew says the discussion is complete, run the completeness check. Work through every outstanding item before offering to mark the draft ready for human review.
+9. End by clearly stating that human review, acknowledgement and sign-on are still required and that you have not authorised the work.
 
 CONTROLLED WORK CONTEXT:
 JHA: {jha.name} revision {jha.revision or 1}
@@ -274,9 +288,7 @@ def _public_voice_configuration(config: dict) -> dict:
 
 
 def _build_realtime_session(task, jha, bot, config: dict) -> dict:
-    transcription = {
-        "model": config["transcription_model"],
-    }
+    transcription = {"model": config["transcription_model"]}
     if config.get("transcription_language"):
         transcription["language"] = config["transcription_language"]
     if config["transcription_model"] == "gpt-realtime-whisper":
@@ -316,6 +328,8 @@ def _build_realtime_session(task, jha, bot, config: dict) -> dict:
         "model": config["realtime_model"],
         "instructions": _build_voice_instructions(task, jha, bot),
         "output_modalities": ["audio"],
+        "tool_choice": "auto",
+        "tools": get_realtime_jha_tools(),
         "audio": {
             "input": input_audio,
             "output": {
@@ -325,10 +339,10 @@ def _build_realtime_session(task, jha, bot, config: dict) -> dict:
         },
     }
 
-    if config["realtime_model"].startswith("gpt-realtime-2") and config.get(
-        "reasoning_effort"
-    ):
-        session["reasoning"] = {"effort": config["reasoning_effort"]}
+    if config["realtime_model"].startswith("gpt-realtime-2"):
+        session["parallel_tool_calls"] = False
+        if config.get("reasoning_effort"):
+            session["reasoning"] = {"effort": config["reasoning_effort"]}
 
     return session
 
@@ -357,9 +371,6 @@ def _create_realtime_call(*, sdp: str, task, jha, bot):
         session=_build_realtime_session(task, jha, bot, config),
     )
 
-    # Keep the SDP answer byte-for-byte equivalent to OpenAI's response. In
-    # particular, do not trim the final CRLF: strict SDP parsers may reject a
-    # description whose final line terminator has been removed.
     answer_sdp = str(getattr(response, "text", "") or "")
     if not answer_sdp:
         frappe.throw(_("OpenAI did not return a WebRTC SDP answer."), frappe.ValidationError)
@@ -379,10 +390,6 @@ def _create_realtime_call(*, sdp: str, task, jha, bot):
 
 @frappe.whitelist(methods=["GET"])
 def get_voice_jha_bootstrap(work_summary: str):
-    """Return trusted Work Summary context and any active JHA draft.
-
-    This endpoint deliberately does not submit, approve, sign or authorise work.
-    """
     _require_login()
     task = _validate_work_summary(work_summary)
 
@@ -404,8 +411,8 @@ def get_voice_jha_bootstrap(work_summary: str):
         "existing_jha": existing_jha,
         "realtime_enabled": bool(peri_bot and voice_config.get("enabled")),
         "voice_configuration": _public_voice_configuration(voice_config),
-        "prototype_stage": "live-voice-pilot",
-        "notice": "PERI can prepare a draft JHA only. Human review and sign-on remain mandatory before work proceeds.",
+        "prototype_stage": "structured-voice-draft",
+        "notice": "PERI can write confirmed discussion points into the draft JHA only. Human review and sign-on remain mandatory before work proceeds.",
     }
 
 
@@ -451,12 +458,7 @@ def create_voice_jha_draft(work_summary: str):
 
 @frappe.whitelist(methods=["POST"])
 def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0):
-    """Negotiate the live PERI WebRTC session without exposing OpenAI credentials.
-
-    The endpoint records facilitator confirmation that everyone present consented to
-    microphone use/transcription. It does not create structured JHA rows, submit,
-    approve, sign or authorise the JHA.
-    """
+    """Negotiate live PERI WebRTC and record facilitator consent confirmation."""
     _require_login()
 
     if not cint(consent_confirmed):
@@ -465,9 +467,7 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0):
             frappe.ValidationError,
         )
 
-    # SDP is a line-oriented wire format. Do not call strip()/rstrip() here:
-    # browser offers normally end in CRLF, and removing that terminator can make
-    # OpenAI's strict SDP parser fail with `failed to unmarshal SDP: EOF`.
+    # SDP is line-oriented. Do not strip the final CRLF.
     offer_sdp = str(sdp or "")
     if not offer_sdp or not offer_sdp.startswith("v=0"):
         frappe.throw(_("A valid WebRTC SDP offer is required."), frappe.ValidationError)
@@ -496,7 +496,7 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0):
             message=frappe.get_traceback(),
         )
         frappe.throw(
-            _("Could not start the PERI voice session. Check the Verto Mobile Settings and Raven/OpenAI Realtime configuration."),
+            _("Could not start the PERI voice session. Check the Raven/OpenAI Realtime configuration."),
             frappe.ValidationError,
         )
 
@@ -513,7 +513,7 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0):
     return {
         "sdp": call["sdp"],
         "model": call["model"],
-        "voice_configuration": call["configuration"],
+        "configuration": call.get("configuration") or {},
         "session_reference": call.get("session_reference") or "",
         "consent_confirmed_at": started_at,
         "jha": _serialize_jha(jha),

@@ -7,6 +7,7 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "source_hazard_identifier",
   "work_step_sequence",
   "work_step_reference",
   "hazard_or_energy_source",
@@ -26,107 +27,30 @@
   "information_source"
  ],
  "fields": [
-  {
-   "fieldname": "work_step_sequence",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Work Step"
-  },
-  {
-   "fieldname": "work_step_reference",
-   "fieldtype": "Data",
-   "hidden": 1,
-   "label": "Work Step Reference"
-  },
-  {
-   "fieldname": "hazard_or_energy_source",
-   "fieldtype": "Small Text",
-   "in_list_view": 1,
-   "label": "Hazard / Energy Source",
-   "reqd": 1
-  },
-  {
-   "fieldname": "people_exposed",
-   "fieldtype": "Small Text",
-   "label": "People Exposed"
-  },
-  {
-   "fieldname": "credible_consequence",
-   "fieldtype": "Small Text",
-   "label": "Credible Consequence"
-  },
-  {
-   "fieldname": "existing_controls",
-   "fieldtype": "Small Text",
-   "label": "Existing Controls"
-  },
-  {
-   "fieldname": "additional_controls",
-   "fieldtype": "Small Text",
-   "label": "Additional Controls"
-  },
-  {
-   "fieldname": "hierarchy_level",
-   "fieldtype": "Select",
-   "label": "Highest Control Level",
-   "options": "Elimination\nSubstitution\nIsolation\nEngineering\nAdministrative\nPPE"
-  },
-  {
-   "fieldname": "control_owner",
-   "fieldtype": "Data",
-   "label": "Control Owner"
-  },
-  {
-   "fieldname": "verification_method",
-   "fieldtype": "Small Text",
-   "label": "Verification Method"
-  },
-  {
-   "default": "Not Verified",
-   "fieldname": "verification_status",
-   "fieldtype": "Select",
-   "label": "Verification Status",
-   "options": "Not Verified\nReported by Team\nVerified On Site"
-  },
-  {
-   "default": "0",
-   "fieldname": "critical_risk",
-   "fieldtype": "Check",
-   "label": "Critical Risk"
-  },
-  {
-   "fieldname": "critical_control",
-   "fieldtype": "Small Text",
-   "label": "Critical Control"
-  },
-  {
-   "fieldname": "permit_or_ccv_required",
-   "fieldtype": "Small Text",
-   "label": "Permit / CCV Required"
-  },
-  {
-   "fieldname": "initial_risk",
-   "fieldtype": "Data",
-   "label": "Initial Risk"
-  },
-  {
-   "fieldname": "residual_risk",
-   "fieldtype": "Data",
-   "label": "Residual Risk"
-  },
-  {
-   "default": "Team discussion",
-   "fieldname": "information_source",
-   "fieldtype": "Select",
-   "label": "Information Source",
-   "options": "Team discussion\nApproved Verto document\nAI suggestion\nOn-site verification"
-  }
+  {"fieldname":"source_hazard_identifier","fieldtype":"Data","hidden":1,"label":"Source Hazard Identifier"},
+  {"fieldname":"work_step_sequence","fieldtype":"Int","in_list_view":1,"label":"Work Step"},
+  {"fieldname":"work_step_reference","fieldtype":"Data","hidden":1,"label":"Work Step Reference"},
+  {"fieldname":"hazard_or_energy_source","fieldtype":"Small Text","in_list_view":1,"label":"Hazard / Energy Source","reqd":1},
+  {"fieldname":"people_exposed","fieldtype":"Small Text","label":"People Exposed"},
+  {"fieldname":"credible_consequence","fieldtype":"Small Text","label":"Credible Consequence"},
+  {"fieldname":"existing_controls","fieldtype":"Small Text","label":"Existing Controls"},
+  {"fieldname":"additional_controls","fieldtype":"Small Text","label":"Additional Controls"},
+  {"fieldname":"hierarchy_level","fieldtype":"Select","label":"Highest Control Level","options":"Elimination\nSubstitution\nIsolation\nEngineering\nAdministrative\nPPE"},
+  {"fieldname":"control_owner","fieldtype":"Data","label":"Control Owner"},
+  {"fieldname":"verification_method","fieldtype":"Small Text","label":"Verification Method"},
+  {"default":"Not Verified","fieldname":"verification_status","fieldtype":"Select","label":"Verification Status","options":"Not Verified\nReported by Team\nVerified On Site"},
+  {"default":"0","fieldname":"critical_risk","fieldtype":"Check","label":"Critical Risk"},
+  {"fieldname":"critical_control","fieldtype":"Small Text","label":"Critical Control"},
+  {"fieldname":"permit_or_ccv_required","fieldtype":"Small Text","label":"Permit / CCV Required"},
+  {"fieldname":"initial_risk","fieldtype":"Data","label":"Initial Risk"},
+  {"fieldname":"residual_risk","fieldtype":"Data","label":"Residual Risk"},
+  {"default":"Team discussion","fieldname":"information_source","fieldtype":"Select","label":"Information Source","options":"Team discussion\nApproved Verto document\nAI suggestion\nOn-site verification"}
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-09-14 13:41:52.734704",
+ "modified": "2026-09-14 16:15:00.000000",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Digital JHA Hazard Control",
