@@ -75,6 +75,16 @@ extend_bootinfo = ["verto.api.mobile.boot.add_map_settings_to_boot"]
 before_request = ["verto.runtime_config.apply_runtime_config"]
 before_job = ["verto.runtime_config.apply_runtime_job_config"]
 
+# Permissions
+# -----------
+permission_query_conditions = {
+    "Digital Job Hazard Analysis": "verto.api.mobile.voice_jha_permissions.get_permission_query_conditions",
+}
+
+has_permission = {
+    "Digital Job Hazard Analysis": "verto.api.mobile.voice_jha_permissions.has_permission",
+}
+
 # Document events
 # ---------------
 doc_events = {
