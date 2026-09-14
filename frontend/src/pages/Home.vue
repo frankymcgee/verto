@@ -1366,16 +1366,22 @@ function formatDate(value?: string) {
     return ''
   }
 
-  const date = new Date(`${value}T00:00:00`)
+  // Frappe may include a time in date fields; the task time is shown separately.
+  const datePart = value.trim().split(/[T\s]/)[0]
+  const date = new Date(`${datePart}T00:00:00`)
 
   if (Number.isNaN(date.getTime())) {
     return value
   }
 
-  return date.toLocaleDateString('en-AU', {
-    day: 'numeric',
-    month: 'short',
-  })
+  const day = date.getDate()
+  const suffix = day >= 11 && day <= 13
+    ? 'th'
+    : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[day % 10] || 'th'
+  const month = date.toLocaleDateString('en-AU', { month: 'short' })
+  const year = String(date.getFullYear()).slice(-2)
+
+  return `${day}${suffix} ${month} ${year}`
 }
 
 function formatTime(value?: string) {
