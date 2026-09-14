@@ -5,88 +5,6 @@ import { defineConfig, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import Icons from 'unplugin-icons/vite'
 import { VitePWA } from 'vite-plugin-pwa'
-import type { ManifestOptions } from 'vite-plugin-pwa'
-
-// This is only a build-time fallback. The installed site manifest is generated
-// from Verto Mobile Settings by verto.install.ensure_verto_setup().
-const fallbackManifest = {
-  name: 'Verto Mobile',
-  short_name: 'Verto',
-  id: '/verto-mobile',
-  start_url: '/verto-mobile',
-  scope: '/verto-mobile',
-  display: 'standalone',
-  description: 'Mobile companion app for Verto',
-  lang: 'en-AU',
-  dir: 'auto',
-  theme_color: '#171717',
-  background_color: '#171717',
-  orientation: 'portrait-primary',
-  prefer_related_applications: false,
-  icons: [
-    {
-      src: '/assets/verto/manifest/mss-pwa-192.png',
-      sizes: '192x192',
-      type: 'image/png',
-      purpose: 'any',
-    },
-    {
-      src: '/assets/verto/manifest/mss-pwa-512.png',
-      sizes: '512x512',
-      type: 'image/png',
-      purpose: 'any',
-    },
-    {
-      src: '/assets/verto/manifest/mss-pwa-maskable-192.png',
-      sizes: '192x192',
-      type: 'image/png',
-      purpose: 'maskable',
-    },
-    {
-      src: '/assets/verto/manifest/mss-pwa-maskable-512.png',
-      sizes: '512x512',
-      type: 'image/png',
-      purpose: 'maskable',
-    },
-    {
-      src: '/assets/verto/manifest/apple-touch-icon.png',
-      sizes: '180x180',
-      type: 'image/png',
-      purpose: 'any',
-    },
-  ],
-  screenshots: [],
-  categories: [
-    'business',
-    'productivity',
-  ],
-  shortcuts: [
-    {
-      name: 'Home',
-      short_name: 'Home',
-      url: '/verto-mobile/',
-      description: 'Open the Verto Mobile home page',
-    },
-    {
-      name: 'Shifts',
-      short_name: 'Shifts',
-      url: '/verto-mobile/shifts',
-      description: 'View allocated shifts',
-    },
-    {
-      name: 'Forms',
-      short_name: 'Forms',
-      url: '/verto-mobile/forms',
-      description: 'Open completed forms',
-    },
-    {
-      name: 'Ask PERI',
-      short_name: 'PERI',
-      url: '/verto-mobile/chat/peri?mode=ai',
-      description: 'Open Ask PERI',
-    },
-  ],
-} as unknown as Partial<ManifestOptions>
 
 function copyVertoServiceWorkerPlugin(): Plugin {
   return {
@@ -173,8 +91,9 @@ export default defineConfig(({ command }) => {
           },
         },
 
-        manifestFilename: 'manifest.webmanifest',
-        manifest: fallbackManifest,
+        // The tenant manifest is served by Frappe at /verto-mobile.webmanifest.
+        // Do not inject a second, build-generated manifest into index.html.
+        manifest: false,
       }),
       copyVertoServiceWorkerPlugin(),
     ],
@@ -182,6 +101,11 @@ export default defineConfig(({ command }) => {
     server: {
       host: '0.0.0.0',
       proxy: {
+        '/verto-mobile.webmanifest': {
+          target: devProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
         '/api': {
           target: devProxyTarget,
           changeOrigin: true,

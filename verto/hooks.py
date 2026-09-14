@@ -138,8 +138,11 @@ override_whitelisted_methods = {
     "frappe.geo.utils.get_coords": "verto.geo.utils.verto_get_coords",
 }
 
-# Serve /verto-mobile-sw.js through Frappe rather than an nginx alias.
-page_renderer = ["verto.pwa.VertoServiceWorkerRenderer"]
+# Serve site-specific install metadata and the root worker through Frappe.
+page_renderer = [
+    "verto.pwa.VertoManifestRenderer",
+    "verto.pwa.VertoServiceWorkerRenderer",
+]
 
 website_route_rules = [
     {"from_route": "/verto-mobile/<path:app_path>", "to_route": "verto-mobile"},

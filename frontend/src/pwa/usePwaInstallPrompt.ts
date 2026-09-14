@@ -113,10 +113,10 @@ export function usePwaInstallPrompt() {
 
       const choice = await deferredPrompt.value.userChoice
 
-      if (choice.outcome === 'accepted') {
-        installed.value = true
-        window.localStorage.setItem(installedStorageKey, String(getNow()))
-      } else {
+      // Let the browser's appinstalled event handle installation promotion.
+      // On Android even that event can precede WebAPK packaging, so a stored
+      // timestamp must never be used to prove the app is still installed.
+      if (choice.outcome === 'dismissed') {
         dismissPrompt()
       }
 
@@ -134,6 +134,9 @@ export function usePwaInstallPrompt() {
   function handleBeforeInstallPrompt(event: Event) {
     event.preventDefault()
 
+    // Chrome is offering installation again (for example after uninstalling).
+    installed.value = false
+    window.localStorage.removeItem(installedStorageKey)
     deferredPrompt.value = event as BeforeInstallPromptEvent
     installPromptAvailable.value = true
 
@@ -151,7 +154,9 @@ export function usePwaInstallPrompt() {
   }
 
   onMounted(() => {
-    installed.value = Boolean(getStoredNumber(installedStorageKey)) || isRunningStandalone()
+    // Browser storage survives removal of an Android shortcut or WebAPK.
+    // A historical install timestamp is not evidence of a current install.
+    installed.value = isRunningStandalone()
     dismissed.value = isRecentlyDismissed()
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
