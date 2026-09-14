@@ -9,7 +9,7 @@
     :style="maxHeightPx ? { height: maxHeightPx + 'px' } : {}"
   >
     <!-- Annual project / planning view. This is intentionally separate from employees. -->
-    <section v-if="showProjectsPanel" class="year-roster-panel rounded-lg border bg-white">
+    <section v-if="showProjectsPanel" class="year-roster-panel rounded-6 border bg-white">
       <div
         ref="projectScroller"
         class="year-roster-scroller overflow-auto"
@@ -43,9 +43,9 @@
             <tr>
               <th rowspan="2" class="year-left-header year-left-col year-project-legend-header border-b border-r bg-white text-left">
                 <div class="year-project-header-content px-2 py-1.5">
-                  <div class="flex items-center justify-between gap-2 text-xs font-semibold text-gray-800">
+                  <div class="flex items-center justify-between gap-2 text-xs-semibold text-gray-800">
                     <div class="flex min-w-0 items-center gap-1.5">
-                      <FeatherIcon name="briefcase" class="year-project-header-icon" />
+                      <Icon name="lucide-briefcase" class="year-project-header-icon" />
                       <span>Projects</span>
                     </div>
 
@@ -111,27 +111,27 @@
 
                   <div class="year-project-legend mt-1">
                     <div class="year-project-legend-item">
-                      <FeatherIcon name="check-circle" class="year-legend-icon year-legend-po-entered" />
+                      <Icon name="lucide-check-circle" class="year-legend-icon year-legend-po-entered" />
                       <span>PO Entered</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <FeatherIcon name="x-circle" class="year-legend-icon year-legend-po-missing" />
+                      <Icon name="lucide-x-circle" class="year-legend-icon year-legend-po-missing" />
                       <span>PO Missing</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <FeatherIcon name="bar-chart-2" class="year-legend-icon year-legend-gantt-available" />
+                      <Icon name="lucide-bar-chart-2" class="year-legend-icon year-legend-gantt-available" />
                       <span>Gantt Available</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <FeatherIcon name="alert-triangle" class="year-legend-icon year-legend-gantt-missing" />
+                      <Icon name="lucide-alert-triangle" class="year-legend-icon year-legend-gantt-missing" />
                       <span>Gantt Missing</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <FeatherIcon name="sun" class="year-legend-icon year-legend-ds-requested" />
+                      <Icon name="lucide-sun" class="year-legend-icon year-legend-ds-requested" />
                       <span># DS Requested</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <FeatherIcon name="moon" class="year-legend-icon year-legend-ns-requested" />
+                      <Icon name="lucide-moon" class="year-legend-icon year-legend-ns-requested" />
                       <span># NS Requested</span>
                     </div>
                   </div>
@@ -172,7 +172,7 @@
             <tr v-if="!projectLanes.length" class="year-project-row">
               <td class="year-left-col border-b border-r bg-white">
                 <div class="px-2 leading-tight">
-                  <div class="truncate text-xs font-semibold text-gray-800">
+                  <div class="truncate text-xs-semibold text-gray-800">
                     No projects to show
                   </div>
                   <div class="truncate text-[10px] text-gray-500">
@@ -193,7 +193,7 @@
             <tr v-for="lane in projectLanes" :key="lane.key" class="year-project-row">
               <td class="year-left-col border-b border-r bg-white">
                 <div class="px-2 leading-tight">
-                  <div class="year-project-lane-label truncate text-xs font-semibold text-gray-800" :title="lane.customerLabel">
+                  <div class="year-project-lane-label truncate text-xs-semibold text-gray-800" :title="lane.customerLabel">
                     {{ lane.customerLabel }}
                   </div>
                   <div class="year-project-lane-subline truncate text-[10px] text-gray-500" :title="lane.locationLabel">
@@ -248,7 +248,7 @@
                       :class="projectHasGantt(segment.project) ? 'year-project-gantt-available' : 'year-project-gantt-missing'"
                       :title="projectGanttStatusLabel(segment.project)"
                     >
-                      <FeatherIcon :name="projectHasGantt(segment.project) ? 'bar-chart-2' : 'alert-triangle'" class="year-project-inline-icon" />
+                      <Icon :name="projectHasGantt(segment.project) ? 'lucide-bar-chart-2' : 'lucide-alert-triangle'" class="year-project-inline-icon" />
                     </span>
 
                     <span
@@ -256,12 +256,12 @@
                       :class="segment.poEntered ? 'year-project-po-entered' : 'year-project-po-missing'"
                       :title="segment.poEntered ? 'PO Entered' : 'PO Missing'"
                     >
-                      <FeatherIcon :name="segment.poEntered ? 'check-circle' : 'x-circle'" class="year-project-inline-icon" />
+                      <Icon :name="segment.poEntered ? 'lucide-check-circle' : 'lucide-x-circle'" class="year-project-inline-icon" />
                     </span>
 
                     <span class="year-project-request-group" :title="projectPersonnelCountTitle(segment, 'ds')">
                       <span class="year-project-request year-project-request-ds">
-                        <FeatherIcon name="sun" class="year-project-request-icon" />
+                        <Icon name="lucide-sun" class="year-project-request-icon" />
                       </span>
                       <span
                         class="year-project-request-count"
@@ -273,7 +273,7 @@
 
                     <span class="year-project-request-group" :title="projectPersonnelCountTitle(segment, 'ns')">
                       <span class="year-project-request year-project-request-ns">
-                        <FeatherIcon name="moon" class="year-project-request-icon" />
+                        <Icon name="lucide-moon" class="year-project-request-icon" />
                       </span>
                       <span
                         class="year-project-request-count"
@@ -301,14 +301,14 @@
       >
         <span class="year-table-resizer-line"></span>
         <span class="year-table-resizer-handle" aria-hidden="true">
-          <FeatherIcon name="menu" class="year-table-resizer-icon" />
+          <Icon name="lucide-menu" class="year-table-resizer-icon" />
         </span>
         <span class="year-table-resizer-line"></span>
       </div>
     </section>
 
     <!-- Annual employee roster view. This scrolls separately from the project table. -->
-    <section v-if="showEmployeesPanel" class="year-roster-panel year-employee-panel flex min-h-0 flex-1 flex-col rounded-lg border bg-white">
+    <section v-if="showEmployeesPanel" class="year-roster-panel year-employee-panel flex min-h-0 flex-1 flex-col rounded-6 border bg-white">
       <div
         ref="employeeScroller"
         class="year-roster-scroller min-h-0 flex-1 overflow-auto"
@@ -333,7 +333,7 @@
               <th rowspan="2" class="year-left-header year-left-col year-employee-search-header border-b border-r bg-white text-left">
                 <div class="year-employee-header-content px-2 py-1.5">
                   <div class="flex items-center justify-between gap-2">
-                    <div class="text-xs font-semibold text-gray-700">Employee</div>
+                    <div class="text-xs-semibold text-gray-700">Employee</div>
 
                     <button
                       type="button"
@@ -347,11 +347,11 @@
                   </div>
 
                   <div class="year-employee-search">
-                    <Autocomplete
+                    <MultiSelect
                       :options="employeeSearchOptions"
                       v-model="employeeSearch"
                       placeholder="Search Employee"
-                      :multiple="true"
+                      label="Employees"
                     />
                   </div>
 
@@ -433,7 +433,7 @@
                 @mouseleave="() => scheduleClearHoverCard()"
               >
                 <div class="px-2 leading-tight">
-                  <div class="truncate text-xs font-semibold text-gray-800" :title="employeeTitle(employee)">
+                  <div class="truncate text-xs-semibold text-gray-800" :title="employeeTitle(employee)">
                     {{ employeeDisplayName(employee) }}
                   </div>
                   <div class="truncate text-[10px] text-gray-500" :title="employeeSubline(employee)">
@@ -566,7 +566,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import colors from 'tailwindcss/colors'
-import { Autocomplete, createResource, FeatherIcon } from 'frappe-ui'
+import { MultiSelect, createResource, Icon } from 'frappe-ui'
 import type { Dayjs } from 'dayjs'
 
 import { dayjs, raiseToast } from '../utils'
@@ -777,7 +777,7 @@ const props = defineProps<{
 }>()
 
 const loading = ref(true)
-const employeeSearch = ref<{ value: string; label: string }[]>([])
+const employeeSearch = ref<string[]>([])
 const projectCollapsed = ref(false)
 const projectBirdsEye = ref(false)
 const employeeCollapsed = ref(false)
@@ -1080,7 +1080,7 @@ const sortedEmployees = computed(() => sortEmployeesByDepartmentAndId(props.empl
 
 const visibleEmployees = computed(() => {
   if (!employeeSearch.value?.length) return sortedEmployees.value
-  const selected = new Set(employeeSearch.value.map((item) => item.value))
+  const selected = new Set(employeeSearch.value)
   return sortedEmployees.value.filter((employee) => selected.has(employee.name))
 })
 
@@ -4312,7 +4312,7 @@ defineExpose({ events, scrollToToday })
   position: fixed;
   left: 0;
   top: 0;
-  z-index: 9999;
+  z-index: 45;
   width: 340px;
   transform: translate3d(-9999px, -9999px, 0);
   will-change: transform;
