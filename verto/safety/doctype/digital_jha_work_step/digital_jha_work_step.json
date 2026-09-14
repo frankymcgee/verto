@@ -1,0 +1,71 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "hash",
+ "creation": "2026-09-14 13:53:17.933570",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sequence",
+  "activity",
+  "step_origin",
+  "source_task",
+  "source_step_identifier",
+  "hold_or_pause_point"
+ ],
+ "fields": [
+  {
+   "fieldname": "sequence",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Sequence"
+  },
+  {
+   "fieldname": "activity",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Activity",
+   "reqd": 1
+  },
+  {
+   "default": "Planned",
+   "fieldname": "step_origin",
+   "fieldtype": "Select",
+   "label": "Origin",
+   "options": "Planned\nVoice-derived\nManually added"
+  },
+  {
+   "fieldname": "source_task",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Source Task",
+   "options": "Task",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_step_identifier",
+   "fieldtype": "Data",
+   "label": "Source Step Identifier"
+  },
+  {
+   "default": "0",
+   "fieldname": "hold_or_pause_point",
+   "fieldtype": "Check",
+   "label": "Hold / Pause Point"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-14 17:03:00.000000",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Digital JHA Work Step",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
