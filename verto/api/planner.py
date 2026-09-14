@@ -2951,6 +2951,36 @@ def _validate_project_date_range(start_date, end_date) -> None:
 		frappe.throw(_("Project Start Date cannot be after Project End Date."))
 
 
+def _validate_project_dates_cover_tasks(project: str, start_date, end_date) -> None:
+	"""Keep the project range around all linked tasks, including group tasks."""
+	errors = []
+	for field, order, value, label, boundary in (
+		("exp_start_date", "asc", start_date, "Project Start Date", "start"),
+		("exp_end_date", "desc", end_date, "Project End Date", "end"),
+	):
+		rows = frappe.get_all(
+			"Task",
+			filters={"project": project, field: ["is", "set"]},
+			fields=["name", field],
+			order_by=f"{field} {order}, name asc",
+			limit_page_length=1,
+		)
+		if not rows:
+			continue
+		task = rows[0]
+		task_date = getdate(task.get(field))
+		if not value:
+			errors.append(_("{0} is required because task {1} has a {2} date of {3}.").format(
+				_(label), task.name, _(boundary), task_date,
+			))
+		elif boundary == "start" and getdate(value) > task_date:
+			errors.append(_("Project Start Date cannot be later than {0}, because task {1} starts on that date.").format(task_date, task.name))
+		elif boundary == "end" and getdate(value) < task_date:
+			errors.append(_("Project End Date cannot be earlier than {0}, because task {1} ends on that date.").format(task_date, task.name))
+	if errors:
+		frappe.throw(" ".join(errors))
+
+
 def _generic_task_creation_availability(doc, task_count: int, fields: dict[str, str | None]) -> tuple[bool, str]:
 	if (doc.get("status") or "").strip().lower() == "cancelled":
 		return False, _("Generic tasks cannot be created for a cancelled project.")
@@ -3285,7 +3315,7 @@ def get_project_planner_details(project: str) -> dict:
 		"can_update_ds": bool(ds_field),
 		"can_update_ns": bool(ns_field),
 		"can_update_is_active": bool(is_active_field),
-		"can_update_project_dates": bool(start_date_field and end_date_field) and not has_tasks,
+		"can_update_project_dates": bool(start_date_field and end_date_field),
 		"can_update_notes": bool(notes_field),
 	}
 
@@ -3591,9 +3621,7 @@ def update_project_planner_details(
 		_validate_project_date_range(start_date, end_date)
 
 		if _project_date_values_changed(doc, start_date_field, end_date_field, start_date, end_date):
-			task_count = get_project_task_counts([project]).get(project, 0)
-			if task_count:
-				frappe.throw(_("Project dates cannot be changed because this project already has {0} task(s) assigned.").format(task_count))
+			_validate_project_dates_cover_tasks(project, start_date, end_date)
 
 			doc.set(start_date_field, start_date)
 			doc.set(end_date_field, end_date)
@@ -3626,9 +3654,7 @@ def update_project_planner_dates(
 	doc = frappe.get_doc("Project", project)
 
 	if _project_date_values_changed(doc, start_date_field, end_date_field, start_date, end_date):
-		task_count = get_project_task_counts([project]).get(project, 0)
-		if task_count:
-			frappe.throw(_("Project has tasks assigned, so project dates cannot be changed."))
+		_validate_project_dates_cover_tasks(project, start_date, end_date)
 
 		doc.set(start_date_field, start_date)
 		doc.set(end_date_field, end_date)
@@ -3648,7 +3674,7 @@ def get_project_task_counts(project_names: set[str] | list[str] | tuple[str, ...
 
 	# Frappe v16 requires structured aggregates in get_all. Do not turn query
 	# failures into zero counts: has_tasks controls task visibility, personnel
-	# allocation and the lock on editing project dates throughout the Planner.
+	# allocation and generic task creation throughout the Planner.
 	rows = frappe.get_all(
 		"Task",
 		filters={"project": ["in", project_names]},

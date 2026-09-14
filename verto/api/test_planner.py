@@ -27,6 +27,13 @@ class TestPlannerProjectTasks(TestCase):
 		for field in fields:
 			if isinstance(field, str):
 				_validate_select_field(field)
+		if "name" in fields:
+			field = fields[1]
+			self.assertEqual(filters, {"project": "PROJ-1", field: ["is", "set"]})
+			self.assertEqual(kwargs["limit_page_length"], 1)
+			return [frappe._dict(name="TASK-BOUNDARY", **{field: (
+				"2026-09-01" if field == "exp_start_date" else "2026-09-30"
+			)})]
 		rows = [
 			frappe._dict(project=project, task_count=count)
 			for project, count in sorted(self.task_counts.items())
@@ -95,7 +102,7 @@ class TestPlannerProjectTasks(TestCase):
 		self.assertEqual(details["execution_tasks"], self.execution_tasks)
 		self.assertTrue(details["execution_tasks"][0]["can_assign"])
 		self.assertFalse(details["can_create_generic_tasks"])
-		self.assertFalse(details["can_update_project_dates"])
+		self.assertTrue(details["can_update_project_dates"])
 
 	def test_project_without_tasks_keeps_creation_and_date_controls(self):
 		self.project_fixture()
@@ -119,7 +126,7 @@ class TestPlannerProjectTasks(TestCase):
 		self.assertEqual(rows[0]["task_count"], 3)
 		self.assertTrue(rows[0]["has_tasks"])
 
-	def test_linked_tasks_prevent_project_date_changes(self):
+	def test_linked_tasks_prevent_excluding_task_start(self):
 		doc = self.project_fixture()
 		with self.assertRaises(frappe.ValidationError):
 			planner.update_project_planner_dates("PROJ-1", "2026-09-02", "2026-09-30")
@@ -132,6 +139,49 @@ class TestPlannerProjectTasks(TestCase):
 		with self.assertRaisesRegex(RuntimeError, "Task query failed"):
 			planner.update_project_planner_dates("PROJ-1", "2026-09-02", "2026-09-30")
 		doc.set.assert_not_called()
+		doc.save.assert_not_called()
+
+	def test_both_date_endpoints_allow_ranges_covering_tasks(self):
+		for endpoint in (planner.update_project_planner_dates, planner.update_project_planner_details):
+			for start, end in (("2026-08-25", "2026-10-05"), ("2026-09-01", "2026-10-05"), ("2026-08-25", "2026-09-30")):
+				with self.subTest(endpoint=endpoint.__name__, start=start, end=end):
+					doc = self.project_fixture()
+					endpoint("PROJ-1", project_start_date=start, project_end_date=end)
+					doc.set.assert_any_call("expected_start_date", start)
+					doc.set.assert_any_call("expected_end_date", end)
+					doc.save.assert_called_once()
+
+	def test_both_date_endpoints_explain_conflicting_task_dates(self):
+		for endpoint in (planner.update_project_planner_dates, planner.update_project_planner_details):
+			for start, end, message in (
+				("2026-09-02", "2026-10-05", "Start Date cannot be later than 2026-09-01"),
+				("2026-08-25", "2026-09-29", "End Date cannot be earlier than 2026-09-30"),
+				("", "2026-10-05", "Start Date is required"),
+				("2026-08-25", "", "End Date is required"),
+			):
+				with self.subTest(endpoint=endpoint.__name__, start=start, end=end):
+					doc = self.project_fixture()
+					with self.assertRaisesRegex(frappe.ValidationError, message) as error:
+						endpoint("PROJ-1", project_start_date=start, project_end_date=end)
+					self.assertIn("TASK-BOUNDARY", str(error.exception))
+					doc.save.assert_not_called()
+
+	def test_project_can_contract_to_exact_task_bounds(self):
+		doc = self.project_fixture()
+		doc.get = {"expected_start_date": "2026-08-01", "expected_end_date": "2026-10-31"}.get
+		planner.update_project_planner_dates("PROJ-1", "2026-09-01", "2026-09-30")
+		doc.save.assert_called_once()
+
+	def test_undated_tasks_do_not_restrict_project_dates(self):
+		doc = self.project_fixture()
+		self.get_all.side_effect = lambda doctype, **kwargs: []
+		planner.update_project_planner_dates("PROJ-1", "2026-09-10", "2026-09-20")
+		doc.save.assert_called_once()
+
+	def test_inverted_project_dates_are_rejected(self):
+		doc = self.project_fixture()
+		with self.assertRaisesRegex(frappe.ValidationError, "Start Date cannot be after"):
+			planner.update_project_planner_dates("PROJ-1", "2026-10-01", "2026-09-01")
 		doc.save.assert_not_called()
 
 

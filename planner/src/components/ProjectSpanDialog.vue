@@ -666,11 +666,7 @@ const showProjectDateFields = computed(() => form.can_update_project_dates || fo
 const projectDateHelpClass = computed(() => (form.can_update_project_dates ? 'border-blue-200 bg-blue-50 text-blue-800' : 'border-gray-200 bg-gray-50 text-gray-600'))
 const projectDateHelpMessage = computed(() => {
   if (form.can_update_project_dates) {
-    return 'Gantt is missing for this project, so the Project Start Date and Project End Date can be adjusted here.'
-  }
-
-  if (form.has_tasks) {
-    return `Project dates are locked because this project already has ${form.task_count} task(s) assigned in the Gantt.`
+    return 'Project dates can be adjusted, but must include all linked tasks: start on or before the earliest task start and end on or after the latest task end.'
   }
 
   return 'Project dates are not editable because the matching Project date fields were not found.'

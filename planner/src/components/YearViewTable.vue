@@ -2680,16 +2680,6 @@ function projectSegmentContentDragStyle(segment: ProjectSegment) {
   return {}
 }
 
-function projectSpanHasAssignedTasks(project?: ProjectRow | null) {
-  return projectHasGantt(project)
-}
-
-function notifyProjectSpanDateLocked(project?: ProjectRow | null) {
-  const taskCount = project ? projectTaskCount(project) : 0
-  const suffix = taskCount ? ` (${taskCount} task${taskCount === 1 ? '' : 's'})` : ''
-  raiseToast('error', `Project has tasks assigned${suffix}, so project dates cannot be changed.`)
-}
-
 function onProjectSegmentPointerDown(segment: ProjectSegment, event: PointerEvent) {
   if (!segment.active || !segment.project) return
 
@@ -2716,12 +2706,6 @@ function onProjectSegmentClick(segment: ProjectSegment, event: MouseEvent) {
 
 function startProjectSpanDrag(segment: ProjectSegment, mode: ProjectSpanDragMode, event: PointerEvent) {
   if (event.button !== 0 || !segment.active || !segment.project) return
-
-  if (projectSpanHasAssignedTasks(segment.project)) {
-    notifyProjectSpanDateLocked(segment.project)
-    event.preventDefault()
-    return
-  }
 
   const span = projectSpan(segment.project)
   if (!span) return
@@ -2797,11 +2781,6 @@ function stopProjectSpanDrag() {
   }, 0)
 
   if (!preview || !preview.start || !preview.end || (preview.start === originalStart && preview.end === originalEnd)) {
-    return
-  }
-
-  if (projectSpanHasAssignedTasks(project)) {
-    notifyProjectSpanDateLocked(project)
     return
   }
 
