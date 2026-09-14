@@ -3586,25 +3586,21 @@ def get_project_task_counts(project_names: set[str] | list[str] | tuple[str, ...
 	if not project_names:
 		return {}
 
-	try:
-		task_meta = frappe.get_meta("Task")
-		if not task_meta.has_field("project"):
-			return {}
-	except Exception:
+	task_meta = frappe.get_meta("Task")
+	if not task_meta.has_field("project"):
 		return {}
 
-	try:
-		rows = frappe.get_all(
-			"Task",
-			filters={"project": ["in", project_names]},
-			fields=["project", "count(name) as task_count"],
-			group_by="project",
-			limit_start=0,
-			limit_page_length=ANNUAL_ROSTER_RESULT_LIMIT,
-			limit=ANNUAL_ROSTER_RESULT_LIMIT,
-		)
-	except Exception:
-		return {}
+	# Frappe v16 requires structured aggregates in get_all. Do not turn query
+	# failures into zero counts: has_tasks controls task visibility, personnel
+	# allocation and the lock on editing project dates throughout the Planner.
+	rows = frappe.get_all(
+		"Task",
+		filters={"project": ["in", project_names]},
+		fields=["project", {"COUNT": "name", "as": "task_count"}],
+		group_by="project",
+		order_by="project asc",
+		limit_page_length=len(project_names),
+	)
 
 	return {row.project: _safe_int(row.task_count) for row in rows if row.get("project")}
 
