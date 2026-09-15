@@ -16,7 +16,7 @@ PRINT_HTML = r'''
   <section class="pack-page cover-page">
     <div class="page-title">
       <div>
-        <h1>Job Hazard Analysis – Form</h1>
+        <h1>Job Hazard Analysis - Form</h1>
         <div class="subtitle">Health and Safety</div>
       </div>
       <div class="brand">MINE SITE SUPPORT</div>
@@ -131,13 +131,19 @@ PRINT_HTML = r'''
   </section>
 
   <section class="pack-page task-page page-break-before">
-    <div class="page-title compact-title">
-      <div><h1>Job Hazard Analysis – Form</h1><div class="subtitle">Health and Safety</div></div>
-      <div class="brand">MINE SITE SUPPORT</div>
-    </div>
-
     <table class="matrix-table">
       <thead>
+        <tr class="matrix-doc-header">
+          <th colspan="6">
+            <div class="matrix-heading">
+              <div>
+                <strong>Job Hazard Analysis - Form</strong>
+                <span>Health and Safety</span>
+              </div>
+              <div class="brand">MINE SITE SUPPORT</div>
+            </div>
+          </th>
+        </tr>
         <tr>
           <th class="step-col">Step #</th>
           <th class="task-col">TASK STEP<br><span>What am I going to do?</span></th>
@@ -194,7 +200,7 @@ PRINT_HTML = r'''
 
   <section class="pack-page page-break-before">
     <div class="page-title compact-title">
-      <div><h1>Job Hazard Analysis – Form</h1><div class="subtitle">Health and Safety</div></div>
+      <div><h1>Job Hazard Analysis - Form</h1><div class="subtitle">Health and Safety</div></div>
       <div class="brand">MINE SITE SUPPORT</div>
     </div>
     <div class="section-bar centered">CHANGE MANAGEMENT AND APPROVAL</div>
@@ -211,7 +217,7 @@ PRINT_HTML = r'''
 
   <section class="pack-page page-break-before sign-page">
     <div class="page-title compact-title">
-      <div><h1>Job Hazard Analysis – Form</h1><div class="subtitle">Health and Safety</div></div>
+      <div><h1>Job Hazard Analysis - Form</h1><div class="subtitle">Health and Safety</div></div>
       <div class="brand">MINE SITE SUPPORT</div>
     </div>
     <div class="section-bar">I have read and understood this JHA and agree with the details and risk control measures</div>
@@ -236,10 +242,10 @@ PRINT_HTML = r'''
 
   <section class="pack-page page-break-before ccv-page">
     <div class="page-title compact-title">
-      <div><h1>Job Hazard Analysis – Form</h1><div class="subtitle">Health and Safety</div></div>
+      <div><h1>Job Hazard Analysis - Form</h1><div class="subtitle">Health and Safety</div></div>
       <div class="brand">MINE SITE SUPPORT</div>
     </div>
-    <h2>CCV – Field Leadership Log</h2>
+    <h2>CCV - Field Leadership Log</h2>
     <p class="ccv-intent"><strong>JHA Task:</strong> {{ doc.work_summary_title or doc.work_summary or '' }}</p>
     <p class="ccv-intent">Use this page to record Critical Control Verifications completed against this work. If a repeat verification of the same critical risk is requested during the same shift, challenge the need and escalate in accordance with site requirements.</p>
     <table class="ccv-table">
@@ -251,10 +257,21 @@ PRINT_HTML = r'''
 '''.strip()
 
 PRINT_CSS = r'''
-@page { size: A4 landscape; margin: 9mm 9mm 13mm 9mm; }
+/* Frappe extracts these properties from .print-format and passes them to the
+   PDF generator. Do not rely on @page for orientation: wkhtmltopdf can otherwise
+   keep an A4 portrait MediaBox while rotating landscape CSS content inside it. */
+.print-format {
+  orientation: Landscape;
+  page-size: A4;
+  margin-top: 9mm;
+  margin-right: 9mm;
+  margin-bottom: 13mm;
+  margin-left: 9mm;
+}
 
 .jha-pack { color: #111; font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; line-height: 1.25; }
 .pack-page { position: relative; min-height: 174mm; }
+.cover-page { page-break-inside: avoid; }
 .page-break-before { page-break-before: always; }
 .page-title { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 4px solid #111; padding: 0 8mm 3mm; margin: 0 8mm 3mm; }
 .page-title h1 { margin: 0; font-size: 18pt; line-height: 1; font-weight: 700; }
@@ -291,6 +308,10 @@ PRINT_CSS = r'''
 .matrix-table thead { display: table-header-group; }
 .matrix-table thead th { text-align: center; height: 20mm; vertical-align: middle; font-size: 8.5pt; }
 .matrix-table thead th span { display: block; margin-top: 3px; font-size: 7.2pt; font-weight: 400; }
+.matrix-table thead .matrix-doc-header th { height: auto; padding: 0 8mm 3mm; border: 0; border-bottom: 4px solid #111; background: white; color: #111; text-align: left; }
+.matrix-heading { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 1mm; }
+.matrix-heading strong { display: block; font-size: 15pt; line-height: 1; }
+.matrix-heading span { display: block; margin-top: 2px !important; font-size: 9pt !important; font-weight: 700 !important; }
 .matrix-table tbody tr { page-break-inside: avoid; min-height: 22mm; }
 .matrix-table tbody td { min-height: 22mm; padding: 5px; }
 .step-col { width: 7%; text-align: center; }
