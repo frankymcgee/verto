@@ -38,6 +38,8 @@
         <Apps />
 
         <Dropdown
+          side="bottom"
+          align="end"
           :options="[
             {
               label: 'Reload Planner',
@@ -53,7 +55,9 @@
             },
           ]"
         >
-          <Button variant="ghost" aria-label="Account menu"
+          <button
+            type="button"
+            aria-label="Account menu"
             class="planner-avatar-trigger flex cursor-pointer items-center gap-2 rounded-full p-1 transition hover:bg-gray-100"
           >
             <Avatar
@@ -73,7 +77,7 @@
               name="lucide-chevron-down"
               class="hidden h-4 w-4 text-gray-400 md:block"
             />
-          </Button>
+          </button>
         </Dropdown>
       </div>
     </div>
@@ -82,7 +86,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { Icon, Dropdown, Avatar, Button, createResource } from "frappe-ui";
+import { Icon, Dropdown, Avatar, createResource } from "frappe-ui";
 
 import Apps from "./Apps.vue";
 import { User } from "../views/Home.vue";

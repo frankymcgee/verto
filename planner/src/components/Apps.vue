@@ -1,14 +1,15 @@
 <template>
   <Popover side="bottom" align="start" bare>
     <template #trigger>
-      <Button variant="ghost"
+      <button
         type="button"
+        aria-label="Apps menu"
         class="planner-apps-trigger flex items-center gap-1.5 rounded-6 border px-3 py-1.5 text-xs-medium text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
       >
         <Icon name="lucide-grid" class="h-3.5 w-3.5" />
         <span class="hidden sm:inline">{{ translate("Apps") }}</span>
         <Icon name="lucide-chevron-down" class="h-3.5 w-3.5 text-gray-400" />
-      </Button>
+      </button>
     </template>
 
     <template #default>
@@ -48,7 +49,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { Icon, Button, Popover, createResource } from "frappe-ui";
+import { Icon, Popover, createResource } from "frappe-ui";
 
 type AppOption = {
   name: string;
