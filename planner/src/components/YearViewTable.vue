@@ -3276,7 +3276,7 @@ function scrollToToday() {
 }
 
 watch(
-  () => [props.firstOfMonth, props.employeeFilters, props.shiftFilters],
+  () => [props.firstOfMonth.year(), props.employeeFilters, props.shiftFilters],
   () => {
     loading.value = true
     events.fetch()

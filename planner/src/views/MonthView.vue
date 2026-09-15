@@ -181,6 +181,7 @@
 </template>
 
 <script setup lang="ts">
+import { usePlannerSettings } from "../utils/settings";
 import {
   ref,
   reactive,
@@ -504,22 +505,16 @@ watch(
   },
 );
 
-const plannerSettings = createResource({
-  url: "frappe.client.get",
-  auto: true,
-  makeParams() {
-    return {
-      doctype: "Verto Mobile Settings",
-      name: "Verto Mobile Settings",
-    };
+const plannerSettings = usePlannerSettings();
+watch(
+  () => [plannerSettings.fetched, plannerSettings.error],
+  () => {
+    if (plannerSettings.fetched || plannerSettings.error) {
+      applyPlannerDefaultView(plannerSettings.data?.planner_view_default || "Month");
+    }
   },
-  onSuccess(data: { planner_view_default?: string } | undefined) {
-    applyPlannerDefaultView(data?.planner_view_default);
-  },
-  onError() {
-    applyPlannerDefaultView("Month");
-  },
-});
+  { immediate: true },
+);
 
 const employees = createListResource({
   doctype: "Employee",

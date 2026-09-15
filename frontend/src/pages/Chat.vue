@@ -747,6 +747,7 @@ import {
   getExistingMessageThread,
   getMessageThread,
   getMessages,
+  getThreadCounts,
   normaliseRavenMessage,
   sendTextMessage,
   sortMessagesOldestFirst,
@@ -755,6 +756,7 @@ import {
 } from '../lib/ravenClient'
 import { useRavenChat } from '../composables/useRavenChat'
 import { useRavenRealtime } from '../composables/useRavenRealtime'
+import { CHAT_POLL_INTERVAL_MS, shouldRefreshChat } from '../lib/chatRefreshPolicy'
 import { openAppBrowser } from '../lib/appBrowser'
 
 const route = useRoute()
@@ -784,9 +786,11 @@ const threadReplies = ref<RavenMessage[]>([])
 const threadDraft = ref('')
 const activeThreadId = ref('')
 const threadCounts = ref<Record<string, number>>({})
+const loadedThreadCountEstimates = ref<Record<string, number>>({})
 const hydratingThreadCounts = ref(false)
+const threadCountCheckedAt = new Map<string, number>()
 
-const FALLBACK_REFRESH_INTERVAL_MS = 60_000
+let lastFallbackRefreshAt = Date.now()
 let fallbackRefreshTimer: number | undefined
 let fallbackRefreshInFlight = false
 const visibleMessageHtmlCache = new Map<string, string>()
@@ -862,7 +866,8 @@ const realtime = useRavenRealtime({
       await refreshThreadMessages()
     }
 
-    await chat.fetchNewer()
+    threadCountCheckedAt.delete(channelId)
+    await hydrateThreadCountsForMessages()
   },
 })
 
@@ -1536,6 +1541,9 @@ function getNumericThreadCountValue(value: unknown) {
 }
 
 function getThreadCount(message: RavenMessage) {
+  if (Object.prototype.hasOwnProperty.call(threadCounts.value, message.name)) {
+    return threadCounts.value[message.name]
+  }
   const directCount = getNumericThreadCountValue(
     message.number_of_replies ??
       message.thread_count ??
@@ -1551,7 +1559,7 @@ function getThreadCount(message: RavenMessage) {
     return directCount
   }
 
-  return threadCounts.value[message.name] || 0
+  return loadedThreadCountEstimates.value[message.name] || 0
 }
 
 function shouldShowThreadButton(message: RavenMessage) {
@@ -1569,7 +1577,8 @@ async function hydrateThreadCountsForMessages() {
   }
 
   const missingThreadCounts = chat.messages.value.filter((message) => {
-    return Boolean(message.is_thread) && !getThreadCount(message) && !threadCounts.value[message.name]
+    return Boolean(message.is_thread)
+      && Date.now() - (threadCountCheckedAt.get(message.name) || 0) >= 60_000
   })
 
   if (!missingThreadCounts.length) {
@@ -1579,21 +1588,16 @@ async function hydrateThreadCountsForMessages() {
   hydratingThreadCounts.value = true
 
   try {
-    const nextCounts = { ...threadCounts.value }
-
-    await Promise.all(
-      missingThreadCounts.slice(0, 12).map(async (message) => {
-        try {
-          const threadData = await getMessages(message.name, 100)
-          nextCounts[message.name] = threadData.messages.length
-        } catch {
-          nextCounts[message.name] = 0
-        }
-      })
-    )
-
-    threadCounts.value = nextCounts
+    const channelId = chat.activeChannelId.value
+    const counts = await getThreadCounts(missingThreadCounts.map((message) => message.name))
+    if (channelId !== chat.activeChannelId.value) return
+    threadCounts.value = { ...threadCounts.value, ...counts }
+  } catch (err) {
+    console.warn('[verto raven] Could not refresh thread counts', err)
   } finally {
+    // Zero counts, inaccessible threads and failures must not cause a request
+    // on every unrelated incoming message. Explicit thread events invalidate it.
+    for (const message of missingThreadCounts) threadCountCheckedAt.set(message.name, Date.now())
     hydratingThreadCounts.value = false
   }
 }
@@ -1603,8 +1607,10 @@ function setKnownThreadCount(messageName: string, count: number) {
     return
   }
 
-  threadCounts.value = {
-    ...threadCounts.value,
+  // A loaded page is only an estimate; never replace the authoritative Raven
+  // count with a page length (or count an image batch as multiple replies).
+  loadedThreadCountEstimates.value = {
+    ...loadedThreadCountEstimates.value,
     [messageName]: Math.max(0, Math.round(count)),
   }
 }
@@ -1846,6 +1852,7 @@ async function fallbackRefreshFromRaven() {
   }
 
   fallbackRefreshInFlight = true
+  lastFallbackRefreshAt = Date.now()
 
   const beforeLatestMessage = getLatestMessageName(chat.messages.value)
   const beforeThreadLatestMessage = getLatestMessageName(threadReplies.value)
@@ -1885,13 +1892,16 @@ function startFallbackRefreshPolling() {
       document.visibilityState === 'visible'
       && navigator.onLine
     ) {
-      if (!realtime.isConnected()) {
+      const connected = realtime.isConnected()
+      if (!connected) {
         realtime.ensureConnected()
       }
 
-      void fallbackRefreshFromRaven()
+      if (shouldRefreshChat(connected, lastFallbackRefreshAt)) {
+        void fallbackRefreshFromRaven()
+      }
     }
-  }, FALLBACK_REFRESH_INTERVAL_MS)
+  }, CHAT_POLL_INTERVAL_MS)
 }
 
 async function recoverLiveChat() {

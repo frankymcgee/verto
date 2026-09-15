@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Excalidraw } from "@excalidraw/excalidraw";
+import { createSaveQueue, sceneKey } from "./saveQueue";
 
 const SAVE_DELAY = 1500;
 
@@ -84,10 +85,17 @@ async function loadState() {
 export function App() {
   const [initialData, setInitialData] = React.useState(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState(false);
   const [theme, setTheme] = React.useState(getFrappeTheme);
   const saveTimer = React.useRef(null);
-  const latestState = React.useRef(null);
   const hasLoaded = React.useRef(false);
+  const hasInitialScene = React.useRef(false);
+  const saveQueue = React.useRef(null);
+  if (!saveQueue.current) {
+    saveQueue.current = createSaveQueue(saveState, (error) => {
+      console.error("[Verto Whiteboard] Could not save whiteboard state:", error);
+    });
+  }
 
   React.useEffect(() => {
     let active = true;
@@ -105,9 +113,8 @@ export function App() {
           error
         );
 
-        if (active) {
-          hasLoaded.current = true;
-        }
+        // A failed load must not allow a blank canvas to overwrite saved work.
+        if (active) setLoadError(true);
       })
       .finally(() => {
         if (active) {
@@ -134,18 +141,7 @@ export function App() {
   }, []);
 
   const persistLatestState = React.useCallback(async () => {
-    if (!latestState.current) {
-      return;
-    }
-
-    try {
-      await saveState(latestState.current);
-    } catch (error) {
-      console.error(
-        "[Verto Whiteboard] Could not save whiteboard state:",
-        error
-      );
-    }
+    await saveQueue.current.flush();
   }, []);
 
   const handleChange = React.useCallback(
@@ -154,11 +150,18 @@ export function App() {
         return;
       }
 
-      latestState.current = prepareStateForSave(
+      const key = sceneKey(elements, appState, files);
+      if (!hasInitialScene.current) {
+        hasInitialScene.current = true;
+        saveQueue.current.baseline(key);
+      }
+      const state = prepareStateForSave(
         elements,
         appState,
         files
       );
+
+      if (!saveQueue.current.update(key, state)) return;
 
       window.clearTimeout(saveTimer.current);
 
@@ -171,11 +174,8 @@ export function App() {
 
   React.useEffect(() => {
     const handlePageExit = () => {
-      if (latestState.current) {
-        saveState(latestState.current).catch(() => {
-          // The browser may cancel requests while navigating away.
-        });
-      }
+      window.clearTimeout(saveTimer.current);
+      void persistLatestState();
     };
 
     window.addEventListener("pagehide", handlePageExit);
@@ -184,11 +184,15 @@ export function App() {
       window.removeEventListener("pagehide", handlePageExit);
       window.clearTimeout(saveTimer.current);
 
-      if (latestState.current) {
-        persistLatestState();
-      }
+      void persistLatestState();
     };
   }, [persistLatestState]);
+
+  if (loadError) {
+    return <div className="verto-whiteboard-loading">
+      <span>{__("Could not load your whiteboard. Reload the page to try again.")}</span>
+    </div>;
+  }
 
   if (isLoading) {
     return (

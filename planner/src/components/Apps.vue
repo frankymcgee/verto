@@ -49,6 +49,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { usePlannerSettings } from "../utils/settings";
 import { Icon, Popover, createResource } from "frappe-ui";
 
 type AppOption = {
@@ -70,17 +71,7 @@ function translate(value: string) {
   return typeof globalTranslate === "function" ? globalTranslate(value) : value;
 }
 
-const settings = createResource({
-  url: "frappe.client.get",
-  cache: "verto-mobile-settings",
-  auto: true,
-  makeParams() {
-    return {
-      doctype: "Verto Mobile Settings",
-      name: "Verto Mobile Settings",
-    };
-  },
-});
+const settings = usePlannerSettings();
 
 const apps = createResource({
   url: "frappe.apps.get_apps",

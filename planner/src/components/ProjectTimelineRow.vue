@@ -368,9 +368,9 @@ watch(
   },
 );
 
-// Fetch when month or external filters change
+// The API returns all matching projects; changing the month only repositions them.
 watch(
-  () => [props.firstOfMonth, props.projectFilters],
+  () => props.projectFilters,
   () => {
     loading.value = true;
     projectList.fetch();
