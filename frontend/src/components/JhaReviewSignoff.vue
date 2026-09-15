@@ -43,6 +43,7 @@ const emit = defineEmits<{
   updated: [value: ReviewState]
 }>()
 
+const PRINT_FORMAT = 'Digital JHA Workpack'
 const loading = ref(false)
 const submittingReview = ref(false)
 const submittingParticipant = ref('')
@@ -70,12 +71,42 @@ const acknowledgedCount = computed(() =>
   presentParticipants.value.filter((row) => Boolean(row.acknowledged)).length
 )
 const remainingCount = computed(() => Math.max(0, presentParticipants.value.length - acknowledgedCount.value))
+const printAllowed = computed(() =>
+  Boolean(props.jha?.name) && String(state.value?.status || props.jha?.status || '') !== 'Review Required - Work Changed'
+)
 
 function formatDateTime(value?: string) {
   if (!value) return ''
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleString()
+}
+
+function getPrintQuery() {
+  const doctype = encodeURIComponent('Digital Job Hazard Analysis')
+  const name = encodeURIComponent(String(props.jha?.name || ''))
+  const format = encodeURIComponent(PRINT_FORMAT)
+  return { doctype, name, format }
+}
+
+function printJha() {
+  if (!printAllowed.value) return
+  const { doctype, name, format } = getPrintQuery()
+  window.open(
+    `/printview?doctype=${doctype}&name=${name}&trigger_print=1&format=${format}&no_letterhead=0`,
+    '_blank',
+    'noopener'
+  )
+}
+
+function downloadJhaPdf() {
+  if (!printAllowed.value) return
+  const { doctype, name, format } = getPrintQuery()
+  window.open(
+    `/api/method/frappe.utils.print_format.download_pdf?doctype=${doctype}&name=${name}&format=${format}&no_letterhead=0`,
+    '_blank',
+    'noopener'
+  )
 }
 
 function mergeAndEmit(next: ReviewState) {
@@ -211,6 +242,46 @@ onMounted(() => {
         </p>
       </div>
       <Badge variant="subtle">{{ state?.status || jha.status }}</Badge>
+    </div>
+
+    <div class="mt-4 rounded-7 border border-outline-gray-1 bg-surface-gray-1 p-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="text-sm-medium text-ink-gray-9">Paper workpack copy</p>
+          <p class="mt-1 text-sm leading-5 text-ink-gray-6">
+            Print the JHA for physical human review and manual crew signatures, or download the same controlled workpack format as a PDF.
+          </p>
+        </div>
+        <Badge variant="subtle">Rev {{ state?.revision || jha.revision || 1 }}</Badge>
+      </div>
+
+      <div class="mt-3 grid grid-cols-2 gap-2">
+        <Button
+          variant="solid"
+          theme="gray"
+          class="w-full justify-center"
+          :disabled="!printAllowed"
+          @click="printJha"
+        >
+          Print JHA
+        </Button>
+        <Button
+          variant="subtle"
+          theme="gray"
+          class="w-full justify-center"
+          :disabled="!printAllowed"
+          @click="downloadJhaPdf"
+        >
+          Download PDF
+        </Button>
+      </div>
+
+      <p v-if="!printAllowed" class="mt-2 text-xs leading-4 text-red-700">
+        The planned work has changed. Reopen and reassess the JHA before printing a new workpack copy.
+      </p>
+      <p v-else class="mt-2 text-xs leading-4 text-ink-gray-5">
+        Manual signatures on the printed copy remain a physical record in the workpack and are not automatically recorded as digital sign-on in ERPNext.
+      </p>
     </div>
 
     <div v-if="loading" class="mt-4 rounded-7 bg-surface-gray-1 p-4 text-sm text-ink-gray-5">
