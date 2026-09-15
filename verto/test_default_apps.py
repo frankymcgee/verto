@@ -4,6 +4,10 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
+from werkzeug.exceptions import HTTPException
+from werkzeug.test import EnvironBuilder
+from werkzeug.wrappers import Request
+
 import frappe
 from frappe import apps as frappe_apps
 from frappe.core.doctype.user.user import User
@@ -47,7 +51,7 @@ class TestDefaultApps(TestCase):
             {"name": "verto", "title": "Verto Mobile", "route": "/verto-mobile"},
         ]
         self.permission = Mock(return_value=True)
-        self.local = SimpleNamespace(flags=SimpleNamespace(home_page=None))
+        self.local = SimpleNamespace(flags=SimpleNamespace(home_page=None), form_dict={})
         self.patch(frappe, "session", SimpleNamespace(user="operator@example.com"))
         self.patch(frappe, "local", self.local)
         self.patch(frappe, "get_installed_apps", Mock(side_effect=lambda: self.installed))
@@ -184,3 +188,69 @@ class TestDefaultApps(TestCase):
         setter = self.patch(frappe_apps, "set_app_as_default", Mock())
         default_apps.set_app_as_default("verto")
         setter.assert_called_once_with("verto")
+
+    def request(self, path, method="GET"):
+        self.local.request = Request(EnvironBuilder(path=path, method=method).get_environ())
+
+    def root_redirect(self, expected):
+        with self.assertRaises(HTTPException) as raised:
+            default_apps.configure_default_apps()
+        response = raised.exception.get_response(self.local.request.environ)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["Location"], expected)
+        self.assertEqual(response.headers["Cache-Control"], "no-store")
+
+    def test_base_url_redirects_to_mobile_instead_of_rendering_at_root(self):
+        self.user_default.return_value = "verto_mobile"
+        for path in ("/", "/index", "/index.html"):
+            with self.subTest(path=path):
+                self.request(path)
+                self.root_redirect("/verto-mobile")
+
+    def test_base_url_redirect_respects_system_default_and_user_override(self):
+        self.system_default.return_value = "verto_mobile"
+        self.request("/")
+        self.root_redirect("/verto-mobile")
+        self.user_default.return_value = "verto"
+        self.root_redirect("/planner")
+
+    def test_base_url_permission_fallback_is_a_redirect(self):
+        # /apps is a legacy redirect to Desk, not a page template in Frappe v16.
+        self.user_default.return_value = "verto_mobile"
+        self.permission.return_value = False
+        self.request("/")
+        self.root_redirect("/apps")
+
+    def test_head_request_gets_same_root_redirect(self):
+        self.user_default.return_value = "verto_mobile"
+        self.request("/", method="HEAD")
+        self.root_redirect("/verto-mobile")
+
+    def test_root_redirect_does_not_interrupt_login_or_other_requests(self):
+        self.user_default.return_value = "verto_mobile"
+        for path, method in (
+            ("/", "POST"),
+            ("/api/method/login", "POST"),
+            ("/login?redirect-to=/", "GET"),
+            ("/verto-mobile/forms", "GET"),
+            ("/desk/user", "GET"),
+            ("/verto-mobile.webmanifest", "GET"),
+            ("/verto-mobile-sw.js", "GET"),
+        ):
+            with self.subTest(path=path, method=method):
+                self.request(path, method)
+                default_apps.configure_default_apps()
+
+        self.request("/")
+        default_apps.configure_default_apps(login_manager=SimpleNamespace())
+        self.local.form_dict["cmd"] = "frappe.auth.get_logged_user"
+        default_apps.configure_default_apps()
+
+    def test_guest_and_other_app_homepages_keep_existing_root_behaviour(self):
+        self.request("/")
+        for value in ("", "erpnext"):
+            self.user_default.return_value = value
+            default_apps.configure_default_apps()
+        frappe.session.user = "Guest"
+        self.system_default.return_value = "verto_mobile"
+        default_apps.configure_default_apps()

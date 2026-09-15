@@ -2,6 +2,9 @@
 
 from functools import wraps
 
+from werkzeug.exceptions import HTTPException
+from werkzeug.utils import redirect
+
 import frappe
 from frappe import _
 from frappe import apps as frappe_apps
@@ -81,7 +84,33 @@ def configure_default_apps(login_manager=None):
     if default_app in ("verto", MOBILE_APP):
         # System-user password login uses get_home_page(), whereas OAuth,
         # password reset and website-user login use get_default_path().
-        frappe.local.flags.home_page = frappe_apps.get_route(default_app)
+        route = frappe_apps.get_route(default_app)
+        frappe.local.flags.home_page = route
+        if login_manager is None:
+            _redirect_root_request(route)
+
+
+def _redirect_root_request(route):
+    """Open the app at its actual URL before Frappe resolves the home page.
+
+    Merely setting home_page renders its template at `/`. That breaks the
+    frontend's base URL and cannot follow redirect-only routes such as /apps.
+    Use a temporary, uncacheable redirect because the default is per user.
+    """
+    request = getattr(frappe.local, "request", None)
+    if (
+        not request
+        or request.method not in ("GET", "HEAD")
+        or request.path not in ("/", "/index", "/index.html")
+        or frappe.local.form_dict.get("cmd")
+    ):
+        return
+
+    response = redirect(route, code=302)
+    response.headers["Cache-Control"] = "no-store"
+    # before_request is outside the website renderer's frappe.Redirect handler.
+    # The WSGI application returns HTTPException.response directly instead.
+    raise HTTPException(response=response)
 
 
 def _install_route_resolver():
