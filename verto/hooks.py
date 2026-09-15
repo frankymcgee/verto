@@ -110,6 +110,7 @@ doc_events = {
     },
     "Task": {
         "before_validate": "verto.api.mobile.task_checklist.sync_task_checklist_progress",
+        "on_update": "verto.safety.doctype.digital_job_hazard_analysis.digital_job_hazard_analysis.mark_linked_jhas_for_work_change",
     },
     "Employee": {
         "before_validate": "verto.api.qualifications.validate_employee_qualifications",
@@ -178,6 +179,8 @@ override_whitelisted_methods = {
     "frappe.apps.set_app_as_default": "verto.default_apps.set_app_as_default",
     "frappe.geo.utils.get_coords": "verto.geo.utils.verto_get_coords",
     "verto.api.mobile.home.get_home_summary": "verto.api.mobile.home_child_tasks.get_home_summary",
+    "verto.api.mobile.voice_jha.get_voice_jha_bootstrap": "verto.api.mobile.voice_jha_phase2.get_voice_jha_bootstrap",
+    "verto.api.mobile.voice_jha.create_voice_jha_draft": "verto.api.mobile.voice_jha_phase2.create_voice_jha_draft",
 }
 
 # Serve site-specific install metadata and the root worker through Frappe.

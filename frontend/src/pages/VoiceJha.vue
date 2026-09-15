@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Badge, Button, Checkbox } from 'frappe-ui'
 
 import { apiRequest } from '../lib/api'
+import JhaReviewSignoff from '../components/JhaReviewSignoff.vue'
 
 type FrappeResponse<T> = { message: T }
 
@@ -28,6 +29,7 @@ type JhaSnapshot = {
   work_steps?: any[]
   hazards_and_controls?: any[]
   participants?: any[]
+  [key: string]: any
 }
 
 type VoiceJhaBootstrap = {
@@ -98,18 +100,29 @@ const workSummary = computed(() => String(route.params.workSummary || ''))
 const workStepCount = computed(() => jha.value?.work_steps?.length || 0)
 const hazardCount = computed(() => jha.value?.hazards_and_controls?.length || 0)
 const participantCount = computed(() => jha.value?.participants?.length || 0)
+const reviewStage = computed(() => [
+  'Ready for Team Review',
+  'Signed',
+  'Review Required - Work Changed',
+].includes(String(jha.value?.status || '')))
 const canConnectVoice = computed(() => Boolean(
   jha.value?.name &&
   context.value?.realtime_enabled &&
   consentConfirmed.value &&
   !connecting.value &&
-  !voiceConnected.value
+  !voiceConnected.value &&
+  !reviewStage.value
 ))
 const voiceConfigSummary = computed(() => {
   const config = context.value?.voice_configuration
   if (!config) return ''
   return [config.realtime_model, config.voice].filter(Boolean).join(' · ')
 })
+
+function handleReviewUpdated(value: Record<string, any>) {
+  if (!jha.value) return
+  jha.value = { ...jha.value, ...value }
+}
 
 async function load() {
   loading.value = true
@@ -347,7 +360,7 @@ function disconnectVoice() {
 }
 
 async function connectVoice() {
-  if (!jha.value?.name || !consentConfirmed.value) return
+  if (!jha.value?.name || !consentConfirmed.value || reviewStage.value) return
   if (!navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === 'undefined') {
     error.value = 'This browser does not support the microphone/WebRTC features required for PERI voice.'
     return
@@ -506,7 +519,12 @@ onBeforeUnmount(() => {
             </div>
           </section>
 
-          <section class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
+          <JhaReviewSignoff
+            :jha="jha"
+            @updated="handleReviewUpdated"
+          />
+
+          <section v-if="!reviewStage" class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
             <div class="flex items-start justify-between gap-3">
               <div><p class="text-base-semibold text-ink-gray-9">Voice discussion</p><p class="mt-1 text-sm text-ink-gray-5">Live structured JHA development with PERI</p></div>
               <Badge variant="subtle">{{ voiceConnected ? (processingToolCalls ? 'Updating draft' : 'Microphone live') : voiceStatus }}</Badge>
