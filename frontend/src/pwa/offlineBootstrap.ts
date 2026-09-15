@@ -5,6 +5,7 @@ import { clearOfflineReadCache } from './offlineSecurity'
 export const OFFLINE_ACTOR_STORAGE_KEY = 'verto:offline-actor'
 
 export type OfflineBootstrapPayload = {
+  contract_version?: number
   generated_at?: string
   user?: string
   schemas?: Record<string, any>
@@ -24,6 +25,7 @@ export type OfflineBootstrapPayload = {
     end_date?: string
   }
   edit_docs?: Record<string, any>
+  edit_schemas?: Record<string, any>
   link_options?: Record<string, Array<{ name: string; description?: string }>>
 }
 
@@ -103,10 +105,18 @@ export async function primeOfflineData() {
   }
 
   const data = await apiRequest<FrappeResponse<OfflineBootstrapPayload>>(
-    '/api/method/verto.api.mobile.offline.get_offline_bootstrap'
+    '/api/method/verto.api.mobile.offline.get_offline_bootstrap?contract_version=2'
   )
 
   const bootstrap = data.message || {}
+  // Validate before modifying caches or the offline actor. Existing editors
+  // still receive the original schema+values response, including offline.
+  const editDocs = Object.entries(bootstrap.edit_docs || {}).map(([key, payload]) => {
+    const schema = payload.schema || bootstrap.edit_schemas?.[payload.schema_key]
+    if (!schema) throw new Error('An offline document is missing its form definition. Please refresh offline data.')
+    const { schema_key: _schemaKey, ...document } = payload
+    return [key, { ...document, schema }] as const
+  })
   const actor = bootstrap.user || bootstrap.shift_calendar?.user || ''
   const previousActor = getOfflineActor()
 
@@ -173,7 +183,7 @@ export async function primeOfflineData() {
     )
   }
 
-  for (const [cacheId, payload] of Object.entries(bootstrap.edit_docs || {})) {
+  for (const [cacheId, payload] of editDocs) {
     const separator = cacheId.indexOf(':')
 
     if (separator <= 0) continue
@@ -204,7 +214,9 @@ export async function primeOfflineData() {
 
   await cacheApiResponse(
     'offline-bootstrap:latest',
-    data,
+    // The service worker only needs the actor here. Each usable dataset has
+    // already been stored above; avoid another copy of the entire download.
+    { message: { user: actor, generated_at: bootstrap.generated_at } },
     'offline-bootstrap'
   )
 

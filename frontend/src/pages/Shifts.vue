@@ -518,35 +518,55 @@ function modifyDailyTimesheet(name: string) {
   })
 }
 
-async function loadCalendar() {
+let calendarPromise: Promise<void> | null = null
+let calendarRevision = 0
+let calendarStopped = false
+
+function loadCalendar() {
+  calendarRevision += 1
   loading.value = true
   error.value = ''
+  if (calendarPromise) return calendarPromise
+  calendarPromise = refreshCalendar().finally(() => {
+    calendarPromise = null
+    if (!calendarStopped) loading.value = false
+  })
+  return calendarPromise
+}
 
-  try {
-    const range = getMonthRange()
-    const params = new URLSearchParams(range)
+async function refreshCalendar() {
+  let revision: number
+  do {
+    revision = calendarRevision
+    try {
+      const range = getMonthRange()
+      const params = new URLSearchParams(range)
 
-    const data = await apiRequest<FrappeResponse<ShiftPayload>>(
-      `/api/method/verto.api.mobile.shifts.get_shift_calendar?${params.toString()}`
-    )
+      const data = await apiRequest<FrappeResponse<ShiftPayload>>(
+        `/api/method/verto.api.mobile.shifts.get_shift_calendar?${params.toString()}`
+      )
 
-    shifts.value = data.message.shifts || []
-    timesheets.value = data.message.timesheets || []
+      // Do not display an old month while a newer month is waiting. Rapid taps
+      // retain one trailing read instead of queuing every intermediate month.
+      if (calendarStopped || revision !== calendarRevision) continue
 
-    const currentMonthPrefix = `${currentYear.value}-${String(currentMonth.value + 1).padStart(2, '0')}`
+      shifts.value = data.message.shifts || []
+      timesheets.value = data.message.timesheets || []
 
-    if (!selectedDate.value.startsWith(currentMonthPrefix)) {
-      selectedDate.value = formatDateString(new Date(currentYear.value, currentMonth.value, 1))
+      const currentMonthPrefix = `${currentYear.value}-${String(currentMonth.value + 1).padStart(2, '0')}`
+
+      if (!selectedDate.value.startsWith(currentMonthPrefix)) {
+        selectedDate.value = formatDateString(new Date(currentYear.value, currentMonth.value, 1))
+      }
+    } catch (err) {
+      if (calendarStopped || revision !== calendarRevision) continue
+      if (err instanceof Error && err.message === 'Login required') {
+        return
+      }
+
+      error.value = err instanceof Error ? err.message : 'Could not load shifts.'
     }
-  } catch (err) {
-    if (err instanceof Error && err.message === 'Login required') {
-      return
-    }
-
-    error.value = err instanceof Error ? err.message : 'Could not load shifts.'
-  } finally {
-    loading.value = false
-  }
+  } while (!calendarStopped && revision !== calendarRevision)
 }
 
 function handleOfflineQueueSynced() {
@@ -559,6 +579,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  calendarStopped = true
   window.removeEventListener('verto:offline-queue-synced', handleOfflineQueueSynced)
 })
 </script>

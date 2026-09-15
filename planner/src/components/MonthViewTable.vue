@@ -154,12 +154,14 @@
                 :draggable="true"
                 @dragstart="
                   (event) => {
+                    isDragging = true;
                     if (event.dataTransfer) {
                       event.dataTransfer.effectAllowed = 'move';
                     }
                   }
                 "
                 @dragend="
+                  isDragging = false;
                   if (!loading)
                     dropCell = { employee: '', date: '', shift: '' };
                 "
@@ -252,14 +254,15 @@
     :selectedCell="{ employee: hoveredCell.employee, date: hoveredCell.date }"
     :employees="employees"
     @fetchEvents="
-      events.fetch();
+      void events.fetch().catch(() => {});
       showShiftAssignmentDialog = false;
     "
   />
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { coalesceResource } from "../utils/coalesceResource";
+import { ref, computed, watch, onBeforeUnmount } from "vue";
 import colors from "tailwindcss/colors";
 import { Avatar, MultiSelect, Icon, createResource } from "frappe-ui";
 import { Dayjs } from "dayjs";
@@ -357,6 +360,7 @@ const props = defineProps<{
 }>();
 
 const loading = ref(true);
+const isDragging = ref(false);
 const employeeSearch = ref<string[]>([]);
 const shiftAssignment = ref<string>();
 const showShiftAssignmentDialog = ref(false);
@@ -395,7 +399,7 @@ watch(
   () => [props.firstOfMonth, props.employeeFilters, props.shiftFilters],
   () => {
     loading.value = true;
-    events.fetch();
+    void events.fetch().catch(() => {});
   },
   { deep: true },
 );
@@ -419,9 +423,9 @@ const hasSameShift = (employee: string, day: string) =>
 
 // RESOURCES
 
-const events = createResource({
+const events = coalesceResource(createResource({
   url: "verto.api.planner.get_events",
-  auto: true,
+  auto: false,
   makeParams() {
     return {
       month_start: props.firstOfMonth.format("YYYY-MM-DD"),
@@ -434,6 +438,7 @@ const events = createResource({
     loading.value = false;
   },
   onError(error: { messages: string[] }) {
+    loading.value = false;
     raiseToast("error", error.messages[0]);
   },
   transform: (data: Events) => {
@@ -443,8 +448,12 @@ const events = createResource({
     }
     return mappedEvents;
   },
-});
-defineExpose({ events });
+}));
+void events.fetch().catch(() => {}); // onError already reports a failed dataset.
+onBeforeUnmount(() => events.disposeRefresh());
+
+const liveBusy = computed(() => isDragging.value || swapShift.loading);
+defineExpose({ events, liveBusy });
 
 const swapShift = createResource({
   url: "verto.api.planner.swap_shift",
@@ -462,7 +471,7 @@ const swapShift = createResource({
       "success",
       `Shift ${dropCell.value.shift ? "swapped" : "moved"} successfully!`,
     );
-    events.fetch();
+    void events.fetch().catch(() => {});
   },
   onError(error: { messages: string[] }) {
     loading.value = false;

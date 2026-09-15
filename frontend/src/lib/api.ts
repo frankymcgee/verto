@@ -11,6 +11,7 @@ import {
 import { clearOfflineReadCache } from '../pwa/offlineSecurity'
 import { withCsrfHeaders } from './csrf'
 import { reportClientError } from './diagnostics'
+import { coordinateApiRead } from './requestCoordinator'
 
 const OFFLINE_ACTOR_STORAGE_KEY = 'verto:offline-actor'
 let offlineActorVerified = false
@@ -162,8 +163,8 @@ async function ensureOfflineActorForWrite() {
         message: extractErrorMessage(data, `Request failed with status ${response.status}`),
         source: 'apiRequest',
         details: {
-          method,
-          endpoint: new URL(url, window.location.origin).pathname,
+          method: 'GET',
+          endpoint: '/api/method/frappe.auth.get_logged_user',
           status: response.status,
           status_text: response.statusText,
           server_response: rawText,
@@ -232,6 +233,10 @@ async function makeCacheKey(url: string, options: RequestInit) {
 
 function isCacheableRead(url: string, options: RequestInit) {
   const method = getMethod(options)
+
+  // primeOfflineData stores each dataset explicitly. Caching the aggregate as
+  // well duplicates large form/timesheet payloads and is never used as a read.
+  if (new URL(url, window.location.origin).pathname === '/api/method/verto.api.mobile.offline.get_offline_bootstrap') return false
 
   if (method === 'GET') {
     return url.includes('/api/method/verto.api.mobile.') ||
@@ -539,7 +544,11 @@ export function redirectToLogin() {
   window.location.href = getLoginUrl()
 }
 
-export async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<T> {
+export function apiRequest<T>(url: string, options: RequestInit = {}): Promise<T> {
+  return coordinateApiRead(url, options, () => performApiRequest<T>(url, options))
+}
+
+async function performApiRequest<T>(url: string, options: RequestInit): Promise<T> {
   const cacheableRead = isCacheableRead(url, options)
   const cacheKey = cacheableRead ? await makeCacheKey(url, options) : ''
   const method = getMethod(options)

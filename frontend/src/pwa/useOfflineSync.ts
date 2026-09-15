@@ -29,6 +29,7 @@ let autoSyncTimer: number | undefined
 let primeTimer: number | undefined
 let readyConfirmationTimer: number | undefined
 let watcherCount = 0
+let syncPromise: Promise<void> | null = null
 
 function readLastOfflineRefreshAt() {
   if (typeof window === 'undefined') return ''
@@ -102,11 +103,13 @@ async function primeNow(options: { showConfirmation?: boolean } = {}) {
   }
 }
 
-async function syncNow() {
-  if (isSyncing.value) {
-    return
-  }
+function syncNow(options: { refreshOffline?: boolean } = {}) {
+  if (syncPromise) return syncPromise
+  syncPromise = performSync(options).finally(() => { syncPromise = null })
+  return syncPromise
+}
 
+async function performSync(options: { refreshOffline?: boolean }) {
   isSyncing.value = true
   lastSyncMessage.value = ''
 
@@ -119,7 +122,7 @@ async function syncNow() {
       lastSyncMessage.value = `${result.synced} synced, ${result.failed} failed.`
     } else if (result.synced > 0) {
       lastSyncMessage.value = `${result.synced} queued item${result.synced === 1 ? '' : 's'} synced.`
-      await primeNow()
+      if (options.refreshOffline !== false) await primeNow()
     } else {
       lastSyncMessage.value = 'Everything is up to date.'
     }
@@ -134,8 +137,8 @@ async function syncNow() {
 async function handleOnline() {
   isOnline.value = true
   lastSyncMessage.value = 'Connection restored. Syncing offline work...'
+  await syncNow({ refreshOffline: false })
   await primeNow()
-  await syncNow()
 }
 
 function handleOffline() {
@@ -159,11 +162,10 @@ async function initialiseOfflineSync() {
 
   if (!isOnline.value) return
 
-  await primeNow()
-
   if (summary.value.total > 0) {
-    await syncNow()
+    await syncNow({ refreshOffline: false })
   }
+  await primeNow()
 }
 
 function startOfflineSyncWatcher() {
@@ -193,7 +195,7 @@ function startOfflineSyncWatcher() {
   }, 30000)
 
   primeTimer = window.setInterval(() => {
-    if (navigator.onLine) {
+    if (navigator.onLine && document.visibilityState === 'visible' && !isSyncing.value) {
       void primeNow({ showConfirmation: false })
     }
   }, 15 * 60 * 1000)

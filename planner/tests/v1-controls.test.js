@@ -13,7 +13,7 @@ afterEach(()=>{wrapper?.unmount();dialogs?.unmount();document.body.innerHTML=''}
 describe('Frappe UI v1 integration',()=>{
   it('emits scalar filter values and date tuples while retaining period navigation',async()=>{
     setConfig('resourceFetcher',async({url})=>{
-      if(url.endsWith('get_default_company'))return 'MSS'
+      if(url.endsWith('get_bootstrap'))return {default_company:'MSS',references:{company:[{name:'MSS'},{name:'DG'}]}}
       return [{name:'MSS'},{name:'DG'}]
     })
     wrapper=mount(Header,{attachTo:document.body,props:{firstOfMonth:dayjs('2026-09-01'),viewMode:'year'}})

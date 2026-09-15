@@ -11,6 +11,16 @@
         <span class="text-3xl-semibold text-gray-500 mr-2">Roster:</span>
         <span class="text-3xl-semibold">{{ activeViewLabel }}</span>
 
+        <button
+          type="button"
+          class="ml-3 flex items-center gap-1.5 rounded-full border border-gray-200 px-2.5 py-1 text-xs text-gray-600"
+          :title="lastUpdated ? `Last updated ${lastUpdated.toLocaleTimeString()}. Click to refresh.` : 'Click to refresh planner data'"
+          @click="refreshLive"
+        >
+          <span class="h-2 w-2 rounded-full" :class="liveStatus === 'Live' ? 'bg-green-500' : 'bg-amber-500'" />
+          {{ liveRefreshing ? 'Updating…' : liveStatus }}
+        </button>
+
         <TabButtons
           class="ml-6"
           :model-value="viewMode"
@@ -92,11 +102,12 @@
 
     <!-- Projects timeline (collapsible) - month view only -->
     <div
-      v-show="plannerViewReady && viewMode === 'month'"
+      v-if="plannerViewReady && isCompanySelected && viewMode === 'month'"
       ref="timelineRef"
       class="px-6 pb-4"
     >
       <ProjectTimelineRow
+        ref="projectTimeline"
         v-model:collapsed="projectsCollapsed"
         :firstOfMonth="firstOfMonth"
         :projectFilters="projectFilters"
@@ -181,6 +192,10 @@
 </template>
 
 <script setup lang="ts">
+import { usePlannerSettings } from "../utils/settings";
+import { usePlannerBootstrap } from "../utils/bootstrap";
+import { usePlannerRealtime } from "../composables/usePlannerRealtime";
+import { coalesceResource } from "../utils/coalesceResource";
 import {
   ref,
   reactive,
@@ -224,6 +239,7 @@ const shellRef = ref<HTMLElement | null>(null);
 const tableAreaRef = ref<HTMLElement | null>(null);
 const monthViewTable = ref<InstanceType<typeof MonthViewTable>>();
 const yearViewTable = ref<InstanceType<typeof YearViewTable>>();
+const projectTimeline = ref<InstanceType<typeof ProjectTimelineRow>>();
 const isCompanySelected = ref(false);
 const showProjectDialog = ref(false);
 const showLeaveApplicationDialog = ref(false);
@@ -355,8 +371,8 @@ async function applyPlannerDefaultView(value: unknown) {
 
 function fetchActiveEvents() {
   if (!plannerViewReady.value) return;
-  if (viewMode.value === "month") monthViewTable.value?.events.fetch();
-  else yearViewTable.value?.events.fetch();
+  if (viewMode.value === "month") void monthViewTable.value?.events.fetch().catch(() => {});
+  else void yearViewTable.value?.events.fetch().catch(() => {});
 }
 
 function addToMonth(change: number) {
@@ -369,7 +385,6 @@ function addToMonth(change: number) {
 
 function updateFilters(newFilters: EmployeeFilters & ShiftFilters) {
   isCompanySelected.value = !!newFilters.company;
-  if (!isCompanySelected.value) return;
 
   let employeeUpdated = false;
   (
@@ -383,13 +398,17 @@ function updateFilters(newFilters: EmployeeFilters & ShiftFilters) {
       else delete shiftFilters[key as keyof ShiftFilters];
       return;
     }
-    if (value) employeeFilters[key as keyof EmployeeFilters] = value;
-    else delete employeeFilters[key as keyof EmployeeFilters];
-    employeeUpdated = true;
+    if ((employeeFilters[key as keyof EmployeeFilters] || "") !== (value || "")) {
+      if (value) employeeFilters[key as keyof EmployeeFilters] = value;
+      else delete employeeFilters[key as keyof EmployeeFilters];
+      employeeUpdated = true;
+    }
   });
 
-  if (employeeUpdated) employees.fetch();
-  fetchAvailability();
+  if (employeeUpdated && isCompanySelected.value) {
+    void employees.fetch().catch(() => {});
+    void fetchAvailability()?.catch(() => {});
+  }
 }
 
 // Calculate the height available to the employee table area from its actual
@@ -426,14 +445,19 @@ function observeHeights() {
     });
     roFilters.observe(filtersRef.value);
   }
-  if (timelineRef.value) {
-    roTimeline = new ResizeObserver(() => {
-      timelineHeight.value = timelineRef.value!.getBoundingClientRect().height;
-      window.requestAnimationFrame(updateTableAreaTop);
-    });
-    roTimeline.observe(timelineRef.value);
-  }
 }
+
+// The month timeline now mounts only when visible, including after an annual
+// view switch. Attach its size observer when that element becomes available.
+watch(timelineRef, (element) => {
+  roTimeline?.disconnect();
+  if (!element) return;
+  roTimeline = new ResizeObserver(() => {
+    timelineHeight.value = element.getBoundingClientRect().height;
+    window.requestAnimationFrame(updateTableAreaTop);
+  });
+  roTimeline.observe(element);
+}, { flush: 'post' });
 
 function unobserveHeights() {
   roToolbar?.disconnect();
@@ -504,24 +528,19 @@ watch(
   },
 );
 
-const plannerSettings = createResource({
-  url: "frappe.client.get",
-  auto: true,
-  makeParams() {
-    return {
-      doctype: "Verto Mobile Settings",
-      name: "Verto Mobile Settings",
-    };
+const plannerSettings = usePlannerSettings();
+const bootstrap = usePlannerBootstrap();
+watch(
+  () => [plannerSettings.fetched, plannerSettings.error],
+  () => {
+    if (plannerSettings.fetched || plannerSettings.error) {
+      applyPlannerDefaultView(plannerSettings.data?.planner_view_default || "Month");
+    }
   },
-  onSuccess(data: { planner_view_default?: string } | undefined) {
-    applyPlannerDefaultView(data?.planner_view_default);
-  },
-  onError() {
-    applyPlannerDefaultView("Month");
-  },
-});
+  { immediate: true },
+);
 
-const employees = createListResource({
+const employees = coalesceResource(createListResource({
   doctype: "Employee",
   fields: [
     "name",
@@ -534,13 +553,10 @@ const employees = createListResource({
   ],
   filters: employeeFilters,
   pageLength: 99999,
-  onSuccess() {
-    fetchAvailability();
-  },
   onError(error: { messages: string[] }) {
     raiseToast("error", error.messages[0]);
   },
-});
+}));
 
 const availableNameSet = ref<Set<string>>(new Set());
 const availableEmployees = computed(() => {
@@ -557,7 +573,7 @@ function cleaned<T extends Record<string, any>>(obj: T): Partial<T> {
   return raw;
 }
 
-const availability = createResource({
+const availability = coalesceResource(createResource({
   url: "verto.api.planner.get_available_employees",
   auto: false,
   makeParams() {
@@ -578,14 +594,16 @@ const availability = createResource({
     );
     availableNameSet.value = new Set();
   },
-});
+}));
+
+onBeforeUnmount(() => { employees.disposeRefresh(); availability.disposeRefresh(); });
 
 function fetchAvailability() {
   if (!isCompanySelected.value || !dateRange.from || !dateRange.to) {
     availableNameSet.value = new Set(); // show base list
     return;
   }
-  availability.fetch();
+  return availability.fetch();
 }
 
 function onUpdateDateRange(
@@ -599,7 +617,7 @@ function onUpdateDateRange(
     dateRange.from = payload.from;
     dateRange.to = payload.to;
   }
-  fetchAvailability();
+  void fetchAvailability()?.catch(() => {});
 }
 
 watch(
@@ -614,4 +632,34 @@ watch(
 function onUpdateProjectShiftsFilled(value: 0 | 1) {
   projectFilters.shifts_filled = value; // 0 = unfilled (default), 1 = filled
 }
+
+const activeTable = computed(() => viewMode.value === 'month' ? monthViewTable.value : yearViewTable.value);
+const { status: liveStatus, refreshing: liveRefreshing, lastUpdated, refresh: refreshLive } = usePlannerRealtime({
+  ready: () => Boolean(plannerViewReady.value && !employees.list.loading && !availability.loading
+    && !plannerSettings.loading && !activeTable.value?.events.loading && !activeTable.value?.liveBusy),
+  async refresh(scopes) {
+    const check = (resource: any) => { const error = (resource?.list ?? resource)?.error; if (error) throw error; };
+    const refreshes: Promise<any>[] = [];
+    const load = (resource: any) => resource.fetch().then(() => check(resource));
+    const sections = (['settings', 'references', 'projects'] as const).filter(scope => scopes.has(scope));
+    if (sections.length) refreshes.push(bootstrap.fetch({ sections }).then(() => check(bootstrap)));
+    if (scopes.has('employees') && isCompanySelected.value) refreshes.push(load(employees));
+    if (isCompanySelected.value && dateRange.from && dateRange.to &&
+      (scopes.has('roster') || scopes.has('employees') || scopes.has('settings'))) {
+      refreshes.push(load(availability));
+    }
+    if (scopes.has('projects') && projectTimeline.value) refreshes.push(projectTimeline.value.refreshLive());
+    // The annual response includes projects, hours and roster data together.
+    const table = activeTable.value;
+    if (table && isCompanySelected.value) {
+      refreshes.push(load(table.events));
+    }
+    // Start independent reads together so the transport sends a single batch.
+    // Wait for every read even when one fails, preserving live queue ordering.
+    const results = await Promise.allSettled(refreshes);
+    const failed = results.find(result => result.status === 'rejected');
+    if (failed?.status === 'rejected') throw failed.reason;
+    if (table && isCompanySelected.value && viewMode.value === 'year') await yearViewTable.value?.refreshLiveProjectDetails();
+  },
+});
 </script>

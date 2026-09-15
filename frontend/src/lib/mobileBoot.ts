@@ -31,6 +31,13 @@ export type MobileBoot = {
   user_fullname: string
   user_image: string
   user_image_url: string
+  navigation_access?: { has_employee_profile?: boolean }
+  pwa_metadata?: {
+    app_name?: string; short_name?: string; description?: string
+    manifest_url?: string; apple_touch_icon?: string; icon?: string
+    theme_color?: string; background_color?: string
+  }
+  push_config?: { configured: boolean; public_key: string }
 }
 
 type FrappeResponse<T> = {
@@ -90,7 +97,7 @@ async function loadMobileBoot(force = false) {
     return boot.value
   }
 
-  if (loadingPromise && !force) {
+  if (loadingPromise) {
     return loadingPromise
   }
 

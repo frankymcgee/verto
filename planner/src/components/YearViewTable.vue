@@ -551,19 +551,21 @@
   />
 
   <ProjectSpanDialog
+    ref="projectSpanDialog"
     v-model="showProjectSpanDialog"
     :isDialogOpen="showProjectSpanDialog"
     :project="selectedProjectSpan"
     :suspended="showShiftAssignmentDialog && !!projectShiftDefaults"
     @assignShifts="openProjectShiftAssignment"
     @fetchEvents="
-      events.fetch();
+      void events.fetch().catch(() => {});
       showProjectSpanDialog = false;
     "
   />
 </template>
 
 <script setup lang="ts">
+import { coalesceResource } from "../utils/coalesceResource";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import colors from 'tailwindcss/colors'
 import { MultiSelect, createResource, Icon } from 'frappe-ui'
@@ -726,6 +728,7 @@ type ProjectDayCell = {
 }
 
 type ProjectRow = {
+  modified?: string
   project: string
   project_name: string
   status?: string
@@ -787,6 +790,7 @@ const showShiftAssignmentDialog = ref(false)
 const projectShiftDefaults = ref<ProjectShiftAssignmentDefaults | null>(null)
 const showProjectSpanDialog = ref(false)
 const selectedProjectSpan = ref<ProjectRow | null>(null)
+const projectSpanDialog = ref<InstanceType<typeof ProjectSpanDialog>>()
 const selectedCell = ref<{ employee: string; date: string }>({ employee: '', date: '' })
 
 watch(showShiftAssignmentDialog, (open) => {
@@ -878,6 +882,7 @@ const isResizingTables = ref(false)
 type ProjectSpanDragMode = 'move' | 'resize-start' | 'resize-end'
 
 type ProjectSpanDateUpdateParams = {
+  expected_modified?: string
   project: string
   project_start_date: string
   project_end_date: string
@@ -2786,6 +2791,7 @@ function stopProjectSpanDrag() {
 
   pendingProjectDateUpdate.value = {
     project: project.project,
+    expected_modified: project.modified || undefined,
     project_start_date: preview.start,
     project_end_date: preview.end,
   }
@@ -3276,17 +3282,17 @@ function scrollToToday() {
 }
 
 watch(
-  () => [props.firstOfMonth, props.employeeFilters, props.shiftFilters],
+  () => [props.firstOfMonth.year(), props.employeeFilters, props.shiftFilters],
   () => {
     loading.value = true
-    events.fetch()
+    void events.fetch().catch(() => {})
   },
   { deep: true },
 )
 
-const events = createResource({
+const events = coalesceResource(createResource({
   url: 'verto.api.planner.get_year_events',
-  auto: true,
+  auto: false,
   makeParams() {
     return {
       year: props.firstOfMonth.year(),
@@ -3318,7 +3324,10 @@ const events = createResource({
     loading.value = false
     raiseToast('error', error?.messages?.[0] || error?.message || 'Failed to fetch annual roster')
   },
-})
+}))
+
+void events.fetch().catch(() => {}); // onError already reports a failed dataset.
+onBeforeUnmount(() => events.disposeRefresh());
 
 const bulkMoveOrSwapShifts = createResource({
   url: 'verto.api.planner.bulk_move_or_swap_shifts',
@@ -3337,7 +3346,7 @@ const bulkMoveOrSwapShifts = createResource({
     pendingBulkShiftWillSwap.value = false
     clearSelectedShiftCells()
     clearDragState()
-    events.fetch()
+    void events.fetch().catch(() => {})
   },
   onError(error: { messages?: string[]; message?: string }) {
     loading.value = false
@@ -3361,7 +3370,7 @@ const updateProjectSpanDates = createResource({
   onSuccess() {
     raiseToast('success', 'Project dates updated successfully!')
     pendingProjectDateUpdate.value = null
-    events.fetch()
+    void events.fetch().catch(() => {})
   },
   onError(error: { messages?: string[]; message?: string }) {
     loading.value = false
@@ -3370,7 +3379,12 @@ const updateProjectSpanDates = createResource({
   },
 })
 
-defineExpose({ events, scrollToToday })
+const liveBusy = computed(() => Boolean(draggedShift.value || projectSpanDrag.value || isDroppingShift.value
+  || bulkMoveOrSwapShifts.loading || updateProjectSpanDates.loading || projectSpanDialog.value?.liveBusy))
+async function refreshLiveProjectDetails() {
+  if (showProjectSpanDialog.value) await projectSpanDialog.value?.refreshLive()
+}
+defineExpose({ events, scrollToToday, liveBusy, refreshLiveProjectDetails })
 </script>
 
 <style scoped>

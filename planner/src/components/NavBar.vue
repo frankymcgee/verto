@@ -85,6 +85,7 @@
 </template>
 
 <script setup lang="ts">
+import { usePlannerSettings } from "../utils/settings";
 import { computed } from "vue";
 import { Icon, Dropdown, Avatar, createResource } from "frappe-ui";
 
@@ -110,25 +111,7 @@ function reloadPlanner() {
   window.location.reload();
 }
 
-const settings = createResource({
-  url: "frappe.client.get",
-  cache: "verto-mobile-settings",
-  auto: true,
-  makeParams() {
-    return {
-      doctype: "Verto Mobile Settings",
-      name: "Verto Mobile Settings",
-    };
-  },
-  onError(error: { messages?: string[]; message?: string }) {
-    raiseToast(
-      "error",
-      error.messages?.[0] ||
-        error.message ||
-        "Unable to load Verto Mobile Settings",
-    );
-  },
-});
+const settings = usePlannerSettings();
 
 const vertoSettings = computed<VertoMobileSettings>(() => {
   return (settings.data || {}) as VertoMobileSettings;

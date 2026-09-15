@@ -135,6 +135,18 @@ doc_events = {
     },
 }
 
+# Merge with existing document hooks so live updates also include Desk, mobile,
+# imports and background jobs. on_change includes Document.db_set operations.
+from verto.api.planner_realtime import DOCTYPE_SCOPES as _planner_doctype_scopes
+
+for _doctype in _planner_doctype_scopes:
+    _events = doc_events.setdefault(_doctype, {})
+    for _event in ("after_insert", "on_update", "on_submit", "on_cancel", "on_update_after_submit", "on_change", "after_delete", "after_rename"):
+        _existing = _events.get(_event, [])
+        if isinstance(_existing, str):
+            _existing = [_existing]
+        _events[_event] = [*_existing, "verto.api.planner_realtime.document_changed"]
+
 # Scheduled tasks
 # ---------------
 scheduler_events = {

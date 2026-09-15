@@ -390,6 +390,7 @@ import Dialog from "./PlannerDialog.vue";
 import { Dropdown } from "frappe-ui";
 import { Combobox, Select } from "frappe-ui";
 import { reactive, ref, computed, watch } from "vue";
+import { usePlannerBootstrap } from "../utils/bootstrap";
 import {
   FormControl,
   Button,
@@ -838,26 +839,12 @@ const shiftSchedule = createResource({
   },
 });
 
-const shiftTypes = createListResource({
-  doctype: "Shift Type",
-  fields: ["name"],
-  orderBy: "name asc",
-  pageLength: 1000,
-  auto: true,
-  transform: (rows: { name: string }[]) => rows.map((r) => r.name),
-});
-
-const shiftLocations = createListResource({
-  doctype: "Shift Location",
-  fields: ["name"],
-  orderBy: "name asc",
-  pageLength: 1000,
-  auto: true,
-  transform: (rows: { name: string }[]) => rows.map((r) => r.name),
-});
+const bootstrap = usePlannerBootstrap();
+const shiftTypes = computed(() => ({ data: (bootstrap.data?.references?.shift_type || []).map((row: { name: string }) => row.name) }));
+const shiftLocations = computed(() => ({ data: (bootstrap.data?.references?.shift_location || []).map((row: { name: string }) => row.name) }));
 
 const shiftLocationOptions = computed(() => {
-  const locations: string[] = shiftLocations.data || [];
+  const locations: string[] = shiftLocations.value.data;
   const selected = getId(form.shift_location);
   return selected && !locations.includes(selected)
     ? [selected, ...locations]
@@ -865,16 +852,8 @@ const shiftLocationOptions = computed(() => {
 });
 
 // Projects: Open only, show more than 20
-const projects = createListResource({
-  doctype: "Project",
-  fields: ["name", "project_name"],
-  filters: [["status", "=", "Open"]],
-  orderBy: "project_name asc",
-  pageLength: 200, // ask for more than default
-  auto: true,
-});
 const projectOptions = computed(() => {
-  const options = (projects.data || []).map((p: any) => ({
+  const options = (bootstrap.data?.projects || []).map((p: any) => ({
     label: p.project_name || p.name,
     value: p.name, // send ID
   }));

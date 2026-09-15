@@ -99,9 +99,9 @@ const handleQueryUpdate = debounce((newQuery) => {
 }, 300);
 
 watch(
-  () => [props.doctype, props.filters],
+  () => [props.doctype, props.filters, props.disabled],
   () => {
-    if (!props.doctype) return;
+    if (!props.doctype || props.disabled) return;
     searchText.value = "";
     reloadOptions("");
   },

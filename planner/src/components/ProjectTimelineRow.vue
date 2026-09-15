@@ -179,6 +179,7 @@
 </template>
 
 <script setup lang="ts">
+import { coalesceResource } from "../utils/coalesceResource";
 import { computed, ref, watch, onMounted, onBeforeUnmount } from "vue";
 import { Icon, FormControl, Popover, createListResource } from "frappe-ui";
 import { Dayjs } from "dayjs";
@@ -304,7 +305,7 @@ const daysOfMonth = computed(() => {
  * We use a NOT-EQUAL filter for status != Completed, plus any extra filters from props.projectFilters.
  * We pull more than the default 20 via page_length.
  */
-const projectList = createListResource({
+const projectList = coalesceResource(createListResource({
   doctype: "Project",
   fields: [
     "name",
@@ -347,12 +348,20 @@ const projectList = createListResource({
     loading.value = false;
     raiseToast("error", error.messages[0]);
   },
-});
+}));
+
+onBeforeUnmount(() => projectList.disposeRefresh());
 
 // Refetch when the toggle changes
+async function refreshLive() {
+  await projectList.fetch();
+  if (projectList.list.error) throw projectList.list.error;
+}
+defineExpose({ refreshLive });
+
 watch(showAllProjects, () => {
   loading.value = true;
-  projectList.fetch();
+  void projectList.fetch().catch(() => {}); // Resource onError displays the failure.
 });
 
 watch(
@@ -368,12 +377,12 @@ watch(
   },
 );
 
-// Fetch when month or external filters change
+// The API returns all matching projects; changing the month only repositions them.
 watch(
-  () => [props.firstOfMonth, props.projectFilters],
+  () => props.projectFilters,
   () => {
     loading.value = true;
-    projectList.fetch();
+    void projectList.fetch().catch(() => {});
   },
   { deep: true, immediate: true }, // immediate to load on mount
 );

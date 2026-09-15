@@ -51,7 +51,7 @@ class TestPlannerProjectTasks(TestCase):
 		doc = SimpleNamespace(
 			name="PROJ-1", project_name="Test project", status="Open",
 			get=values.get, meta=SimpleNamespace(has_field=lambda field: field in values),
-			set=Mock(), save=Mock(),
+			set=Mock(), save=Mock(), check_permission=Mock(),
 		)
 		self.enterContext(patch.object(planner.frappe, "get_doc", return_value=doc))
 		self.enterContext(patch.object(planner.frappe, "has_permission", return_value=True))
@@ -104,6 +104,20 @@ class TestPlannerProjectTasks(TestCase):
 		self.assertTrue(details["execution_tasks"][0]["can_assign"])
 		self.assertTrue(details["can_create_generic_tasks"])
 		self.assertTrue(details["can_update_project_dates"])
+
+	def test_project_update_rejects_stale_collaborator_revision(self):
+		for endpoint in (planner.update_project_planner_dates, planner.update_project_planner_details):
+			doc = self.project_fixture()
+			doc.get = {"modified": "2026-09-15 12:00:00.000002"}.get
+			with self.assertRaisesRegex(frappe.ValidationError, "changed by another user"):
+				endpoint("PROJ-1", project_start_date="2026-09-01", project_end_date="2026-09-30", expected_modified="2026-09-15 12:00:00.000001")
+			doc.save.assert_not_called()
+
+	def test_project_revision_allows_current_token_and_legacy_callers(self):
+		doc = self.project_fixture()
+		doc.get = {"modified": "2026-09-15 12:00:00.000002"}.get
+		planner._check_project_revision(doc, "2026-09-15 12:00:00.000002")
+		planner._check_project_revision(doc, None)
 
 	def test_project_without_tasks_keeps_creation_and_date_controls(self):
 		self.project_fixture()

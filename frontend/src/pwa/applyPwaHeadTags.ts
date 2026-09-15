@@ -1,6 +1,7 @@
 // VERTO_PWA_SETTINGS_METADATA_HEAD_TAGS_2026_06_11
 
 import type { Router } from 'vue-router'
+import { useMobileBoot } from '../lib/mobileBoot'
 
 type FrappeResponse<T> = {
   message: T
@@ -104,6 +105,12 @@ function replacePwaLinks() {
     manifest.setAttribute('href', manifestUrl)
   }
   manifest.setAttribute('type', 'application/manifest+json')
+  // Reapplying titles on navigation must not remove/reinsert unchanged icons.
+  const existingApple = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"][sizes="180x180"]')
+  const existingIcon = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+  const existingMask = document.querySelector<HTMLLinkElement>('link[rel="mask-icon"]')
+  if (existingApple?.getAttribute('href') === appleIcon && existingIcon?.getAttribute('href') === icon
+    && existingMask?.getAttribute('color') === (currentMetadata.theme_color || '#171717')) return
   removeLinks('link[rel="apple-touch-icon"]')
   removeLinks('link[rel="apple-touch-icon-precomposed"]')
   removeLinks('link[rel="icon"]')
@@ -197,19 +204,16 @@ function installRouterTitleEnforcer(router?: Router) {
 
 async function loadPwaMetadataFromSettings() {
   try {
-    const response = await fetch('/api/method/verto.api.mobile.pwa_manifest.get_pwa_metadata', {
-      credentials: 'include',
-      headers: {
-        Accept: 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
+    const boot = await useMobileBoot().loadMobileBoot()
+    let message = boot.pwa_metadata
+    if (!message) {
+      // Support a cached/older boot response during a rolling PWA update.
+      const response = await fetch('/api/method/verto.api.mobile.pwa_manifest.get_pwa_metadata', {
+        credentials: 'include', headers: { Accept: 'application/json' },
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      message = ((await response.json()) as FrappeResponse<PwaMetadata>).message || {}
     }
-
-    const data = await response.json() as FrappeResponse<PwaMetadata>
-    const message = data.message || {}
 
     currentMetadata = {
       app_name: String(message.app_name || FALLBACK_TITLE),
@@ -249,7 +253,6 @@ export function applyVertoPwaHeadTags(router?: Router) {
   window.setTimeout(() => {
     applyStaticPwaTags()
     forcePwaTitle()
-    loadPwaMetadataFromSettings()
   }, 1000)
 
   window.setTimeout(() => {

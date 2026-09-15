@@ -14,13 +14,17 @@
     <div class="max-h-[calc(100vh-13rem)] overflow-y-auto px-6 py-5">
       <div class="space-y-6">
         <div
-          v-if="projectDetails.loading"
+          v-if="projectDetails.loading && !liveDetailRefresh"
           class="rounded-6 border border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-600"
         >
           Loading project details...
         </div>
 
         <template v-else>
+          <div v-if="remoteChangePending" class="rounded-6 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
+            This project changed elsewhere. Your unsaved edits have been kept. Reload the latest details before saving.
+            <Button class="mt-2" size="sm" @click="reloadLatestDetails">Discard my edits and reload</Button>
+          </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormControl
               type="text"
@@ -551,6 +555,7 @@
               projectDetails.loading ||
               updateProject.loading ||
               createGenericTasks.loading ||
+              remoteChangePending ||
               !form.project
             "
             :loading="updateProject.loading"
@@ -729,6 +734,7 @@ type ProjectDialogRow = {
 
 type ProjectDetails = {
   project: string;
+  modified?: string;
   project_name?: string;
   customer?: string | null;
   custom_project_location?: string | null;
@@ -816,6 +822,38 @@ const isOpen = computed({
   get: () => props.modelValue ?? props.isDialogOpen,
   set: (value: boolean) => emit("update:modelValue", value),
 });
+
+const expectedModified = ref('');
+const remoteChangePending = ref(false);
+const liveDetailRefresh = ref(false);
+let projectEditBaseline = '';
+
+function projectEdits() {
+  return {
+    po_number: form.po_number, po_entered: form.po_entered,
+    ds_requested: form.ds_requested, ns_requested: form.ns_requested,
+    is_active: form.is_active, project_start_date: form.project_start_date,
+    project_end_date: form.project_end_date, project_notes: form.project_notes,
+  };
+}
+
+async function refreshLive() {
+  if (!props.isDialogOpen || props.suspended || projectDetails.loading || updateProject.loading
+    || createGenericTasks.loading || updateExecutionTaskAssignments.loading) return;
+  liveDetailRefresh.value = true;
+  try {
+    await projectDetails.fetch();
+    if (projectDetails.error) throw projectDetails.error;
+  } finally { liveDetailRefresh.value = false; }
+}
+
+function reloadLatestDetails() {
+  projectEditBaseline = '';
+  return projectDetails.fetch();
+}
+const liveBusy = computed(() => props.isDialogOpen && (props.suspended || projectDetails.loading
+  || updateProject.loading || createGenericTasks.loading || updateExecutionTaskAssignments.loading));
+defineExpose({ refreshLive, liveBusy });
 
 type GenericLocationRow = {
   key: number;
@@ -1134,6 +1172,9 @@ function intValue(value: unknown) {
 }
 
 function resetForm() {
+  expectedModified.value = '';
+  remoteChangePending.value = false;
+  projectEditBaseline = '';
   closeTaskAssignmentModal();
   form.project = "";
   form.project_name = "";
@@ -1212,6 +1253,9 @@ function applyDetails(data: ProjectDetails | undefined) {
   form.can_update_is_active = Boolean(data.can_update_is_active);
   form.can_update_project_dates = Boolean(data.can_update_project_dates);
   form.can_update_notes = Boolean(data.can_update_notes);
+  expectedModified.value = data.modified || '';
+  remoteChangePending.value = false;
+  projectEditBaseline = JSON.stringify(projectEdits());
 }
 
 function closeDialog() {
@@ -1229,7 +1273,18 @@ const projectDetails = createResource({
     };
   },
   onSuccess(data: ProjectDetails | undefined) {
+    if (data?.project !== props.project?.project) return;
+    const edits = projectEdits();
+    const baseline = projectEditBaseline;
+    const revision = expectedModified.value;
+    const dirty = liveDetailRefresh.value && baseline && JSON.stringify(edits) !== baseline;
     applyDetails(data);
+    if (dirty) {
+      Object.assign(form, edits);
+      projectEditBaseline = baseline;
+      expectedModified.value = revision;
+      remoteChangePending.value = Boolean(data?.modified && revision && data.modified !== revision);
+    }
   },
   onError(error: { messages?: string[]; message?: string }) {
     raiseToast(
@@ -1360,6 +1415,7 @@ const updateProject = createResource({
       project_start_date: form.project_start_date,
       project_end_date: form.project_end_date,
       project_notes: form.project_notes,
+      expected_modified: expectedModified.value || undefined,
     };
   },
   onSuccess(data: ProjectDetails | undefined) {

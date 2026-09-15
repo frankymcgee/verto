@@ -368,7 +368,7 @@ def get_mobile_boot():
         user_details.get("user_image")
     )
 
-    return {
+    result = {
         "site_name": frappe.local.site,
         "base_url": get_site_base_url(),
         "csrf_token": frappe.sessions.get_csrf_token(),
@@ -416,3 +416,20 @@ def get_mobile_boot():
         "user_image": user_image,
         "user_image_url": absolute_url(user_image),
     }
+
+    # Small startup reads share this authenticated response. Optional subsystem
+    # failures must not prevent the mobile shell from loading.
+    from verto.api.mobile.navigation import get_navigation_access
+    from verto.api.mobile.pwa_manifest import get_pwa_metadata
+    from verto.api.mobile.push_notifications import get_push_boot_config
+
+    for key, getter in (
+        ("navigation_access", get_navigation_access),
+        ("pwa_metadata", get_pwa_metadata),
+        ("push_config", get_push_boot_config),
+    ):
+        try:
+            result[key] = getter()
+        except Exception:
+            frappe.log_error(title=f"Mobile boot: {key} unavailable")
+    return result

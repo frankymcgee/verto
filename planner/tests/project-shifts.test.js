@@ -47,6 +47,47 @@ const projectDetails = () => ({
     },
   ],
 });
+
+describe('Live project collaboration', () => {
+  it('preserves unsaved notes, blocks stale saves, and lets the user reload', async () => {
+    let details = { ...projectDetails(), modified: 'revision-one' };
+    setConfig('resourceFetcher', async ({ url }) => {
+      if (url.endsWith('get_project_planner_details')) return structuredClone(details);
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await mountComponent(ProjectSpanDialog, { isDialogOpen: true, modelValue: true, project });
+    const notes = () => new DOMWrapper(document.querySelector('textarea[placeholder="Add project notes..."]'));
+    await notes().setValue('My unsaved note');
+    details = { ...details, modified: 'revision-two', notes: 'Saved by another planner' };
+    await wrapper.vm.refreshLive();
+    await settle();
+    expect(notes().element.value).toBe('My unsaved note');
+    expect(document.body.textContent).toContain('This project changed elsewhere');
+    expect(button('Update').attributes('disabled')).toBeDefined();
+    await button('Discard my edits and reload').trigger('click');
+    await settle();
+    expect(notes().element.value).toBe('Saved by another planner');
+    expect(button('Update').attributes('disabled')).toBeUndefined();
+  });
+
+  it('updates a clean open form live and sends the latest revision when saving', async () => {
+    let details = { ...projectDetails(), modified: 'revision-one' };
+    let submitted;
+    setConfig('resourceFetcher', async ({ url, params }) => {
+      if (url.endsWith('get_project_planner_details')) return structuredClone(details);
+      if (url.endsWith('update_project_planner_details')) { submitted = params; return structuredClone(details); }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await mountComponent(ProjectSpanDialog, { isDialogOpen: true, modelValue: true, project });
+    details = { ...details, modified: 'revision-two', notes: 'Latest saved note' };
+    await wrapper.vm.refreshLive();
+    await settle();
+    expect(document.querySelector('textarea[placeholder="Add project notes..."]').value).toBe('Latest saved note');
+    await button('Update').trigger('click');
+    await settle();
+    expect(submitted.expected_modified).toBe('revision-two');
+  });
+});
 const shiftModal = () =>
   document
     .querySelector(".planner-shift-assignment-dialog-body")
@@ -142,6 +183,11 @@ beforeEach(() => {
     status: "Active",
   };
   setConfig("resourceFetcher", async ({ url, params }) => {
+    if (url.endsWith('get_bootstrap')) return {
+      references: { shift_type: [{ name: 'DS' }, { name: 'NS' }],
+        shift_location: [{ name: 'LOC-1' }, { name: 'OTHER-LOCATION' }] },
+      projects: [{ name: 'OTHER-PROJECT', project_name: 'Other project' }],
+    };
     if (url === "frappe.client.get_list") {
       if (params.doctype === "Shift Type")
         return [{ name: "DS" }, { name: "NS" }];

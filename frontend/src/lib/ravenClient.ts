@@ -392,7 +392,8 @@ async function fetchDocumentPreviewData(doctype: string, docname: string) {
 
 async function enrichDocumentPreviews(messages: RavenMessage[]) {
   const links = messages
-    .flatMap((message) => normaliseDocumentLinks(message))
+    .filter((message) => !message.document_preview)
+    .flatMap((message) => normaliseDocumentLinks(message).slice(0, 1))
     .filter((link) => link.doctype && link.docname)
 
   const uniqueLinks = Array.from(
@@ -622,6 +623,19 @@ export async function getMessages(channelId: string, limit = 50) {
     ...data.message,
     messages: sortMessagesOldestFirst(messages).slice(-limit),
   }
+}
+
+export async function getThreadCounts(messageNames: string[]) {
+  const counts: Record<string, number> = {}
+  const names = [...new Set(messageNames)]
+  for (let start = 0; start < names.length; start += 50) {
+    const params = new URLSearchParams({ messages: JSON.stringify(names.slice(start, start + 50)) })
+    const data = await apiRequest<FrappeResponse<Record<string, number>>>(
+      `/api/method/verto.api.mobile.raven.get_thread_counts?${params}`
+    )
+    Object.assign(counts, data.message)
+  }
+  return counts
 }
 
 export async function getOlderMessages(channelId: string, fromMessage: string, limit = 20) {
