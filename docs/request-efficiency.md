@@ -7,6 +7,8 @@ First refactor: 16.3.4.
 The 16.3.5 follow-up adds [live planner collaboration](planner-live-collaboration.md)
 and serialization of rapid planner filter refreshes.
 Version 16.3.6 adds the planner bootstrap and bounded data batches described below.
+Version 16.3.7 adds the mobile improvements described in
+[Mobile performance](mobile-performance.md).
 
 ## Planner data consolidation (16.3.6)
 

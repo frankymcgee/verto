@@ -122,16 +122,15 @@ function setFavicon(href: string) {
     return
   }
 
-  const cacheBustedHref = href.includes('?')
-    ? `${href}&v=${Date.now()}`
-    : `${href}?v=${Date.now()}`
-
   const type = getFaviconType(href)
+
+  const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+  if (icon?.getAttribute('href') === href) return
 
   removeExistingFavicons()
 
-  appendIcon('icon', cacheBustedHref, type)
-  appendIcon('shortcut icon', cacheBustedHref, type)
+  appendIcon('icon', href, type)
+  appendIcon('shortcut icon', href, type)
 }
 
 function setBrowserTitle() {
@@ -140,12 +139,13 @@ function setBrowserTitle() {
 
 async function loadNavigationAccess() {
   try {
-    const response = await apiRequest<FrappeResponse<NavigationAccess>>(
+    const boot = await loadMobileBoot()
+    const access = boot.navigation_access ?? (await apiRequest<FrappeResponse<NavigationAccess>>(
       '/api/method/verto.api.mobile.navigation.get_navigation_access'
-    )
+    )).message
 
     hasEmployeeProfile.value = Boolean(
-      response.message?.has_employee_profile
+      access?.has_employee_profile
     )
   } catch (err) {
     if (err instanceof Error && err.message === 'Login required') {

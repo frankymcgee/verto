@@ -80,26 +80,45 @@ def _save_receipt(receipt_id, receipt_type, result=None, target_doctype=None, ta
     }
 
 
-def _serialise_edit_doc(doctype, docname):
-    if not frappe.db.exists(doctype, docname):
+def _serialise_edit_doc(doctype, docname, schema_cache=None, include_files=True):
+    try:
+        doc = frappe.get_doc(doctype, docname)
+    except frappe.DoesNotExistError:
         return None
-
-    doc = frappe.get_doc(doctype, docname)
 
     if not documents.has_desk_read_permission(doc):
         return None
 
     mobile_doctype = documents.get_mobile_slug_for_doctype(doctype)
+    schema_cache = schema_cache if schema_cache is not None else {}
+    if mobile_doctype not in schema_cache:
+        schema_cache[mobile_doctype] = documents.get_schema_response(mobile_doctype, doctype)
 
     return {
-        "schema": documents.get_schema_response(mobile_doctype, doctype),
+        "schema": schema_cache[mobile_doctype],
         "doctype": doctype,
         "name": doc.name,
         "docstatus": doc.docstatus,
         "values": documents.serialise_doc_for_mobile(doc, doctype),
-        "files": documents.get_existing_files_for_doc(doctype, doc.name),
+        "files": documents.get_existing_files_for_doc(doctype, doc.name) if include_files else [],
         "can_write": documents.has_desk_write_permission(doc),
     }
+
+
+def _attach_timesheet_files(edit_docs):
+    """Fetch attachment metadata once, after each parent passed its read check."""
+    if not edit_docs or not frappe.db.exists("DocType", "File") or not frappe.has_permission("File", "read"):
+        return
+    by_name = {payload["name"]: payload for payload in edit_docs.values()}
+    rows = frappe.get_all(
+        "File", filters={"attached_to_doctype": "Daily Timesheet", "attached_to_name": ["in", list(by_name)]},
+        fields=["attached_to_name", "name", "file_name", "file_url", "is_private", "file_size"],
+        order_by="creation desc",
+    )
+    for row in rows:
+        parent = row.pop("attached_to_name", None)
+        if parent in by_name:
+            by_name[parent]["files"].append(row)
 
 
 def _collect_link_doctypes_from_field(field, result):
@@ -180,9 +199,15 @@ def _validate_offline_actor(values):
 
 
 @frappe.whitelist()
-def get_offline_bootstrap():
+def get_offline_bootstrap(contract_version=1):
     """Return the dataset needed to keep core Verto Mobile functions available offline."""
     require_login()
+    try:
+        contract_version = int(contract_version)
+    except (ValueError, TypeError):
+        frappe.throw("Invalid offline bootstrap version.")
+    if contract_version not in (1, 2):
+        frappe.throw("Unsupported offline bootstrap version.")
 
     schemas = {}
 
@@ -206,6 +231,10 @@ def get_offline_bootstrap():
     )
 
     edit_docs = {}
+    # Reuse schemas within this request only; never cache permission-dependent
+    # responses across users or site/settings changes.
+    schema_cache = dict(schemas)
+    edit_schemas = {}
 
     for timesheet in shift_calendar.get("timesheets") or []:
         name = timesheet.get("name")
@@ -213,12 +242,18 @@ def get_offline_bootstrap():
         if not name:
             continue
 
-        payload = _serialise_edit_doc("Daily Timesheet", name)
+        payload = _serialise_edit_doc("Daily Timesheet", name, schema_cache, include_files=False)
 
         if payload:
+            if contract_version == 2:
+                schema = payload.pop("schema")
+                schema_key = schema["mobile_doctype"]
+                edit_schemas[schema_key] = schema
+                payload["schema_key"] = schema_key
             edit_docs[f"daily-timesheet:{name}"] = payload
 
-    return {
+    _attach_timesheet_files(edit_docs)
+    result = {
         "generated_at": now_datetime(),
         "user": frappe.session.user,
         "schemas": schemas,
@@ -235,6 +270,9 @@ def get_offline_bootstrap():
         "edit_docs": edit_docs,
         "link_options": _get_link_options(schemas),
     }
+    if contract_version == 2:
+        result.update(contract_version=2, edit_schemas=edit_schemas)
+    return result
 
 
 @frappe.whitelist(methods=["POST"])

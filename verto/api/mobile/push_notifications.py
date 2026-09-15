@@ -174,11 +174,19 @@ def _subscription_doctype_exists() -> bool:
     return bool(frappe.db.exists("DocType", SUBSCRIPTION_DOCTYPE))
 
 
+def get_push_boot_config():
+    """Only the public configuration needed by the browser at startup."""
+    _require_login()
+    vapid = _get_vapid_config()
+    return {
+        "configured": vapid["configured"],
+        "public_key": vapid["public_key"] if vapid["configured"] else "",
+    }
+
+
 @frappe.whitelist()
 def get_push_config():
-    _require_login()
-
-    vapid = _get_vapid_config()
+    config = get_push_boot_config()
     subscription_count = 0
 
     if _subscription_doctype_exists():
@@ -191,8 +199,7 @@ def get_push_config():
         )
 
     return {
-        "configured": vapid["configured"],
-        "public_key": vapid["public_key"] if vapid["configured"] else "",
+        **config,
         "subscription_count": subscription_count,
     }
 

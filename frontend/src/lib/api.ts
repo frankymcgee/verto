@@ -234,6 +234,10 @@ async function makeCacheKey(url: string, options: RequestInit) {
 function isCacheableRead(url: string, options: RequestInit) {
   const method = getMethod(options)
 
+  // primeOfflineData stores each dataset explicitly. Caching the aggregate as
+  // well duplicates large form/timesheet payloads and is never used as a read.
+  if (new URL(url, window.location.origin).pathname === '/api/method/verto.api.mobile.offline.get_offline_bootstrap') return false
+
   if (method === 'GET') {
     return url.includes('/api/method/verto.api.mobile.') ||
       url.includes('/api/method/frappe.')

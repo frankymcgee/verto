@@ -1,5 +1,6 @@
 import { computed, readonly, ref } from 'vue'
 import { apiRequest } from '../lib/api'
+import { useMobileBoot } from '../lib/mobileBoot'
 import { isIosDevice, isStandalonePwa } from './displayMode'
 
 
@@ -105,11 +106,12 @@ async function initialisePushNotifications(force = false) {
   permission.value = Notification.permission
 
   try {
-    const response = await apiRequest<FrappeResponse<PushConfig>>(
+    const boot = await useMobileBoot().loadMobileBoot()
+    const config = (!force ? boot.push_config : undefined) ?? (await apiRequest<FrappeResponse<PushConfig>>(
       '/api/method/verto.api.mobile.push_notifications.get_push_config'
-    )
+    )).message
 
-    configured.value = Boolean(response.message?.configured && response.message?.public_key)
+    configured.value = Boolean(config?.configured && config?.public_key)
 
     if (!configured.value) {
       return
