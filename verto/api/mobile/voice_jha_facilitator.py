@@ -8,6 +8,11 @@ from frappe.utils import cint, now_datetime
 
 from verto.api.mobile import voice_jha as base
 from verto.api.mobile.peri_voice_settings import get_peri_voice_settings
+from verto.api.mobile.voice_jha_progress import (
+    calculate_facilitation_progress,
+    serialize_jha,
+    sync_facilitation_fields,
+)
 from verto.api.mobile.voice_jha_tools import get_realtime_jha_tools
 
 
@@ -26,26 +31,63 @@ def _streamlined_tools() -> list[dict]:
             "discussion merely to populate optional database fields."
         ),
         "run_jha_completeness_check": (
-            "Check the field JHA flow: job steps exist; every step has hazards and controls; every step has "
-            "an explicit hold-point decision; critical controls have an owner; and the development team has "
+            "Check the field JHA flow after all job steps have been completed and the development team has "
             "been recorded. This is a completeness aid only, not an approval or safety decision."
         ),
         "mark_ready_for_human_review": (
-            "Mark the draft Ready for Team Review only after every job step has been worked through for "
-            "hazards, controls, critical-control ownership where applicable and an explicit hold-point "
-            "decision, and the development team has been recorded."
+            "Mark the draft Ready for Team Review only after every job step has been completed through the "
+            "facilitation workflow and the development team has been recorded."
         ),
     }
     for tool in tools:
         name = tool.get("name")
         if name in descriptions:
             tool["description"] = descriptions[name]
+
+    tools.extend(
+        [
+            {
+                "type": "function",
+                "name": "confirm_job_steps",
+                "description": (
+                    "Persist that the crew has confirmed the complete ordered job-step list. Call this only "
+                    "after the team explicitly agrees that the list and sequence are correct. This moves the "
+                    "facilitator to the first incomplete job step."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
+            },
+            {
+                "type": "function",
+                "name": "complete_current_step",
+                "description": (
+                    "Close the current job step and advance to the next one. Call only after the crew has "
+                    "finished identifying hazards and specific controls, has explicitly considered whether "
+                    "critical controls apply and supplied their owners where applicable, and has explicitly "
+                    "answered the hold-point question yes or no. The server refuses to advance if the step "
+                    "is incomplete."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "step_sequence": {"type": "integer", "minimum": 1},
+                    },
+                    "required": ["step_sequence"],
+                    "additionalProperties": False,
+                },
+            },
+        ]
+    )
     return tools
 
 
 def _build_facilitation_instructions(task, jha, bot, config: dict) -> str:
     bot_instructions = base._get_bot_instructions(bot)
     conversation_style = base._build_conversation_style_instructions(config)
+    progress = calculate_facilitation_progress(jha)
 
     steps = [row for row in (jha.work_steps or []) if row.activity]
     existing_steps = "\n".join(
@@ -53,14 +95,16 @@ def _build_facilitation_instructions(task, jha, bot, config: dict) -> str:
         for row in steps
     ) or "- No job steps are currently recorded."
 
-    hazard_counts: dict[int, int] = {}
-    for row in jha.hazards_and_controls or []:
-        sequence = cint(row.work_step_sequence)
-        hazard_counts[sequence] = hazard_counts.get(sequence, 0) + 1
-    current_progress = "\n".join(
-        f"- Step {row.sequence or row.idx}: {hazard_counts.get(cint(row.sequence), 0)} hazard row(s) recorded"
-        for row in steps
-    ) or "- No step analysis has been completed yet."
+    progress_lines = []
+    for state in progress["steps"]:
+        marker = "COMPLETE" if state["discussion_complete"] else "CURRENT" if state["is_current"] else "PENDING"
+        progress_lines.append(
+            f"- Step {state['sequence']}: {marker}; hazards={state['hazard_count']}; "
+            f"controls={'yes' if state['controls_complete'] else 'no'}; "
+            f"critical-controls-reviewed={'yes' if state['critical_controls_reviewed'] else 'no'}; "
+            f"hold-point-confirmed={'yes' if state['hold_point_complete'] else 'no'}"
+        )
+    current_progress = "\n".join(progress_lines) or "- No step analysis has been completed yet."
 
     return f"""
 {bot_instructions}
@@ -74,6 +118,19 @@ NON-NEGOTIABLE SAFETY RULES:
 - Challenge vague controls such as 'be careful', 'use PPE' or 'follow the procedure' by asking what specific control will actually be in place.
 - Human review and sign-on remain mandatory after the discussion.
 
+PERSISTED FACILITATION STATE — THIS IS AUTHORITATIVE:
+- Stage: {progress['stage']}
+- Job steps confirmed: {'Yes' if progress['job_steps_confirmed'] else 'No'}
+- Current step: {progress['current_step_sequence'] or 'None'} {progress['current_step_activity']}
+- Completed steps: {progress['completed_step_count']} of {progress['total_step_count']}
+
+RESUME RULES:
+- Do not restart a completed phase after a reconnect or page refresh.
+- If Stage is Job Steps, establish/confirm the complete ordered step list and then call confirm_job_steps.
+- If Stage is Step Analysis, resume at the persisted Current step. Do not re-question completed steps unless the crew asks to correct them.
+- If Stage is Development Team, collect the participant names/roles; do not return to step analysis unless a gap is identified.
+- If Stage is Completeness Check, run the completeness check and resolve only its listed gaps.
+
 ORDERED FACILITATION FLOW — FOLLOW THIS ORDER STRICTLY:
 
 PHASE 1 — IDENTIFY THE JOB
@@ -81,26 +138,27 @@ PHASE 1 — IDENTIFY THE JOB
 2. Do not begin by interviewing the crew about participants. Microphone/transcription consent has already been confirmed in the Verto interface. Development-team names are collected near the end.
 
 PHASE 2 — ESTABLISH THE COMPLETE JOB-STEP LIST
-3. If CURRENT JOB STEPS already contains planned steps, read the numbered list to the team concisely and ask one question: whether the sequence is correct and whether anything must be added, removed, renamed or reordered.
+3. If job steps are not yet confirmed and CURRENT JOB STEPS already contains planned steps, read the numbered list concisely and ask one question: whether the sequence is correct and whether anything must be added, removed, renamed or reordered.
 4. If there are no job steps, ask the team to talk you through the job from start to finish. Build the full ordered step list first using record_work_step.
-5. Confirm the complete job-step list before discussing any hazards. Do not start analysing Step 1 while the team is still building the job sequence.
+5. When the team explicitly confirms the complete list, call confirm_job_steps. Do not begin hazard analysis before that tool succeeds.
 6. Planned child Tasks are a starting point, not unquestionable truth. Correct them in the JHA when the team confirms the real work method differs.
 
 PHASE 3 — WORK THROUGH ONE STEP AT A TIME
-7. Start at Step 1 and do not move to the next step until the current step is complete.
-8. For the current step, ask: "What hazards are there for this step?" Let the crew identify all applicable hazards/energy sources. Use focused prompts only when needed to avoid missing an obvious category; do not lecture or supply hazards as facts.
+7. Work only on the persisted current step. Do not skip ahead.
+8. Ask: "What hazards are there for this step?" Let the crew identify all applicable hazards/energy sources. Use focused prompts only when needed; do not lecture or supply hazards as facts.
 9. Record each confirmed hazard with record_hazard_and_control.
 10. For each hazard, ask what controls will be in place. Record the specific controls. Challenge vague answers once, concisely.
-11. If a hazard involves a critical risk or the crew identifies a critical control, confirm the critical control and ask who owns that critical control. Record the owner. Do not demand a critical-control owner for a hazard the team confirms is not a critical risk.
-12. After all hazards and controls for the step have been covered, ask exactly one close-out question: "Is there a hold point for this step?" Record the explicit yes/no answer by updating the work step with hold_or_pause_point.
-13. Once the hold-point decision is recorded, close the step with at most a very short acknowledgement and move directly to the next numbered step.
-14. Repeat the same sequence for every job step: HAZARDS -> CONTROLS -> CRITICAL CONTROL / OWNER IF APPLICABLE -> HOLD POINT.
+11. After hazards and controls are covered, explicitly ask whether any of those controls are critical controls. If yes, confirm each critical control and who owns it. If no, accept the crew's explicit no.
+12. Ask exactly one close-out question: "Is there a hold point for this step?" Record the explicit yes/no answer by updating the work step with hold_or_pause_point.
+13. Once the crew has explicitly covered critical controls/owners and the hold-point decision, call complete_current_step for the current sequence. If the server reports a missing item, ask only for that missing item.
+14. When complete_current_step succeeds, move directly to the newly persisted current step. Do not repeat the previous step.
+15. Repeat for every job step.
 
 PHASE 4 — FINAL FIELD CHECK AND DEVELOPMENT TEAM
-15. After the final job step, ask the team whether any job step, hazard or control has been missed. Only revisit items they identify or that remain incomplete.
-16. Then record the JHA development team: ask for the names and roles of the people who participated. Confirm that the previously recorded group transcription consent applies to those people before setting individual transcription_consent true.
-17. Run the completeness check. Resolve only the listed field-JHA gaps.
-18. When complete, mark the draft Ready for Team Review and clearly state that human review/sign-on is still required and that you have not authorised the work.
+16. After the last step is completed, ask whether any job step, hazard or control has been missed. Only revisit items they identify or that remain incomplete.
+17. Then record the JHA development team: ask for the names and roles of the people who participated. Confirm that the previously recorded group transcription consent applies to those people before setting individual transcription_consent true.
+18. Run the completeness check. Resolve only the listed field-JHA gaps.
+19. When complete, mark the draft Ready for Team Review and clearly state that human review/sign-on is still required and that you have not authorised the work.
 
 DO NOT TURN THIS INTO A DATABASE INTERVIEW:
 - The mandatory spoken flow is job steps, hazards, controls, critical controls/owners where applicable, and hold points.
@@ -114,11 +172,10 @@ TOOL RULES:
 - Record only information stated or confirmed by the crew.
 - Reuse stable identifiers for corrections.
 - Use get_current_jha_state if unsure what is already recorded.
+- confirm_job_steps requires explicit crew confirmation of the whole ordered list.
+- complete_current_step is the only normal way to advance the persisted current step.
 - record_participant never acknowledges or signs for a person.
 - There is deliberately no tool to approve, sign, authorise work or declare the job safe.
-
-IMPORTANT SESSION START RULE:
-The client may provide a first-response instruction that mentions asking who is present. Do not change the ordered workflow above. Start with the Work Summary and the job-step list; collect participant names near the end.
 
 {conversation_style}
 
@@ -133,7 +190,7 @@ Planned description: {task.get('description') or 'No description supplied.'}
 CURRENT JOB STEPS:
 {existing_steps}
 
-CURRENT STEP ANALYSIS PROGRESS:
+PERSISTED STEP PROGRESS:
 {current_progress}
 """.strip()
 
@@ -210,6 +267,7 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0):
             frappe.ValidationError,
         )
 
+    sync_facilitation_fields(jha, update_timestamp=False)
     task = base._validate_work_summary(jha.work_summary)
     bot = base._get_peri_bot_doc()
 
@@ -235,6 +293,7 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0):
     jha.voice_model = call["model"]
     jha.voice_started_at = started_at
     jha.voice_session_reference = call.get("session_reference") or ""
+    sync_facilitation_fields(jha)
     jha.save()
 
     return {
@@ -243,5 +302,5 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0):
         "configuration": call.get("configuration") or {},
         "session_reference": call.get("session_reference") or "",
         "consent_confirmed_at": started_at,
-        "jha": base._serialize_jha(jha),
+        "jha": serialize_jha(jha),
     }

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Badge, Button, Checkbox } from 'frappe-ui'
 
 import { apiRequest } from '../lib/api'
+import JhaFacilitationProgress from '../components/JhaFacilitationProgress.vue'
 import JhaReviewSignoff from '../components/JhaReviewSignoff.vue'
 
 type FrappeResponse<T> = { message: T }
@@ -29,6 +30,7 @@ type JhaSnapshot = {
   work_steps?: any[]
   hazards_and_controls?: any[]
   participants?: any[]
+  facilitation?: Record<string, any>
   [key: string]: any
 }
 
@@ -169,7 +171,7 @@ async function refreshJha() {
   error.value = ''
   try {
     const data = await apiRequest<FrappeResponse<JhaSnapshot>>(
-      `/api/method/verto.api.mobile.voice_jha.get_voice_jha_snapshot?jha_name=${encodeURIComponent(jha.value.name)}`
+      `/api/method/verto.api.mobile.voice_jha_phase2.get_voice_jha_snapshot?jha_name=${encodeURIComponent(jha.value.name)}`
     )
     jha.value = data.message
   } catch (err) {
@@ -234,6 +236,8 @@ function stopPushToTalk(event?: PointerEvent) {
 
 function toolActivityMessage(toolName: string, result: Record<string, any>) {
   if (result?.message) return String(result.message)
+  if (toolName === 'confirm_job_steps') return 'Job-step list confirmed.'
+  if (toolName === 'complete_current_step') return 'Current job step completed.'
   if (toolName === 'record_work_step') return 'Draft work step updated.'
   if (toolName === 'record_hazard_and_control') return 'Draft hazard/control updated.'
   if (toolName === 'record_participant') return 'JHA participant updated.'
@@ -270,7 +274,13 @@ async function executeRealtimeTool(event: any) {
 
     if (Array.isArray(toolOutput.issues)) {
       completenessIssues.value = toolOutput.issues.map((item: unknown) => String(item))
-    } else if (toolName === 'record_work_step' || toolName === 'record_hazard_and_control' || toolName === 'record_participant') {
+    } else if ([
+      'confirm_job_steps',
+      'complete_current_step',
+      'record_work_step',
+      'record_hazard_and_control',
+      'record_participant',
+    ].includes(toolName)) {
       completenessIssues.value = []
     }
   } catch (err) {
@@ -352,7 +362,7 @@ function configureDataChannel(channel: RTCDataChannel) {
     sendRealtimeEvent({
       type: 'response.create',
       response: {
-        instructions: 'Briefly greet the crew and identify the Work Summary. Then follow the configured field-JHA facilitation sequence: confirm the complete planned job-step list first, or build that list with the crew if no planned steps exist. Do not start by collecting participant names or roles; collect the development team near the end of the JHA.',
+        instructions: 'Briefly greet the crew and identify the Work Summary. Resume from the persisted facilitation stage and current step supplied in your session instructions. Do not restart any phase that is already confirmed or complete.',
       },
     })
   }
@@ -426,7 +436,6 @@ async function connectVoice() {
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     })
 
-    // Privacy-first: no microphone audio is transmitted during connection setup.
     setMicrophoneEnabled(false)
 
     voiceStatus.value = 'Connecting to PERI…'
@@ -569,6 +578,11 @@ onBeforeUnmount(() => {
               </div>
             </div>
           </section>
+
+          <JhaFacilitationProgress
+            v-if="jha.facilitation"
+            :progress="jha.facilitation"
+          />
 
           <JhaReviewSignoff
             :jha="jha"
