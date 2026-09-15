@@ -183,6 +183,11 @@ beforeEach(() => {
     status: "Active",
   };
   setConfig("resourceFetcher", async ({ url, params }) => {
+    if (url.endsWith('get_bootstrap')) return {
+      references: { shift_type: [{ name: 'DS' }, { name: 'NS' }],
+        shift_location: [{ name: 'LOC-1' }, { name: 'OTHER-LOCATION' }] },
+      projects: [{ name: 'OTHER-PROJECT', project_name: 'Other project' }],
+    };
     if (url === "frappe.client.get_list") {
       if (params.doctype === "Shift Type")
         return [{ name: "DS" }, { name: "NS" }];

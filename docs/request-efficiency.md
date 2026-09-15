@@ -6,6 +6,74 @@ including the separate Mobile default-app option and root redirect fix.
 First refactor: 16.3.4.
 The 16.3.5 follow-up adds [live planner collaboration](planner-live-collaboration.md)
 and serialization of rapid planner filter refreshes.
+Version 16.3.6 adds the planner bootstrap and bounded data batches described below.
+
+## Planner data consolidation (16.3.6)
+
+The normal initial planner data load now has two HTTP calls:
+
+1. `verto.api.planner_data.get_bootstrap`: current user, visible apps, default
+   company, four permitted planner settings, filter options and open project
+   choices. Navbar, Apps, the header and shift dialogs share the result in memory.
+2. `verto.api.planner_data.get_planner_data`: the selected company's employees
+   and active roster, plus the project timeline in month view. The existing
+   annual response already includes project/task summaries; opening project
+   details still loads its existing combined details response on demand.
+
+The filter header now watches selected values, not option arrays. Replacing
+options does not reload employees, and shift-only filters do not reload employee
+lists. Departments are filtered locally from permission-checked reference rows.
+Closed shift dialogs share their options. The monthly project timeline mounts
+only in month view after a company is selected.
+
+| Tested scenario | Data HTTP requests |
+| --- | ---: |
+| Initial month or annual data load, including closed dialogs | 2 |
+| Company change in month view | 1 batch |
+| Refresh dropdown options without changing selections | 1 bootstrap; 0 roster/employee requests |
+| Burst of 50 roster notices | 1 batch |
+| Socket subscription/reconnect resync | 1 scoped bootstrap + 1 data batch |
+
+The initial socket subscription still triggers a resync to close the gap between
+loading data and joining the room. That can add two data calls shortly after
+startup. Socket.IO handshake/polling, assets, searches, open detail dialogs and
+writes are separate from the two-call initial data budget. This change does not
+repair an unavailable Socket.IO server or force a WebSocket transport.
+
+Live refresh starts independent reads together. The transport collects reads
+for 10 ms, deduplicates equal pending reads and sends at most 20 logical reads
+per batch. Only one data batch runs at a time per tab, within the existing
+four-request read limit. Each consumer retains independent cancellation and
+receives an independent result. Mutations invalidate pending lookup entries.
+There is no persistent or cross-user data cache.
+
+The server accepts only Employee/Project list reads and the three existing
+roster/availability methods. It checks planner access and delegates list reads
+to `frappe.client.get_list`, preserving field validation and permissions. It
+rejects writes, arbitrary method lookup, unsupported document types, unbounded
+list pagination and oversized batches. Existing roster handlers and their
+response contracts remain unchanged. Permission/validation errors are returned
+per dataset, so an inaccessible project list does not prevent employees loading.
+Settings are restricted to four fields after document/field permission checks.
+
+Bootstrap refreshes support sections: project notices reload project choices;
+reference changes reload dropdowns; settings changes reload planner settings.
+An Employee edit does not reload those reference lists. Bootstrap errors are
+visible in the page with a retry action, rather than redirecting to login on
+every server failure.
+
+Combining HTTP calls does **not** turn distinct database queries into one query.
+The reductions come from fewer request dispatches, repeated reads and hidden
+component loads. The batch executes its reads sequentially, reducing concurrent
+worker demand but making its response wait for its slowest dataset. Measure
+transfer bytes, worker time, SQL counts and initial render time on dev before
+merging to `version-16`.
+
+Validation: 56 planner UI tests, including mounted Home month/annual startup,
+company changes, denied datasets, scoped live refresh, cancellation, mutation
+invalidation and batching; 57 Python tests with Frappe/database services mocked;
+planner production build and HTML copy; unchanged 25 TypeScript diagnostics.
+These checks are local, not a live Bench or dev-server performance measurement.
 
 ## Changes
 
@@ -37,8 +105,9 @@ Read results are shared only while pending, not cached for an online TTL. Each
 caller receives independent data. Mutation boundaries invalidate pending lookup
 entries so later refreshes do not join pre-mutation reads. Cache reads bypass the
 queue while offline, preventing slow online requests from blocking cached forms.
-Frappe resource requests with independent cancellation signals are limited but
-not combined; cancelling one resource cannot cancel another consumer's read.
+Outside the new planner batches, Frappe resource requests with independent
+cancellation signals are limited but not combined. Batched planner reads detach
+an aborted consumer without cancelling other consumers or datasets.
 
 Whiteboard content detection includes element IDs/versions/deletion state, file
 IDs and canvas background. UI preferences and viewport state are included on the

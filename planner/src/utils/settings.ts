@@ -1,18 +1,15 @@
-import { createResource } from 'frappe-ui'
-import { raiseToast } from './index'
+import { usePlannerBootstrap } from './bootstrap'
 
-let settings: ReturnType<typeof createResource> | undefined
+let settings: any
 
 export function usePlannerSettings() {
-  // A cached createResource with auto:true reloads on every call. Construct it
-  // once instead so navbar, Apps and view preferences share one request.
-  settings ??= createResource({
-    url: 'frappe.client.get',
-    params: { doctype: 'Verto Mobile Settings', name: 'Verto Mobile Settings' },
-    auto: true,
-    onError(error: { messages?: string[]; message?: string }) {
-      raiseToast('error', error.messages?.[0] || error.message || 'Unable to load Verto Mobile Settings')
-    },
-  })
+  const bootstrap = usePlannerBootstrap()
+  settings ??= {
+    get data() { return bootstrap.data?.settings },
+    get loading() { return bootstrap.loading },
+    get fetched() { return bootstrap.fetched },
+    get error() { return bootstrap.error },
+    fetch: () => bootstrap.fetch({ sections: ['settings'] }),
+  }
   return settings
 }

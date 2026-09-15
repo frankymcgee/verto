@@ -1,5 +1,5 @@
-export type PlannerScope = 'roster' | 'projects' | 'employees' | 'settings'
-export const ALL_PLANNER_SCOPES: PlannerScope[] = ['roster', 'projects', 'employees', 'settings']
+export type PlannerScope = 'roster' | 'projects' | 'employees' | 'settings' | 'references'
+export const ALL_PLANNER_SCOPES: PlannerScope[] = ['roster', 'projects', 'employees', 'settings', 'references']
 
 /** Merge event bursts, run one refresh at a time, and retain edits arriving mid-refresh. */
 export function createLiveRefreshQueue(options: {

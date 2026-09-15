@@ -58,11 +58,9 @@ import {
   Combobox,
   DateRangePicker,
   Button,
-  createResource,
-  createListResource,
 } from "frappe-ui";
 import type { Dayjs } from "dayjs";
-import { raiseToast } from "../utils";
+import { usePlannerBootstrap } from "../utils/bootstrap";
 
 export type FilterField =
   | "company"
@@ -124,18 +122,31 @@ const filters: {
   shift_location: { options: [], model: null },
 });
 
-watch(
-  () => filters.company.model,
-  (val) => {
-    if (val) getFilterOptions("department", { company: val });
-    else {
-      filters.department.model = null;
-      filters.department.options = [];
-    }
-  },
-);
+const bootstrap = usePlannerBootstrap();
+let defaultApplied = false;
+watch(() => bootstrap.data, (data) => {
+  if (!data) return;
+  for (const key of Object.keys(filters) as FilterField[]) {
+    if (key === "department") continue;
+    filters[key].options = (data.references?.[key] || []).map((row: { name: string }) => row.name);
+    if (filters[key].model && !filters[key].options.includes(filters[key].model!)) filters[key].model = null;
+  }
+  if (!defaultApplied) {
+    defaultApplied = true;
+    filters.company.model = filters.company.options.includes(data.default_company) ? data.default_company : null;
+  }
+}, { immediate: true });
 
-watch(filters, (val) => {
+watch(() => [filters.company.model, bootstrap.data?.references?.department], () => {
+  filters.department.options = (bootstrap.data?.references?.department || [])
+    .filter((row: { company: string }) => !!filters.company.model && row.company === filters.company.model)
+    .map((row: { name: string }) => row.name);
+  if (!filters.department.options.includes(filters.department.model || "")) filters.department.model = null;
+}, { immediate: true });
+
+// Only selected values drive roster loads. Replacing options must not emit.
+watch(() => Object.values(filters).map(field => field.model || ""), () => {
+  const val = filters;
   const newFilters = {
     company: val.company.model || "",
     department: val.department.model || "",
@@ -145,7 +156,7 @@ watch(filters, (val) => {
     shift_location: val.shift_location.model || "",
   };
   emit("updateFilters", newFilters);
-});
+}, { immediate: true });
 
 watch(
   dateRangeValue,
@@ -169,38 +180,4 @@ const toTitleCase = (str: string) =>
     .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
     .join(" ");
 
-const defaultCompany = createResource({
-  url: "verto.api.planner.get_default_company",
-  auto: true,
-  onSuccess: () => {
-    [
-      "company",
-      "branch",
-      "designation",
-      "shift_type",
-      "shift_location",
-    ].forEach((field) => getFilterOptions(field as FilterField));
-  },
-});
-
-const getFilterOptions = (
-  field: FilterField,
-  listFilters: { company?: string } = {},
-) => {
-  createListResource({
-    doctype: toTitleCase(field),
-    fields: ["name"],
-    filters: listFilters,
-    pageLength: 100,
-    auto: true,
-    onSuccess: (data: { name: string }[]) => {
-      const value = field === "company" ? defaultCompany.data : "";
-      filters[field].model = value;
-      filters[field].options = data.map((item) => item.name);
-    },
-    onError(error: { messages: string[] }) {
-      raiseToast("error", error.messages[0]);
-    },
-  });
-};
 </script>

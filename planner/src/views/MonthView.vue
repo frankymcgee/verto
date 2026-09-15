@@ -102,7 +102,7 @@
 
     <!-- Projects timeline (collapsible) - month view only -->
     <div
-      v-show="plannerViewReady && viewMode === 'month'"
+      v-if="plannerViewReady && isCompanySelected && viewMode === 'month'"
       ref="timelineRef"
       class="px-6 pb-4"
     >
@@ -193,6 +193,7 @@
 
 <script setup lang="ts">
 import { usePlannerSettings } from "../utils/settings";
+import { usePlannerBootstrap } from "../utils/bootstrap";
 import { usePlannerRealtime } from "../composables/usePlannerRealtime";
 import { coalesceResource } from "../utils/coalesceResource";
 import {
@@ -370,8 +371,8 @@ async function applyPlannerDefaultView(value: unknown) {
 
 function fetchActiveEvents() {
   if (!plannerViewReady.value) return;
-  if (viewMode.value === "month") monthViewTable.value?.events.fetch();
-  else yearViewTable.value?.events.fetch();
+  if (viewMode.value === "month") void monthViewTable.value?.events.fetch().catch(() => {});
+  else void yearViewTable.value?.events.fetch().catch(() => {});
 }
 
 function addToMonth(change: number) {
@@ -384,7 +385,6 @@ function addToMonth(change: number) {
 
 function updateFilters(newFilters: EmployeeFilters & ShiftFilters) {
   isCompanySelected.value = !!newFilters.company;
-  if (!isCompanySelected.value) return;
 
   let employeeUpdated = false;
   (
@@ -398,13 +398,17 @@ function updateFilters(newFilters: EmployeeFilters & ShiftFilters) {
       else delete shiftFilters[key as keyof ShiftFilters];
       return;
     }
-    if (value) employeeFilters[key as keyof EmployeeFilters] = value;
-    else delete employeeFilters[key as keyof EmployeeFilters];
-    employeeUpdated = true;
+    if ((employeeFilters[key as keyof EmployeeFilters] || "") !== (value || "")) {
+      if (value) employeeFilters[key as keyof EmployeeFilters] = value;
+      else delete employeeFilters[key as keyof EmployeeFilters];
+      employeeUpdated = true;
+    }
   });
 
-  if (employeeUpdated) employees.fetch();
-  fetchAvailability();
+  if (employeeUpdated && isCompanySelected.value) {
+    void employees.fetch().catch(() => {});
+    void fetchAvailability()?.catch(() => {});
+  }
 }
 
 // Calculate the height available to the employee table area from its actual
@@ -441,14 +445,19 @@ function observeHeights() {
     });
     roFilters.observe(filtersRef.value);
   }
-  if (timelineRef.value) {
-    roTimeline = new ResizeObserver(() => {
-      timelineHeight.value = timelineRef.value!.getBoundingClientRect().height;
-      window.requestAnimationFrame(updateTableAreaTop);
-    });
-    roTimeline.observe(timelineRef.value);
-  }
 }
+
+// The month timeline now mounts only when visible, including after an annual
+// view switch. Attach its size observer when that element becomes available.
+watch(timelineRef, (element) => {
+  roTimeline?.disconnect();
+  if (!element) return;
+  roTimeline = new ResizeObserver(() => {
+    timelineHeight.value = element.getBoundingClientRect().height;
+    window.requestAnimationFrame(updateTableAreaTop);
+  });
+  roTimeline.observe(element);
+}, { flush: 'post' });
 
 function unobserveHeights() {
   roToolbar?.disconnect();
@@ -520,6 +529,7 @@ watch(
 );
 
 const plannerSettings = usePlannerSettings();
+const bootstrap = usePlannerBootstrap();
 watch(
   () => [plannerSettings.fetched, plannerSettings.error],
   () => {
@@ -607,7 +617,7 @@ function onUpdateDateRange(
     dateRange.from = payload.from;
     dateRange.to = payload.to;
   }
-  fetchAvailability();
+  void fetchAvailability()?.catch(() => {});
 }
 
 watch(
@@ -629,26 +639,27 @@ const { status: liveStatus, refreshing: liveRefreshing, lastUpdated, refresh: re
     && !plannerSettings.loading && !activeTable.value?.events.loading && !activeTable.value?.liveBusy),
   async refresh(scopes) {
     const check = (resource: any) => { const error = (resource?.list ?? resource)?.error; if (error) throw error; };
-    if (scopes.has('settings')) {
-      await plannerSettings.fetch();
-      check(plannerSettings);
+    const refreshes: Promise<any>[] = [];
+    const load = (resource: any) => resource.fetch().then(() => check(resource));
+    const sections = (['settings', 'references', 'projects'] as const).filter(scope => scopes.has(scope));
+    if (sections.length) refreshes.push(bootstrap.fetch({ sections }).then(() => check(bootstrap)));
+    if (scopes.has('employees') && isCompanySelected.value) refreshes.push(load(employees));
+    if (isCompanySelected.value && dateRange.from && dateRange.to &&
+      (scopes.has('roster') || scopes.has('employees') || scopes.has('settings'))) {
+      refreshes.push(load(availability));
     }
-    if (scopes.has('employees')) {
-      await employees.fetch();
-      check(employees);
-    }
-    if (scopes.has('roster') || scopes.has('employees') || scopes.has('settings')) {
-      await fetchAvailability();
-      check(availability);
-    }
-    if (scopes.has('projects')) await projectTimeline.value?.refreshLive();
+    if (scopes.has('projects') && projectTimeline.value) refreshes.push(projectTimeline.value.refreshLive());
     // The annual response includes projects, hours and roster data together.
     const table = activeTable.value;
     if (table && isCompanySelected.value) {
-      await table.events.fetch();
-      check(table.events);
-      if (viewMode.value === 'year') await yearViewTable.value?.refreshLiveProjectDetails();
+      refreshes.push(load(table.events));
     }
+    // Start independent reads together so the transport sends a single batch.
+    // Wait for every read even when one fails, preserving live queue ordering.
+    const results = await Promise.allSettled(refreshes);
+    const failed = results.find(result => result.status === 'rejected');
+    if (failed?.status === 'rejected') throw failed.reason;
+    if (table && isCompanySelected.value && viewMode.value === 'year') await yearViewTable.value?.refreshLiveProjectDetails();
   },
 });
 </script>

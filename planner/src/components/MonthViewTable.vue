@@ -254,7 +254,7 @@
     :selectedCell="{ employee: hoveredCell.employee, date: hoveredCell.date }"
     :employees="employees"
     @fetchEvents="
-      events.fetch();
+      void events.fetch().catch(() => {});
       showShiftAssignmentDialog = false;
     "
   />
@@ -399,7 +399,7 @@ watch(
   () => [props.firstOfMonth, props.employeeFilters, props.shiftFilters],
   () => {
     loading.value = true;
-    events.fetch();
+    void events.fetch().catch(() => {});
   },
   { deep: true },
 );
@@ -438,6 +438,7 @@ const events = coalesceResource(createResource({
     loading.value = false;
   },
   onError(error: { messages: string[] }) {
+    loading.value = false;
     raiseToast("error", error.messages[0]);
   },
   transform: (data: Events) => {
@@ -448,7 +449,7 @@ const events = coalesceResource(createResource({
     return mappedEvents;
   },
 }));
-void events.fetch();
+void events.fetch().catch(() => {}); // onError already reports a failed dataset.
 onBeforeUnmount(() => events.disposeRefresh());
 
 const liveBusy = computed(() => isDragging.value || swapShift.loading);
@@ -470,7 +471,7 @@ const swapShift = createResource({
       "success",
       `Shift ${dropCell.value.shift ? "swapped" : "moved"} successfully!`,
     );
-    events.fetch();
+    void events.fetch().catch(() => {});
   },
   onError(error: { messages: string[] }) {
     loading.value = false;

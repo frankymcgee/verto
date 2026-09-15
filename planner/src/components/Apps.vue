@@ -50,7 +50,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { usePlannerSettings } from "../utils/settings";
-import { Icon, Popover, createResource } from "frappe-ui";
+import { Icon, Popover } from "frappe-ui";
+import { usePlannerBootstrap } from "../utils/bootstrap";
 
 type AppOption = {
   name: string;
@@ -73,14 +74,7 @@ function translate(value: string) {
 
 const settings = usePlannerSettings();
 
-const apps = createResource({
-  url: "frappe.apps.get_apps",
-  cache: "planner-apps",
-  auto: true,
-  transform(data: AppOption[]) {
-    return data || [];
-  },
-});
+const bootstrap = usePlannerBootstrap();
 
 const vertoSettings = computed<VertoMobileSettings>(() => {
   return (settings.data || {}) as VertoMobileSettings;
@@ -114,7 +108,7 @@ const appOptions = computed<AppOption[]>(() => {
     },
   ];
 
-  for (const app of (apps.data || []) as AppOption[]) {
+  for (const app of (bootstrap.data?.apps || []) as AppOption[]) {
     if (!app?.name) continue;
 
     // Desk and Planner are controlled by Verto Mobile Settings above.

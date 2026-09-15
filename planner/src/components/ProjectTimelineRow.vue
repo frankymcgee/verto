@@ -361,7 +361,7 @@ defineExpose({ refreshLive });
 
 watch(showAllProjects, () => {
   loading.value = true;
-  projectList.fetch();
+  void projectList.fetch().catch(() => {}); // Resource onError displays the failure.
 });
 
 watch(
@@ -382,7 +382,7 @@ watch(
   () => props.projectFilters,
   () => {
     loading.value = true;
-    projectList.fetch();
+    void projectList.fetch().catch(() => {});
   },
   { deep: true, immediate: true }, // immediate to load on mount
 );

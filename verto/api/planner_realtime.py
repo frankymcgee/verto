@@ -8,8 +8,8 @@ DOCTYPE_SCOPES = {
     "Shift Assignment": ("roster",),
     "Shift Schedule Assignment": ("roster",),
     "Shift Schedule": ("roster",),
-    "Shift Type": ("roster",),
-    "Shift Location": ("roster",),
+    "Shift Type": ("references", "roster"),
+    "Shift Location": ("references", "roster"),
     "Leave Application": ("roster",),
     "Leave Type": ("roster",),
     "Holiday List": ("roster",),
@@ -20,10 +20,10 @@ DOCTYPE_SCOPES = {
     "ToDo": ("projects",),
     "Customer": ("projects",),
     "Employee": ("employees", "roster"),
-    "Department": ("employees",),
-    "Designation": ("employees",),
-    "Branch": ("employees",),
-    "Company": ("employees", "projects", "roster"),
+    "Department": ("references", "employees"),
+    "Designation": ("references", "employees"),
+    "Branch": ("references", "employees"),
+    "Company": ("references", "employees", "projects", "roster"),
     "Verto Mobile Settings": ("settings", "roster"),
 }
 
@@ -39,7 +39,7 @@ def can_subscribe():
 
 
 def publish_scope(scope):
-    if scope not in {"roster", "projects", "employees", "settings"}:
+    if scope not in {"roster", "projects", "employees", "settings", "references"}:
         raise ValueError("Unknown planner refresh scope")
     # No names, user IDs, dates or document contents are broadcast. Frappe
     # deduplicates equal (event, message, room) entries within a transaction and

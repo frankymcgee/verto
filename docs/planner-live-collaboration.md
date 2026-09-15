@@ -1,6 +1,6 @@
 # Live planner collaboration
 
-Branch: `performance/reduce-api-requests`. Version: 16.3.5.
+Branch: `performance/reduce-api-requests`. Version: 16.3.6.
 Rebased onto `version-16` at `f1124a7` (16.3.3), preserving the separate
 Mobile default-app option and root redirect fix.
 
@@ -15,7 +15,8 @@ This synchronizes saved records; it does not broadcast unfinished typing or curs
 | --- | --- |
 | Shifts, shift schedules/types/locations, leave, holidays, events, daily timesheets | Roster and active availability filter |
 | Projects, tasks, task assignments, customers | Project timeline, annual project rows, open project details |
-| Employees, departments, designations, branches, companies | Employee filters and dependent roster/project data |
+| Employees | Employees and dependent roster data |
+| Departments, designations, branches, companies, shift types/locations | Shared reference choices and dependent roster/project data |
 | Verto Mobile Settings | Shared settings and roster |
 
 Document hooks cover ordinary saves, inserts, submissions, cancellations,
@@ -47,6 +48,9 @@ document operations to trigger immediate updates.
   refreshes and retain only the latest trailing request. Frappe list resources
   use the promise returned by `reload`, since their `fetch` discards it. The
   earlier four-request limit still applies to supported planner reads.
+- Independent employee, project and roster reads now share one bounded HTTP
+  batch. Shared options use a bootstrap response, refreshed by section when
+  relevant data changes. See [the request budget](request-efficiency.md#planner-data-consolidation-1636).
 - Successful socket subscription triggers a refresh to close the startup and
   reconnection gap. Quiet recovery runs every five minutes while subscribed,
   or every minute when live service is unavailable, only in visible online tabs.

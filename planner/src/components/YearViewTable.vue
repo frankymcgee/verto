@@ -558,7 +558,7 @@
     :suspended="showShiftAssignmentDialog && !!projectShiftDefaults"
     @assignShifts="openProjectShiftAssignment"
     @fetchEvents="
-      events.fetch();
+      void events.fetch().catch(() => {});
       showProjectSpanDialog = false;
     "
   />
@@ -3285,7 +3285,7 @@ watch(
   () => [props.firstOfMonth.year(), props.employeeFilters, props.shiftFilters],
   () => {
     loading.value = true
-    events.fetch()
+    void events.fetch().catch(() => {})
   },
   { deep: true },
 )
@@ -3326,7 +3326,7 @@ const events = coalesceResource(createResource({
   },
 }))
 
-void events.fetch();
+void events.fetch().catch(() => {}); // onError already reports a failed dataset.
 onBeforeUnmount(() => events.disposeRefresh());
 
 const bulkMoveOrSwapShifts = createResource({
@@ -3346,7 +3346,7 @@ const bulkMoveOrSwapShifts = createResource({
     pendingBulkShiftWillSwap.value = false
     clearSelectedShiftCells()
     clearDragState()
-    events.fetch()
+    void events.fetch().catch(() => {})
   },
   onError(error: { messages?: string[]; message?: string }) {
     loading.value = false
@@ -3370,7 +3370,7 @@ const updateProjectSpanDates = createResource({
   onSuccess() {
     raiseToast('success', 'Project dates updated successfully!')
     pendingProjectDateUpdate.value = null
-    events.fetch()
+    void events.fetch().catch(() => {})
   },
   onError(error: { messages?: string[]; message?: string }) {
     loading.value = false
