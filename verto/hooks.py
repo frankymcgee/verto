@@ -79,8 +79,18 @@ extend_bootinfo = ["verto.api.mobile.boot.add_map_settings_to_boot"]
 
 # Apply site-managed runtime configuration before normal web and worker code.
 # This removes the need to manually duplicate Verto settings into site_config.json.
-before_request = ["verto.runtime_config.apply_runtime_config"]
+before_request = [
+    "verto.runtime_config.apply_runtime_config",
+    "verto.default_apps.configure_default_apps",
+]
 before_job = ["verto.runtime_config.apply_runtime_job_config"]
+
+# Password login can create its session before before_request hooks run.
+on_session_creation = "verto.default_apps.configure_default_apps"
+
+extend_doctype_class = {
+    "User": ["verto.default_apps.VertoDefaultAppMixin"],
+}
 
 # Permissions
 # -----------
@@ -152,6 +162,8 @@ scheduler_events = {
 }
 
 override_whitelisted_methods = {
+    "frappe.apps.get_apps": "verto.default_apps.get_apps",
+    "frappe.apps.set_app_as_default": "verto.default_apps.set_app_as_default",
     "frappe.geo.utils.get_coords": "verto.geo.utils.verto_get_coords",
     "verto.api.mobile.home.get_home_summary": "verto.api.mobile.home_child_tasks.get_home_summary",
 }
