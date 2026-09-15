@@ -183,6 +183,8 @@ override_whitelisted_methods = {
     "verto.api.mobile.home.get_home_summary": "verto.api.mobile.home_child_tasks.get_home_summary",
     "verto.api.mobile.voice_jha.get_voice_jha_bootstrap": "verto.api.mobile.voice_jha_phase2.get_voice_jha_bootstrap",
     "verto.api.mobile.voice_jha.create_voice_jha_draft": "verto.api.mobile.voice_jha_phase2.create_voice_jha_draft",
+    "verto.api.mobile.voice_jha.start_voice_jha_call": "verto.api.mobile.voice_jha_facilitator.start_voice_jha_call",
+    "verto.api.mobile.voice_jha_tools.execute_voice_jha_tool": "verto.api.mobile.voice_jha_tools_streamlined.execute_voice_jha_tool",
 }
 
 # Serve site-specific install metadata and the root worker through Frappe.
