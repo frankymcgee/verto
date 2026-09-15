@@ -11,6 +11,16 @@
         <span class="text-3xl-semibold text-gray-500 mr-2">Roster:</span>
         <span class="text-3xl-semibold">{{ activeViewLabel }}</span>
 
+        <button
+          type="button"
+          class="ml-3 flex items-center gap-1.5 rounded-full border border-gray-200 px-2.5 py-1 text-xs text-gray-600"
+          :title="lastUpdated ? `Last updated ${lastUpdated.toLocaleTimeString()}. Click to refresh.` : 'Click to refresh planner data'"
+          @click="refreshLive"
+        >
+          <span class="h-2 w-2 rounded-full" :class="liveStatus === 'Live' ? 'bg-green-500' : 'bg-amber-500'" />
+          {{ liveRefreshing ? 'Updating…' : liveStatus }}
+        </button>
+
         <TabButtons
           class="ml-6"
           :model-value="viewMode"
@@ -97,6 +107,7 @@
       class="px-6 pb-4"
     >
       <ProjectTimelineRow
+        ref="projectTimeline"
         v-model:collapsed="projectsCollapsed"
         :firstOfMonth="firstOfMonth"
         :projectFilters="projectFilters"
@@ -182,6 +193,8 @@
 
 <script setup lang="ts">
 import { usePlannerSettings } from "../utils/settings";
+import { usePlannerRealtime } from "../composables/usePlannerRealtime";
+import { coalesceResource } from "../utils/coalesceResource";
 import {
   ref,
   reactive,
@@ -225,6 +238,7 @@ const shellRef = ref<HTMLElement | null>(null);
 const tableAreaRef = ref<HTMLElement | null>(null);
 const monthViewTable = ref<InstanceType<typeof MonthViewTable>>();
 const yearViewTable = ref<InstanceType<typeof YearViewTable>>();
+const projectTimeline = ref<InstanceType<typeof ProjectTimelineRow>>();
 const isCompanySelected = ref(false);
 const showProjectDialog = ref(false);
 const showLeaveApplicationDialog = ref(false);
@@ -516,7 +530,7 @@ watch(
   { immediate: true },
 );
 
-const employees = createListResource({
+const employees = coalesceResource(createListResource({
   doctype: "Employee",
   fields: [
     "name",
@@ -529,13 +543,10 @@ const employees = createListResource({
   ],
   filters: employeeFilters,
   pageLength: 99999,
-  onSuccess() {
-    fetchAvailability();
-  },
   onError(error: { messages: string[] }) {
     raiseToast("error", error.messages[0]);
   },
-});
+}));
 
 const availableNameSet = ref<Set<string>>(new Set());
 const availableEmployees = computed(() => {
@@ -552,7 +563,7 @@ function cleaned<T extends Record<string, any>>(obj: T): Partial<T> {
   return raw;
 }
 
-const availability = createResource({
+const availability = coalesceResource(createResource({
   url: "verto.api.planner.get_available_employees",
   auto: false,
   makeParams() {
@@ -573,14 +584,16 @@ const availability = createResource({
     );
     availableNameSet.value = new Set();
   },
-});
+}));
+
+onBeforeUnmount(() => { employees.disposeRefresh(); availability.disposeRefresh(); });
 
 function fetchAvailability() {
   if (!isCompanySelected.value || !dateRange.from || !dateRange.to) {
     availableNameSet.value = new Set(); // show base list
     return;
   }
-  availability.fetch();
+  return availability.fetch();
 }
 
 function onUpdateDateRange(
@@ -609,4 +622,33 @@ watch(
 function onUpdateProjectShiftsFilled(value: 0 | 1) {
   projectFilters.shifts_filled = value; // 0 = unfilled (default), 1 = filled
 }
+
+const activeTable = computed(() => viewMode.value === 'month' ? monthViewTable.value : yearViewTable.value);
+const { status: liveStatus, refreshing: liveRefreshing, lastUpdated, refresh: refreshLive } = usePlannerRealtime({
+  ready: () => Boolean(plannerViewReady.value && !employees.list.loading && !availability.loading
+    && !plannerSettings.loading && !activeTable.value?.events.loading && !activeTable.value?.liveBusy),
+  async refresh(scopes) {
+    const check = (resource: any) => { const error = (resource?.list ?? resource)?.error; if (error) throw error; };
+    if (scopes.has('settings')) {
+      await plannerSettings.fetch();
+      check(plannerSettings);
+    }
+    if (scopes.has('employees')) {
+      await employees.fetch();
+      check(employees);
+    }
+    if (scopes.has('roster') || scopes.has('employees') || scopes.has('settings')) {
+      await fetchAvailability();
+      check(availability);
+    }
+    if (scopes.has('projects')) await projectTimeline.value?.refreshLive();
+    // The annual response includes projects, hours and roster data together.
+    const table = activeTable.value;
+    if (table && isCompanySelected.value) {
+      await table.events.fetch();
+      check(table.events);
+      if (viewMode.value === 'year') await yearViewTable.value?.refreshLiveProjectDetails();
+    }
+  },
+});
 </script>

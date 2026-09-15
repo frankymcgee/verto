@@ -33,6 +33,10 @@ function getProxyOptions() {
     console.log("No common_site_config.json found, using default port 8000");
   }
   return {
+    "/socket.io": {
+      target: `http://127.0.0.1:${config?.socketio_port || 9000}`,
+      ws: true,
+    },
     "^/(app|login|api|assets|files|private)": {
       target: `http://127.0.0.1:${webserver_port}`,
       ws: true,

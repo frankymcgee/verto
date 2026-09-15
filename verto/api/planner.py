@@ -10,6 +10,7 @@ from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employe
 
 from hrms.hr.doctype.shift_assignment.shift_assignment import ShiftAssignment
 from hrms.hr.doctype.shift_schedule.shift_schedule import get_or_insert_shift_schedule
+from verto.api.planner_realtime import publish_scope
 
 
 ANNUAL_ROSTER_RESULT_LIMIT = 1000
@@ -155,6 +156,8 @@ def apply_planner_project_to_shift_assignments(
 				note,
 				update_modified=False,
 			)
+	if shift_assignment_names:
+		publish_scope("roster")
 
 
 def create_shift_schedule_shifts_with_planner_fields(
@@ -2673,6 +2676,8 @@ def insert_shift(
 			custom_project=custom_project,
 			note=note,
 		)
+	# Adjacent-block merges use db.set_value and bypass document hooks.
+	publish_scope("roster")
 
 
 def get_holidays(month_start: str, month_end: str, employee_filters: dict[str, str]) -> dict[str, list[dict]]:
@@ -3276,6 +3281,7 @@ def get_project_planner_details(project: str) -> dict:
 		frappe.throw(_("Project is required"))
 
 	doc = frappe.get_doc("Project", project)
+	doc.check_permission("read")
 	fields = _project_planner_edit_fields()
 	po_field = fields.get("po_field")
 	po_fieldtype = fields.get("po_fieldtype")
@@ -3297,6 +3303,7 @@ def get_project_planner_details(project: str) -> dict:
 
 	return {
 		"project": doc.name,
+		"modified": str(doc.get("modified") or ""),
 		"project_name": doc.project_name,
 		"customer": doc.get("customer") if doc.meta.has_field("customer") else None,
 		"custom_project_location": doc.get("custom_project_location") if doc.meta.has_field("custom_project_location") else None,
@@ -3612,12 +3619,14 @@ def update_project_planner_details(
 	project_start_date: str | None = None,
 	project_end_date: str | None = None,
 	project_notes: str | None = None,
+	expected_modified: str | None = None,
 ) -> dict:
 	"""Update the Project fields exposed by the annual project span dialog."""
 	if not project:
 		frappe.throw(_("Project is required"))
 
-	doc = frappe.get_doc("Project", project)
+	doc = frappe.get_doc("Project", project, for_update=True)
+	_check_project_revision(doc, expected_modified)
 	fields = _project_planner_edit_fields()
 
 	po_field = fields.get("po_field")
@@ -3666,11 +3675,17 @@ def update_project_planner_details(
 	return get_project_planner_details(project)
 
 
+def _check_project_revision(doc, expected_modified):
+	if expected_modified and str(doc.get("modified") or "") != str(expected_modified):
+		frappe.throw(_("This project was changed by another user. Reload the latest details before saving your changes."))
+
+
 @frappe.whitelist()
 def update_project_planner_dates(
 	project: str,
 	project_start_date: str | None = None,
 	project_end_date: str | None = None,
+	expected_modified: str | None = None,
 ) -> dict:
 	"""Update only the Project date range used by the annual planner span drag/resize."""
 	if not project:
@@ -3687,7 +3702,8 @@ def update_project_planner_dates(
 	end_date = _normalise_project_date_for_update(project_end_date)
 	_validate_project_date_range(start_date, end_date)
 
-	doc = frappe.get_doc("Project", project)
+	doc = frappe.get_doc("Project", project, for_update=True)
+	_check_project_revision(doc, expected_modified)
 
 	if _project_date_values_changed(doc, start_date_field, end_date_field, start_date, end_date):
 		_validate_project_dates_cover_tasks(project, start_date, end_date)
@@ -3864,7 +3880,7 @@ def get_project_meta(
 	projects = frappe.get_all(
 		"Project",
 		filters=project_filters,
-		fields=["name", "project_name", "status", *optional_fields],
+		fields=["name", "project_name", "status", "modified", *optional_fields],
 		limit_start=0,
 		limit_page_length=ANNUAL_ROSTER_RESULT_LIMIT,
 		limit=ANNUAL_ROSTER_RESULT_LIMIT,
@@ -4091,6 +4107,7 @@ def get_year_project_rows(
 
 		projects[project] = {
 			"project": project,
+			"modified": str(project_meta.get("modified") or ""),
 			"project_name": project_name,
 			"status": project_meta.get("status"),
 			"customer": project_meta.get("customer"),

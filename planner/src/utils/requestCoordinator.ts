@@ -8,6 +8,7 @@ const coordinatedMethods = new Set([
   'frappe.apps.get_apps',
   'verto.api.planner.get_events', 'verto.api.planner.get_year_events',
   'verto.api.planner.get_available_employees',
+  'verto.api.planner.get_project_planner_details', 'verto.api.planner.get_task_assignment_users',
 ])
 
 export function plannerRequest(options: any) {

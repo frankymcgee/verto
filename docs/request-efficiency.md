@@ -1,7 +1,11 @@
 # Request efficiency audit and first refactor
 
-Base: `version-16`, `e4f3829557b91adb83d3c638a2f67e151755a901` (16.3.1).
-Branch: `performance/reduce-api-requests`. Version: 16.3.2.
+Audit baseline: `version-16`, `e4f3829557b91adb83d3c638a2f67e151755a901` (16.3.1).
+Branch: `performance/reduce-api-requests`, rebased onto `f1124a7` (16.3.3),
+including the separate Mobile default-app option and root redirect fix.
+First refactor: 16.3.4.
+The 16.3.5 follow-up adds [live planner collaboration](planner-live-collaboration.md)
+and serialization of rapid planner filter refreshes.
 
 ## Changes
 
@@ -82,17 +86,14 @@ Validation performed:
    timesheets and link choices. Separate schemas/reference data from frequently
    changing records, with user/permission-aware change tokens. This should be
    measured before deciding cache intervals or changing offline coverage.
-2. **Planner filter bursts.** Rapid distinct filter changes can still enqueue
-   several valid reads. A latest-filter refresh controller could discard queued
-   obsolete filter requests while preserving explicit post-save refreshes.
-3. **Planner project details.** `_get_project_execution_tasks` bulk-loads related
+2. **Planner project details.** `_get_project_execution_tasks` bulk-loads related
    data but checks write permission via a Task document per task. Profile this
    path with realistic task counts before changing permission evaluation.
-4. **Chat stream metadata.** Counts and missing document previews could accompany
+3. **Chat stream metadata.** Counts and missing document previews could accompany
    native Raven message responses, reducing remaining metadata requests. That
    requires coordinating with the Raven repository while preserving rich
    message content and version compatibility.
-5. **Whiteboard image payloads.** Every genuine scene save still contains image
+4. **Whiteboard image payloads.** Every genuine scene save still contains image
    data. Storing files separately and saving scene references could substantially
    reduce large-board upload bytes; that needs a compatible storage migration.
 

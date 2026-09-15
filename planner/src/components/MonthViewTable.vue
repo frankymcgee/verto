@@ -154,12 +154,14 @@
                 :draggable="true"
                 @dragstart="
                   (event) => {
+                    isDragging = true;
                     if (event.dataTransfer) {
                       event.dataTransfer.effectAllowed = 'move';
                     }
                   }
                 "
                 @dragend="
+                  isDragging = false;
                   if (!loading)
                     dropCell = { employee: '', date: '', shift: '' };
                 "
@@ -259,7 +261,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { coalesceResource } from "../utils/coalesceResource";
+import { ref, computed, watch, onBeforeUnmount } from "vue";
 import colors from "tailwindcss/colors";
 import { Avatar, MultiSelect, Icon, createResource } from "frappe-ui";
 import { Dayjs } from "dayjs";
@@ -357,6 +360,7 @@ const props = defineProps<{
 }>();
 
 const loading = ref(true);
+const isDragging = ref(false);
 const employeeSearch = ref<string[]>([]);
 const shiftAssignment = ref<string>();
 const showShiftAssignmentDialog = ref(false);
@@ -419,9 +423,9 @@ const hasSameShift = (employee: string, day: string) =>
 
 // RESOURCES
 
-const events = createResource({
+const events = coalesceResource(createResource({
   url: "verto.api.planner.get_events",
-  auto: true,
+  auto: false,
   makeParams() {
     return {
       month_start: props.firstOfMonth.format("YYYY-MM-DD"),
@@ -443,8 +447,12 @@ const events = createResource({
     }
     return mappedEvents;
   },
-});
-defineExpose({ events });
+}));
+void events.fetch();
+onBeforeUnmount(() => events.disposeRefresh());
+
+const liveBusy = computed(() => isDragging.value || swapShift.loading);
+defineExpose({ events, liveBusy });
 
 const swapShift = createResource({
   url: "verto.api.planner.swap_shift",
