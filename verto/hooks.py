@@ -68,18 +68,20 @@ after_install = [
     "verto.install.after_install",
     "verto.api.mobile.peri_voice_settings.after_install",
     "verto.api.mobile.voice_jha_print.after_install",
+    "verto.api.mobile.global_notifications.after_install",
 ]
 after_migrate = [
     "verto.install.after_migrate",
     "verto.api.mobile.peri_voice_settings.after_migrate",
     "verto.api.mobile.voice_jha_print.after_migrate",
+    "verto.api.mobile.global_notifications.after_migrate",
     "verto.api.mobile.home_child_tasks.sync_active_jha_planned_steps",
 ]
 after_app_install = "verto.optional_integrations.after_app_install"
 
 extend_bootinfo = ["verto.api.mobile.boot.add_map_settings_to_boot"]
 
-# Apply site-managed runtime configuration before normal web and worker code.
+# Apply site-specific runtime configuration before normal web and worker code.
 # This removes the need to manually duplicate Verto settings into site_config.json.
 before_request = [
     "verto.runtime_config.apply_runtime_config",
@@ -161,6 +163,9 @@ scheduler_events = {
         "verto.api.qualifications.send_qualification_expiry_notifications",
     ],
     "cron": {
+        "0 08 * * *": [
+            "verto.api.mobile.global_notifications.send_project_missing_purchase_order_reminders",
+        ],
         "0 09 * * *": [
             "verto.api.mobile.push_notifications.send_previous_day_missing_hours_reminders",
         ],
@@ -176,17 +181,17 @@ scheduler_events = {
     },
 }
 
+# Retain global-notification de-duplication records long enough to cover audits
+# without allowing the delivery table to grow forever.
+default_log_clearing_doctypes = {
+    "Verto Global Notification Log": 180,
+}
+
 override_whitelisted_methods = {
     "frappe.apps.get_apps": "verto.default_apps.get_apps",
     "frappe.apps.set_app_as_default": "verto.default_apps.set_app_as_default",
     "frappe.geo.utils.get_coords": "verto.geo.utils.verto_get_coords",
     "verto.api.mobile.home.get_home_summary": "verto.api.mobile.home_child_tasks.get_home_summary",
-    "verto.api.mobile.documents.get_form_schema": "verto.api.mobile.daily_timesheet_time_format.get_form_schema",
-    "verto.api.mobile.documents.get_mobile_doc_for_edit": "verto.api.mobile.daily_timesheet_time_format.get_mobile_doc_for_edit",
-    "verto.api.mobile.documents.get_prefill_values": "verto.api.mobile.daily_timesheet_time_format.get_prefill_values",
-    "verto.api.mobile.documents.process_field_change": "verto.api.mobile.daily_timesheet_time_format.process_field_change",
-    "verto.api.mobile.documents.create_mobile_doc": "verto.api.mobile.daily_timesheet_time_format.create_mobile_doc",
-    "verto.api.mobile.documents.update_mobile_doc": "verto.api.mobile.daily_timesheet_time_format.update_mobile_doc",
     "verto.api.mobile.voice_jha.get_voice_jha_bootstrap": "verto.api.mobile.voice_jha_phase2.get_voice_jha_bootstrap",
     "verto.api.mobile.voice_jha.create_voice_jha_draft": "verto.api.mobile.voice_jha_phase2.create_voice_jha_draft",
     "verto.api.mobile.voice_jha.start_voice_jha_call": "verto.api.mobile.voice_jha_facilitator.start_voice_jha_call",

@@ -1,0 +1,68 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "hash",
+ "creation": "2026-09-17 07:25:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "user",
+  "receive_email",
+  "receive_push",
+  "project_missing_purchase_order"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "User",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "receive_email",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Email"
+  },
+  {
+   "default": "1",
+   "fieldname": "receive_push",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Push"
+  },
+  {
+   "default": "1",
+   "description": "Notify this user when an upcoming Project has no Purchase Order number entered.",
+   "fieldname": "project_missing_purchase_order",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Project Missing Purchase Order"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-17 07:25:00.000000",
+ "modified_by": "Administrator",
+ "module": "Verto",
+ "name": "Verto Global Notification List",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
