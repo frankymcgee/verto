@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { Badge, Button, Checkbox } from 'frappe-ui'
 
 import { apiRequest } from '../lib/api'
+import JhaFacilitationProgress from '../components/JhaFacilitationProgress.vue'
+import JhaReviewSignoff from '../components/JhaReviewSignoff.vue'
 
 type FrappeResponse<T> = { message: T }
 
@@ -28,6 +30,8 @@ type JhaSnapshot = {
   work_steps?: any[]
   hazards_and_controls?: any[]
   participants?: any[]
+  facilitation?: Record<string, any>
+  [key: string]: any
 }
 
 type VoiceJhaBootstrap = {
@@ -79,6 +83,7 @@ const context = ref<VoiceJhaBootstrap | null>(null)
 const jha = ref<JhaSnapshot | null>(null)
 const consentConfirmed = ref(false)
 const voiceConnected = ref(false)
+const pushToTalkActive = ref(false)
 const voiceStatus = ref('Not connected')
 const voiceModel = ref('')
 const transcript = ref<TranscriptEntry[]>([])
@@ -98,18 +103,29 @@ const workSummary = computed(() => String(route.params.workSummary || ''))
 const workStepCount = computed(() => jha.value?.work_steps?.length || 0)
 const hazardCount = computed(() => jha.value?.hazards_and_controls?.length || 0)
 const participantCount = computed(() => jha.value?.participants?.length || 0)
+const reviewStage = computed(() => [
+  'Ready for Team Review',
+  'Signed',
+  'Review Required - Work Changed',
+].includes(String(jha.value?.status || '')))
 const canConnectVoice = computed(() => Boolean(
   jha.value?.name &&
   context.value?.realtime_enabled &&
   consentConfirmed.value &&
   !connecting.value &&
-  !voiceConnected.value
+  !voiceConnected.value &&
+  !reviewStage.value
 ))
 const voiceConfigSummary = computed(() => {
   const config = context.value?.voice_configuration
   if (!config) return ''
   return [config.realtime_model, config.voice].filter(Boolean).join(' · ')
 })
+
+function handleReviewUpdated(value: Record<string, any>) {
+  if (!jha.value) return
+  jha.value = { ...jha.value, ...value }
+}
 
 async function load() {
   loading.value = true
@@ -155,7 +171,7 @@ async function refreshJha() {
   error.value = ''
   try {
     const data = await apiRequest<FrappeResponse<JhaSnapshot>>(
-      `/api/method/verto.api.mobile.voice_jha.get_voice_jha_snapshot?jha_name=${encodeURIComponent(jha.value.name)}`
+      `/api/method/verto.api.mobile.voice_jha_phase2.get_voice_jha_snapshot?jha_name=${encodeURIComponent(jha.value.name)}`
     )
     jha.value = data.message
   } catch (err) {
@@ -180,8 +196,48 @@ function sendRealtimeEvent(event: Record<string, any>) {
   return true
 }
 
+function setMicrophoneEnabled(enabled: boolean) {
+  if (!localStream) return
+  localStream.getAudioTracks().forEach((track) => {
+    track.enabled = enabled
+  })
+}
+
+function setPushToTalkIdleStatus() {
+  if (!voiceConnected.value) return
+  if (processingToolCalls.value) {
+    voiceStatus.value = 'PERI is updating the draft…'
+  } else if (pushToTalkActive.value) {
+    voiceStatus.value = 'Talking to PERI… release to send'
+  } else {
+    voiceStatus.value = 'Connected · hold to talk'
+  }
+}
+
+function startPushToTalk(event?: PointerEvent) {
+  if (!voiceConnected.value || connecting.value || reviewStage.value || pushToTalkActive.value) return
+  event?.preventDefault()
+  const target = event?.currentTarget as HTMLElement | null
+  if (target && event) {
+    try { target.setPointerCapture?.(event.pointerId) } catch { /* pointer capture is best effort */ }
+  }
+  pushToTalkActive.value = true
+  setMicrophoneEnabled(true)
+  voiceStatus.value = 'Talking to PERI… release to send'
+}
+
+function stopPushToTalk(event?: PointerEvent) {
+  if (!pushToTalkActive.value) return
+  event?.preventDefault()
+  setMicrophoneEnabled(false)
+  pushToTalkActive.value = false
+  voiceStatus.value = 'PERI is considering…'
+}
+
 function toolActivityMessage(toolName: string, result: Record<string, any>) {
   if (result?.message) return String(result.message)
+  if (toolName === 'confirm_job_steps') return 'Job-step list confirmed.'
+  if (toolName === 'complete_current_step') return 'Current job step completed.'
   if (toolName === 'record_work_step') return 'Draft work step updated.'
   if (toolName === 'record_hazard_and_control') return 'Draft hazard/control updated.'
   if (toolName === 'record_participant') return 'JHA participant updated.'
@@ -218,7 +274,13 @@ async function executeRealtimeTool(event: any) {
 
     if (Array.isArray(toolOutput.issues)) {
       completenessIssues.value = toolOutput.issues.map((item: unknown) => String(item))
-    } else if (toolName === 'record_work_step' || toolName === 'record_hazard_and_control' || toolName === 'record_participant') {
+    } else if ([
+      'confirm_job_steps',
+      'complete_current_step',
+      'record_work_step',
+      'record_hazard_and_control',
+      'record_participant',
+    ].includes(toolName)) {
       completenessIssues.value = []
     }
   } catch (err) {
@@ -249,11 +311,11 @@ async function handleRealtimeEvent(raw: string) {
   }
 
   if (event.type === 'session.created' || event.type === 'session.updated') {
-    voiceStatus.value = 'Connected · listening'
+    setPushToTalkIdleStatus()
     return
   }
   if (event.type === 'input_audio_buffer.speech_started') {
-    voiceStatus.value = 'Listening to crew…'
+    if (pushToTalkActive.value) voiceStatus.value = 'Talking to PERI… release to send'
     return
   }
   if (event.type === 'input_audio_buffer.speech_stopped') {
@@ -279,7 +341,7 @@ async function handleRealtimeEvent(raw: string) {
     return
   }
   if (event.type === 'response.done' || event.type === 'response.output_audio.done' || event.type === 'response.audio.done') {
-    if (!processingToolCalls.value) voiceStatus.value = 'Connected · listening'
+    if (!processingToolCalls.value) setPushToTalkIdleStatus()
     return
   }
   if (event.type === 'error') {
@@ -293,12 +355,14 @@ function configureDataChannel(channel: RTCDataChannel) {
   dataChannel = channel
 
   channel.onopen = () => {
+    setMicrophoneEnabled(false)
     voiceConnected.value = true
+    pushToTalkActive.value = false
     voiceStatus.value = 'Connected · starting PERI…'
     sendRealtimeEvent({
       type: 'response.create',
       response: {
-        instructions: 'Briefly greet the crew, identify the Work Summary, explain that you will record confirmed discussion points into a draft JHA for human review, then ask who is present and whether each person consents to transcription.',
+        instructions: 'Briefly greet the crew and identify the Work Summary. Resume from the persisted facilitation stage and current step supplied in your session instructions. Do not restart any phase that is already confirmed or complete.',
       },
     })
   }
@@ -314,6 +378,9 @@ function configureDataChannel(channel: RTCDataChannel) {
 }
 
 function cleanupVoice(status = 'Not connected') {
+  setMicrophoneEnabled(false)
+  pushToTalkActive.value = false
+
   if (dataChannel) {
     dataChannel.onopen = null
     dataChannel.onmessage = null
@@ -347,7 +414,7 @@ function disconnectVoice() {
 }
 
 async function connectVoice() {
-  if (!jha.value?.name || !consentConfirmed.value) return
+  if (!jha.value?.name || !consentConfirmed.value || reviewStage.value) return
   if (!navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === 'undefined') {
     error.value = 'This browser does not support the microphone/WebRTC features required for PERI voice.'
     return
@@ -362,11 +429,14 @@ async function connectVoice() {
   completenessIssues.value = []
   processedToolCalls.clear()
   manualDisconnect = false
+  pushToTalkActive.value = false
 
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     })
+
+    setMicrophoneEnabled(false)
 
     voiceStatus.value = 'Connecting to PERI…'
     const pc = new RTCPeerConnection()
@@ -383,7 +453,9 @@ async function connectVoice() {
       if (peerConnection !== pc) return
       if (pc.connectionState === 'connected') {
         voiceConnected.value = true
-        voiceStatus.value = 'Connected · listening'
+        setMicrophoneEnabled(false)
+        pushToTalkActive.value = false
+        voiceStatus.value = 'Connected · hold to talk'
       } else if (pc.connectionState === 'failed') {
         if (!manualDisconnect) error.value = 'The PERI voice connection failed.'
         cleanupVoice('Connection failed')
@@ -415,6 +487,7 @@ async function connectVoice() {
 
     jha.value = data.message.jha
     voiceModel.value = data.message.model || ''
+    setMicrophoneEnabled(false)
     voiceStatus.value = 'Connecting audio…'
   } catch (err) {
     const message = err instanceof DOMException && err.name === 'NotAllowedError'
@@ -506,10 +579,20 @@ onBeforeUnmount(() => {
             </div>
           </section>
 
-          <section class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
+          <JhaFacilitationProgress
+            v-if="jha.facilitation"
+            :progress="jha.facilitation"
+          />
+
+          <JhaReviewSignoff
+            :jha="jha"
+            @updated="handleReviewUpdated"
+          />
+
+          <section v-if="!reviewStage" class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
             <div class="flex items-start justify-between gap-3">
-              <div><p class="text-base-semibold text-ink-gray-9">Voice discussion</p><p class="mt-1 text-sm text-ink-gray-5">Live structured JHA development with PERI</p></div>
-              <Badge variant="subtle">{{ voiceConnected ? (processingToolCalls ? 'Updating draft' : 'Microphone live') : voiceStatus }}</Badge>
+              <div><p class="text-base-semibold text-ink-gray-9">Voice discussion</p><p class="mt-1 text-sm text-ink-gray-5">Push-to-talk structured JHA development with PERI</p></div>
+              <Badge variant="subtle">{{ voiceConnected ? (processingToolCalls ? 'Updating draft' : (pushToTalkActive ? 'Talking' : 'Mic muted')) : voiceStatus }}</Badge>
             </div>
 
             <div v-if="!voiceConnected" class="mt-4 rounded-7 border border-outline-gray-1 bg-surface-gray-1 p-3">
@@ -517,12 +600,37 @@ onBeforeUnmount(() => {
                 <Checkbox class="mt-0.5 shrink-0" size="md" :model-value="consentConfirmed" :disabled="connecting" @update:model-value="(checked) => consentConfirmed = Boolean(checked)" />
                 <span class="text-sm leading-5 text-ink-gray-7">I confirm everyone present has agreed to microphone use and transcription for this JHA discussion.</span>
               </label>
-              <p class="mt-3 text-xs leading-4 text-ink-gray-5">This confirmation is recorded against the Digital JHA. Raw audio is not stored by this Verto workflow.</p>
+              <p class="mt-3 text-xs leading-4 text-ink-gray-5">This confirmation is recorded against the Digital JHA. Raw audio is not stored by this Verto workflow. Once connected, crew audio is transmitted only while the push-to-talk button is held.</p>
             </div>
 
             <div v-if="voiceConnected" class="mt-4 rounded-7 border border-green-200 bg-green-50 p-3">
-              <p class="text-sm-medium text-green-900">Microphone and structured draft tools are active.</p>
+              <p class="text-sm-medium text-green-900">PERI is connected · push-to-talk privacy mode</p>
               <p class="mt-1 text-sm text-green-800">{{ voiceStatus }}<span v-if="voiceModel"> · {{ voiceModel }}</span></p>
+              <p class="mt-1 text-xs leading-4 text-green-700">The microphone track is muted whenever the button below is not being held. Your browser/device may still show that microphone permission is active while the PERI session remains connected.</p>
+            </div>
+
+            <div v-if="voiceConnected" class="mt-4 flex flex-col items-center">
+              <button
+                type="button"
+                class="flex h-28 w-28 touch-none select-none flex-col items-center justify-center rounded-full border-2 shadow-sm transition active:scale-95"
+                :class="pushToTalkActive ? 'border-red-500 bg-red-50 text-red-700' : 'border-outline-gray-3 bg-surface-gray-1 text-ink-gray-8'"
+                :aria-pressed="pushToTalkActive"
+                :aria-label="pushToTalkActive ? 'Release to send voice to PERI' : 'Hold to talk to PERI'"
+                @pointerdown="startPushToTalk"
+                @pointerup="stopPushToTalk"
+                @pointercancel="stopPushToTalk"
+                @lostpointercapture="stopPushToTalk"
+                @contextmenu.prevent
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-8 w-8" aria-hidden="true">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <path d="M12 19v3" />
+                  <path d="M8 22h8" />
+                </svg>
+                <span class="mt-2 text-sm-medium">{{ pushToTalkActive ? 'Release' : 'Hold to talk' }}</span>
+              </button>
+              <p class="mt-2 text-center text-xs text-ink-gray-5">Press and hold while speaking. Release when finished.</p>
             </div>
 
             <div v-if="toolActivity" class="mt-3 rounded-7 border border-blue-200 bg-blue-50 p-3">

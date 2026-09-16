@@ -35,6 +35,55 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Keep the active PERI JHA push-to-talk control reachable while the crew
+   scrolls through the work steps, hazards and transcript. The mobile shell's
+   bottom navigation is outside the scroll container, so the dock sits just
+   above it and honours the device safe-area inset. */
+.mobile-shell-main div:has(> button[aria-pressed][aria-label$='PERI']) {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--mobile-bottom-tabs-height) + 0.5rem);
+  z-index: 45;
+  width: min(calc(100vw - 1rem - var(--safe-area-left) - var(--safe-area-right)), 32rem);
+  margin: 0;
+  padding: 0.625rem 0.75rem;
+  transform: translateX(-50%);
+  border: 1px solid rgb(209 213 219 / 0.9);
+  border-radius: 0.875rem;
+  background: rgb(255 255 255 / 0.96);
+  box-shadow: 0 -8px 28px rgb(15 23 42 / 0.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.mobile-shell-main div:has(> button[aria-pressed][aria-label$='PERI']) > button {
+  width: 5.25rem;
+  height: 5.25rem;
+  flex-shrink: 0;
+}
+
+.mobile-shell-main div:has(> button[aria-pressed][aria-label$='PERI']) > p {
+  margin-top: 0.375rem;
+}
+
+/* Reserve enough scroll space that the fixed PTT dock never covers the last
+   JHA card or transcript entry. This applies only while the microphone dock
+   exists (that is, while PERI is connected). */
+.mobile-shell-main:has(button[aria-pressed][aria-label$='PERI']) .mobile-shell-page {
+  padding-bottom: 8.5rem;
+}
+
+@media (min-width: 1024px) {
+  .mobile-shell-main div:has(> button[aria-pressed][aria-label$='PERI']) {
+    bottom: 1rem;
+    width: min(calc(100vw - 4rem), 36rem);
+  }
+
+  .mobile-shell-main:has(button[aria-pressed][aria-label$='PERI']) .mobile-shell-page {
+    padding-bottom: 7rem;
+  }
+}
+
 /* Prevent iOS Safari/PWA auto-zoom when focusing form fields.
    Keep this scoped to form entry controls only so nav buttons stay small. */
 @supports (-webkit-touch-callout: none) {

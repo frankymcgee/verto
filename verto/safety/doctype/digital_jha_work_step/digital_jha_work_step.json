@@ -12,52 +12,25 @@
   "step_origin",
   "source_task",
   "source_step_identifier",
-  "hold_or_pause_point"
+  "hold_or_pause_point",
+  "hold_point_confirmed",
+  "critical_controls_reviewed",
+  "step_discussion_complete"
  ],
  "fields": [
-  {
-   "fieldname": "sequence",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Sequence"
-  },
-  {
-   "fieldname": "activity",
-   "fieldtype": "Small Text",
-   "in_list_view": 1,
-   "label": "Activity",
-   "reqd": 1
-  },
-  {
-   "default": "Planned",
-   "fieldname": "step_origin",
-   "fieldtype": "Select",
-   "label": "Origin",
-   "options": "Planned\nVoice-derived\nManually added"
-  },
-  {
-   "fieldname": "source_task",
-   "fieldtype": "Link",
-   "hidden": 1,
-   "label": "Source Task",
-   "options": "Task",
-   "read_only": 1
-  },
-  {
-   "fieldname": "source_step_identifier",
-   "fieldtype": "Data",
-   "label": "Source Step Identifier"
-  },
-  {
-   "default": "0",
-   "fieldname": "hold_or_pause_point",
-   "fieldtype": "Check",
-   "label": "Hold / Pause Point"
-  }
+  {"fieldname":"sequence","fieldtype":"Int","in_list_view":1,"label":"Sequence"},
+  {"fieldname":"activity","fieldtype":"Small Text","in_list_view":1,"label":"Activity","reqd":1},
+  {"default":"Planned","fieldname":"step_origin","fieldtype":"Select","label":"Origin","options":"Planned\nVoice-derived\nManually added"},
+  {"fieldname":"source_task","fieldtype":"Link","hidden":1,"label":"Source Task","options":"Task","read_only":1},
+  {"fieldname":"source_step_identifier","fieldtype":"Data","label":"Source Step Identifier"},
+  {"default":"0","fieldname":"hold_or_pause_point","fieldtype":"Check","label":"Hold / Pause Point"},
+  {"default":"0","fieldname":"hold_point_confirmed","fieldtype":"Check","hidden":1,"label":"Hold / Pause Point Confirmed","read_only":1},
+  {"default":"0","fieldname":"critical_controls_reviewed","fieldtype":"Check","hidden":1,"label":"Critical Controls Reviewed","read_only":1},
+  {"default":"0","fieldname":"step_discussion_complete","fieldtype":"Check","hidden":1,"label":"Step Discussion Complete","read_only":1}
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-09-14 17:03:00.000000",
+ "modified": "2026-09-15 14:50:00.000000",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "Digital JHA Work Step",

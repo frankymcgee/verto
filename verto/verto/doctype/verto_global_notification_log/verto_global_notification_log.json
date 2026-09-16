@@ -1,0 +1,106 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:delivery_key",
+ "creation": "2026-09-17 07:27:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "delivery_key",
+  "notification_type",
+  "project",
+  "recipient_user",
+  "channel",
+  "reminder_days",
+  "scheduled_start_date",
+  "queued_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "delivery_key",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Delivery Key",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "notification_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Notification Type",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "options": "Project",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "recipient_user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Recipient User",
+   "options": "User",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "channel",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Channel",
+   "options": "Email\nPush",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "reminder_days",
+   "fieldtype": "Int",
+   "label": "Reminder Days",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "scheduled_start_date",
+   "fieldtype": "Date",
+   "label": "Scheduled Start Date",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "queued_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Queued At",
+   "read_only": 1,
+   "reqd": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-17 07:27:00.000000",
+ "modified_by": "Administrator",
+ "module": "Verto",
+ "name": "Verto Global Notification Log",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "read": 1,
+   "report": 1,
+   "role": "System Manager"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
