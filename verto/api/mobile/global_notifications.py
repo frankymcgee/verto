@@ -316,13 +316,19 @@ def _dispatch_channel(*, recipient: dict, project: dict, reminder_days: int, cha
     return {"status": "queued", "channel": channel, "project": project_id, "user": user}
 
 
+@frappe.whitelist(methods=["POST"])
 def send_project_missing_purchase_order_reminders(reference_date=None, dry_run=False):
     """Send 14/7/2-day reminders for Projects without Purchase Orders.
 
     Scheduler calls this once per day. ``reference_date`` and ``dry_run`` are
-    intentionally supported for bench-console testing.
+    intentionally supported for System Console testing.
     """
-    if reference_date is not None or cint(dry_run):
+    # A web/System Console call is user-triggered and must be limited to
+    # Administrator/System Manager. Scheduler/background execution has no HTTP
+    # request and continues to run normally.
+    if getattr(frappe.local, "request", None) is not None:
+        _ensure_system_manager_for_manual_call()
+    elif reference_date is not None or cint(dry_run):
         _ensure_system_manager_for_manual_call()
 
     reference = getdate(reference_date or nowdate())
