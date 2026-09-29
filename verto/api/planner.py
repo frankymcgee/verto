@@ -894,7 +894,7 @@ def get_year_events(
 	year_end = f"{year}-12-31"
 
 	holidays = get_holidays(year_start, year_end, employee_filters)
-	leaves = get_leaves(year_start, year_end, employee_filters)
+	leaves = get_leaves(year_start, year_end, employee_filters, include_all_statuses=True)
 	shift_rows = get_shift_rows(year_start, year_end, employee_filters, shift_filters)
 	day_markers = get_year_day_markers(year_start, year_end, holidays)
 	timesheet_days = get_year_timesheet_days(year_start, year_end, shift_rows)
@@ -1599,7 +1599,7 @@ def get_year_employee_event_index(
 	shift_assignments: dict[str, dict] = {}
 
 	for employee, employee_leaves in (leaves or {}).items():
-		for leave in employee_leaves or []:
+		for leave in sorted(employee_leaves or [], key=_leave_status_priority):
 			leave_name = str(leave.get("leave") or "").strip()
 			if not leave_name:
 				continue
@@ -1630,8 +1630,10 @@ def get_year_employee_event_index(
 			open_ended=True,
 		):
 			day = employee_event_days.setdefault(employee, {}).setdefault(date_key, {})
-			if day.get("leave"):
+			if day.get("leave") and _is_approved_leave(leave_applications[day["leave"]]):
 				continue
+			# Other leave statuses are informational; retain the shift alongside
+			# the leave reference so the roster can show both without blocking work.
 			shift_names = day.setdefault("shifts", [])
 			if shift_name not in shift_names:
 				shift_names.append(shift_name)
@@ -2705,7 +2707,28 @@ def get_holidays(month_start: str, month_end: str, employee_filters: dict[str, s
 	return holidays
 
 
-def get_leaves(month_start: str, month_end: str, employee_filters: dict[str, str]) -> dict[str, list[dict]]:
+def _leave_status(leave: dict) -> str:
+	if leave.get("docstatus") is not None and int(leave["docstatus"]) == 2:
+		return "Cancelled"
+	return leave.get("status") or ("Open" if leave.get("docstatus") == 0 else "Approved")
+
+
+def _leave_status_priority(leave: dict) -> int:
+	return {"Approved": 0, "Open": 1, "Rejected": 2, "Cancelled": 3}.get(_leave_status(leave), 4)
+
+
+def _is_approved_leave(leave: dict) -> bool:
+	return _leave_status(leave) == "Approved" and (
+		leave.get("docstatus") is None or int(leave["docstatus"]) == 1
+	)
+
+
+def get_leaves(
+	month_start: str,
+	month_end: str,
+	employee_filters: dict[str, str],
+	include_all_statuses: bool = False,
+) -> dict[str, list[dict]]:
 	employee_filters = _clean_filters(employee_filters)
 	LeaveApplication = frappe.qb.DocType("Leave Application")
 	Employee = frappe.qb.DocType("Employee")
@@ -2719,6 +2742,8 @@ def get_leaves(month_start: str, month_end: str, employee_filters: dict[str, str
 			LeaveApplication.to_date,
 			LeaveApplication.description.as_("reason"),
 			LeaveApplication.status,
+			LeaveApplication.docstatus,
+			LeaveApplication.modified,
 			LeaveApplication.total_leave_days,
 			LeaveApplication.half_day,
 			LeaveApplication.half_day_date,
@@ -2727,17 +2752,30 @@ def get_leaves(month_start: str, month_end: str, employee_filters: dict[str, str
 		.left_join(Employee)
 		.on(LeaveApplication.employee == Employee.name)
 		.where(
-			(LeaveApplication.docstatus == 1)
-			& (LeaveApplication.status == "Approved")
-			& (LeaveApplication.from_date <= month_end)
+			(LeaveApplication.from_date <= month_end)
 			& (LeaveApplication.to_date >= month_start)
 		)
 	)
 
+	if include_all_statuses:
+		query = query.where(
+			LeaveApplication.status.isin(["Open", "Approved", "Rejected", "Cancelled"])
+			| (LeaveApplication.docstatus == 2)
+		)
+	else:
+		query = query.where((LeaveApplication.docstatus == 1) & (LeaveApplication.status == "Approved"))
+
 	for filter in employee_filters:
 		query = query.where(Employee[filter] == employee_filters[filter])
 
-	return group_by_employee(query.run(as_dict=True))
+	rows = query.run(as_dict=True)
+	for leave in rows:
+		# Cancelling a document can leave its stored workflow status as Approved.
+		leave["status"] = _leave_status(leave)
+	# Prefer active requests over historical ones, then the latest application.
+	rows.sort(key=lambda leave: (str(leave.get("modified") or ""), leave["leave"]), reverse=True)
+	rows.sort(key=_leave_status_priority)
+	return group_by_employee(rows)
 
 
 def get_shifts(

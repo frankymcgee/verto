@@ -94,7 +94,7 @@ jobs:
           bench --site test_site install-app verto
           bench --site test_site migrate
 
-      - name: Run planner task creation regressions
+      - name: Run planner task and leave regressions
         working-directory: /home/runner/frappe-bench
         env:
           CI: 'Yes'
@@ -103,6 +103,10 @@ jobs:
             --app verto \
             --module verto.api.test_planner \
             --case TestPlannerAppendGenericTasks \
+            --skip-before-tests
+          bench --site test_site run-tests \
+            --app verto \
+            --module verto.api.test_planner_leave \
             --skip-before-tests
 
       - name: Build Verto assets
