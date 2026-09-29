@@ -1901,6 +1901,14 @@ function shiftCellLabel(shift: ShiftAssignment) {
   return shift.shift_type
 }
 
+function leaveTypeAbbreviation(leaveType: string | null | undefined) {
+  const name = (leaveType || '').trim().replace(/['‘’]/g, '')
+  if (/^r\s*(?:n|&|and)\s*r$/i.test(name)) return 'RnR'
+
+  const words = name.match(/[\p{L}\p{N}]+/gu) || []
+  return words.map(([initial]) => initial.toUpperCase()).join('') || 'L'
+}
+
 function hasNote(note: string | null | undefined) {
   return typeof note === 'string' && note.trim().length > 0
 }
@@ -1983,7 +1991,7 @@ function mapEventsToYear(data: Events): MappedEvents {
         if (isLeave(event) && overlaps(date, event.from_date, event.to_date)) {
           blockedCell = {
             type: 'leave',
-            label: 'L',
+            label: leaveTypeAbbreviation(event.leave_type),
             title: event.leave_type,
             leave: event,
           }
@@ -2051,7 +2059,7 @@ function mapIndexedEventsToYear(data: YearEventsResponse): MappedEvents {
       if (leave) {
         employeeCells[date] = {
           type: 'leave',
-          label: 'L',
+          label: leaveTypeAbbreviation(leave.leave_type),
           title: leave.leave_type,
           leave,
         }
