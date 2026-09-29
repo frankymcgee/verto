@@ -99,10 +99,12 @@ extend_doctype_class = {
 # Permissions
 # -----------
 permission_query_conditions = {
+    "Verto Whiteboard": "verto.api.whiteboard.get_permission_query_conditions",
     "Digital Job Hazard Analysis": "verto.api.mobile.voice_jha_permissions.get_permission_query_conditions",
 }
 
 has_permission = {
+    "Verto Whiteboard": "verto.api.whiteboard.has_permission",
     "Digital Job Hazard Analysis": "verto.api.mobile.voice_jha_permissions.has_permission",
 }
 

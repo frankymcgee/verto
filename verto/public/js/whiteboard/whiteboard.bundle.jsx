@@ -3,7 +3,8 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 
 class Whiteboard {
-  constructor({ page, wrapper }) {
+  constructor({ page, wrapper, ...options }) {
+    this.options = options;
     this.page = page;
     this.wrapper = wrapper;
     this.root = null;
@@ -46,7 +47,7 @@ class Whiteboard {
     if (deskHeader) this.resizeObserver.observe(deskHeader);
 
     this.root = createRoot(mountElement);
-    this.root.render(<App />);
+    this.root.render(<App {...this.options} />);
   }
 
   destroy() {

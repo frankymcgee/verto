@@ -7,7 +7,8 @@
  "engine": "InnoDB",
  "field_order": [
   "user",
-  "state"
+  "state",
+  "revision"
  ],
  "fields": [
   {
@@ -25,6 +26,14 @@
    "fieldtype": "JSON",
    "label": "State",
    "read_only": 1
+  },
+  {
+   "fieldname": "revision",
+   "fieldtype": "Int",
+   "label": "Revision",
+   "default": "0",
+   "read_only": 1,
+   "hidden": 1
   }
  ],
  "grid_page_length": 50,
