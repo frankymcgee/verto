@@ -428,9 +428,10 @@
 
               <div class="flex items-center justify-between gap-3">
                 <p class="text-xs text-gray-500">
-                  New locations use the project's existing Outline. An Outline
-                  is created only if none exists. Existing locations receive
-                  only the additional Work Summaries.
+                  New locations and their Work Summaries use the existing
+                  Outline's dates. A first Outline uses the Project dates.
+                  Existing locations keep their dates and receive only the
+                  additional Work Summaries.
                 </p>
                 <Button
                   size="sm"

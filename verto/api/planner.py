@@ -3568,21 +3568,8 @@ def create_generic_project_tasks(
 		frappe.throw(_("The generic task end date and time must be after its start date and time."))
 	expected_time = round((end_datetime - start_datetime).total_seconds() / 3600, 2)
 
-	# Existing locations keep their own date range, contained by the project.
-	planned = []
-	for subject, parent, summaries in entries:
-		location_start = _normalise_project_date_for_update(parent.get("exp_start_date")) if parent else None
-		location_end = _normalise_project_date_for_update(parent.get("exp_end_date")) if parent else None
-		location_start, location_end = location_start or start_date, location_end or end_date
-		_validate_project_date_range(location_start, location_end)
-		if getdate(location_start) < getdate(start_date) or getdate(location_end) > getdate(end_date):
-			frappe.throw(_("Location {0} has dates outside the Project date range. Update its dates before adding Work Summaries.").format(subject))
-		hours = (get_datetime(f"{location_end} {end_time}") - get_datetime(f"{location_start} {start_time}")).total_seconds() / 3600
-		if hours <= 0:
-			frappe.throw(_("Work Summary end date and time must be after its start date and time."))
-		planned.append((subject, parent, summaries, location_start, location_end, round(hours, 2)))
-
 	outline_task = None
+	outline_start_date, outline_end_date = start_date, end_date
 	if new_subjects:
 		outline_name = _get_project_outline_task_name(project)
 		if outline_name:
@@ -3593,18 +3580,30 @@ def create_generic_project_tasks(
 				or not outline_task.get("is_group") or outline_task.get("status") == "Cancelled"
 			):
 				frappe.throw(_("The project's Outline has changed. Reload the project and try again."))
-			# A Project can be extended after its Outline was created. Persist
-			# the wider range before ERPNext validates the new child locations.
-			# Never shorten an existing range that may cover other child tasks.
-			outline_dates_changed = False
-			if not outline_task.get("exp_start_date") or getdate(outline_task.exp_start_date) > getdate(start_date):
-				outline_task.exp_start_date = start_date
-				outline_dates_changed = True
-			if not outline_task.get("exp_end_date") or getdate(outline_task.exp_end_date) < getdate(end_date):
-				outline_task.exp_end_date = end_date
-				outline_dates_changed = True
-			if outline_dates_changed:
-				outline_task.save()
+			# New locations inherit the existing Outline's dates. Adding tasks
+			# must not reschedule the Outline or any other existing task.
+			outline_start_date = _normalise_project_date_for_update(outline_task.get("exp_start_date"))
+			outline_end_date = _normalise_project_date_for_update(outline_task.get("exp_end_date"))
+			if not outline_start_date or not outline_end_date:
+				frappe.throw(_("Outline {0} needs an Expected Start Date and Expected End Date before adding locations.").format(outline_task.name))
+			if getdate(outline_start_date) > getdate(outline_end_date):
+				frappe.throw(_("Outline {0}'s Expected Start Date cannot be after its Expected End Date.").format(outline_task.name))
+			if getdate(outline_start_date) < getdate(start_date) or getdate(outline_end_date) > getdate(end_date):
+				frappe.throw(_("Outline {0} has dates outside the Project date range. Review the existing dates before adding locations.").format(outline_task.name))
+
+	# Existing locations keep their own date range; new ones use the Outline.
+	planned = []
+	for subject, parent, summaries in entries:
+		location_start = _normalise_project_date_for_update(parent.get("exp_start_date")) if parent else outline_start_date
+		location_end = _normalise_project_date_for_update(parent.get("exp_end_date")) if parent else outline_end_date
+		location_start, location_end = location_start or start_date, location_end or end_date
+		_validate_project_date_range(location_start, location_end)
+		if getdate(location_start) < getdate(start_date) or getdate(location_end) > getdate(end_date):
+			frappe.throw(_("Location {0} has dates outside the Project date range. Update its dates before adding Work Summaries.").format(subject))
+		hours = (get_datetime(f"{location_end} {end_time}") - get_datetime(f"{location_start} {start_time}")).total_seconds() / 3600
+		if hours <= 0:
+			frappe.throw(_("Work Summary end date and time must be after its start date and time."))
+		planned.append((subject, parent, summaries, location_start, location_end, round(hours, 2)))
 
 	create_outline = bool(new_subjects) and outline_task is None
 	count = int(create_outline) + len(new_subjects) + sum(len(summaries) for _, _, summaries in entries)
@@ -3621,8 +3620,8 @@ def create_generic_project_tasks(
 		if location_task is None:
 			location_task = _insert_generic_project_task(
 				name=next(task_names), project_doc=project_doc, subject=subject,
-				task_type="Location", is_group=True, start_date=start_date, end_date=end_date,
-				start_time=start_time, end_time=end_time, expected_time=expected_time, parent_task=outline_task,
+				task_type="Location", is_group=True, start_date=location_start, end_date=location_end,
+				start_time=start_time, end_time=end_time, expected_time=hours, parent_task=outline_task,
 			)
 			created_tasks.append(location_task)
 		for subject in summaries:
