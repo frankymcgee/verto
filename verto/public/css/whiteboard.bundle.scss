@@ -1,0 +1,3 @@
+// Inline the shared CSS before Frappe's PostCSS plugin stages the bundle in a
+// temporary directory, where relative CSS imports cannot find sibling files.
+@use "./whiteboard.css";
