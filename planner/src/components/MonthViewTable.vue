@@ -123,12 +123,17 @@
             </div>
 
             <!-- Leave -->
-            <div
+            <button
               v-else-if="events.data?.[employee.name]?.[day.date]?.leave"
-              class="blocked-cell"
+              type="button"
+              class="blocked-cell w-full"
+              @click.stop="
+                selectedLeaveApplication = events.data[employee.name][day.date].leave;
+                showLeaveApplicationDialog = true;
+              "
             >
               {{ events.data[employee.name][day.date].leave_type }}
-            </div>
+            </button>
 
             <!-- Shifts -->
             <div
@@ -247,6 +252,14 @@
     </table>
   </div>
 
+  <LeaveApplicationDialog
+    ref="leaveApplicationDialog"
+    v-model="showLeaveApplicationDialog"
+    :isDialogOpen="showLeaveApplicationDialog"
+    :leaveApplicationName="selectedLeaveApplication"
+    :company="employeeFilters.company"
+    @fetchEvents="void events.fetch().catch(() => {})"
+  />
   <ShiftAssignmentDialog
     v-model="showShiftAssignmentDialog"
     :isDialogOpen="showShiftAssignmentDialog"
@@ -270,6 +283,7 @@ import { Dayjs } from "dayjs";
 import { dayjs, raiseToast } from "../utils";
 import { EmployeeFilters, ShiftFilters } from "../views/MonthView.vue";
 import ShiftAssignmentDialog from "./ShiftAssignmentDialog.vue";
+import LeaveApplicationDialog from "./LeaveApplicationDialog.vue";
 
 interface Holiday {
   holiday: string;
@@ -364,6 +378,9 @@ const isDragging = ref(false);
 const employeeSearch = ref<string[]>([]);
 const shiftAssignment = ref<string>();
 const showShiftAssignmentDialog = ref(false);
+const showLeaveApplicationDialog = ref(false);
+const selectedLeaveApplication = ref("");
+const leaveApplicationDialog = ref<InstanceType<typeof LeaveApplicationDialog>>();
 const hoveredCell = ref({
   employee: "",
   date: "",
@@ -452,7 +469,7 @@ const events = coalesceResource(createResource({
 void events.fetch().catch(() => {}); // onError already reports a failed dataset.
 onBeforeUnmount(() => events.disposeRefresh());
 
-const liveBusy = computed(() => isDragging.value || swapShift.loading);
+const liveBusy = computed(() => isDragging.value || swapShift.loading || leaveApplicationDialog.value?.busy);
 defineExpose({ events, liveBusy });
 
 const swapShift = createResource({

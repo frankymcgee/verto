@@ -701,9 +701,13 @@ def search_leave_application_link_options(
 	txt: str = "",
 	fieldname: str | None = None,
 	company: str | None = None,
+	name: str | None = None,
 ) -> list[dict]:
 	"""Return searchable Link options for the Planner Leave Application dialog."""
-	if not frappe.has_permission("Leave Application", ptype="create"):
+	if name:
+		from verto.api.planner_leave import check_link_field_permission
+		check_link_field_permission(name, fieldname, link_doctype)
+	elif not frappe.has_permission("Leave Application", ptype="create"):
 		frappe.throw(_("You do not have permission to create Leave Applications."), frappe.PermissionError)
 
 	link_doctype = (link_doctype or "").strip()
