@@ -434,7 +434,7 @@ describe("Annual leave status visibility and scheduling", () => {
   async function openRoster(version, withShift = false) {
     const leaves = leaveCases.map((leave, index) => ({
       ...leave,
-      leave: `LEAVE-${index}`,
+      leave: `LEAVE/${index}`,
       // A cancelled document can retain Approved in the stored status field.
       status: leave.docstatus === 2 ? "Approved" : leave.status,
       from_date: `2026-09-${10 + index}`,
@@ -462,7 +462,8 @@ describe("Annual leave status visibility and scheduling", () => {
     });
   }
 
-  it.each([1, 2])("renders the four statuses and keeps approval blocking in contract %s", async version => {
+  it.each([1, 2])("opens existing leave applications for all four statuses in contract %s", async version => {
+    const openWindow = vi.spyOn(window, "open").mockReturnValue(null);
     await openRoster(version);
     const backgrounds = new Set();
     for (const leave of leaveCases) {
@@ -470,26 +471,25 @@ describe("Annual leave status visibility and scheduling", () => {
       expect(cell.text()).toBe(leave.label);
       expect(cell.element.style.backgroundImage).toContain("repeating-linear-gradient");
       backgrounds.add(cell.element.style.backgroundColor);
+      await cell.trigger("click");
+      expect(openWindow).toHaveBeenLastCalledWith(
+        `/app/leave-application/LEAVE%2F${leaveCases.indexOf(leave)}`, "_blank", "noopener,noreferrer",
+      );
+      expect(wrapper.findComponent(ShiftAssignmentDialog).props("isDialogOpen")).toBe(false);
     }
     expect(backgrounds.size).toBe(4);
     expect(wrapper.findAll(".year-employee-legend-leave")).toHaveLength(4);
-    await wrapper.find('td[aria-label="Sick Leave · Approved"]').trigger("click");
-    expect(wrapper.findComponent(ShiftAssignmentDialog).props("isDialogOpen")).toBe(false);
-
-    for (const status of ["Open", "Rejected", "Cancelled"]) {
-      const index = leaveCases.findIndex(leave => leave.status === status);
-      const leave = leaveCases[index];
-      await wrapper.find(`td[aria-label="${leave.leave_type} · ${status}"]`).trigger("click");
-      await settle();
-      const dialog = wrapper.findComponent(ShiftAssignmentDialog);
-      expect(dialog.props("isDialogOpen")).toBe(true);
-      expect(dialog.props("selectedCell")).toEqual({ employee: "EMP-1", date: `2026-09-${10 + index}` });
-      dialog.vm.$emit("update:modelValue", false);
-      await settle();
-    }
+    expect(openWindow).toHaveBeenCalledTimes(4);
+    await wrapper.find('td.year-cell[aria-label="Monday, 14 September 2026"]').trigger("click");
+    await settle();
+    const dialog = wrapper.findComponent(ShiftAssignmentDialog);
+    expect(dialog.props("isDialogOpen")).toBe(true);
+    expect(dialog.props("selectedCell")).toEqual({ employee: "EMP-1", date: "2026-09-14" });
+    expect(openWindow).toHaveBeenCalledTimes(4);
   });
 
   it.each([1, 2])("retains shifts and leave status markers on non-approved days in contract %s", async version => {
+    const openWindow = vi.spyOn(window, "open").mockReturnValue(null);
     await openRoster(version, true);
     expect(wrapper.findAll(".year-employee-shift-cell")).toHaveLength(3);
     expect(wrapper.findAll(".year-leave-status-marker")).toHaveLength(3);
@@ -498,6 +498,11 @@ describe("Annual leave status visibility and scheduling", () => {
       expect(cell.text()).toBe("DS");
       expect(cell.attributes("draggable")).toBe("true");
       expect(cell.find(".year-leave-status-marker").element.style.backgroundImage).toContain("repeating-linear-gradient");
+      await cell.find(".year-leave-status-marker").trigger("click");
+      expect(openWindow).toHaveBeenLastCalledWith(
+        `/app/leave-application/LEAVE%2F${leaveCases.indexOf(leave)}`, "_blank", "noopener,noreferrer",
+      );
+      expect(wrapper.findComponent(ShiftAssignmentDialog).props("isDialogOpen")).toBe(false);
     }
     const cancelled = wrapper.find('td[aria-label$="Unavailable · Cancelled"]');
     await cancelled.trigger("mouseenter", { clientX: 100, clientY: 100 });
@@ -505,6 +510,7 @@ describe("Annual leave status visibility and scheduling", () => {
     await cancelled.trigger("click");
     await settle();
     expect(wrapper.findComponent(ShiftAssignmentDialog).props("shiftAssignmentName")).toBe("SHIFT-1");
+    expect(openWindow).toHaveBeenCalledTimes(3);
   });
 });
 

@@ -482,13 +482,17 @@
                   :title="timesheetMarkerTitle(employee.name, day.date)"
                   aria-hidden="true"
                 ></span>
-                <span
+                <button
                   v-if="isEmployeeShiftCell(employee.name, day.date) && employeeCellLeave(employee.name, day.date)"
+                  type="button"
                   class="year-leave-status-marker"
                   :style="employeeLeaveMarkerStyle(employee.name, day.date)"
-                  :title="employeeLeaveTitle(employee.name, day.date)"
-                  aria-hidden="true"
-                ></span>
+                  :title="`Open Leave Application: ${employeeLeaveTitle(employee.name, day.date)}`"
+                  :aria-label="`Open Leave Application: ${employeeLeaveTitle(employee.name, day.date)}`"
+                  :draggable="false"
+                  @dragstart.stop.prevent
+                  @click.stop="openLeaveApplication(employee.name, day.date)"
+                ></button>
                 {{ employeeCellLabel(employee.name, day.date) }}
               </td>
             </tr>
@@ -2584,12 +2588,26 @@ function onEmployeeCellDrop(employee: string, date: string, event: DragEvent) {
   bulkMoveOrSwapShifts.submit()
 }
 
+function openLeaveApplication(employee: string, date: string) {
+  if (suppressNextCellClick.value || isDroppingShift.value) return
+
+  const leave = employeeCellLeave(employee, date)
+  if (!leave?.leave) return
+
+  clearHoverCard()
+  window.open(`/app/leave-application/${encodeURIComponent(leave.leave)}`, '_blank', 'noopener,noreferrer')
+}
+
 function openEmployeeCell(employee: string, date: string, event?: MouseEvent) {
   if (suppressNextCellClick.value || isDroppingShift.value) return
 
   clearHoverCard()
   const cell = getEmployeeCell(employee, date)
-  if (cell?.type === 'holiday' || isApprovedLeaveCell(employee, date)) return
+  if (cell?.type === 'leave') {
+    openLeaveApplication(employee, date)
+    return
+  }
+  if (cell?.type === 'holiday') return
 
   if (event?.shiftKey) {
     toggleSelectedShiftCell(employee, date)
@@ -3734,7 +3752,14 @@ defineExpose({ events, scrollToToday, liveBusy, refreshLiveProjectDetails })
   left: 0;
   right: 0;
   height: 4px;
-  pointer-events: none;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+}
+
+.year-leave-status-marker:focus-visible {
+  outline: 2px solid rgb(37 99 235);
+  outline-offset: 1px;
 }
 
 .year-timesheet-status-marker {
