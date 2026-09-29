@@ -10,8 +10,9 @@
   isolation: isolate;
 }
 
-.verto-whiteboard,
-.verto-whiteboard-loading {
+/* Keep cached global styles from anchoring the canvas to the viewport. */
+.verto-whiteboard-host > .verto-whiteboard,
+.verto-whiteboard-host > .verto-whiteboard-loading {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -32,6 +33,11 @@
 
 .verto-whiteboard .excalidraw.excalidraw {
   --color-primary: var(--primary-color, #2490ef);
+}
+
+/* Excalidraw mounts open menus without Bootstrap's .show class. */
+.verto-whiteboard .excalidraw .dropdown-menu {
+  display: block;
 }
 
 .verto-whiteboard-loading {
