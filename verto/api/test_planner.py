@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 
 import frappe
 from frappe.database.query import _validate_select_field
+from erpnext.projects.doctype.task.task import Task
 
 from verto.api import planner
 
@@ -358,6 +359,7 @@ class TestPlannerAppendGenericTasks(TestCase):
 		self.fields = {"start_date_field": "expected_start_date", "end_date_field": "expected_end_date"}
 		self.existing = SimpleNamespace(name="PROJ-1-0008", subject="Existing imported task", progress=60)
 		self.tasks = {self.existing.name: self.existing}
+		self.saved_task_dates = {}
 		self.get_doc = self.enterContext(patch.object(planner.frappe, "get_doc",
 			side_effect=lambda doctype, name, **kwargs: self.project if doctype == "Project" else self.tasks[name]))
 		self.get_all = self.enterContext(patch.object(planner.frappe, "get_all", side_effect=self.query_outlines))
@@ -368,6 +370,7 @@ class TestPlannerAppendGenericTasks(TestCase):
 		self.db = Mock()
 		self.db.sql.side_effect = lambda query, *args, **kwargs: list(self.tasks) if "tabTask" in query else []
 		self.db.exists.side_effect = lambda doctype, name: name in self.tasks
+		self.db.get_value.side_effect = lambda doctype, name, field: self.saved_task_dates.get(name, {}).get(field)
 		self.enterContext(patch.object(planner.frappe, "db", self.db, create=True))
 		self.new_doc = self.enterContext(patch.object(planner.frappe, "new_doc", side_effect=self.make_task, create=True))
 
@@ -383,19 +386,29 @@ class TestPlannerAppendGenericTasks(TestCase):
 		return sorted(outlines, key=lambda task: (task.creation, task.name))[:limit_page_length]
 
 	def make_task(self, doctype):
-		task = SimpleNamespace(doctype=doctype, status="Open", creation="2026-09-29", check_permission=Mock())
+		task = SimpleNamespace(doctype=doctype, status="Open", creation="2026-09-29", parent_task=None,
+			check_permission=Mock())
 		task.get = lambda field: getattr(task, field, None)
 		task.set = lambda field, value: setattr(task, field, value)
+		def save():
+			# Exercise ERPNext's real parent-date rule against persisted dates:
+			# changing a parent in memory is insufficient until it has been saved.
+			Task.validate_parent_expected_end_date(task)
+			self.saved_task_dates[task.name] = {field: task.get(field) for field in ("exp_start_date", "exp_end_date")}
+			return task
 		def insert(*, set_name):
 			self.assertNotIn(set_name, self.tasks)
 			task.name = set_name
+			save()
 			self.tasks[set_name] = task
 		task.insert = insert
+		task.save = Mock(side_effect=save)
 		return task
 
 	def test_repeated_creation_reuses_one_outline_and_distinct_task_names(self):
 		original = vars(self.existing).copy()
 		first = planner.create_generic_project_tasks("PROJ-1", locations=["Area A", "Area B"])
+		self.project.expected_end_date = "2026-10-31"
 		second = planner.create_generic_project_tasks("PROJ-1", locations=["Area A"])
 		self.assertEqual([t["name"] for t in first["created_tasks"]], [f"PROJ-1-{i:04}" for i in range(9, 14)])
 		self.assertEqual([t["name"] for t in second["created_tasks"]], [f"PROJ-1-{i:04}" for i in range(14, 16)])
@@ -419,8 +432,10 @@ class TestPlannerAppendGenericTasks(TestCase):
 
 	def existing_outline(self, name="ORIGINAL-OUTLINE", **values):
 		outline = self.make_task("Task")
-		for field, value in dict(project="PROJ-1", subject="Imported outline", type="Outline", is_group=1,
-			exp_start_date="2026-09-01", exp_end_date="2026-09-30", progress=60, **values).items():
+		fields = dict(project="PROJ-1", subject="Imported outline", type="Outline", is_group=1,
+			exp_start_date="2026-09-01", exp_end_date="2026-09-30", progress=60)
+		fields.update(values)
+		for field, value in fields.items():
 			setattr(outline, field, value)
 		outline.insert(set_name=name)
 		return outline
@@ -433,6 +448,68 @@ class TestPlannerAppendGenericTasks(TestCase):
 		self.assertEqual([row["parent_task"] for row in result["created_tasks"][::2]], [outline.name] * 2)
 		self.assertEqual(vars(outline), original)
 		outline.check_permission.assert_called_once_with("write")
+		outline.save.assert_not_called()
+
+	def test_extended_project_does_not_change_outline_or_new_location_dates(self):
+		outline = self.existing_outline()
+		original_dates = self.saved_task_dates[outline.name].copy()
+		# The Project may have been extended since this Outline was created.
+		self.project.reload.side_effect = lambda: setattr(self.project, "expected_end_date", "2026-10-31")
+		result = planner.create_generic_project_tasks("PROJ-1", locations=["Area A"])
+		self.assertEqual(outline.exp_start_date, "2026-09-01")
+		self.assertEqual(outline.exp_end_date, "2026-09-30")
+		self.assertEqual(self.saved_task_dates[outline.name], original_dates)
+		outline.save.assert_not_called()
+		self.assertEqual([row["type"] for row in result["created_tasks"]], ["Location", "Work Summary"])
+		self.assertEqual(result["created_tasks"][0]["parent_task"], outline.name)
+		for row in result["created_tasks"]:
+			self.assertEqual(self.tasks[row["name"]].exp_start_date, "2026-09-01")
+			self.assertEqual(self.tasks[row["name"]].exp_end_date, "2026-09-30")
+			self.assertEqual(self.tasks[row["name"]].expected_time, 708)
+		self.assertEqual(outline.progress, 60)
+		self.assertEqual(outline.subject, "Imported outline")
+
+	def test_new_locations_and_summaries_inherit_both_outline_dates_and_duration(self):
+		outline = self.existing_outline(exp_start_date="2026-09-10 08:00:00", exp_end_date="2026-09-20 20:00:00")
+		self.project.expected_start_date = "2026-08-15"
+		self.project.expected_end_date = "2026-10-31"
+		result = planner.create_generic_project_tasks("PROJ-1", locations=["Area A", "Area B"])
+		self.assertEqual(outline.exp_start_date, "2026-09-10 08:00:00")
+		self.assertEqual(outline.exp_end_date, "2026-09-20 20:00:00")
+		outline.save.assert_not_called()
+		for row in result["created_tasks"]:
+			self.assertEqual(self.tasks[row["name"]].exp_start_date, "2026-09-10")
+			self.assertEqual(self.tasks[row["name"]].exp_end_date, "2026-09-20")
+			self.assertEqual(self.tasks[row["name"]].expected_time, 252)
+
+	def test_missing_outline_dates_are_reported_without_changing_existing_dates(self):
+		outline = self.existing_outline()
+		for start, end in ((None, "2026-09-30"), ("2026-09-01", None), (None, None)):
+			with self.subTest(start=start, end=end):
+				outline.exp_start_date, outline.exp_end_date = start, end
+				with self.assertRaisesRegex(frappe.ValidationError, "Expected Start Date and Expected End Date"):
+					planner.create_generic_project_tasks("PROJ-1", locations=["Area A"])
+				self.assertEqual((outline.exp_start_date, outline.exp_end_date), (start, end))
+		outline.save.assert_not_called()
+		self.new_doc.assert_not_called()
+
+	def test_outline_outside_project_dates_is_reported_without_shortening_it(self):
+		outline = self.existing_outline(exp_start_date="2026-08-01", exp_end_date="2026-10-31")
+		with self.assertRaisesRegex(frappe.ValidationError, "Outline .* outside the Project date range"):
+			planner.create_generic_project_tasks("PROJ-1", locations=["Area A"])
+		self.assertEqual(outline.exp_start_date, "2026-08-01")
+		self.assertEqual(outline.exp_end_date, "2026-10-31")
+		outline.save.assert_not_called()
+		self.new_doc.assert_not_called()
+
+	def test_invalid_outline_date_order_is_reported_without_changing_dates(self):
+		outline = self.existing_outline(exp_start_date="2026-09-30", exp_end_date="2026-09-01")
+		with self.assertRaisesRegex(frappe.ValidationError, "Expected Start Date cannot be after"):
+			planner.create_generic_project_tasks("PROJ-1", locations=["Area A"])
+		self.assertEqual(outline.exp_start_date, "2026-09-30")
+		self.assertEqual(outline.exp_end_date, "2026-09-01")
+		outline.save.assert_not_called()
+		self.new_doc.assert_not_called()
 
 	def test_oldest_outline_is_used_when_legacy_duplicates_exist(self):
 		self.existing_outline("A-NEWER", creation="2026-09-02")
@@ -506,6 +583,7 @@ class TestPlannerAppendGenericTasks(TestCase):
 			check_permission=Mock())
 		location.get = lambda key: getattr(location, key, None)
 		self.tasks[location.name] = location
+		self.saved_task_dates[location.name] = {"exp_start_date": location.exp_start_date, "exp_end_date": location.exp_end_date}
 		return location
 
 	def test_existing_location_gets_only_new_summaries_with_its_dates(self):
@@ -526,6 +604,7 @@ class TestPlannerAppendGenericTasks(TestCase):
 		outline = self.existing_outline()
 		location = self.existing_location()
 		location.parent_task = outline.name
+		self.project.expected_start_date, self.project.expected_end_date = "2026-08-01", "2026-10-31"
 		result = planner.create_generic_project_tasks("PROJ-1", locations=[
 			{"task": location.name, "work_summaries": ["Inspect"]},
 			{"subject": "Area B", "work_summaries": ["Repair", "Closeout"]},
@@ -535,6 +614,13 @@ class TestPlannerAppendGenericTasks(TestCase):
 		self.assertEqual(created[0]["parent_task"], location.name)
 		self.assertEqual(created[1]["parent_task"], outline.name)
 		self.assertEqual([row["parent_task"] for row in created[2:]], [created[1]["name"]] * 2)
+		self.assertEqual(self.tasks[created[0]["name"]].exp_start_date, "2026-09-10")
+		self.assertEqual(self.tasks[created[0]["name"]].exp_end_date, "2026-09-20")
+		for row in created[1:]:
+			self.assertEqual(self.tasks[row["name"]].exp_start_date, "2026-09-01")
+			self.assertEqual(self.tasks[row["name"]].exp_end_date, "2026-09-30")
+		self.assertEqual((location.exp_start_date, location.exp_end_date), ("2026-09-10", "2026-09-20"))
+		outline.save.assert_not_called()
 
 	def test_wrong_project_or_non_location_parent_rejected(self):
 		location = self.existing_location()
