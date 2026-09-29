@@ -182,6 +182,8 @@ class TestPlannerLeaveDialog(TestCase):
 		for revision in ("older revision", "", None):
 			with self.subTest(revision=revision), self.assertRaises(frappe.TimestampMismatchError):
 				self.update(expected_modified=revision, values={"description": "Changed"})
+		with self.assertRaises(frappe.TimestampMismatchError):
+			planner_leave.update(self.doc.name, values={"description": "Changed"})
 		for fieldname in ("name", "docstatus", "total_leave_days", "private_note", "password"):
 			with self.subTest(fieldname=fieldname), self.assertRaises(frappe.PermissionError):
 				self.update(values={fieldname: "Changed"})

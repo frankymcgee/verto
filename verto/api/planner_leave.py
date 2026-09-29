@@ -110,7 +110,7 @@ def get_details(name: str) -> dict:
 
 
 @frappe.whitelist(methods=["POST"])
-def update(name: str, expected_modified: str, values=None, action: str = "save", workflow_action: str | None = None):
+def update(name: str, expected_modified: str | None = None, values=None, action: str = "save", workflow_action: str | None = None):
 	# Lock while checking the revision and applying document/workflow actions.
 	doc = frappe.get_doc("Leave Application", name, for_update=True)
 	doc.check_permission("read")
