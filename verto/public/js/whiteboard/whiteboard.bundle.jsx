@@ -21,6 +21,10 @@ class Whiteboard {
       throw new Error("Whiteboard mount element was not found.");
     }
 
+    // Desk can reuse a cached Page script that passes the outer page wrapper.
+    // Establish the containing block here as well as in the current page script.
+    mountElement.classList.add("verto-whiteboard-host");
+
     // Let Desk control the width (including collapsed/expanded sidebars).
     // Only the remaining viewport height needs to be measured here.
     this.resize = () => {
