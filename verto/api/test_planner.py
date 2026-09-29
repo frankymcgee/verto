@@ -20,6 +20,9 @@ class TestPlannerProjectTasks(TestCase):
 			planner.frappe, "get_meta",
 			return_value=SimpleNamespace(has_field=lambda field: field == "project"),
 		))
+		self.outline = self.enterContext(patch.object(
+			planner, "_get_project_outline_task_name", return_value="OUTLINE-1",
+		))
 
 	def query_task_counts(self, doctype, *, fields, filters, **kwargs):
 		# Use Frappe v16's actual SELECT validator so the old raw COUNT string
@@ -100,6 +103,7 @@ class TestPlannerProjectTasks(TestCase):
 		details = planner.get_project_planner_details("PROJ-1")
 		self.assertEqual(details["task_count"], 3)
 		self.assertTrue(details["has_tasks"])
+		self.assertEqual(details["outline_task"], "OUTLINE-1")
 		self.assertEqual(details["execution_tasks"], self.execution_tasks)
 		self.assertTrue(details["execution_tasks"][0]["can_assign"])
 		self.assertTrue(details["can_create_generic_tasks"])
@@ -123,9 +127,11 @@ class TestPlannerProjectTasks(TestCase):
 		self.project_fixture()
 		self.task_counts.clear()
 		self.execution_tasks.clear()
+		self.outline.return_value = None
 		details = planner.get_project_planner_details("PROJ-1")
 		self.assertEqual(details["task_count"], 0)
 		self.assertFalse(details["has_tasks"])
+		self.assertIsNone(details["outline_task"])
 		self.assertEqual(details["execution_tasks"], [])
 		self.assertTrue(details["can_create_generic_tasks"])
 		self.assertTrue(details["can_update_project_dates"])
@@ -352,7 +358,9 @@ class TestPlannerAppendGenericTasks(TestCase):
 		self.fields = {"start_date_field": "expected_start_date", "end_date_field": "expected_end_date"}
 		self.existing = SimpleNamespace(name="PROJ-1-0008", subject="Existing imported task", progress=60)
 		self.tasks = {self.existing.name: self.existing}
-		self.enterContext(patch.object(planner.frappe, "get_doc", return_value=self.project))
+		self.get_doc = self.enterContext(patch.object(planner.frappe, "get_doc",
+			side_effect=lambda doctype, name, **kwargs: self.project if doctype == "Project" else self.tasks[name]))
+		self.get_all = self.enterContext(patch.object(planner.frappe, "get_all", side_effect=self.query_outlines))
 		self.permission = self.enterContext(patch.object(planner.frappe, "has_permission", return_value=True))
 		self.enterContext(patch.object(planner.frappe, "get_meta", return_value=SimpleNamespace(has_field=lambda field: True)))
 		self.enterContext(patch.object(planner, "_project_planner_edit_fields", return_value=self.fields))
@@ -363,8 +371,19 @@ class TestPlannerAppendGenericTasks(TestCase):
 		self.enterContext(patch.object(planner.frappe, "db", self.db, create=True))
 		self.new_doc = self.enterContext(patch.object(planner.frappe, "new_doc", side_effect=self.make_task, create=True))
 
+	def query_outlines(self, doctype, *, filters, fields, order_by, limit_page_length):
+		self.assertEqual(doctype, "Task")
+		self.assertEqual(filters, {"project": "PROJ-1", "type": "Outline", "is_group": 1, "status": ["!=", "Cancelled"]})
+		self.assertEqual(fields, ["name"])
+		self.assertEqual(order_by, "creation asc, name asc")
+		self.assertEqual(limit_page_length, 1)
+		outlines = [task for task in self.tasks.values()
+			if getattr(task, "project", None) == "PROJ-1" and getattr(task, "type", None) == "Outline"
+			and getattr(task, "is_group", 0) and getattr(task, "status", None) != "Cancelled"]
+		return sorted(outlines, key=lambda task: (task.creation, task.name))[:limit_page_length]
+
 	def make_task(self, doctype):
-		task = SimpleNamespace(doctype=doctype)
+		task = SimpleNamespace(doctype=doctype, status="Open", creation="2026-09-29", check_permission=Mock())
 		task.get = lambda field: getattr(task, field, None)
 		task.set = lambda field, value: setattr(task, field, value)
 		def insert(*, set_name):
@@ -374,26 +393,81 @@ class TestPlannerAppendGenericTasks(TestCase):
 		task.insert = insert
 		return task
 
-	def test_repeated_creation_appends_distinct_hierarchies(self):
+	def test_repeated_creation_reuses_one_outline_and_distinct_task_names(self):
 		original = vars(self.existing).copy()
 		first = planner.create_generic_project_tasks("PROJ-1", locations=["Area A", "Area B"])
 		second = planner.create_generic_project_tasks("PROJ-1", locations=["Area A"])
 		self.assertEqual([t["name"] for t in first["created_tasks"]], [f"PROJ-1-{i:04}" for i in range(9, 14)])
-		self.assertEqual([t["name"] for t in second["created_tasks"]], [f"PROJ-1-{i:04}" for i in range(14, 17)])
+		self.assertEqual([t["name"] for t in second["created_tasks"]], [f"PROJ-1-{i:04}" for i in range(14, 16)])
 		self.assertEqual(vars(self.existing), original)
 		self.assertIs(self.tasks[self.existing.name], self.existing)
-		self.assertEqual(second["project_details"]["task_count"], 9)
-		for result in (first, second):
-			created = result["created_tasks"]
-			self.assertEqual(created[0]["type"], "Outline")
-			self.assertIsNone(created[0]["parent_task"])
-			for i in range(1, len(created), 2):
-				self.assertEqual(created[i]["parent_task"], created[0]["name"])
+		self.assertEqual(second["project_details"]["task_count"], 8)
+		outline = first["created_tasks"][0]
+		self.assertEqual(outline["type"], "Outline")
+		self.assertIsNone(outline["parent_task"])
+		self.assertEqual(sum(getattr(task, "type", None) == "Outline" for task in self.tasks.values()), 1)
+		for created in (first["created_tasks"][1:], second["created_tasks"]):
+			for i in range(0, len(created), 2):
+				self.assertEqual(created[i]["type"], "Location")
+				self.assertEqual(created[i]["parent_task"], outline["name"])
 				self.assertEqual(created[i+1]["parent_task"], created[i]["name"])
 				self.assertEqual(created[i+1]["type"], "Work Summary")
 				self.assertEqual(self.tasks[created[i+1]["name"]].exp_end_date, "2026-09-30")
 		locks = [call for call in self.db.sql.call_args_list if "FOR UPDATE" in call.args[0]]
 		self.assertEqual(len(locks), 2)
+		self.get_doc.assert_any_call("Task", outline["name"], for_update=True)
+
+	def existing_outline(self, name="ORIGINAL-OUTLINE", **values):
+		outline = self.make_task("Task")
+		for field, value in dict(project="PROJ-1", subject="Imported outline", type="Outline", is_group=1,
+			exp_start_date="2026-09-01", exp_end_date="2026-09-30", progress=60, **values).items():
+			setattr(outline, field, value)
+		outline.insert(set_name=name)
+		return outline
+
+	def test_imported_outline_is_reused_without_resetting_its_fields(self):
+		outline = self.existing_outline()
+		original = vars(outline).copy()
+		result = planner.create_generic_project_tasks("PROJ-1", locations=["Area A", "Area B"])
+		self.assertEqual([row["type"] for row in result["created_tasks"]], ["Location", "Work Summary"] * 2)
+		self.assertEqual([row["parent_task"] for row in result["created_tasks"][::2]], [outline.name] * 2)
+		self.assertEqual(vars(outline), original)
+		outline.check_permission.assert_called_once_with("write")
+
+	def test_oldest_outline_is_used_when_legacy_duplicates_exist(self):
+		self.existing_outline("A-NEWER", creation="2026-09-02")
+		original = self.existing_outline("Z-ORIGINAL", creation="2026-09-01")
+		result = planner.create_generic_project_tasks("PROJ-1", locations=["Area A"])
+		self.assertEqual(result["created_tasks"][0]["parent_task"], original.name)
+		self.assertEqual(len(result["created_tasks"]), 2)
+
+	def test_unrelated_cancelled_and_non_group_outlines_are_not_reused(self):
+		for field, value in (("project", "OTHER"), ("status", "Cancelled"), ("is_group", 0)):
+			outline = self.existing_outline(field)
+			setattr(outline, field, value)
+		result = planner.create_generic_project_tasks("PROJ-1", locations=["Area A"])
+		self.assertEqual(result["created_tasks"][0]["type"], "Outline")
+		self.assertEqual(result["created_tasks"][1]["parent_task"], result["created_tasks"][0]["name"])
+
+	def test_outline_write_permission_is_required_before_creating_any_tasks(self):
+		outline = self.existing_outline()
+		outline.check_permission.side_effect = frappe.PermissionError("No write access")
+		with self.assertRaises(frappe.PermissionError):
+			planner.create_generic_project_tasks("PROJ-1", locations=["Area A"])
+		self.new_doc.assert_not_called()
+		self.assertEqual(len(self.tasks), 2)
+
+	def test_outline_is_revalidated_after_locking(self):
+		outline = self.existing_outline()
+		def get_doc(doctype, name, **kwargs):
+			if doctype == "Project":
+				return self.project
+			outline.project = "OTHER"
+			return outline
+		self.get_doc.side_effect = get_doc
+		with self.assertRaisesRegex(frappe.ValidationError, "Outline has changed"):
+			planner.create_generic_project_tasks("PROJ-1", locations=["Area A"])
+		self.new_doc.assert_not_called()
 
 	def test_cancelled_project_still_rejected(self):
 		self.project.status = "Cancelled"
@@ -432,7 +506,6 @@ class TestPlannerAppendGenericTasks(TestCase):
 			check_permission=Mock())
 		location.get = lambda key: getattr(location, key, None)
 		self.tasks[location.name] = location
-		self.enterContext(patch.object(planner.frappe, "get_doc", side_effect=lambda doctype, name, **kw: self.project if doctype == "Project" else location))
 		return location
 
 	def test_existing_location_gets_only_new_summaries_with_its_dates(self):
@@ -447,6 +520,21 @@ class TestPlannerAppendGenericTasks(TestCase):
 			self.assertEqual(self.tasks[row["name"]].exp_start_date, "2026-09-10")
 			self.assertEqual(self.tasks[row["name"]].exp_end_date, "2026-09-20")
 		location.check_permission.assert_called_with("write")
+		self.get_all.assert_not_called()
+
+	def test_mixed_new_and_existing_locations_share_the_existing_outline(self):
+		outline = self.existing_outline()
+		location = self.existing_location()
+		location.parent_task = outline.name
+		result = planner.create_generic_project_tasks("PROJ-1", locations=[
+			{"task": location.name, "work_summaries": ["Inspect"]},
+			{"subject": "Area B", "work_summaries": ["Repair", "Closeout"]},
+		])
+		created = result["created_tasks"]
+		self.assertEqual([row["type"] for row in created], ["Work Summary", "Location", "Work Summary", "Work Summary"])
+		self.assertEqual(created[0]["parent_task"], location.name)
+		self.assertEqual(created[1]["parent_task"], outline.name)
+		self.assertEqual([row["parent_task"] for row in created[2:]], [created[1]["name"]] * 2)
 
 	def test_wrong_project_or_non_location_parent_rejected(self):
 		location = self.existing_location()

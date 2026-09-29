@@ -3073,6 +3073,18 @@ def _get_project_location_tasks(project: str) -> list[dict]:
 		if frappe.get_doc("Task", row.name).has_permission("write")]
 
 
+def _get_project_outline_task_name(project: str) -> str | None:
+	"""Prefer the original Outline when earlier additions created duplicates."""
+	rows = frappe.get_all(
+		"Task",
+		filters={"project": project, "type": "Outline", "is_group": 1, "status": ["!=", "Cancelled"]},
+		fields=["name"],
+		order_by="creation asc, name asc",
+		limit_page_length=1,
+	)
+	return rows[0].name if rows else None
+
+
 def _next_project_task_names(project: str, count: int) -> list[str]:
 	prefix = f"{project}-"
 	pattern = re.compile(rf"^{re.escape(prefix)}(\d+)$")
@@ -3326,6 +3338,7 @@ def get_project_planner_details(project: str) -> dict:
 		"notes": doc.get(notes_field) if notes_field else "",
 		"task_count": task_count,
 		"has_tasks": has_tasks,
+		"outline_task": _get_project_outline_task_name(project),
 		"execution_tasks": _get_project_execution_tasks(project),
 		"location_tasks": _get_project_location_tasks(project),
 		"can_create_generic_tasks": can_create_generic_tasks,
@@ -3469,8 +3482,9 @@ def create_generic_project_tasks(
 ) -> dict:
 	"""Create Work Summaries under new or existing Location tasks.
 
-	Create an Outline only when adding new locations. Lock the Project
-	row so concurrent Planner requests allocate distinct task name sequences.
+	Reuse the project's original Outline, creating one only when none exists.
+	Lock the Project row so concurrent Planner requests share that Outline and
+	allocate distinct task name sequences.
 	"""
 	if not project:
 		frappe.throw(_("Project is required"))
@@ -3568,11 +3582,23 @@ def create_generic_project_tasks(
 			frappe.throw(_("Work Summary end date and time must be after its start date and time."))
 		planned.append((subject, parent, summaries, location_start, location_end, round(hours, 2)))
 
-	count = (1 if new_subjects else 0) + len(new_subjects) + sum(len(summaries) for _, _, summaries in entries)
-	task_names = iter(_next_project_task_names(project_doc.name, count))
-	created_tasks = []
 	outline_task = None
 	if new_subjects:
+		outline_name = _get_project_outline_task_name(project)
+		if outline_name:
+			outline_task = frappe.get_doc("Task", outline_name, for_update=True)
+			outline_task.check_permission("write")
+			if (
+				outline_task.project != project or outline_task.get("type") != "Outline"
+				or not outline_task.get("is_group") or outline_task.get("status") == "Cancelled"
+			):
+				frappe.throw(_("The project's Outline has changed. Reload the project and try again."))
+
+	create_outline = bool(new_subjects) and outline_task is None
+	count = int(create_outline) + len(new_subjects) + sum(len(summaries) for _, _, summaries in entries)
+	task_names = iter(_next_project_task_names(project_doc.name, count))
+	created_tasks = []
+	if create_outline:
 		outline_task = _insert_generic_project_task(
 			name=next(task_names), project_doc=project_doc, subject=outline_subject,
 			task_type="Outline", is_group=True, start_date=start_date, end_date=end_date,
