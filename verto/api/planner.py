@@ -3593,6 +3593,18 @@ def create_generic_project_tasks(
 				or not outline_task.get("is_group") or outline_task.get("status") == "Cancelled"
 			):
 				frappe.throw(_("The project's Outline has changed. Reload the project and try again."))
+			# A Project can be extended after its Outline was created. Persist
+			# the wider range before ERPNext validates the new child locations.
+			# Never shorten an existing range that may cover other child tasks.
+			outline_dates_changed = False
+			if not outline_task.get("exp_start_date") or getdate(outline_task.exp_start_date) > getdate(start_date):
+				outline_task.exp_start_date = start_date
+				outline_dates_changed = True
+			if not outline_task.get("exp_end_date") or getdate(outline_task.exp_end_date) < getdate(end_date):
+				outline_task.exp_end_date = end_date
+				outline_dates_changed = True
+			if outline_dates_changed:
+				outline_task.save()
 
 	create_outline = bool(new_subjects) and outline_task is None
 	count = int(create_outline) + len(new_subjects) + sum(len(summaries) for _, _, summaries in entries)
