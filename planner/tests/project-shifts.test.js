@@ -24,7 +24,7 @@ const defaults = {
   start_date: "2026-09-01",
   end_date: "2026-09-30",
 };
-let wrapper, saved, project, shiftDoc;
+let wrapper, saved, project, shiftDoc, yearEvents;
 const settle = async () => {
   await flushPromises();
   await nextTick();
@@ -151,6 +151,7 @@ async function chooseEmployeeAndDates(end = "2026-09-15") {
 
 beforeEach(() => {
   saved = [];
+  yearEvents = null;
   project = {
     project: "PROJ-1",
     project_name: "Test project",
@@ -206,7 +207,7 @@ beforeEach(() => {
       };
     if (url.endsWith("get_project_planner_details")) return projectDetails();
     if (url.endsWith("get_year_events"))
-      return {
+      return yearEvents || {
         contract_version: 2,
         employee_event_days: {},
         project_rows: [{ ...project }],
@@ -420,6 +421,90 @@ describe("Submitting project shifts", () => {
         day_shift_type: "DS",
         night_shift_type: "NS",
       });
+  });
+});
+
+describe("Annual leave status visibility and scheduling", () => {
+  const leaveCases = [
+    { status: "Open", leave_type: "Annual Leave", label: "AL", docstatus: 0 },
+    { status: "Approved", leave_type: "Sick Leave", label: "SL", docstatus: 1 },
+    { status: "Rejected", leave_type: "R 'n' R", label: "RnR", docstatus: 1 },
+    { status: "Cancelled", leave_type: "Unavailable", label: "U", docstatus: 2 },
+  ];
+  async function openRoster(version, withShift = false) {
+    const leaves = leaveCases.map((leave, index) => ({
+      ...leave,
+      leave: `LEAVE-${index}`,
+      // A cancelled document can retain Approved in the stored status field.
+      status: leave.docstatus === 2 ? "Approved" : leave.status,
+      from_date: `2026-09-${10 + index}`,
+      to_date: `2026-09-${10 + index}`,
+    }));
+    const shift = {
+      name: "SHIFT-1", shift_type: "DS", status: "Active", color: "blue",
+      start_date: "2026-09-10", end_date: "2026-09-13",
+      start_time: "06:00:00", end_time: "18:00:00",
+    };
+    yearEvents = version === 1 ? {
+      events: { "EMP-1": [...leaves, ...(withShift ? [shift] : [])] },
+    } : {
+      contract_version: 2,
+      leave_applications: Object.fromEntries(leaves.map(leave => [leave.leave, leave])),
+      employee_event_days: { "EMP-1": Object.fromEntries(leaves.map(leave => [leave.from_date, {
+        leave: leave.leave,
+        ...(withShift ? { shifts: [shift.name] } : {}),
+      }])) },
+      shift_assignments: withShift ? { [shift.name]: shift } : {},
+    };
+    await mountComponent(YearViewTable, {
+      firstOfMonth: dayjs("2026-09-01"), employees,
+      employeeFilters: {}, shiftFilters: {},
+    });
+  }
+
+  it.each([1, 2])("renders the four statuses and keeps approval blocking in contract %s", async version => {
+    await openRoster(version);
+    const backgrounds = new Set();
+    for (const leave of leaveCases) {
+      const cell = wrapper.find(`td[aria-label="${leave.leave_type} · ${leave.status}"]`);
+      expect(cell.text()).toBe(leave.label);
+      expect(cell.element.style.backgroundImage).toContain("repeating-linear-gradient");
+      backgrounds.add(cell.element.style.backgroundColor);
+    }
+    expect(backgrounds.size).toBe(4);
+    expect(wrapper.findAll(".year-employee-legend-leave")).toHaveLength(4);
+    await wrapper.find('td[aria-label="Sick Leave · Approved"]').trigger("click");
+    expect(wrapper.findComponent(ShiftAssignmentDialog).props("isDialogOpen")).toBe(false);
+
+    for (const status of ["Open", "Rejected", "Cancelled"]) {
+      const index = leaveCases.findIndex(leave => leave.status === status);
+      const leave = leaveCases[index];
+      await wrapper.find(`td[aria-label="${leave.leave_type} · ${status}"]`).trigger("click");
+      await settle();
+      const dialog = wrapper.findComponent(ShiftAssignmentDialog);
+      expect(dialog.props("isDialogOpen")).toBe(true);
+      expect(dialog.props("selectedCell")).toEqual({ employee: "EMP-1", date: `2026-09-${10 + index}` });
+      dialog.vm.$emit("update:modelValue", false);
+      await settle();
+    }
+  });
+
+  it.each([1, 2])("retains shifts and leave status markers on non-approved days in contract %s", async version => {
+    await openRoster(version, true);
+    expect(wrapper.findAll(".year-employee-shift-cell")).toHaveLength(3);
+    expect(wrapper.findAll(".year-leave-status-marker")).toHaveLength(3);
+    for (const leave of leaveCases.filter(leave => leave.status !== "Approved")) {
+      const cell = wrapper.find(`td[aria-label$="${leave.leave_type} · ${leave.status}"]`);
+      expect(cell.text()).toBe("DS");
+      expect(cell.attributes("draggable")).toBe("true");
+      expect(cell.find(".year-leave-status-marker").element.style.backgroundImage).toContain("repeating-linear-gradient");
+    }
+    const cancelled = wrapper.find('td[aria-label$="Unavailable · Cancelled"]');
+    await cancelled.trigger("mouseenter", { clientX: 100, clientY: 100 });
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Unavailable · Cancelled"));
+    await cancelled.trigger("click");
+    await settle();
+    expect(wrapper.findComponent(ShiftAssignmentDialog).props("shiftAssignmentName")).toBe("SHIFT-1");
   });
 });
 

@@ -390,6 +390,15 @@
                       <span class="year-employee-legend-triangle year-employee-legend-hours-discrepancy"></span>
                       <span>Discrepancy</span>
                     </div>
+                    <div
+                      v-for="status in leaveStatuses"
+                      :key="status.label"
+                      class="year-employee-legend-item"
+                      :title="`${status.label} leave`"
+                    >
+                      <span class="year-employee-legend-leave" :style="leaveStatusStyle(status)"></span>
+                      <span>{{ status.label }}</span>
+                    </div>
                   </div>
                 </div>
               </th>
@@ -471,6 +480,13 @@
                   class="year-timesheet-status-marker"
                   :class="`year-timesheet-status-marker-${timesheetMarkerStatus(employee.name, day.date)}`"
                   :title="timesheetMarkerTitle(employee.name, day.date)"
+                  aria-hidden="true"
+                ></span>
+                <span
+                  v-if="isEmployeeShiftCell(employee.name, day.date) && employeeCellLeave(employee.name, day.date)"
+                  class="year-leave-status-marker"
+                  :style="employeeLeaveMarkerStyle(employee.name, day.date)"
+                  :title="employeeLeaveTitle(employee.name, day.date)"
                   aria-hidden="true"
                 ></span>
                 {{ employeeCellLabel(employee.name, day.date) }}
@@ -646,6 +662,7 @@ interface LeaveApplication {
   reason?: string | null
   description?: string | null
   status?: string | null
+  docstatus?: number | string | null
   total_leave_days?: number | string | null
   half_day?: 0 | 1 | boolean | null
   half_day_date?: string | null
@@ -713,7 +730,7 @@ type EmployeeEventDays = Record<string, Record<string, EmployeeEventDayReference
 type YearCell =
   | { type: 'holiday'; label: string; title: string }
   | { type: 'leave'; label: string; title: string; leave: LeaveApplication }
-  | { type: 'shift'; label: string; title: string; shift: ShiftAssignment; shifts: ShiftAssignment[] }
+  | { type: 'shift'; label: string; title: string; shift: ShiftAssignment; shifts: ShiftAssignment[]; leave?: LeaveApplication }
 
 type MappedEvents = Record<string, Record<string, YearCell>>
 
@@ -1909,6 +1926,43 @@ function leaveTypeAbbreviation(leaveType: string | null | undefined) {
   return words.map(([initial]) => initial.toUpperCase()).join('') || 'L'
 }
 
+const leaveStatuses = {
+  open: { label: 'Open', tone: 'yellow', colors: colors.amber, priority: 1 },
+  approved: { label: 'Approved', tone: 'green', colors: colors.green, priority: 0 },
+  rejected: { label: 'Rejected', tone: 'red', colors: colors.red, priority: 2 },
+  cancelled: { label: 'Cancelled', tone: 'gray', colors: colors.gray, priority: 3 },
+} as const
+
+function leaveAppearance(leave: LeaveApplication) {
+  if (Number(leave.docstatus) === 2) return leaveStatuses.cancelled
+  const status = normaliseStatus(leave.status || (leave.docstatus === 0 ? 'Open' : 'Approved'))
+  return leaveStatuses[status as keyof typeof leaveStatuses] || leaveStatuses.open
+}
+
+function isApprovedLeave(leave: LeaveApplication) {
+  return leaveAppearance(leave).label === 'Approved'
+    && (leave.docstatus == null || Number(leave.docstatus) === 1)
+}
+
+function leaveStatusStyle(status: (typeof leaveStatuses)[keyof typeof leaveStatuses]) {
+  return {
+    backgroundColor: status.colors[50],
+    backgroundImage: `repeating-linear-gradient(135deg, ${status.colors[50]} 0px, ${status.colors[50]} 4px, ${status.colors[100]} 4px, ${status.colors[100]} 8px)`,
+    color: status.colors[700],
+  }
+}
+
+function leaveCellTitle(leave: LeaveApplication) {
+  return `${leave.leave_type} · ${leaveAppearance(leave).label}`
+}
+
+function createEmployeeDayCell(leave: LeaveApplication | undefined, shifts: ShiftAssignment[]): YearCell | undefined {
+  if (leave && (isApprovedLeave(leave) || !shifts.length)) {
+    return { type: 'leave', label: leaveTypeAbbreviation(leave.leave_type), title: leaveCellTitle(leave), leave }
+  }
+  if (shifts.length) return createShiftCell(shifts, leave)
+}
+
 function hasNote(note: string | null | undefined) {
   return typeof note === 'string' && note.trim().length > 0
 }
@@ -1979,7 +2033,7 @@ function mapEventsToYear(data: Events): MappedEvents {
     for (const day of daysOfYear.value) {
       const date = dayjs(day.date)
       const shifts: ShiftAssignment[] = []
-      let blockedCell: YearCell | null = null
+      let dayLeave: LeaveApplication | undefined
 
       for (const event of data[employee] || []) {
         if (isHoliday(event) && date.isSame(event.holiday_date, 'day')) {
@@ -1989,13 +2043,10 @@ function mapEventsToYear(data: Events): MappedEvents {
         }
 
         if (isLeave(event) && overlaps(date, event.from_date, event.to_date)) {
-          blockedCell = {
-            type: 'leave',
-            label: leaveTypeAbbreviation(event.leave_type),
-            title: event.leave_type,
-            leave: event,
+          if (!dayLeave || leaveAppearance(event).priority < leaveAppearance(dayLeave).priority) {
+            dayLeave = event
           }
-          break
+          continue
         }
 
         if (isShift(event) && overlaps(date, event.start_date, event.end_date)) {
@@ -2008,21 +2059,15 @@ function mapEventsToYear(data: Events): MappedEvents {
         }
       }
 
-      if (blockedCell) {
-        mappedEvents[employee][day.date] = blockedCell
-        continue
-      }
-
-      if (shifts.length) {
-        mappedEvents[employee][day.date] = createShiftCell(shifts)
-      }
+      const cell = createEmployeeDayCell(dayLeave, shifts)
+      if (cell) mappedEvents[employee][day.date] = cell
     }
   }
 
   return mappedEvents
 }
 
-function createShiftCell(input: ShiftAssignment[]): Extract<YearCell, { type: 'shift' }> {
+function createShiftCell(input: ShiftAssignment[], leave?: LeaveApplication): Extract<YearCell, { type: 'shift' }> {
   const shifts = [...input].sort((a, b) =>
     (a.start_time || '').localeCompare(b.start_time || '') || a.name.localeCompare(b.name),
   )
@@ -2038,9 +2083,11 @@ function createShiftCell(input: ShiftAssignment[]): Extract<YearCell, { type: 's
       firstShift.shift_type,
       firstShift.shift_location,
       firstShift.note ? `Note: ${firstShift.note}` : '',
+      leave ? leaveCellTitle(leave) : '',
     ].filter(Boolean).join(' | '),
     shift: firstShift,
     shifts,
+    leave,
   }
 }
 
@@ -2056,23 +2103,12 @@ function mapIndexedEventsToYear(data: YearEventsResponse): MappedEvents {
 
     for (const [date, references] of Object.entries(days)) {
       const leave = references.leave ? leaveApplications[references.leave] : undefined
-      if (leave) {
-        employeeCells[date] = {
-          type: 'leave',
-          label: leaveTypeAbbreviation(leave.leave_type),
-          title: leave.leave_type,
-          leave,
-        }
-        continue
-      }
-
       const shifts = (references.shifts || [])
         .map((name) => shiftAssignments.get(name))
         .filter((shift): shift is ShiftAssignment => Boolean(shift))
 
-      if (shifts.length) {
-        employeeCells[date] = createShiftCell(shifts)
-      }
+      const cell = createEmployeeDayCell(leave, shifts)
+      if (cell) employeeCells[date] = cell
     }
 
     if (Object.keys(employeeCells).length) {
@@ -2093,6 +2129,23 @@ function employeeCellLabel(employee: string, date: string) {
 
 function employeeCellTitle(employee: string, date: string) {
   return getEmployeeCell(employee, date)?.title || dayjs(date).format('dddd, DD MMMM YYYY')
+}
+
+function employeeCellLeave(employee: string, date: string) {
+  const cell = getEmployeeCell(employee, date)
+  return cell && cell.type !== 'holiday' ? cell.leave : undefined
+}
+
+function employeeLeaveTitle(employee: string, date: string) {
+  const leave = employeeCellLeave(employee, date)
+  return leave ? leaveCellTitle(leave) : ''
+}
+
+function employeeLeaveMarkerStyle(employee: string, date: string) {
+  const leave = employeeCellLeave(employee, date)
+  if (!leave) return {}
+  const status = leaveAppearance(leave)
+  return { ...leaveStatusStyle(status), borderTop: `1px solid ${status.colors[500]}` }
 }
 
 function isEmployeeShiftCell(employee: string, date: string) {
@@ -2176,7 +2229,7 @@ function employeeCellStyle(employee: string, date: string) {
   }
 
   if (cell.type === 'leave') {
-    return { backgroundColor: (colors as any).pink[50], color: (colors as any).pink[700] }
+    return leaveStatusStyle(leaveAppearance(cell.leave))
   }
 
   const color = palette(cell.shift.color)
@@ -2212,8 +2265,9 @@ function getPrimaryShift(employee: string, date: string) {
   return cell?.type === 'shift' ? cell.shift : null
 }
 
-function isLeaveCell(employee: string, date: string) {
-  return getEmployeeCell(employee, date)?.type === 'leave'
+function isApprovedLeaveCell(employee: string, date: string) {
+  const leave = employeeCellLeave(employee, date)
+  return Boolean(leave && isApprovedLeave(leave))
 }
 
 function shiftCellKey(employee: string, date: string) {
@@ -2318,7 +2372,7 @@ function targetHasSameShiftAsDragged(employee: string, date: string) {
 }
 
 function targetRangeHasLeave(employee: string, date: string) {
-  return activeDragTargetDates(date).some((targetDate) => isLeaveCell(employee, targetDate))
+  return activeDragTargetDates(date).some((targetDate) => isApprovedLeaveCell(employee, targetDate))
 }
 
 function targetRangeIntersectsSource(employee: string, date: string) {
@@ -2535,7 +2589,7 @@ function openEmployeeCell(employee: string, date: string, event?: MouseEvent) {
 
   clearHoverCard()
   const cell = getEmployeeCell(employee, date)
-  if (cell?.type === 'holiday' || cell?.type === 'leave') return
+  if (cell?.type === 'holiday' || isApprovedLeaveCell(employee, date)) return
 
   if (event?.shiftKey) {
     toggleSelectedShiftCell(employee, date)
@@ -2967,9 +3021,9 @@ function showEmployeeHover(employee: Employee, date: string, event: MouseEvent) 
         kicker: 'Leave Application',
         title: leave.leave_type,
         subtitle: employeeDisplayName(employee),
-        badge: leave.status || 'Approved',
-        badgeTone: 'red',
-        accent: (colors as any).pink[500],
+        badge: leaveAppearance(leave).label,
+        badgeTone: leaveAppearance(leave).tone,
+        accent: leaveAppearance(leave).colors[500],
         rows: [
           { label: 'Employee', value: employeeDisplayName(employee) },
           { label: 'Employee ID', value: employee.name },
@@ -2998,7 +3052,7 @@ function showEmployeeHover(employee: Employee, date: string, event: MouseEvent) 
   const customerLabel = shift.customer_abbreviation?.trim() || ''
 
   setHoverCard(
-    `shift:${employee.name}:${shift.name}`,
+    `shift:${employee.name}:${shift.name}:${date}`,
     {
       type: 'shift',
       kicker: 'Shift Allocation',
@@ -3006,6 +3060,8 @@ function showEmployeeHover(employee: Employee, date: string, event: MouseEvent) 
       subtitle: [shift.custom_project_name, shift.shift_location].filter(Boolean).join(' · '),
       badge: cell.shifts.length > 1 ? `${cell.shifts.length} shifts` : shift.status,
       badgeTone: hasNote(shift.note) ? 'red' : inactive ? 'gray' : 'blue',
+      secondaryBadge: cell.leave ? leaveCellTitle(cell.leave) : undefined,
+      secondaryBadgeTone: cell.leave ? leaveAppearance(cell.leave).tone : undefined,
       accent,
       rows: [
         { label: 'Employee', value: employeeDisplayName(employee) },
@@ -3604,9 +3660,9 @@ defineExpose({ events, scrollToToday, liveBusy, refreshLiveProjectDetails })
 }
 
 .year-employee-table {
-  --year-left-header-height: 104px;
-  --year-month-header-height: 52px;
-  --year-day-header-height: 52px;
+  --year-left-header-height: 128px;
+  --year-month-header-height: 64px;
+  --year-day-header-height: 64px;
 }
 
 .year-month-header {
@@ -3670,6 +3726,15 @@ defineExpose({ events, scrollToToday, liveBusy, refreshLiveProjectDetails })
   position: relative;
   font-weight: 600;
   vertical-align: middle;
+}
+
+.year-leave-status-marker {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  pointer-events: none;
 }
 
 .year-timesheet-status-marker {
@@ -4169,6 +4234,14 @@ defineExpose({ events, scrollToToday, liveBusy, refreshLiveProjectDetails })
   height: 9px;
   border-radius: 9999px;
   border: 1px solid rgb(107 114 128 / 0.4);
+}
+
+.year-employee-legend-leave {
+  width: 10px;
+  min-width: 10px;
+  height: 10px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
 }
 
 .year-employee-legend-fifo {
