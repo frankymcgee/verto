@@ -19,6 +19,8 @@ const coordinatedMethods = new Set([
   'verto.api.planner.get_events', 'verto.api.planner.get_year_events',
   'verto.api.planner.get_available_employees',
   'verto.api.planner.get_project_planner_details', 'verto.api.planner.get_task_assignment_users',
+  'verto.api.planner_leave.get_details', 'verto.api.planner.get_leave_application_create_meta',
+  'verto.api.planner.search_leave_application_link_options',
 ])
 
 export function plannerRequest(options: any) {

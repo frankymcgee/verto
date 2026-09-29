@@ -6,6 +6,7 @@ import { FormControl, Combobox, Select, dialog, setConfig } from "frappe-ui";
 import ShiftAssignmentDialog from "../src/components/ShiftAssignmentDialog.vue";
 import ProjectSpanDialog from "../src/components/ProjectSpanDialog.vue";
 import YearViewTable from "../src/components/YearViewTable.vue";
+import LeaveApplicationDialog from "../src/components/LeaveApplicationDialog.vue";
 import { dayjs } from "../src/utils";
 
 vi.mock("../src/utils", async () => ({
@@ -206,6 +207,9 @@ beforeEach(() => {
         department: "Maintenance",
       };
     if (url.endsWith("get_project_planner_details")) return projectDetails();
+    if (url === "verto.api.planner_leave.get_details") return {
+      name: params.name, modified: "revision-one", docstatus: 0, status: "Open", fields: [], values: {},
+    };
     if (url.endsWith("get_year_events"))
       return yearEvents || {
         contract_version: 2,
@@ -472,20 +476,23 @@ describe("Annual leave status visibility and scheduling", () => {
       expect(cell.element.style.backgroundImage).toContain("repeating-linear-gradient");
       backgrounds.add(cell.element.style.backgroundColor);
       await cell.trigger("click");
-      expect(openWindow).toHaveBeenLastCalledWith(
-        `/app/leave-application/LEAVE%2F${leaveCases.indexOf(leave)}`, "_blank", "noopener,noreferrer",
-      );
+      await settle();
+      const leaveDialog = wrapper.findComponent(LeaveApplicationDialog);
+      expect(leaveDialog.props("leaveApplicationName")).toBe(`LEAVE/${leaveCases.indexOf(leave)}`);
+      expect(leaveDialog.props("isDialogOpen")).toBe(true);
       expect(wrapper.findComponent(ShiftAssignmentDialog).props("isDialogOpen")).toBe(false);
+      await button("Close").trigger("click");
+      await settle();
     }
     expect(backgrounds.size).toBe(4);
     expect(wrapper.findAll(".year-employee-legend-leave")).toHaveLength(4);
-    expect(openWindow).toHaveBeenCalledTimes(4);
+    expect(openWindow).not.toHaveBeenCalled();
     await wrapper.find('td.year-cell[aria-label="Monday, 14 September 2026"]').trigger("click");
     await settle();
     const dialog = wrapper.findComponent(ShiftAssignmentDialog);
     expect(dialog.props("isDialogOpen")).toBe(true);
     expect(dialog.props("selectedCell")).toEqual({ employee: "EMP-1", date: "2026-09-14" });
-    expect(openWindow).toHaveBeenCalledTimes(4);
+    expect(openWindow).not.toHaveBeenCalled();
   });
 
   it.each([1, 2])("retains shifts and leave status markers on non-approved days in contract %s", async version => {
@@ -499,10 +506,13 @@ describe("Annual leave status visibility and scheduling", () => {
       expect(cell.attributes("draggable")).toBe("true");
       expect(cell.find(".year-leave-status-marker").element.style.backgroundImage).toContain("repeating-linear-gradient");
       await cell.find(".year-leave-status-marker").trigger("click");
-      expect(openWindow).toHaveBeenLastCalledWith(
-        `/app/leave-application/LEAVE%2F${leaveCases.indexOf(leave)}`, "_blank", "noopener,noreferrer",
-      );
+      await settle();
+      const leaveDialog = wrapper.findComponent(LeaveApplicationDialog);
+      expect(leaveDialog.props("leaveApplicationName")).toBe(`LEAVE/${leaveCases.indexOf(leave)}`);
+      expect(leaveDialog.props("isDialogOpen")).toBe(true);
       expect(wrapper.findComponent(ShiftAssignmentDialog).props("isDialogOpen")).toBe(false);
+      await button("Close").trigger("click");
+      await settle();
     }
     const cancelled = wrapper.find('td[aria-label$="Unavailable · Cancelled"]');
     await cancelled.trigger("mouseenter", { clientX: 100, clientY: 100 });
@@ -510,11 +520,38 @@ describe("Annual leave status visibility and scheduling", () => {
     await cancelled.trigger("click");
     await settle();
     expect(wrapper.findComponent(ShiftAssignmentDialog).props("shiftAssignmentName")).toBe("SHIFT-1");
-    expect(openWindow).toHaveBeenCalledTimes(3);
+    expect(openWindow).not.toHaveBeenCalled();
   });
 });
 
 describe("Annual Planner integration", () => {
+  it("combines completed-job and type filters and restores rows from an empty Birds eye view", async () => {
+    yearEvents = { contract_version: 2, employee_event_days: {}, project_rows: [
+      { ...project, project: "DONE", project_name: "Finished shutdown", status: " Completed ", roster_or_shutdown: "Shutdown" },
+      { ...project, project: "ACTIVE", project_name: "Current roster", roster_or_shutdown: "Roster" },
+    ] };
+    await mountComponent(YearViewTable, {
+      firstOfMonth: dayjs("2026-09-01"), employees, employeeFilters: {}, shiftFilters: {},
+    });
+    const toggles = wrapper.findAll(".year-project-header-actions label");
+    expect(toggles.map(toggle => toggle.text())).toEqual(["Hide completed jobs", "Birds eye"]);
+    expect(toggles[0].find("input").element.checked).toBe(false);
+    const projects = () => wrapper.findAll(".year-project-span-name").map(span => span.text());
+    expect(projects()).toContain("Finished shutdown");
+    expect(projects()).toContain("Current roster");
+    await toggles[0].find("input").setValue(true);
+    expect(projects()).not.toContain("Finished shutdown");
+    expect(projects()).toContain("Current roster");
+    await button("Shutdown").trigger("click");
+    await toggles[1].find("input").setValue(true);
+    expect(projects()).toEqual([]);
+    expect(wrapper.text()).toContain("No uncompleted jobs match the current annual filters");
+    await toggles[0].find("input").setValue(false);
+    expect(projects()).toContain("Finished shutdown");
+    expect(projects()).not.toContain("Current roster");
+    expect(wrapper.find(".year-project-table").classes()).toContain("year-project-birds-eye-table");
+  });
+
   async function openProject() {
     await mountComponent(YearViewTable, {
       firstOfMonth: dayjs("2026-09-01"),

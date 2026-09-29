@@ -5,6 +5,7 @@
       loading && 'animate-pulse pointer-events-none',
       showShiftAssignmentDialog && 'year-dialog-open',
       showProjectSpanDialog && 'year-dialog-open',
+      showLeaveApplicationDialog && 'year-dialog-open',
     ]"
     :style="maxHeightPx ? { height: maxHeightPx + 'px' } : {}"
   >
@@ -49,32 +50,40 @@
                       <span>Projects</span>
                     </div>
 
-                    <div v-if="allProjectRows.length" class="year-project-header-actions">
-                      <label
-                        class="year-project-birds-eye-toggle"
-                        :class="projectBirdsEye && 'year-project-birds-eye-toggle-active'"
-                        title="Fit all visible project rows into the current project table height"
+                    <button
+                      v-if="allProjectRows.length"
+                      type="button"
+                      class="year-section-toggle year-section-inline-toggle"
+                      :class="projectCollapsed && 'year-section-toggle-inactive'"
+                      @click.stop="toggleProjectCollapsed"
+                    >
+                      <span class="year-section-toggle-icon">{{ projectCollapsed ? '▸' : '▾' }}</span>
+                      <span>{{ projectCollapsed ? 'Show' : 'Hide' }}</span>
+                    </button>
+                  </div>
+                  <div v-if="allProjectRows.length" class="year-project-header-actions mt-1">
+                    <label
+                      class="year-project-birds-eye-toggle"
+                      :class="hideCompletedProjects && 'year-project-birds-eye-toggle-active'"
+                      @click.stop
+                    >
+                      <input v-model="hideCompletedProjects" type="checkbox" class="year-project-birds-eye-checkbox" @click.stop />
+                      <span>Hide completed jobs</span>
+                    </label>
+                    <label
+                      class="year-project-birds-eye-toggle"
+                      :class="projectBirdsEye && 'year-project-birds-eye-toggle-active'"
+                      title="Fit all visible project rows into the current project table height"
+                      @click.stop
+                    >
+                      <input
+                        v-model="projectBirdsEye"
+                        type="checkbox"
+                        class="year-project-birds-eye-checkbox"
                         @click.stop
-                      >
-                        <input
-                          v-model="projectBirdsEye"
-                          type="checkbox"
-                          class="year-project-birds-eye-checkbox"
-                          @click.stop
-                        />
-                        <span>Birds eye</span>
-                      </label>
-
-                      <button
-                        type="button"
-                        class="year-section-toggle year-section-inline-toggle"
-                        :class="projectCollapsed && 'year-section-toggle-inactive'"
-                        @click.stop="toggleProjectCollapsed"
-                      >
-                        <span class="year-section-toggle-icon">{{ projectCollapsed ? '▸' : '▾' }}</span>
-                        <span>{{ projectCollapsed ? 'Show' : 'Hide' }}</span>
-                      </button>
-                    </div>
+                      />
+                      <span>Birds eye</span>
+                    </label>
                   </div>
 
                   <div class="year-project-filter-row mt-1">
@@ -582,6 +591,14 @@
       showProjectSpanDialog = false;
     "
   />
+  <LeaveApplicationDialog
+    ref="leaveApplicationDialog"
+    v-model="showLeaveApplicationDialog"
+    :isDialogOpen="showLeaveApplicationDialog"
+    :leaveApplicationName="selectedLeaveApplication"
+    :company="employeeFilters.company"
+    @fetchEvents="void events.fetch().catch(() => {})"
+  />
 </template>
 
 <script setup lang="ts">
@@ -595,6 +612,7 @@ import { dayjs, raiseToast } from '../utils'
 import type { EmployeeFilters, ShiftFilters } from '../views/MonthView.vue'
 import ShiftAssignmentDialog from './ShiftAssignmentDialog.vue'
 import ProjectSpanDialog from './ProjectSpanDialog.vue'
+import LeaveApplicationDialog from './LeaveApplicationDialog.vue'
 import type { ProjectShiftAssignmentDefaults } from '../types/shiftAssignment'
 
 type Color =
@@ -804,6 +822,7 @@ const loading = ref(true)
 const employeeSearch = ref<string[]>([])
 const projectCollapsed = ref(false)
 const projectBirdsEye = ref(false)
+const hideCompletedProjects = ref(false)
 const employeeCollapsed = ref(false)
 const projectTypeFilter = ref<'all' | 'roster' | 'shutdown'>('all')
 const shiftAssignment = ref<string>('')
@@ -812,6 +831,9 @@ const projectShiftDefaults = ref<ProjectShiftAssignmentDefaults | null>(null)
 const showProjectSpanDialog = ref(false)
 const selectedProjectSpan = ref<ProjectRow | null>(null)
 const projectSpanDialog = ref<InstanceType<typeof ProjectSpanDialog>>()
+const leaveApplicationDialog = ref<InstanceType<typeof LeaveApplicationDialog>>()
+const showLeaveApplicationDialog = ref(false)
+const selectedLeaveApplication = ref('')
 const selectedCell = ref<{ employee: string; date: string }>({ employee: '', date: '' })
 
 watch(showShiftAssignmentDialog, (open) => {
@@ -892,8 +914,8 @@ const htmlPlainTextCache = new Map<string, string>()
 const LEFT_COLUMN_WIDTH = 300
 const DAY_COLUMN_WIDTH = 28
 const RESIZER_HEIGHT = 18
-const PROJECT_TABLE_MIN_HEIGHT = 132
-const PROJECT_TABLE_HEADER_HEIGHT = 112
+const PROJECT_TABLE_MIN_HEIGHT = 160
+const PROJECT_TABLE_HEADER_HEIGHT = 140
 const PROJECT_TABLE_ROW_HEIGHT = 36
 const EMPLOYEE_TABLE_MIN_HEIGHT = 220
 
@@ -1133,15 +1155,15 @@ const allProjectRows = computed(() => {
 })
 
 const projectRows = computed(() => {
-  if (projectTypeFilter.value === 'all') return allProjectRows.value
-
   return allProjectRows.value.filter((project) => {
-    return normaliseProjectType(project.roster_or_shutdown) === projectTypeFilter.value
+    return (!hideCompletedProjects.value || !projectIsCompleted(project.status))
+      && (projectTypeFilter.value === 'all' || normaliseProjectType(project.roster_or_shutdown) === projectTypeFilter.value)
   })
 })
 
 const projectEmptyStateMessage = computed(() => {
   if (!allProjectRows.value.length) return 'No projects found for this year'
+  if (hideCompletedProjects.value) return 'No uncompleted jobs match the current annual filters'
   if (projectTypeFilter.value === 'roster') return 'No roster projects found for this year'
   if (projectTypeFilter.value === 'shutdown') return 'No shutdown projects found for this year'
   return 'No projects match the current annual filters'
@@ -1609,7 +1631,7 @@ function toggleEmployeeCollapsed() {
 }
 
 const sectionGap = 0
-const PROJECT_COLLAPSED_HEIGHT = 98
+const PROJECT_COLLAPSED_HEIGHT = PROJECT_TABLE_HEADER_HEIGHT
 const EMPLOYEE_COLLAPSED_HEIGHT = 96
 
 const annualContentHeight = computed(() => {
@@ -2595,7 +2617,8 @@ function openLeaveApplication(employee: string, date: string) {
   if (!leave?.leave) return
 
   clearHoverCard()
-  window.open(`/app/leave-application/${encodeURIComponent(leave.leave)}`, '_blank', 'noopener,noreferrer')
+  selectedLeaveApplication.value = leave.leave
+  showLeaveApplicationDialog.value = true
 }
 
 function openEmployeeCell(employee: string, date: string, event?: MouseEvent) {
@@ -3462,7 +3485,8 @@ const updateProjectSpanDates = createResource({
 })
 
 const liveBusy = computed(() => Boolean(draggedShift.value || projectSpanDrag.value || isDroppingShift.value
-  || bulkMoveOrSwapShifts.loading || updateProjectSpanDates.loading || projectSpanDialog.value?.liveBusy))
+  || bulkMoveOrSwapShifts.loading || updateProjectSpanDates.loading || projectSpanDialog.value?.liveBusy
+  || leaveApplicationDialog.value?.busy))
 async function refreshLiveProjectDetails() {
   if (showProjectSpanDialog.value) await projectSpanDialog.value?.refreshLive()
 }
@@ -3672,9 +3696,9 @@ defineExpose({ events, scrollToToday, liveBusy, refreshLiveProjectDetails })
 }
 
 .year-project-table {
-  --year-left-header-height: 112px;
-  --year-month-header-height: 56px;
-  --year-day-header-height: 56px;
+  --year-left-header-height: 140px;
+  --year-month-header-height: 70px;
+  --year-day-header-height: 70px;
 }
 
 .year-employee-table {
