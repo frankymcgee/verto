@@ -15,6 +15,7 @@ export function createSaveQueue(save, onError) {
 
   return {
     baseline(key) { savedKey = key; },
+    isDirty() { return Boolean(latest && latest.key !== savedKey); },
     update(key, state) {
       latest = { key, state };
       return key !== savedKey;
@@ -29,9 +30,10 @@ export function createSaveQueue(save, onError) {
             savedKey = snapshot.key;
           } catch (error) {
             onError(error);
-            break; // Keep the dirty snapshot for a later retry; never spin.
+            return false; // Keep the dirty snapshot for a later retry; never spin.
           }
         }
+        return true;
       })().finally(() => { inFlight = null; });
       return inFlight;
     },

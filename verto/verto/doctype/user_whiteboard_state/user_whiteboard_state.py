@@ -1,9 +1,7 @@
-# Copyright (c) 2023, Build With Hussain and contributors
-# For license information, please see license.txt
-
-# import frappe
 from frappe.model.document import Document
 
 
 class UserWhiteboardState(Document):
-	pass
+    def validate(self):
+        previous = self.get_doc_before_save()
+        self.revision = (previous.revision or 0) + 1 if previous else 1
