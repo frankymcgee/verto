@@ -62,6 +62,10 @@ export function PageDisplay({ page, revision }) {
       svg.setAttribute("width", "100%");
       svg.setAttribute("height", "100%");
       svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      // Desk's global mobile font rule must not alter the drawing's text sizes.
+      svg.querySelectorAll("[font-size]").forEach(element => {
+        element.style.setProperty("font-size", element.getAttribute("font-size"), "important");
+      });
       svg.setAttribute("role", "img");
       svg.setAttribute("aria-label", page.title);
       container.current.replaceChildren(svg);

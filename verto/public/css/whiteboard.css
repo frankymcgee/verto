@@ -151,3 +151,18 @@
   .verto-whiteboard-tabs { flex-basis: 100%; }
   .verto-whiteboard-display-canvas { padding: 4px; }
 }
+
+/* Verto's global mobile rule enlarges every element with !important. Keep the
+   whiteboard controls compact without changing the rest of Desk. */
+.verto-whiteboard-workspace,
+.verto-whiteboard-toolbar *,
+.verto-whiteboard-pages *,
+.verto-whiteboard-dialog,
+.verto-whiteboard-dialog * {
+  font-size: 14px !important;
+}
+.verto-whiteboard-dialog input,
+.verto-whiteboard-dialog select { font-size: 16px !important; }
+.verto-whiteboard-dialog h3 { font-size: 20px !important; }
+.verto-whiteboard-hint,
+.verto-whiteboard-status { font-size: 12px !important; }
