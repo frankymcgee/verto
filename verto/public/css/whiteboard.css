@@ -1,14 +1,26 @@
-.verto-whiteboard {
-  position: fixed;
-  top: var(--navbar-height, 48px);
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 5;
+.verto-whiteboard-page .layout-main-section-wrapper,
+.verto-whiteboard-page .layout-main-section {
+  min-width: 0;
+}
+
+.verto-whiteboard-host {
+  position: relative;
   width: 100%;
-  height: calc(100dvh - var(--navbar-height, 48px));
-  overflow: hidden;
+  min-width: 0;
+  isolation: isolate;
+}
+
+.verto-whiteboard,
+.verto-whiteboard-loading {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   background: var(--bg-color, #ffffff);
+}
+
+.verto-whiteboard {
+  overflow: hidden;
   overscroll-behavior: none;
   touch-action: none;
 }
@@ -18,19 +30,16 @@
   height: 100%;
 }
 
+.verto-whiteboard .excalidraw.excalidraw {
+  --color-primary: var(--primary-color, #2490ef);
+}
+
 .verto-whiteboard-loading {
-  position: fixed;
-  top: var(--navbar-height, 48px);
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 5;
   display: flex;
   gap: 12px;
   align-items: center;
   justify-content: center;
   color: var(--text-color, #36414c);
-  background: var(--bg-color, #ffffff);
 }
 
 .verto-whiteboard-spinner {
@@ -49,11 +58,7 @@
 }
 
 @media (max-width: 767px) {
-  .verto-whiteboard {
-    height: calc(100dvh - var(--navbar-height, 48px));
-  }
-
   .verto-whiteboard .App-menu_top {
-    max-width: calc(100vw - 16px);
+    max-width: calc(100% - 16px);
   }
 }
