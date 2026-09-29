@@ -497,7 +497,7 @@ describe("Annual Planner integration", () => {
 
 describe("Appending generic tasks", () => {
   it("keeps existing personnel controls and allows repeated additions", async () => {
-    let details = { ...projectDetails(), can_create_generic_tasks: true };
+    let details = { ...projectDetails(), outline_task: "OUTLINE-1", can_create_generic_tasks: true };
     const confirm = vi
       .spyOn(dialog, "confirm")
       .mockImplementation((options) => options.onConfirm());
@@ -507,7 +507,7 @@ describe("Appending generic tasks", () => {
         saved.push(params);
         details = {
           ...details,
-          task_count: details.task_count + 3,
+          task_count: details.task_count + 2,
           execution_tasks: [
             ...details.execution_tasks,
             {
@@ -519,7 +519,7 @@ describe("Appending generic tasks", () => {
             },
           ],
         };
-        return { project_details: details, created_tasks: [{}, {}, {}] };
+        return { project_details: details, created_tasks: [{}, {}] };
       }
       throw new Error(`Unexpected request ${url}`);
     });
@@ -534,8 +534,8 @@ describe("Appending generic tasks", () => {
       ),
     ).not.toBeNull();
     for (let i = 1; i <= 2; i++) {
-      expect(button("Add 3 Generic Tasks").element.disabled).toBe(false);
-      await button("Add 3 Generic Tasks").trigger("click");
+      expect(button("Add 2 Generic Tasks").element.disabled).toBe(false);
+      await button("Add 2 Generic Tasks").trigger("click");
       await settle();
       expect(
         document.querySelector(
@@ -557,16 +557,37 @@ describe("Appending generic tasks", () => {
     expect(confirm.mock.calls[0][0].message).toContain(
       "Existing tasks will be preserved",
     );
+    expect(confirm.mock.calls[0][0].message).toContain("add 2 tasks");
+  });
+
+  it("counts a new Outline only until the first one is created", async () => {
+    let details = { ...projectDetails(), has_tasks: false, task_count: 0, outline_task: null,
+      execution_tasks: [], can_create_generic_tasks: true };
+    vi.spyOn(dialog, "confirm").mockImplementation((options) => options.onConfirm());
+    setConfig("resourceFetcher", async ({ url }) => {
+      if (url.endsWith("get_project_planner_details")) return details;
+      if (url.endsWith("create_generic_project_tasks")) {
+        details = { ...details, has_tasks: true, task_count: 3, outline_task: "OUTLINE-1" };
+        return { project_details: details, created_tasks: [{}, {}, {}] };
+      }
+      throw new Error(`Unexpected request ${url}`);
+    });
+    await mountComponent(ProjectSpanDialog, { isDialogOpen: true, modelValue: true, project });
+    await button("Create 3 Generic Tasks").trigger("click");
+    await settle();
+    expect(button("Add 2 Generic Tasks").element.disabled).toBe(false);
+    expect(document.body.textContent).toContain("existing Outline");
   });
 });
 
 describe("Location Work Summaries", () => {
-  it.each([false, true])(
-    "adds multiple summaries with existing location=%s",
-    async (existing) => {
+  it.each([[false, false], [false, true], [true, false], [true, true]])(
+    "adds multiple summaries with existing location=%s and Outline=%s",
+    async (existing, hasOutline) => {
       const details = {
         ...projectDetails(),
         can_create_generic_tasks: true,
+        outline_task: hasOutline ? "OUTLINE-1" : null,
         location_tasks: [{ name: "LOCATION-1", subject: "Area A" }],
       };
       vi.spyOn(dialog, "confirm").mockImplementation((options) =>
@@ -595,7 +616,7 @@ describe("Location Work Summaries", () => {
       await new DOMWrapper(
         document.querySelector('[aria-label="Add Work Summary to Location 1"]'),
       ).trigger("click");
-      const count = existing ? 2 : 4;
+      const count = existing ? 2 : (hasOutline ? 3 : 4);
       expect(button(`Add ${count} Generic Tasks`).element.disabled).toBe(true);
       await fieldValue("Location 1 Work Summary 1", "Inspection");
       await fieldValue("Location 1 Work Summary 2", "Repair");

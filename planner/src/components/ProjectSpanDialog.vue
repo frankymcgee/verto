@@ -428,8 +428,9 @@
 
               <div class="flex items-center justify-between gap-3">
                 <p class="text-xs text-gray-500">
-                  New locations are created under a new Outline. Existing
-                  locations receive only the additional Work Summaries.
+                  New locations use the project's existing Outline. An Outline
+                  is created only if none exists. Existing locations receive
+                  only the additional Work Summaries.
                 </p>
                 <Button
                   size="sm"
@@ -752,6 +753,7 @@ type ProjectDetails = {
   notes?: string | null;
   task_count?: number | string | null;
   has_tasks?: boolean | number | string | null;
+  outline_task?: string | null;
   location_tasks?: Array<{ name: string; subject: string }>;
   execution_tasks?: ExecutionTask[];
   can_create_generic_tasks?: boolean;
@@ -891,6 +893,7 @@ const form = reactive({
   project_notes: "",
   task_count: 0,
   has_tasks: false,
+  outline_task: "",
   execution_tasks: [] as ExecutionTask[],
   location_tasks: [] as Array<{ name: string; subject: string }>,
   can_create_generic_tasks: false,
@@ -940,7 +943,7 @@ const genericTaskStatusMessage = computed(() => {
     return form.generic_tasks_unavailable_reason;
 
   if (form.has_tasks) {
-    return `This project has ${form.task_count} task(s). Add another generic task structure below, or manage personnel on the existing Execution tasks.`;
+    return `This project has ${form.task_count} task(s). Add locations and Work Summaries below, or manage personnel on the existing Execution tasks.`;
   }
 
   return "Create new locations or select existing ones, then enter the Work Summaries to add under each.";
@@ -959,7 +962,10 @@ const genericLocationNamesAreUnique = computed(() => {
 });
 const genericTaskTotalCount = computed(
   () =>
-    (form.generic_locations.some((location) => !location.task) ? 1 : 0) +
+    (!form.outline_task &&
+    form.generic_locations.some((location) => !location.task)
+      ? 1
+      : 0) +
     form.generic_locations.reduce(
       (count, location) =>
         count + (location.task ? 0 : 1) + location.work_summaries.length,
@@ -1192,6 +1198,7 @@ function resetForm() {
   form.project_notes = "";
   form.task_count = 0;
   form.has_tasks = false;
+  form.outline_task = "";
   form.location_tasks.splice(0);
   form.execution_tasks.splice(0);
   form.can_create_generic_tasks = false;
@@ -1234,6 +1241,7 @@ function applyDetails(data: ProjectDetails | undefined) {
   form.project_notes = data.notes || "";
   form.task_count = intValue(data.task_count);
   form.has_tasks = boolValue(data.has_tasks);
+  form.outline_task = data.outline_task || "";
   form.execution_tasks.splice(
     0,
     form.execution_tasks.length,
