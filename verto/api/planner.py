@@ -11,6 +11,10 @@ from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employe
 from hrms.hr.doctype.shift_assignment.shift_assignment import ShiftAssignment
 from hrms.hr.doctype.shift_schedule.shift_schedule import get_or_insert_shift_schedule
 from verto.api.planner_realtime import publish_scope
+from verto.api.planner_staffing import (
+	DESIGNATION_FIELD, REQUIREMENTS_FIELD, normalise_requirements, requirement_totals,
+	validate_designation, project_staffing_details, get_project_requirements, summarise_staffing,
+)
 
 
 ANNUAL_ROSTER_RESULT_LIMIT = 1000
@@ -67,6 +71,7 @@ def create_planner_shift_assignment(
 	custom_project: str | None = None,
 	shift_schedule_assignment: str | None = None,
 	note: str | None = None,
+	custom_project_designation: str | None = None,
 ):
 	"""Create a Shift Assignment using Planner-owned custom fields.
 
@@ -83,6 +88,8 @@ def create_planner_shift_assignment(
 	assignment.end_date = _to_date_str(end_date)
 	assignment.status = status
 	assignment.shift_location = shift_location
+	custom_project_designation = validate_designation(custom_project, custom_project_designation)
+	_set_doc_field_if_exists(assignment, DESIGNATION_FIELD, custom_project_designation)
 
 	if shift_schedule_assignment:
 		assignment.shift_schedule_assignment = shift_schedule_assignment
@@ -104,6 +111,7 @@ def apply_planner_project_to_shift_assignments(
 	shift_schedule_assignment: str | None = None,
 	custom_project: str | None = None,
 	note: str | None = None,
+	custom_project_designation: str | None = None,
 ) -> None:
 	"""Apply Planner fields to already-created Shift Assignments.
 
@@ -111,7 +119,8 @@ def apply_planner_project_to_shift_assignments(
 	because the upstream schedule code creates standard Shift Assignment records
 	and does not know about Planner's custom project/note fields.
 	"""
-	if not custom_project and not note:
+	custom_project_designation = validate_designation(custom_project, custom_project_designation)
+	if not custom_project and not note and not custom_project_designation:
 		return
 
 	if shift_assignment_names is None:
@@ -130,8 +139,11 @@ def apply_planner_project_to_shift_assignments(
 	has_custom_project = _doctype_has_field("Shift Assignment", "custom_project")
 	has_custom_project_name = _doctype_has_field("Shift Assignment", "custom_project_name")
 	has_note = _doctype_has_field("Shift Assignment", "note")
+	has_designation = _doctype_has_field("Shift Assignment", DESIGNATION_FIELD)
 
 	for shift_assignment in shift_assignment_names or []:
+		if custom_project_designation and has_designation:
+			frappe.db.set_value("Shift Assignment", shift_assignment, DESIGNATION_FIELD, custom_project_designation, update_modified=False)
 		if custom_project and has_custom_project:
 			frappe.db.set_value(
 				"Shift Assignment",
@@ -166,15 +178,17 @@ def create_shift_schedule_shifts_with_planner_fields(
 	end_date: str | None = None,
 	custom_project: str | None = None,
 	note: str | None = None,
+	custom_project_designation: str | None = None,
 ) -> None:
 	shift_schedule_assignment = frappe.get_doc("Shift Schedule Assignment", shift_schedule_assignment_name)
 	shift_schedule_assignment.create_shifts(start_date, end_date)
 
-	if custom_project or note:
+	if custom_project or note or custom_project_designation:
 		apply_planner_project_to_shift_assignments(
 			shift_schedule_assignment=shift_schedule_assignment_name,
 			custom_project=custom_project,
 			note=note,
+			custom_project_designation=custom_project_designation,
 		)
 
 
@@ -1818,6 +1832,7 @@ def create_shift_schedule_assignment(
 	shift_location: str | None = None,
 	custom_project: str | None = None,
 	note: str | None = None,
+	custom_project_designation: str | None = None,
 ) -> None:
 	shift_schedule = get_or_insert_shift_schedule(shift_type, frequency, repeat_on_days)
 
@@ -1828,6 +1843,8 @@ def create_shift_schedule_assignment(
 	shift_schedule_assignment.shift_status = status
 	shift_schedule_assignment.shift_location = shift_location
 	shift_schedule_assignment.enabled = 0 if end_date else 1
+	custom_project_designation = validate_designation(custom_project, custom_project_designation)
+	_set_doc_field_if_exists(shift_schedule_assignment, DESIGNATION_FIELD, custom_project_designation)
 
 	if custom_project:
 		_set_doc_field_if_exists(shift_schedule_assignment, "custom_project", custom_project)
@@ -1846,6 +1863,7 @@ def create_shift_schedule_assignment(
 			end_date,
 			custom_project,
 			note,
+			custom_project_designation=custom_project_designation,
 		)
 		return
 
@@ -1857,6 +1875,7 @@ def create_shift_schedule_assignment(
 		end_date=end_date,
 		custom_project=custom_project,
 		note=note,
+		custom_project_designation=custom_project_designation,
 	)
 
 
@@ -1930,6 +1949,7 @@ def _create_single_rolling_swing(
 	minimum_on_site_days_for_fi_fo: int = 2,
 	minimum_message: str | None = None,
 	main_shift_type_label: str | None = None,
+	custom_project_designation: str | None = None,
 ) -> None:
 	if not include_fly_in_out:
 		insert_shift(
@@ -1942,6 +1962,7 @@ def _create_single_rolling_swing(
 			shift_location=shift_location,
 			custom_project=custom_project,
 			note=note,
+			custom_project_designation=custom_project_designation,
 		)
 		return
 
@@ -1958,6 +1979,7 @@ def _create_single_rolling_swing(
 		shift_location=shift_location,
 		custom_project=custom_project,
 		note=note,
+		custom_project_designation=custom_project_designation,
 	)
 
 	middle_start = getdate(add_days(swing_start, 1))
@@ -1973,6 +1995,7 @@ def _create_single_rolling_swing(
 			shift_location=shift_location,
 			custom_project=custom_project,
 			note=note,
+			custom_project_designation=custom_project_designation,
 		)
 
 	insert_shift(
@@ -1985,6 +2008,7 @@ def _create_single_rolling_swing(
 		shift_location=shift_location,
 		custom_project=custom_project,
 		note=note,
+		custom_project_designation=custom_project_designation,
 	)
 
 
@@ -2004,6 +2028,7 @@ def create_rolling_roster_assignment(
 	include_fly_in_out: bool | int | str = True,
 	fly_in_shift_type: str = "FI",
 	fly_out_shift_type: str = "FO",
+	custom_project_designation: str | None = None,
 ) -> None:
 	"""Create a rolling roster pattern across a date range.
 
@@ -2053,6 +2078,7 @@ def create_rolling_roster_assignment(
 				shift_location=shift_location,
 				custom_project=custom_project,
 				note=note,
+				custom_project_designation=custom_project_designation,
 			)
 			current = getdate(add_days(swing_start, days_on_site + days_off_site))
 			continue
@@ -2068,6 +2094,7 @@ def create_rolling_roster_assignment(
 			shift_location=shift_location,
 			custom_project=custom_project,
 			note=note,
+			custom_project_designation=custom_project_designation,
 		)
 
 		if date_diff(swing_end, swing_start) >= 1:
@@ -2086,6 +2113,7 @@ def create_rolling_roster_assignment(
 					shift_location=shift_location,
 					custom_project=custom_project,
 					note=note,
+					custom_project_designation=custom_project_designation,
 				)
 
 			# Final day of the swing: fly out.
@@ -2099,6 +2127,7 @@ def create_rolling_roster_assignment(
 				shift_location=shift_location,
 				custom_project=custom_project,
 				note=note,
+				custom_project_designation=custom_project_designation,
 			)
 
 		current = getdate(add_days(swing_start, days_on_site + days_off_site))
@@ -2119,6 +2148,7 @@ def create_dynamic_rolling_roster_assignment(
 	include_fly_in_out: bool | int | str = True,
 	fly_in_shift_type: str = "FI",
 	fly_out_shift_type: str = "FO",
+	custom_project_designation: str | None = None,
 ) -> None:
 	"""Create a dynamic rolling roster pattern across a date range.
 
@@ -2172,6 +2202,7 @@ def create_dynamic_rolling_roster_assignment(
 			fly_in_shift_type=fly_in_shift_type,
 			fly_out_shift_type=fly_out_shift_type,
 			minimum_message=_("Each dynamic rolling roster swing must have at least 2 days on site when fly in / fly out is enabled."),
+			custom_project_designation=custom_project_designation,
 		)
 
 		current = getdate(add_days(swing_start, days_on_site + days_off_site))
@@ -2196,6 +2227,7 @@ def create_rolling_day_night_roster_assignment(
 	night_shift_type: str = "NS",
 	fly_in_shift_type: str = "FI",
 	fly_out_shift_type: str = "FO",
+	custom_project_designation: str | None = None,
 ) -> None:
 	"""Create a rolling day/night roster pattern across a date range.
 
@@ -2276,6 +2308,7 @@ def create_rolling_day_night_roster_assignment(
 				shift_location=shift_location,
 				custom_project=custom_project,
 				note=note,
+				custom_project_designation=custom_project_designation,
 			)
 
 		current = getdate(add_days(swing_start, total_on_site_days + days_off_site))
@@ -2352,6 +2385,7 @@ def _find_shift_assignment_for_date(employee: str, date: str, preferred_shift: s
 			"shift_location",
 			"custom_project",
 			"note",
+			*([DESIGNATION_FIELD] if _doctype_has_field("Shift Assignment", DESIGNATION_FIELD) else []),
 		],
 		order_by="start_date desc, creation desc",
 		limit_start=0,
@@ -2387,6 +2421,7 @@ def _shift_snapshot(row, date: str) -> dict:
 		"shift_location": row.get("shift_location"),
 		"custom_project": row.get("custom_project"),
 		"note": row.get("note"),
+		DESIGNATION_FIELD: row.get(DESIGNATION_FIELD),
 	}
 
 
@@ -2508,6 +2543,7 @@ def bulk_move_or_swap_shifts(shifts, target_employee: str, target_date: str) -> 
 				shift_location=source.get("shift_location"),
 				custom_project=source.get("custom_project"),
 				note=source.get("note"),
+				custom_project_designation=source.get(DESIGNATION_FIELD),
 			)
 
 		# Swap existing target shifts back to the original source dates.
@@ -2524,6 +2560,7 @@ def bulk_move_or_swap_shifts(shifts, target_employee: str, target_date: str) -> 
 				shift_location=target.get("shift_location"),
 				custom_project=target.get("custom_project"),
 				note=target.get("note"),
+				custom_project_designation=target.get(DESIGNATION_FIELD),
 			)
 	except Exception:
 		frappe.db.rollback(save_point=savepoint)
@@ -2556,6 +2593,7 @@ def swap_shift(
 		src_shift_doc.shift_location,
 		src_shift_doc.get("custom_project"),
 		src_shift_doc.get("note"),
+		custom_project_designation=src_shift_doc.get(DESIGNATION_FIELD),
 	)
 
 	if tgt_shift:
@@ -2569,6 +2607,7 @@ def swap_shift(
 			tgt_shift_doc.shift_location,
 			tgt_shift_doc.get("custom_project"),
 			tgt_shift_doc.get("note"),
+			custom_project_designation=tgt_shift_doc.get(DESIGNATION_FIELD),
 		)
 
 
@@ -2598,6 +2637,7 @@ def break_shift(assignment: str | ShiftAssignment, date: str) -> None:
 	shift_location = assignment.shift_location
 	custom_project = assignment.get("custom_project")
 	note = assignment.get("note")
+	custom_project_designation = assignment.get(DESIGNATION_FIELD)
 
 	if date_diff(date, assignment.start_date) == 0:
 		assignment.cancel()
@@ -2617,6 +2657,7 @@ def break_shift(assignment: str | ShiftAssignment, date: str) -> None:
 			shift_location=shift_location,
 			custom_project=custom_project,
 			note=note,
+			custom_project_designation=custom_project_designation,
 		)
 
 
@@ -2631,8 +2672,10 @@ def insert_shift(
 	shift_location: str | None = None,
 	custom_project: str | None = None,
 	note: str | None = None,
+	custom_project_designation: str | None = None,
 ) -> None:
 	from frappe.utils import add_days
+	custom_project_designation = validate_designation(custom_project, custom_project_designation)
 
 	# Treat project as part of the identity so only same-project blocks merge
 	filters = {
@@ -2648,6 +2691,8 @@ def insert_shift(
 		filters["custom_project"] = custom_project
 	if _doctype_has_field("Shift Assignment", "note"):
 		filters["note"] = note
+	if _doctype_has_field("Shift Assignment", DESIGNATION_FIELD):
+		filters[DESIGNATION_FIELD] = custom_project_designation
 
 	prev_shift = frappe.db.exists(dict({"end_date": add_days(start_date, -1)}, **filters))
 	next_shift = (
@@ -2663,12 +2708,12 @@ def insert_shift(
 		frappe.db.set_value("Shift Assignment", prev_shift, "end_date", end_date or None)
 		# ensure Planner fields stick even if previous block had blank values
 		if custom_project or note:
-			apply_planner_project_to_shift_assignments([prev_shift], custom_project=custom_project, note=note)
+			apply_planner_project_to_shift_assignments([prev_shift], custom_project=custom_project, note=note, custom_project_designation=custom_project_designation)
 
 	elif next_shift:
 		frappe.db.set_value("Shift Assignment", next_shift, "start_date", start_date)
 		if custom_project or note:
-			apply_planner_project_to_shift_assignments([next_shift], custom_project=custom_project, note=note)
+			apply_planner_project_to_shift_assignments([next_shift], custom_project=custom_project, note=note, custom_project_designation=custom_project_designation)
 
 	else:
 		create_planner_shift_assignment(
@@ -2681,6 +2726,7 @@ def insert_shift(
 			shift_location=shift_location,
 			custom_project=custom_project,
 			note=note,
+			custom_project_designation=custom_project_designation,
 		)
 	# Adjacent-block merges use db.set_value and bypass document hooks.
 	publish_scope("roster")
@@ -2832,6 +2878,8 @@ def get_shift_rows(
 		)
 	)
 
+	if _doctype_has_field("Shift Assignment", DESIGNATION_FIELD):
+		query = query.select(ShiftAssignment[DESIGNATION_FIELD])
 	for filter in employee_filters:
 		query = query.where(Employee[filter] == employee_filters[filter])
 
@@ -3391,6 +3439,7 @@ def get_project_planner_details(project: str) -> dict:
 		"can_update_is_active": bool(is_active_field),
 		"can_update_project_dates": bool(start_date_field and end_date_field),
 		"can_update_notes": bool(notes_field),
+		**project_staffing_details(doc, _safe_int(doc.get(ds_field)) if ds_field else 0, _safe_int(doc.get(ns_field)) if ns_field else 0),
 	}
 
 
@@ -3699,14 +3748,23 @@ def update_project_planner_details(
 	project_end_date: str | None = None,
 	project_notes: str | None = None,
 	expected_modified: str | None = None,
+	personnel_requirements: list[dict] | str | None = None,
 ) -> dict:
 	"""Update the Project fields exposed by the annual project span dialog."""
 	if not project:
 		frappe.throw(_("Project is required"))
 
 	doc = frappe.get_doc("Project", project, for_update=True)
+	doc.check_permission("write")
 	_check_project_revision(doc, expected_modified)
 	fields = _project_planner_edit_fields()
+	if personnel_requirements is not None:
+		if not doc.meta.has_field(REQUIREMENTS_FIELD):
+			frappe.throw(_("Project personnel requirements are not installed. Run the site migration."))
+		rows = normalise_requirements(personnel_requirements)
+		doc.set(REQUIREMENTS_FIELD, rows)
+		totals = requirement_totals(rows)
+		ds_requested, ns_requested = totals["DS"], totals["NS"]
 
 	po_field = fields.get("po_field")
 	po_fieldtype = fields.get("po_fieldtype")
@@ -3736,7 +3794,7 @@ def update_project_planner_details(
 
 	start_date_field = fields.get("start_date_field")
 	end_date_field = fields.get("end_date_field")
-	if start_date_field or end_date_field:
+	if (start_date_field or end_date_field) and (project_start_date is not None or project_end_date is not None):
 		if not start_date_field or not end_date_field:
 			frappe.throw(_("Project date fields are not fully configured on this site."))
 
@@ -4013,6 +4071,7 @@ def get_project_meta(
 				)
 			}
 
+	personnel_requirements = get_project_requirements([project.name for project in projects])
 	for project in projects:
 		customer = project.get(customer_field) if customer_field else None
 		customer_detail = customer_details.get(customer) if customer else None
@@ -4022,6 +4081,10 @@ def get_project_meta(
 		project["po_entered"] = True if not po_field else _truthy_project_value(project.get(po_field))
 		project["ds_requested"] = _safe_int(project.get(ds_field)) if ds_field else 0
 		project["ns_requested"] = _safe_int(project.get(ns_field)) if ns_field else 0
+		project["personnel_requirements"] = personnel_requirements.get(project.name, [])
+		if project["personnel_requirements"]:
+			totals = requirement_totals(project["personnel_requirements"])
+			project["ds_requested"], project["ns_requested"] = totals["DS"], totals["NS"]
 		project["customer"] = customer
 		project["customer_name"] = (
 			customer_detail.get("customer_name") if customer_detail and customer_detail.get("customer_name") else customer
@@ -4115,6 +4178,7 @@ def get_year_project_rows(
 ) -> list[dict]:
 	projects = {}
 	shift_summaries: dict[str, dict] = {}
+	project_shifts: dict[str, list] = {}
 	year_start_date = getdate(year_start)
 	year_end_date = getdate(year_end)
 	shift_project_bounds = get_shift_project_bounds(shift_rows, year_start_date, year_end_date)
@@ -4133,6 +4197,7 @@ def get_year_project_rows(
 		project = shift.get("custom_project")
 		if not project or project not in all_projects:
 			continue
+		project_shifts.setdefault(project, []).append(shift)
 
 		start_date = max(getdate(shift.get("start_date")), year_start_date)
 		end_date = getdate(shift.get("end_date")) if shift.get("end_date") else year_end_date
@@ -4183,6 +4248,14 @@ def get_year_project_rows(
 			continue
 
 		project_task_count = task_counts.get(project, 0)
+		requirements = project_meta.get("personnel_requirements") or []
+		allocation_requirements = requirements or [
+			{"shift": shift, "designation": "", "required_personnel": project_meta.get(field, 0)}
+			for shift, field in (("DS", "ds_requested"), ("NS", "ns_requested"))
+		]
+		allocation_shifts = [shift for shift in project_shifts.get(project, [])
+			if getdate(shift["start_date"]) <= bounds[1]
+			and (not shift.get("end_date") or getdate(shift["end_date"]) >= bounds[0])]
 
 		projects[project] = {
 			"project": project,
@@ -4201,6 +4274,8 @@ def get_year_project_rows(
 			"po_entered": project_meta.get("po_entered"),
 			"ds_requested": _safe_int(project_meta.get("ds_requested")),
 			"ns_requested": _safe_int(project_meta.get("ns_requested")),
+			"personnel_requirements": requirements,
+			"personnel_allocations": summarise_staffing(allocation_shifts, allocation_requirements),
 			"customer_color": project_meta.get("customer_color"),
 			"start_date": str(bounds[0]),
 			"end_date": str(bounds[1]),

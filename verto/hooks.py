@@ -122,6 +122,7 @@ doc_events = {
         "before_validate": "verto.api.qualifications.validate_employee_qualifications",
     },
     "Project": {
+        "before_validate": "verto.api.planner_staffing.validate_project_staffing",
         "after_insert": "verto.api.hooks.create_project_handover_records",
         "on_update": "verto.api.hooks.create_project_handover_records",
     },
@@ -134,6 +135,8 @@ doc_events = {
         "after_delete": "verto.api.mobile.raven_realtime_bridge.publish_raven_message_delete",
     },
     "Shift Assignment": {
+        "before_validate": "verto.api.planner_staffing.apply_scheduled_staffing",
+        "before_update_after_submit": "verto.api.planner_staffing.apply_scheduled_staffing",
         "on_submit": "verto.api.mobile.push_notifications.notify_shift_assigned",
         "on_update_after_submit": "verto.api.mobile.push_notifications.notify_shift_changed",
     },

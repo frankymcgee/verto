@@ -25,6 +25,12 @@ const defaults = {
   start_date: "2026-09-01",
   end_date: "2026-09-30",
 };
+const bootstrapData = {
+  references: { shift_type: [{ name: 'DS' }, { name: 'NS' }],
+    designation: [{ name: 'Advisor' }, { name: 'Supervisor' }, { name: 'Labour' }],
+    shift_location: [{ name: 'LOC-1' }, { name: 'OTHER-LOCATION' }] },
+  projects: [{ name: 'OTHER-PROJECT', project_name: 'Other project' }],
+};
 let wrapper, saved, project, shiftDoc, yearEvents;
 const settle = async () => {
   await flushPromises();
@@ -53,6 +59,7 @@ describe('Live project collaboration', () => {
   it('preserves unsaved notes, blocks stale saves, and lets the user reload', async () => {
     let details = { ...projectDetails(), modified: 'revision-one' };
     setConfig('resourceFetcher', async ({ url }) => {
+      if (url.endsWith('get_bootstrap')) return structuredClone(bootstrapData);
       if (url.endsWith('get_project_planner_details')) return structuredClone(details);
       throw new Error(`Unexpected request: ${url}`);
     });
@@ -75,6 +82,7 @@ describe('Live project collaboration', () => {
     let details = { ...projectDetails(), modified: 'revision-one' };
     let submitted;
     setConfig('resourceFetcher', async ({ url, params }) => {
+      if (url.endsWith('get_bootstrap')) return structuredClone(bootstrapData);
       if (url.endsWith('get_project_planner_details')) return structuredClone(details);
       if (url.endsWith('update_project_planner_details')) { submitted = params; return structuredClone(details); }
       throw new Error(`Unexpected request: ${url}`);
@@ -185,11 +193,7 @@ beforeEach(() => {
     status: "Active",
   };
   setConfig("resourceFetcher", async ({ url, params }) => {
-    if (url.endsWith('get_bootstrap')) return {
-      references: { shift_type: [{ name: 'DS' }, { name: 'NS' }],
-        shift_location: [{ name: 'LOC-1' }, { name: 'OTHER-LOCATION' }] },
-      projects: [{ name: 'OTHER-PROJECT', project_name: 'Other project' }],
-    };
+    if (url.endsWith('get_bootstrap')) return structuredClone(bootstrapData);
     if (url === "frappe.client.get_list") {
       if (params.doctype === "Shift Type")
         return [{ name: "DS" }, { name: "NS" }];
@@ -404,7 +408,7 @@ describe("Submitting project shifts", () => {
     ["Dynamic Rolling Roster", "create_dynamic_rolling_roster_assignment"],
     ["Rolling Day/Night Roster", "create_rolling_day_night_roster_assignment"],
   ])("retains defaults with the %s option", async (schedule, method) => {
-    await openShift();
+    await openShift({ assignmentDefaults: { ...defaults, custom_project_designation: "Advisor" } });
     await chooseEmployeeAndDates("2026-10-30");
     await selectValue("Schedule Type", schedule);
     if (schedule === "Rolling Roster") await fieldValue("Days On Site", 4);
@@ -415,6 +419,7 @@ describe("Submitting project shifts", () => {
       custom_project: "PROJ-1",
       shift_location: "LOC-1",
       employee: "EMP-1",
+      custom_project_designation: "Advisor",
     });
     if (schedule === "Rolling Roster")
       expect(saved[0].params.days_on_site).toBe("4");
@@ -425,6 +430,106 @@ describe("Submitting project shifts", () => {
         day_shift_type: "DS",
         night_shift_type: "NS",
       });
+  });
+});
+
+describe("Project personnel designations", () => {
+  it("saves requirement rows, calculates totals and retains existing legacy counts", async () => {
+    let submitted;
+    const details = { ...projectDetails(), can_update_personnel_requirements: true, personnel_requirements: [] };
+    setConfig("resourceFetcher", async ({ url, params }) => {
+      if (url.endsWith("get_bootstrap")) return structuredClone(bootstrapData);
+      if (url.endsWith("get_project_planner_details")) return structuredClone(details);
+      if (url.endsWith("update_project_planner_details")) { submitted = params; return structuredClone(details); }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await mountComponent(ProjectSpanDialog, { isDialogOpen: true, modelValue: true, project });
+    await button("+ Add role").trigger("click");
+    await settle();
+    const designations = wrapper.findAllComponents(Combobox).filter((control) => control.props("label") === "Designation");
+    expect(designations).toHaveLength(3); // Existing DS/NS totals plus the new role.
+    designations[2].vm.$emit("update:modelValue", "Advisor");
+    const required = wrapper.findAllComponents(FormControl).filter((control) => control.props("label") === "Required");
+    await required[2].find("input").setValue("3");
+    await settle();
+    await button("Update").trigger("click");
+    await settle();
+    expect(submitted.personnel_requirements).toEqual([
+      { shift: "DS", designation: "", required_personnel: 2 },
+      { shift: "NS", designation: "", required_personnel: 2 },
+      { shift: "DS", designation: "Advisor", required_personnel: 3 },
+    ]);
+    expect(submitted).toMatchObject({ ds_requested: 5, ns_requested: 2,
+      project_start_date: defaults.start_date, project_end_date: defaults.end_date });
+  });
+
+  it("emits the selected shift and designation and keeps people with the same name", async () => {
+    project = { ...project, can_update_personnel_requirements: true,
+      personnel_requirements: [{ shift: "NS", designation: "Supervisor", required_personnel: 2 }],
+      personnel_allocations: [{ shift: "NS", designation: "Supervisor", required_personnel: 2,
+        personnel: [{ employee: "EMP-1", employee_name: "Alex" }, { employee: "EMP-2", employee_name: "Alex" }] }] };
+    await mountComponent(ProjectSpanDialog, { isDialogOpen: true, modelValue: true, project });
+    expect(document.body.textContent.match(/Alex/g)).toHaveLength(2);
+    expect(document.body.textContent).toContain("2 / 2 required");
+    await new DOMWrapper(document.querySelector('[aria-label="Assign NS Supervisor shifts"]')).trigger("click");
+    expect(wrapper.emitted("assignShifts")[0][0]).toMatchObject({ ...defaults,
+      shift_type: "NS", custom_project_designation: "Supervisor" });
+  });
+
+  it("blocks duplicate shift/designation rows and permits clearing all requirements", async () => {
+    let submitted;
+    const details = { ...projectDetails(), can_update_personnel_requirements: true,
+      personnel_requirements: [{ shift: "DS", designation: "Advisor", required_personnel: 2 }] };
+    setConfig("resourceFetcher", async ({ url, params }) => {
+      if (url.endsWith("get_bootstrap")) return structuredClone(bootstrapData);
+      if (url.endsWith("get_project_planner_details")) return structuredClone(details);
+      if (url.endsWith("update_project_planner_details")) { submitted = params; return structuredClone(details); }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await mountComponent(ProjectSpanDialog, { isDialogOpen: true, modelValue: true, project });
+    await button("+ Add role").trigger("click");
+    await settle();
+    const designations = wrapper.findAllComponents(Combobox).filter((control) => control.props("label") === "Designation");
+    designations[1].vm.$emit("update:modelValue", "Advisor");
+    await settle();
+    expect(button("Update").attributes("disabled")).toBeDefined();
+    const remove = [...document.querySelectorAll('button[aria-label^="Remove DS"]')];
+    for (const element of remove) await new DOMWrapper(element).trigger("click");
+    await settle();
+    await button("Update").trigger("click");
+    await settle();
+    expect(submitted).toMatchObject({ personnel_requirements: [], ds_requested: 0, ns_requested: 0 });
+  });
+
+  it("prefills and saves a project role on a single shift", async () => {
+    await openShift({ assignmentDefaults: { ...defaults, custom_project_designation: "Advisor" } });
+    expect(picker("Project Designation").props("modelValue")).toBe("Advisor");
+    await chooseEmployeeAndDates();
+    await button("Submit", shiftModal()).trigger("click");
+    await settle();
+    expect(saved[0].params.custom_project_designation).toBe("Advisor");
+  });
+
+  it("edits the project role and clears it when the project is removed", async () => {
+    let submitted;
+    shiftDoc.custom_project_designation = "Advisor";
+    shiftDoc.name = "SHIFT-ROLE-1";
+    setConfig("resourceFetcher", async ({ url, params }) => {
+      if (url.endsWith("get_bootstrap")) return structuredClone(bootstrapData);
+      if (url === "frappe.client.get") return structuredClone(shiftDoc);
+      if (url === "frappe.client.set_value") { submitted = params; return { ...shiftDoc, ...params.fieldname }; }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await openShift({ shiftAssignmentName: "SHIFT-ROLE-1", selectedCell: { employee: "EMP-1", date: "2026-10-01" } });
+    expect(picker("Project Designation").props("modelValue")).toBe("Advisor");
+    await selectValue("Project Designation", "Labour");
+    expect(button("Update", shiftModal()).attributes("disabled")).toBeUndefined();
+    await button("Update", shiftModal()).trigger("click");
+    await settle();
+    expect(submitted.fieldname.custom_project_designation).toBe("Labour");
+    await selectValue("Project", "");
+    expect(picker("Project Designation").props("modelValue")).toBe("");
+    expect(picker("Project Designation").props("disabled")).toBe(true);
   });
 });
 

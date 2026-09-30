@@ -94,7 +94,7 @@ jobs:
           bench --site test_site install-app verto
           bench --site test_site migrate
 
-      - name: Run planner task and leave regressions
+      - name: Run planner task, leave and staffing regressions
         working-directory: /home/runner/frappe-bench
         env:
           CI: 'Yes'
@@ -107,6 +107,10 @@ jobs:
           bench --site test_site run-tests \
             --app verto \
             --module verto.api.test_planner_leave \
+            --skip-before-tests
+          bench --site test_site run-tests \
+            --app verto \
+            --module verto.api.test_planner_staffing \
             --skip-before-tests
 
       - name: Verify whiteboard pages and access controls

@@ -79,13 +79,13 @@
               type="number"
               label="DS Personnel Required"
               v-model="form.ds_requested"
-              :disabled="!form.can_update_ds"
+              :disabled="!form.can_update_ds || form.personnel_requirements.length > 0"
             />
             <FormControl
               type="number"
               label="NS Personnel Required"
               v-model="form.ns_requested"
-              :disabled="!form.can_update_ns"
+              :disabled="!form.can_update_ns || form.personnel_requirements.length > 0"
             />
 
             <template v-if="showProjectDateFields">
@@ -449,95 +449,43 @@
           </div>
 
           <div class="rounded-6 border border-gray-200 bg-white">
-            <div class="border-b border-gray-100 px-4 py-3">
-              <div class="text-sm-semibold text-gray-800">
-                Personnel Assigned
+            <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
+              <div>
+                <div class="text-sm-semibold text-gray-800">Personnel Requirements</div>
+                <p class="mt-0.5 text-xs text-gray-500">Set the required personnel for each shift and designation. DS and NS totals are calculated from these rows.</p>
               </div>
-              <div class="mt-0.5 text-xs text-gray-500">
-                Current annual view assignments split by DS and NS shift types.
-              </div>
+              <Button size="sm" class="shrink-0" :disabled="!form.can_update_personnel_requirements || form.personnel_requirements.length >= 100" @click="addRequirement">+ Add role</Button>
             </div>
-
-            <div
-              class="grid grid-cols-1 divide-y divide-gray-100 sm:grid-cols-1 sm:grid-cols-2 sm:divide-x sm:divide-y-0"
-            >
-              <div class="p-4">
-                <div class="mb-2 flex items-center justify-between gap-2">
-                  <div
-                    class="text-xs-semibold uppercase tracking-wide text-gray-500"
-                  >
-                    DS
-                  </div>
-                  <div
-                    class="rounded-full bg-gray-100 px-2 py-0.5 text-xs-semibold text-gray-600"
-                  >
-                    {{ dsPersonnel.length }}
-                  </div>
-                </div>
-
-                <Button
-                  size="sm"
-                  class="mb-3 w-full"
-                  aria-label="Assign day shifts"
-                  :disabled="!canAssignShifts"
-                  @click="assignProjectShifts('DS')"
-                  >+ Assign shifts</Button
-                >
-
-                <div v-if="dsPersonnel.length" class="space-y-1.5">
-                  <div
-                    v-for="person in dsPersonnel"
-                    :key="`ds-${person}`"
-                    class="rounded-5 bg-gray-50 px-2.5 py-1.5 text-sm text-gray-700"
-                  >
-                    {{ person }}
-                  </div>
-                </div>
-                <div
-                  v-else
-                  class="rounded-5 bg-gray-50 px-2.5 py-4 text-center text-sm text-gray-500"
-                >
-                  No DS personnel assigned
-                </div>
+            <div v-if="form.personnel_requirements.length" class="space-y-3 p-4">
+              <div v-for="row in form.personnel_requirements" :key="row.key" class="grid grid-cols-[5rem_minmax(0,1fr)_7rem_auto] items-end gap-3">
+                <FormControl type="select" label="Shift" v-model="row.shift" :options="['DS', 'NS']" :disabled="!form.can_update_personnel_requirements" />
+                <Combobox label="Designation" v-model="row.designation" :options="designationOptions(row.designation)" :disabled="!form.can_update_personnel_requirements" />
+                <FormControl type="number" label="Required" :min="0" v-model="row.required_personnel" :disabled="!form.can_update_personnel_requirements" />
+                <Button variant="ghost" :aria-label="`Remove ${row.shift} ${row.designation || 'unspecified'} requirement`" :disabled="!form.can_update_personnel_requirements" @click="removeRequirement(row.key)">×</Button>
               </div>
+              <p v-if="requirementsError" role="alert" class="text-xs text-red-600">{{ requirementsError }}</p>
+            </div>
+            <p v-else class="p-4 text-sm text-gray-500">No designation requirements set. The DS and NS totals above remain available.</p>
+          </div>
 
-              <div class="p-4">
-                <div class="mb-2 flex items-center justify-between gap-2">
-                  <div
-                    class="text-xs-semibold uppercase tracking-wide text-gray-500"
-                  >
-                    NS
+          <div class="rounded-6 border border-gray-200 bg-white">
+            <div class="border-b border-gray-100 px-4 py-3">
+              <div class="text-sm-semibold text-gray-800">Personnel Assigned</div>
+              <p class="mt-0.5 text-xs text-gray-500">Project assignments grouped by shift and designation.</p>
+            </div>
+            <div class="grid grid-cols-1 divide-y divide-gray-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+              <div v-for="shift in (['DS', 'NS'] as const)" :key="shift" class="space-y-3 p-4">
+                <div class="text-xs-semibold uppercase tracking-wide text-gray-500">{{ shift }}</div>
+                <div v-for="group in personnelGroups(shift)" :key="`${shift}-${group.designation}`" class="rounded-5 border border-gray-200 p-3">
+                  <div class="mb-2 flex items-center justify-between gap-2">
+                    <span class="text-sm-medium text-gray-800">{{ group.designation || 'Unspecified designation' }}</span>
+                    <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs-semibold text-gray-600">{{ group.personnel.length }} / {{ group.required_personnel }} required</span>
                   </div>
-                  <div
-                    class="rounded-full bg-gray-100 px-2 py-0.5 text-xs-semibold text-gray-600"
-                  >
-                    {{ nsPersonnel.length }}
+                  <Button size="sm" class="mb-3 w-full" :aria-label="group.designation ? `Assign ${shift} ${group.designation} shifts` : (shift === 'DS' ? 'Assign day shifts' : 'Assign night shifts')" :disabled="!canAssignShifts" @click="assignProjectShifts(shift, group.designation)">+ Assign shifts</Button>
+                  <div v-if="group.personnel.length" class="space-y-1.5">
+                    <div v-for="person in group.personnel" :key="person.employee" class="rounded-5 bg-gray-50 px-2.5 py-1.5 text-sm text-gray-700">{{ person.employee_name }}</div>
                   </div>
-                </div>
-
-                <Button
-                  size="sm"
-                  class="mb-3 w-full"
-                  aria-label="Assign night shifts"
-                  :disabled="!canAssignShifts"
-                  @click="assignProjectShifts('NS')"
-                  >+ Assign shifts</Button
-                >
-
-                <div v-if="nsPersonnel.length" class="space-y-1.5">
-                  <div
-                    v-for="person in nsPersonnel"
-                    :key="`ns-${person}`"
-                    class="rounded-5 bg-gray-50 px-2.5 py-1.5 text-sm text-gray-700"
-                  >
-                    {{ person }}
-                  </div>
-                </div>
-                <div
-                  v-else
-                  class="rounded-5 bg-gray-50 px-2.5 py-4 text-center text-sm text-gray-500"
-                >
-                  No NS personnel assigned
+                  <p v-else class="text-sm text-gray-500">No {{ shift }} personnel assigned</p>
                 </div>
               </div>
             </div>
@@ -558,6 +506,7 @@
               updateProject.loading ||
               createGenericTasks.loading ||
               remoteChangePending ||
+              Boolean(requirementsError) ||
               !form.project
             "
             :loading="updateProject.loading"
@@ -721,7 +670,8 @@ import { Combobox } from "frappe-ui";
 import { computed, reactive, ref, watch } from "vue";
 import { Button, FormControl, createResource } from "frappe-ui";
 import { raiseToast } from "../utils";
-import type { ProjectShiftAssignmentDefaults } from "../types/shiftAssignment";
+import { usePlannerBootstrap } from "../utils/bootstrap";
+import type { ProjectShiftAssignmentDefaults, PersonnelRequirement, PersonnelAllocation } from "../types/shiftAssignment";
 
 type ProjectDialogRow = {
   project: string;
@@ -765,6 +715,9 @@ type ProjectDetails = {
   can_update_is_active?: boolean;
   can_update_project_dates?: boolean;
   can_update_notes?: boolean;
+  personnel_requirements?: PersonnelRequirement[];
+  personnel_allocations?: PersonnelAllocation[];
+  can_update_personnel_requirements?: boolean;
 };
 
 type TaskAssignee = {
@@ -837,6 +790,7 @@ function projectEdits() {
     ds_requested: form.ds_requested, ns_requested: form.ns_requested,
     is_active: form.is_active, project_start_date: form.project_start_date,
     project_end_date: form.project_end_date, project_notes: form.project_notes,
+    personnel_requirements: form.personnel_requirements.map((row) => ({ ...row })),
   };
 }
 
@@ -867,6 +821,8 @@ type GenericLocationRow = {
 
 const GENERIC_LOCATION_LIMIT = 100;
 let nextGenericLocationKey = 1;
+let nextRequirementKey = 1;
+type RequirementRow = PersonnelRequirement & { key: number };
 
 function newGenericLocation(subject = ""): GenericLocationRow {
   return {
@@ -888,6 +844,9 @@ const form = reactive({
   po_entered: false,
   ds_requested: 0,
   ns_requested: 0,
+  personnel_requirements: [] as RequirementRow[],
+  personnel_allocations: [] as PersonnelAllocation[],
+  can_update_personnel_requirements: false,
   is_active: true,
   project_start_date: "",
   project_end_date: "",
@@ -1016,16 +975,83 @@ const canAssignShifts = computed(
     !createGenericTasks.loading,
 );
 
-function assignProjectShifts(shiftType: "DS" | "NS") {
+function assignProjectShifts(shiftType: "DS" | "NS", designation = "") {
   if (!canAssignShifts.value) return;
   emit("assignShifts", {
     custom_project: form.project,
+    ...(designation ? { custom_project_designation: designation } : {}),
     project_name: form.project_name,
     shift_location: form.custom_project_location,
     shift_type: shiftType,
     start_date: form.project_start_date,
     end_date: form.project_end_date,
   });
+}
+
+const bootstrap = usePlannerBootstrap();
+function designationOptions(selected: string) {
+  const names: string[] = (bootstrap.data?.references?.designation || []).map((row: { name: string }) => row.name);
+  if (selected && !names.includes(selected)) names.unshift(selected);
+  return [{ label: "Unspecified designation", value: "" }, ...names.map((name) => ({ label: name, value: name }))];
+}
+
+function addRequirement() {
+  if (!form.personnel_requirements.length) {
+    const totals = { DS: form.ds_requested, NS: form.ns_requested };
+    for (const shift of ["DS", "NS"] as const) {
+      const required = totals[shift];
+      if (required > 0) form.personnel_requirements.push({ key: nextRequirementKey++, shift, designation: "", required_personnel: required });
+    }
+  }
+  if (form.personnel_requirements.length < 100) {
+    form.personnel_requirements.push({ key: nextRequirementKey++, shift: "DS", designation: "", required_personnel: 0 });
+  }
+}
+
+function removeRequirement(key: number) {
+  form.personnel_requirements = form.personnel_requirements.filter((row) => row.key !== key);
+  if (!form.personnel_requirements.length) form.ds_requested = form.ns_requested = 0;
+}
+
+watch(() => form.personnel_requirements, (rows) => {
+  if (!rows.length) return;
+  for (const shift of ["DS", "NS"] as const) {
+    const required = rows.filter((row) => row.shift === shift).reduce((total, row) => total + (Number(row.required_personnel) || 0), 0);
+    if (shift === "DS") form.ds_requested = required;
+    else form.ns_requested = required;
+  }
+}, { deep: true, flush: "sync" });
+
+const requirementsError = computed(() => {
+  const seen = new Set<string>();
+  for (const row of form.personnel_requirements) {
+    const key = `${row.shift}:${row.designation.trim().toLowerCase()}`;
+    if (seen.has(key)) return "Each shift and designation can appear only once.";
+    seen.add(key);
+    if (!Number.isInteger(Number(row.required_personnel)) || Number(row.required_personnel) < 0) return "Required Personnel must be a non-negative whole number.";
+  }
+  return "";
+});
+
+function personnelGroups(shift: "DS" | "NS"): PersonnelAllocation[] {
+  const groups = new Map<string, PersonnelAllocation>();
+  for (const allocation of form.personnel_allocations.filter((row) => row.shift === shift)) {
+    groups.set(allocation.designation || "", { ...allocation, designation: allocation.designation || "", required_personnel: 0 });
+  }
+  for (const requirement of form.personnel_requirements.filter((row) => row.shift === shift)) {
+    const designation = requirement.designation || "";
+    const allocation = groups.get(designation);
+    groups.set(designation, { ...requirement, personnel: allocation?.personnel || [] });
+  }
+  if (!form.personnel_requirements.length) {
+    const personnel = shift === "DS" ? dsPersonnel.value : nsPersonnel.value;
+    if (!groups.size) groups.set("", { shift, designation: "", required_personnel: 0,
+      personnel: personnel.map((name) => ({ employee: name, employee_name: name })) });
+    const unspecified = groups.get("");
+    if (unspecified) unspecified.required_personnel = shift === "DS" ? form.ds_requested : form.ns_requested;
+  }
+  if (!groups.size) groups.set("", { shift, designation: "", required_personnel: 0, personnel: [] });
+  return [...groups.values()].sort((a, b) => a.designation.localeCompare(b.designation));
 }
 
 const showTaskAssignmentModal = ref(false);
@@ -1087,8 +1113,8 @@ const filteredAssignmentUsers = computed(() => {
 const missingEditableFieldMessage = computed(() => {
   const missing: string[] = [];
   if (!form.can_update_po) missing.push("PO Number");
-  if (!form.can_update_ds) missing.push("DS Personnel Required");
-  if (!form.can_update_ns) missing.push("NS Personnel Required");
+  if (!form.can_update_ds && !form.can_update_personnel_requirements) missing.push("DS Personnel Required");
+  if (!form.can_update_ns && !form.can_update_personnel_requirements) missing.push("NS Personnel Required");
   if (!form.can_update_is_active) missing.push("Active");
   if (!form.can_update_notes) missing.push("Project Notes");
 
@@ -1193,6 +1219,9 @@ function resetForm() {
   form.po_entered = false;
   form.ds_requested = 0;
   form.ns_requested = 0;
+  form.personnel_requirements = [];
+  form.personnel_allocations = [];
+  form.can_update_personnel_requirements = false;
   form.is_active = true;
   form.project_start_date = "";
   form.project_end_date = "";
@@ -1236,6 +1265,9 @@ function applyDetails(data: ProjectDetails | undefined) {
   form.po_entered = boolValue(data.po_entered);
   form.ds_requested = intValue(data.ds_requested);
   form.ns_requested = intValue(data.ns_requested);
+  form.personnel_requirements = (data.personnel_requirements || []).map((row) => ({ ...row, designation: row.designation || "", key: nextRequirementKey++ }));
+  form.personnel_allocations = data.personnel_allocations || [];
+  form.can_update_personnel_requirements = Boolean(data.can_update_personnel_requirements);
   form.is_active = boolValue(data.is_active, true);
   form.project_start_date = data.project_start_date || "";
   form.project_end_date = data.project_end_date || "";
@@ -1425,6 +1457,10 @@ const updateProject = createResource({
       project_end_date: form.project_end_date,
       project_notes: form.project_notes,
       expected_modified: expectedModified.value || undefined,
+      personnel_requirements: form.can_update_personnel_requirements &&
+        (form.personnel_requirements.length || projectDetails.data?.personnel_requirements?.length)
+        ? form.personnel_requirements.map(({ shift, designation, required_personnel }) => ({ shift, designation, required_personnel: Number(required_personnel) }))
+        : undefined,
     };
   },
   onSuccess(data: ProjectDetails | undefined) {

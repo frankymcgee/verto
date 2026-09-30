@@ -39,6 +39,7 @@
               employeeSearch?.includes(employee?.name)
             "
             class="px-2 py-7 z-[5]"
+            :style="{ boxShadow: `inset 4px 0 0 ${employeeAccentColor}` }"
             :class="{ 'border-t': rowIdx }"
           >
             <div class="flex" :class="!employee.designation && 'items-center'">
@@ -147,12 +148,16 @@
                   hoveredCell.shift_type = shift.shift_type;
                   hoveredCell.shift_location = shift.shift_location;
                   hoveredCell.shift_status = shift.status;
+                  hoveredCell.custom_project = shift.custom_project || '';
+                  hoveredCell.custom_project_designation = shift.custom_project_designation || '';
                 "
                 @mouseleave="
                   hoveredCell.shift = '';
                   hoveredCell.shift_type = '';
                   hoveredCell.shift_location = '';
                   hoveredCell.shift_status = '';
+                  hoveredCell.custom_project = '';
+                  hoveredCell.custom_project_designation = '';
                 "
                 @dragenter="dropCell.shift = shift.name"
                 @dragleave="dropCell.shift = ''"
@@ -281,6 +286,7 @@ import { Avatar, MultiSelect, Icon, createResource } from "frappe-ui";
 import { Dayjs } from "dayjs";
 
 import { dayjs, raiseToast } from "../utils";
+import { employeeAccentColor } from "../utils/employeeAppearance";
 import { EmployeeFilters, ShiftFilters } from "../views/MonthView.vue";
 import ShiftAssignmentDialog from "./ShiftAssignmentDialog.vue";
 import LeaveApplicationDialog from "./LeaveApplicationDialog.vue";
@@ -327,6 +333,8 @@ type Shift = {
       | "end_time"
       | "shift_location"
       | "custom_project_name"
+      | "custom_project"
+      | "custom_project_designation"
       | "note"
   ]: string;
 } & {
@@ -388,6 +396,8 @@ const hoveredCell = ref({
   shift_type: "",
   shift_location: "",
   shift_status: "",
+  custom_project: "",
+  custom_project_designation: "",
 });
 const dropCell = ref({ employee: "", date: "", shift: "" });
 
@@ -435,6 +445,8 @@ const hasSameShift = (employee: string, day: string) =>
     (shift: Shift) =>
       shift.shift_type === hoveredCell.value.shift_type &&
       shift.shift_location === hoveredCell.value.shift_location &&
+      (shift.custom_project || "") === hoveredCell.value.custom_project &&
+      (shift.custom_project_designation || "") === hoveredCell.value.custom_project_designation &&
       shift.status === hoveredCell.value.shift_status,
   );
 
@@ -569,6 +581,8 @@ const handleShifts = (
       end_time: dayjs(event.end_time, "hh:mm:ss").format("HH:mm"),
       color: event.color.toLowerCase() as Color,
       custom_project_name: event.custom_project_name,
+      custom_project: event.custom_project,
+      custom_project_designation: event.custom_project_designation,
       note: event.note,
     });
   }

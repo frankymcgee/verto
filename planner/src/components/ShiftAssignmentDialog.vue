@@ -78,6 +78,15 @@
           />
         </div>
 
+        <div class="min-w-0">
+          <Combobox
+            label="Project Designation"
+            v-model="form.custom_project_designation"
+            :disabled="!getId(form.custom_project)"
+            :options="designationOptions"
+          />
+        </div>
+
         <FormControl
           type="date"
           format="YYYY-MM-DD"
@@ -415,6 +424,7 @@ type Form = {
       | "shift_location"
       | "note"
       | "custom_project"
+      | "custom_project_designation"
   ]: Selectish;
 } & {
   start_date: string;
@@ -451,6 +461,7 @@ const formObject: Form = {
   status: "Active",
   shift_schedule_assignment: "",
   custom_project: "",
+  custom_project_designation: "",
 };
 
 const repeatOnDaysObject = {
@@ -550,7 +561,8 @@ const dialog = computed(() => {
       form.status === shiftAssignment.value?.doc?.status &&
       form.end_date === shiftAssignment.value?.doc?.end_date &&
       form.note === shiftAssignment.value?.doc?.note &&
-      getId(form.custom_project) === shiftAssignment.value?.doc?.custom_project;
+      getId(form.custom_project) === (shiftAssignment.value?.doc?.custom_project || "") &&
+      getId(form.custom_project_designation) === (shiftAssignment.value?.doc?.custom_project_designation || "");
 
     return {
       title: `[${selectedDate.value}] Shift Assignment ${props.shiftAssignmentName}`,
@@ -666,6 +678,7 @@ watch(
       Object.assign(repeatOnDays, repeatOnDaysObject);
       if (props.assignmentDefaults) {
         form.custom_project = props.assignmentDefaults.custom_project;
+        form.custom_project_designation = props.assignmentDefaults.custom_project_designation || "";
         form.shift_location = props.assignmentDefaults.shift_location;
         form.shift_type = props.assignmentDefaults.shift_type;
         form.start_date = props.assignmentDefaults.start_date || "";
@@ -727,6 +740,7 @@ const updateShiftAssigment = () => {
     end_date: form.end_date,
     note: form.note,
     custom_project: getId(form.custom_project),
+    custom_project_designation: getId(form.custom_project_designation),
   });
 };
 
@@ -781,6 +795,7 @@ const getShiftAssignment = (name: string) =>
       form.shift_type = data.shift_type || "";
       form.shift_location = data.shift_location || "";
       form.custom_project = data.custom_project || "";
+      form.custom_project_designation = data.custom_project_designation || "";
       form.status = data.status || "Active";
       if (form.shift_schedule_assignment) shiftSchedule.fetch();
     },
@@ -840,6 +855,15 @@ const shiftSchedule = createResource({
 });
 
 const bootstrap = usePlannerBootstrap();
+const designationOptions = computed(() => {
+  const names: string[] = (bootstrap.data?.references?.designation || []).map((row: { name: string }) => row.name);
+  const selected = getId(form.custom_project_designation);
+  if (selected && !names.includes(selected)) names.unshift(selected);
+  return [{ label: "Unspecified designation", value: "" }, ...names.map((name) => ({ label: name, value: name }))];
+});
+watch(() => getId(form.custom_project), (project) => {
+  if (!project) form.custom_project_designation = "";
+});
 const shiftTypes = computed(() => ({ data: (bootstrap.data?.references?.shift_type || []).map((row: { name: string }) => row.name) }));
 const shiftLocations = computed(() => ({ data: (bootstrap.data?.references?.shift_location || []).map((row: { name: string }) => row.name) }));
 
@@ -908,6 +932,7 @@ const insertShift = createResource({
       end_date: form.end_date,
       note: form.note,
       custom_project: getId(form.custom_project),
+      custom_project_designation: getId(form.custom_project_designation),
     };
   },
   onSuccess: () => {
@@ -951,6 +976,7 @@ const createShiftAssignmentSchedule = createResource({
       ),
       frequency: frequency.value,
       custom_project: getId(form.custom_project),
+      custom_project_designation: getId(form.custom_project_designation),
     };
   },
   onSuccess: () => {
@@ -975,6 +1001,7 @@ const createRollingRosterAssignment = createResource({
       note: form.note,
       shift_location: getId(form.shift_location),
       custom_project: getId(form.custom_project),
+      custom_project_designation: getId(form.custom_project_designation),
       days_on_site: rollingRoster.days_on_site,
       days_off_site: rollingRoster.days_off_site,
       include_fly_in_out: includeFlyInFlyOut.value,
@@ -1001,6 +1028,7 @@ const createRollingDayNightRosterAssignment = createResource({
       note: form.note,
       shift_location: getId(form.shift_location),
       custom_project: getId(form.custom_project),
+      custom_project_designation: getId(form.custom_project_designation),
       days_on_site_ds: rollingDayNightRoster.days_on_site_ds,
       days_on_site_ns: rollingDayNightRoster.days_on_site_ns,
       days_off_site: rollingDayNightRoster.days_off_site,
@@ -1031,6 +1059,7 @@ const createDynamicRollingRosterAssignment = createResource({
       note: form.note,
       shift_location: getId(form.shift_location),
       custom_project: getId(form.custom_project),
+      custom_project_designation: getId(form.custom_project_designation),
       roster_segments: visibleDynamicRollingSwings.value.map((swing) => ({
         days_on_site: swing.days_on_site,
         days_off_site: swing.days_off_site,

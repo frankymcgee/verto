@@ -446,6 +446,7 @@
             <tr v-for="employee in visibleEmployees" :key="employee.name" class="year-employee-row">
               <td
                 class="year-left-col year-employee-name-cell border-b border-r bg-white"
+                :style="{ boxShadow: `inset 4px 0 0 ${employeeAccentColor}` }"
                 @mouseenter="showEmployeeNameHover(employee, $event)"
                 @mousemove="moveHoverCard"
                 @mouseleave="() => scheduleClearHoverCard()"
@@ -609,6 +610,7 @@ import { MultiSelect, createResource, Icon } from 'frappe-ui'
 import type { Dayjs } from 'dayjs'
 
 import { dayjs, raiseToast } from '../utils'
+import { employeeAccentColor } from '../utils/employeeAppearance'
 import type { EmployeeFilters, ShiftFilters } from '../views/MonthView.vue'
 import ShiftAssignmentDialog from './ShiftAssignmentDialog.vue'
 import ProjectSpanDialog from './ProjectSpanDialog.vue'
@@ -734,6 +736,7 @@ type ShiftAssignment = {
   end_time?: string
   color?: string
   custom_project?: string
+  custom_project_designation?: string | null
   custom_project_name?: string
   customer_abbreviation?: string | null
   note?: string | null
@@ -1808,7 +1811,7 @@ function showEmployeeNameHover(employee: Employee, event: MouseEvent) {
       subtitle: [details.designation, details.department].filter(Boolean).join(' · '),
       badge: details.status || 'Employee',
       badgeTone: employeeStatusBadgeTone(employee),
-      accent: (colors as any).blue[500],
+      accent: employeeAccentColor,
       rows: [
         { label: 'Employee ID', value: details.name },
         { label: 'Employee Number', value: details.employee_number },
@@ -2376,6 +2379,8 @@ function sameShiftIdentity(a?: ShiftAssignment | null, b?: ShiftAssignment | nul
   return (
     a.shift_type === b.shift_type &&
     (a.shift_location || '') === (b.shift_location || '') &&
+    (a.custom_project || '') === (b.custom_project || '') &&
+    (a.custom_project_designation || '') === (b.custom_project_designation || '') &&
     a.status === b.status
   )
 }
@@ -3109,6 +3114,7 @@ function showEmployeeHover(employee: Employee, date: string, event: MouseEvent) 
         { label: 'Employee ID', value: employee.name },
         { label: 'Customer', value: customerLabel },
         { label: 'Project', value: shift.custom_project_name },
+        { label: 'Project Designation', value: shift.custom_project_designation },
         { label: 'Shift Type', value: shift.shift_type },
         { label: 'Time', value: shiftTimeRange(shift) },
         { label: 'Date', value: dayjs(date).format('dddd, DD MMM YYYY') },
