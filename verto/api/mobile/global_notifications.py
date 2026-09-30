@@ -99,7 +99,7 @@ def after_migrate():
     ensure_global_notification_settings_field()
 
 
-def _recipient_rows() -> list[dict]:
+def _recipient_rows(notification_flag: str = NOTIFICATION_FLAG) -> list[dict]:
     if not frappe.db.exists("DocType", SETTINGS_DOCTYPE):
         return []
     if not _field_exists(SETTINGS_DOCTYPE, SETTINGS_TABLE_FIELD):
@@ -113,7 +113,7 @@ def _recipient_rows() -> list[dict]:
         user = _clean(row.get("user"))
         if not cint(row.get("enabled")):
             continue
-        if not cint(row.get(NOTIFICATION_FLAG)):
+        if not cint(row.get(notification_flag)):
             continue
         if not user or user in seen_users:
             continue

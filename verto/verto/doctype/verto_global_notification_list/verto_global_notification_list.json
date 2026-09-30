@@ -11,7 +11,8 @@
   "user",
   "receive_email",
   "receive_push",
-  "project_missing_purchase_order"
+  "project_missing_purchase_order",
+  "daily_timesheet_hours_exceeded"
  ],
  "fields": [
   {
@@ -50,11 +51,19 @@
    "fieldtype": "Check",
    "in_list_view": 1,
    "label": "Project Missing Purchase Order"
+  },
+  {
+   "default": "0",
+   "description": "Send a push alert when a saved Daily Timesheet exceeds the Project Max Fly Hrs, Max DS Hrs or Max NS Hrs for its shift. Requires Push to be selected.",
+   "fieldname": "daily_timesheet_hours_exceeded",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Daily Timesheet Hours Exceeded"
   }
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-09-17 07:25:00.000000",
+ "modified": "2026-09-30 09:29:12.819602",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Verto Global Notification List",
