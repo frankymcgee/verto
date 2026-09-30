@@ -7,6 +7,8 @@ import { apiRequest } from '../lib/api'
 import JhaFacilitationProgress from '../components/JhaFacilitationProgress.vue'
 import JhaReviewSignoff from '../components/JhaReviewSignoff.vue'
 import JhaIncidentLearning from '../components/JhaIncidentLearning.vue'
+import { LiveJhaToolLoop, liveTranscriptEntries, voiceGreeting, voiceToolResult } from '../lib/jhaVoiceProtocol'
+import type { LiveTranscriptFragment, VoiceEngine } from '../lib/jhaVoiceProtocol'
 
 type FrappeResponse<T> = { message: T }
 
@@ -53,6 +55,7 @@ type VoiceJhaBootstrap = {
 type VoiceCallResponse = {
   sdp: string
   model: string
+  engine?: VoiceEngine
   configuration?: Record<string, any>
   session_reference?: string
   consent_confirmed_at?: string
@@ -79,6 +82,9 @@ const loading = ref(true)
 const creating = ref(false)
 const refreshing = ref(false)
 const connecting = ref(false)
+const disconnecting = ref(false)
+const selectedVoiceEngine = ref<VoiceEngine>('realtime')
+const activeVoiceEngine = ref<VoiceEngine>('realtime')
 const error = ref('')
 const context = ref<VoiceJhaBootstrap | null>(null)
 const jha = ref<JhaSnapshot | null>(null)
@@ -103,6 +109,14 @@ let peerConnection: RTCPeerConnection | null = null
 let localStream: MediaStream | null = null
 let dataChannel: RTCDataChannel | null = null
 let manualDisconnect = false
+let liveSessionReady = false
+let liveCloseConfirmed = false
+let liveToolLoop: LiveJhaToolLoop | null = null
+let resolveLiveClose: (() => void) | null = null
+let connectionGeneration = 0
+let voiceStartTimer: ReturnType<typeof setTimeout> | null = null
+const liveFragments: LiveTranscriptFragment[] = []
+const liveTranscriptEvents = new Set<string>()
 const processedToolCalls = new Set<string>()
 
 const workSummary = computed(() => String(route.params.workSummary || ''))
@@ -119,14 +133,17 @@ const canConnectVoice = computed(() => Boolean(
   context.value?.realtime_enabled &&
   consentConfirmed.value &&
   !connecting.value &&
+  !disconnecting.value &&
   !voiceConnected.value &&
   !reviewStage.value
 ))
 const voiceConfigSummary = computed(() => {
   const config = context.value?.voice_configuration
   if (!config) return ''
-  return [config.realtime_model, config.voice].filter(Boolean).join(' · ')
+  const selected = config.engines?.find((option: any) => option.id === selectedVoiceEngine.value)
+  return selected ? [selected.label, selected.model, selected.voice].filter(Boolean).join(' · ') : [config.realtime_model, config.voice].filter(Boolean).join(' · ')
 })
+const voiceEngineOptions = computed(() => context.value?.voice_configuration?.engines || [{ id: 'realtime', label: 'GPT Realtime' }])
 
 function handleReviewUpdated(value: Record<string, any>) {
   if (!jha.value) return
@@ -141,6 +158,7 @@ async function load() {
       `/api/method/verto.api.mobile.voice_jha.get_voice_jha_bootstrap?work_summary=${encodeURIComponent(workSummary.value)}`
     )
     context.value = data.message
+    selectedVoiceEngine.value = data.message?.voice_configuration?.engine === 'live' ? 'live' : 'realtime'
     jha.value = data.message?.existing_jha || null
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Could not load the Work Summary.'
@@ -198,8 +216,10 @@ function appendTranscript(role: TranscriptEntry['role'], text: unknown) {
 
 function sendRealtimeEvent(event: Record<string, any>) {
   if (!dataChannel || dataChannel.readyState !== 'open') return false
-  dataChannel.send(JSON.stringify(event))
-  return true
+  try {
+    dataChannel.send(JSON.stringify(event))
+    return true
+  } catch { return false }
 }
 
 function setMicrophoneEnabled(enabled: boolean) {
@@ -210,7 +230,7 @@ function setMicrophoneEnabled(enabled: boolean) {
 }
 
 function setPushToTalkIdleStatus() {
-  if (!voiceConnected.value) return
+  if (!voiceConnected.value || disconnecting.value) return
   if (processingToolCalls.value) {
     voiceStatus.value = 'PERI is updating the draft…'
   } else if (pushToTalkActive.value) {
@@ -221,7 +241,7 @@ function setPushToTalkIdleStatus() {
 }
 
 function startPushToTalk(event?: PointerEvent) {
-  if (!voiceConnected.value || connecting.value || reviewStage.value || pushToTalkActive.value) return
+  if (!voiceConnected.value || connecting.value || disconnecting.value || reviewStage.value || pushToTalkActive.value) return
   event?.preventDefault()
   const target = event?.currentTarget as HTMLElement | null
   if (target && event) {
@@ -255,7 +275,8 @@ function toolActivityMessage(toolName: string, result: Record<string, any>) {
 async function executeRealtimeTool(event: any) {
   const callId = String(event.call_id || '').trim()
   const toolName = String(event.name || '').trim()
-  if (!callId || !toolName || !jha.value?.name || processedToolCalls.has(callId)) return
+  if (!callId || !toolName || !jha.value?.name || processedToolCalls.has(callId)) return { ok: false, error: 'Invalid or duplicate JHA tool call.' }
+  const generation = connectionGeneration
 
   processedToolCalls.add(callId)
   processingToolCalls.value += 1
@@ -274,8 +295,9 @@ async function executeRealtimeTool(event: any) {
       { method: 'POST', body: payload }
     )
 
-    if (data.message?.jha) jha.value = data.message.jha
     toolOutput = data.message?.result || { ok: Boolean(data.message?.ok) }
+    if (generation !== connectionGeneration) return toolOutput
+    if (data.message?.jha) jha.value = data.message.jha
     if (toolName === 'find_relevant_incidents') {
       incidentPreview.value = { ...toolOutput, preview: true }
     } else if (toolOutput.incident_learning?.work_step_sequence === incidentPreview.value?.work_step_sequence) {
@@ -297,20 +319,12 @@ async function executeRealtimeTool(event: any) {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'The JHA draft tool failed.'
     toolOutput = { ok: false, error: message }
-    toolActivity.value = `Draft update not applied: ${message}`
+    if (generation === connectionGeneration) toolActivity.value = `Draft update not applied: ${message}`
   } finally {
-    processingToolCalls.value = Math.max(0, processingToolCalls.value - 1)
+    if (generation === connectionGeneration) processingToolCalls.value = Math.max(0, processingToolCalls.value - 1)
   }
-
-  sendRealtimeEvent({
-    type: 'conversation.item.create',
-    item: {
-      type: 'function_call_output',
-      call_id: callId,
-      output: JSON.stringify(toolOutput),
-    },
-  })
-  sendRealtimeEvent({ type: 'response.create' })
+  if (generation === connectionGeneration) setPushToTalkIdleStatus()
+  return toolOutput
 }
 
 async function handleRealtimeEvent(raw: string) {
@@ -318,6 +332,36 @@ async function handleRealtimeEvent(raw: string) {
   try {
     event = JSON.parse(raw)
   } catch {
+    return
+  }
+
+  if (activeVoiceEngine.value === 'live') {
+    if (event.type === 'session.started') {
+      if (liveSessionReady) return
+      liveSessionReady = true
+      connecting.value = false
+      if (voiceStartTimer) clearTimeout(voiceStartTimer)
+      voiceStartTimer = null
+      voiceConnected.value = true
+      setMicrophoneEnabled(false)
+      setPushToTalkIdleStatus()
+      sendRealtimeEvent(voiceGreeting('live'))
+    } else if (event.type === 'session.closed') {
+      liveCloseConfirmed = true
+      resolveLiveClose?.()
+      cleanupVoice('Disconnected')
+    } else if (event.type === 'session.input_transcript.delta' || event.type === 'session.output_transcript.delta') {
+      if (event.event_id && liveTranscriptEvents.has(event.event_id)) return
+      if (event.event_id) liveTranscriptEvents.add(event.event_id)
+      liveFragments.push({ role: event.type === 'session.input_transcript.delta' ? 'Crew' : 'PERI', text: String(event.delta || ''), start_ms: Number(event.start_ms || 0), end_ms: Number(event.end_ms || 0) })
+      if (liveFragments.length > 1000) liveFragments.splice(0, liveFragments.length - 1000)
+      transcript.value = liveTranscriptEntries(liveFragments)
+    } else if (event.type === 'response.event' || event.type === 'session.delegation.created') {
+      liveToolLoop?.handle(event)
+    } else if (event.type === 'error') {
+      error.value = String(event.error?.message || 'The GPT Live session reported an error.')
+      voiceStatus.value = 'Voice error'
+    }
     return
   }
 
@@ -348,7 +392,13 @@ async function handleRealtimeEvent(raw: string) {
     return
   }
   if (event.type === 'response.function_call_arguments.done') {
-    await executeRealtimeTool(event)
+    if (processedToolCalls.has(String(event.call_id || ''))) return
+    const generation = connectionGeneration
+    const result = await executeRealtimeTool(event)
+    if (generation === connectionGeneration) {
+      sendRealtimeEvent(voiceToolResult('realtime', String(event.call_id), result))
+      sendRealtimeEvent({ type: 'response.create' })
+    }
     return
   }
   if (event.type === 'response.done' || event.type === 'response.output_audio.done' || event.type === 'response.audio.done') {
@@ -366,16 +416,18 @@ function configureDataChannel(channel: RTCDataChannel) {
   dataChannel = channel
 
   channel.onopen = () => {
+    if (activeVoiceEngine.value === 'live') {
+      voiceStatus.value = 'Starting GPT Live…'
+      return
+    }
     setMicrophoneEnabled(false)
+    connecting.value = false
+    if (voiceStartTimer) clearTimeout(voiceStartTimer)
+    voiceStartTimer = null
     voiceConnected.value = true
     pushToTalkActive.value = false
     voiceStatus.value = 'Connected · starting PERI…'
-    sendRealtimeEvent({
-      type: 'response.create',
-      response: {
-        instructions: 'Briefly greet the crew and identify the Work Summary. Resume from the persisted facilitation stage and current step supplied in your session instructions. Do not restart any phase that is already confirmed or complete.',
-      },
-    })
+    sendRealtimeEvent(voiceGreeting('realtime'))
   }
 
   channel.onmessage = (event) => {
@@ -383,12 +435,29 @@ function configureDataChannel(channel: RTCDataChannel) {
   }
 
   channel.onerror = () => {
-    error.value = 'The PERI realtime data channel reported an error.'
+    error.value = 'The PERI voice data channel reported an error.'
     voiceStatus.value = 'Voice error'
+  }
+  channel.onclose = () => {
+    if (dataChannel === channel) {
+      if (activeVoiceEngine.value === 'live' && liveSessionReady && !liveCloseConfirmed) {
+        error.value = 'The Live connection closed before PERI confirmed the session had finished. Reconnect to check the saved draft.'
+      }
+      resolveLiveClose?.()
+      cleanupVoice('Disconnected')
+    }
   }
 }
 
 function cleanupVoice(status = 'Not connected') {
+  if (voiceStartTimer) clearTimeout(voiceStartTimer)
+  voiceStartTimer = null
+  connectionGeneration += 1
+  liveToolLoop?.close()
+  liveToolLoop = null
+  liveSessionReady = false
+  resolveLiveClose?.()
+  resolveLiveClose = null
   setMicrophoneEnabled(false)
   pushToTalkActive.value = false
 
@@ -396,6 +465,7 @@ function cleanupVoice(status = 'Not connected') {
     dataChannel.onopen = null
     dataChannel.onmessage = null
     dataChannel.onerror = null
+    dataChannel.onclose = null
     try { dataChannel.close() } catch { /* already closed */ }
   }
   dataChannel = null
@@ -413,19 +483,52 @@ function cleanupVoice(status = 'Not connected') {
 
   voiceConnected.value = false
   connecting.value = false
+  disconnecting.value = false
   pendingPeriTranscript.value = ''
   processingToolCalls.value = 0
   voiceStatus.value = status
 }
 
-function disconnectVoice() {
+async function disconnectVoice() {
+  if (disconnecting.value) return
+  const generation = connectionGeneration
   manualDisconnect = true
+  if (activeVoiceEngine.value === 'live' && liveSessionReady && dataChannel?.readyState === 'open') {
+    disconnecting.value = true
+    setMicrophoneEnabled(false)
+    pushToTalkActive.value = false
+    voiceStatus.value = 'Finishing the voice session…'
+    let drainTimer: ReturnType<typeof setTimeout> | undefined
+    const finished = await Promise.race([
+      liveToolLoop?.waitForIdle(),
+      new Promise<boolean>((resolve) => { drainTimer = setTimeout(() => resolve(false), 10_000) }),
+    ])
+    clearTimeout(drainTimer)
+    if (generation !== connectionGeneration) return
+    liveToolLoop?.close()
+    if (!finished) error.value = 'PERI did not finish all pending work before disconnecting. Reconnect to check the saved draft before continuing.'
+    if (!dataChannel || dataChannel.readyState !== 'open') {
+      cleanupVoice('Disconnected')
+      manualDisconnect = false
+      return
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const closed = new Promise<void>((resolve) => {
+      resolveLiveClose = resolve
+      timer = setTimeout(resolve, 15_000)
+    })
+    if (!sendRealtimeEvent({ type: 'session.close', event_id: 'jha-close' })) resolveLiveClose?.()
+    await closed
+    clearTimeout(timer)
+    if (generation !== connectionGeneration) return
+    if (!liveCloseConfirmed) error.value = 'PERI did not confirm that the Live session finished. The microphone has been released; reconnect to check the saved draft.'
+  }
   cleanupVoice('Disconnected')
   window.setTimeout(() => { manualDisconnect = false }, 0)
 }
 
 async function connectVoice() {
-  if (!jha.value?.name || !consentConfirmed.value || reviewStage.value) return
+  if (!jha.value?.name || !consentConfirmed.value || reviewStage.value || connecting.value || voiceConnected.value || disconnecting.value) return
   if (!navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === 'undefined') {
     error.value = 'This browser does not support the microphone/WebRTC features required for PERI voice.'
     return
@@ -439,13 +542,30 @@ async function connectVoice() {
   toolActivity.value = ''
   completenessIssues.value = []
   processedToolCalls.clear()
+  liveFragments.length = 0
+  liveTranscriptEvents.clear()
+  connectionGeneration += 1
+  const generation = connectionGeneration
+  let negotiated = false
+  activeVoiceEngine.value = selectedVoiceEngine.value
+  liveSessionReady = false
+  liveCloseConfirmed = false
+  liveToolLoop = new LiveJhaToolLoop(executeRealtimeTool, sendRealtimeEvent, (message) => {
+    error.value = message
+    voiceStatus.value = 'Voice error'
+  })
   manualDisconnect = false
   pushToTalkActive.value = false
 
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({
+    const stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     })
+    if (generation !== connectionGeneration) {
+      stream.getTracks().forEach((track: MediaStreamTrack) => track.stop())
+      return
+    }
+    localStream = stream
 
     setMicrophoneEnabled(false)
 
@@ -463,10 +583,7 @@ async function connectVoice() {
     pc.onconnectionstatechange = () => {
       if (peerConnection !== pc) return
       if (pc.connectionState === 'connected') {
-        voiceConnected.value = true
-        setMicrophoneEnabled(false)
-        pushToTalkActive.value = false
-        voiceStatus.value = 'Connected · hold to talk'
+        if (!voiceConnected.value) voiceStatus.value = 'Starting PERI…'
       } else if (pc.connectionState === 'failed') {
         if (!manualDisconnect) error.value = 'The PERI voice connection failed.'
         cleanupVoice('Connection failed')
@@ -480,6 +597,23 @@ async function connectVoice() {
 
     const offer = await pc.createOffer()
     await pc.setLocalDescription(offer)
+    if (pc.iceGatheringState !== 'complete') {
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          pc.removeEventListener('icegatheringstatechange', gathered)
+          reject(new Error('Timed out while preparing the voice connection.'))
+        }, 10_000)
+        function gathered() {
+          if (pc.iceGatheringState !== 'complete') return
+          clearTimeout(timer)
+          pc.removeEventListener('icegatheringstatechange', gathered)
+          resolve()
+        }
+        pc.addEventListener('icegatheringstatechange', gathered)
+        gathered()
+      })
+    }
+    if (generation !== connectionGeneration) return
     const offerSdp = pc.localDescription?.sdp
     if (!offerSdp) throw new Error('Could not create the WebRTC offer.')
 
@@ -487,33 +621,44 @@ async function connectVoice() {
     payload.append('jha_name', jha.value.name)
     payload.append('sdp', offerSdp)
     payload.append('consent_confirmed', '1')
+    payload.append('voice_engine', selectedVoiceEngine.value)
 
     const data = await apiRequest<FrappeResponse<VoiceCallResponse>>(
       '/api/method/verto.api.mobile.voice_jha.start_voice_jha_call',
       { method: 'POST', body: payload }
     )
 
+    if (generation !== connectionGeneration) return
     if (!data.message?.sdp) throw new Error('PERI did not return a WebRTC answer.')
-    await pc.setRemoteDescription({ type: 'answer', sdp: data.message.sdp })
-
     jha.value = data.message.jha
     voiceModel.value = data.message.model || ''
+    activeVoiceEngine.value = data.message.engine || selectedVoiceEngine.value
+    await pc.setRemoteDescription({ type: 'answer', sdp: data.message.sdp })
+    negotiated = true
     setMicrophoneEnabled(false)
-    voiceStatus.value = 'Connecting audio…'
+    if (!voiceConnected.value) {
+      voiceStatus.value = 'Connecting audio…'
+      voiceStartTimer = setTimeout(() => {
+        error.value = 'PERI did not finish starting the voice session. Reconnect to resume the saved draft.'
+        cleanupVoice('Connection timed out')
+      }, 15_000)
+    }
   } catch (err) {
+    if (generation !== connectionGeneration) return
     const message = err instanceof DOMException && err.name === 'NotAllowedError'
       ? 'Microphone access was not granted. Allow microphone access to use PERI voice.'
       : err instanceof Error ? err.message : 'Could not connect voice with PERI.'
     error.value = message
     cleanupVoice('Not connected')
   } finally {
-    connecting.value = false
+    if (!negotiated && generation === connectionGeneration) connecting.value = false
   }
 }
 
 onMounted(load)
 onBeforeUnmount(() => {
   manualDisconnect = true
+  if (activeVoiceEngine.value === 'live' && liveSessionReady) sendRealtimeEvent({ type: 'session.close', event_id: 'jha-leave' })
   cleanupVoice('Disconnected')
 })
 </script>
@@ -609,7 +754,12 @@ onBeforeUnmount(() => {
             </div>
 
             <div v-if="!voiceConnected" class="mt-4 rounded-7 border border-outline-gray-1 bg-surface-gray-1 p-3">
-              <label class="flex cursor-pointer items-start gap-3">
+              <label for="peri-voice-engine" class="text-sm-medium text-ink-gray-8">Voice engine</label>
+              <select id="peri-voice-engine" v-model="selectedVoiceEngine" :disabled="connecting || disconnecting" class="mt-1 w-full rounded-7 border border-outline-gray-2 bg-surface-base px-3 py-2 text-sm text-ink-gray-8">
+                <option v-for="option in voiceEngineOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
+              </select>
+              <p class="mt-2 text-xs leading-4 text-ink-gray-5">{{ voiceConfigSummary }}. Both engines resume the saved JHA and use the same tools and incident lessons.</p>
+              <label class="mt-3 flex cursor-pointer items-start gap-3">
                 <Checkbox class="mt-0.5 shrink-0" size="md" :model-value="consentConfirmed" :disabled="connecting" @update:model-value="(checked) => consentConfirmed = Boolean(checked)" />
                 <span class="text-sm leading-5 text-ink-gray-7">I confirm everyone present has agreed to microphone use and transcription for this JHA discussion.</span>
               </label>
@@ -661,7 +811,7 @@ onBeforeUnmount(() => {
             <p class="mt-4 text-xs leading-4 text-ink-gray-5">PERI can only write to the draft through the restricted fields shown above. No submit, approval, acknowledgement, signature or work-authorisation tool is available.</p>
 
             <Button v-if="!voiceConnected" variant="solid" theme="gray" size="lg" class="mt-4 w-full justify-center" :loading="connecting" :disabled="!canConnectVoice" @click="connectVoice">Connect Voice with PERI</Button>
-            <Button v-else variant="subtle" theme="gray" size="lg" class="mt-4 w-full justify-center" @click="disconnectVoice">Disconnect Voice</Button>
+            <Button v-else variant="subtle" theme="gray" size="lg" class="mt-4 w-full justify-center" :loading="disconnecting" :disabled="disconnecting" @click="disconnectVoice">Disconnect Voice</Button>
             <audio ref="remoteAudio" autoplay playsinline class="hidden" />
           </section>
 

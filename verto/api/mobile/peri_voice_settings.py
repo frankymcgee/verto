@@ -6,6 +6,7 @@ from frappe.utils import cint, flt
 
 
 SETTINGS_DOCTYPE = "Verto Mobile Settings"
+VOICE_ENGINES = {"realtime": "GPT Realtime", "live": "GPT Live"}
 
 REALTIME_MODELS = (
     "gpt-realtime-2.1",
@@ -36,6 +37,10 @@ REALTIME_VOICES = (
     "verse",
 )
 
+LIVE_VOICES = ("quartz", "ripple", "vesper", "willow", "stone", "gleam", "meridian",
+               "bossa", "tempo", "beacon", "delta", "cinder") + REALTIME_VOICES
+LIVE_REASONING_EFFORTS = ("none", "low", "medium", "high", "xhigh")
+
 REASONING_EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
 TRANSCRIPTION_DELAYS = ("minimal", "low", "medium", "high", "xhigh")
 TURN_DETECTION_MODES = ("server_vad", "semantic_vad")
@@ -52,6 +57,12 @@ READBACK_MODES = (
 
 DEFAULTS = {
     "enabled": True,
+    "engine": "realtime",
+    "live_model": "gpt-live-1",
+    "live_backend_model": "gpt-6-luna",
+    "live_reasoning_effort": "low",
+    "live_voice": "quartz",
+    "live_custom_voice_id": "",
     "realtime_model": "gpt-realtime-2.1",
     "custom_realtime_model": "",
     "reasoning_effort": "low",
@@ -76,6 +87,11 @@ DEFAULTS = {
 
 FIELD_DEFAULTS = {
     "peri_voice_enabled": 1,
+    "peri_voice_engine": VOICE_ENGINES[DEFAULTS["engine"]],
+    "peri_voice_live_model": DEFAULTS["live_model"],
+    "peri_voice_live_backend_model": DEFAULTS["live_backend_model"],
+    "peri_voice_live_reasoning_effort": DEFAULTS["live_reasoning_effort"],
+    "peri_voice_live_voice": DEFAULTS["live_voice"],
     "peri_voice_realtime_model": DEFAULTS["realtime_model"],
     "peri_voice_reasoning_effort": DEFAULTS["reasoning_effort"],
     "peri_voice_voice": DEFAULTS["voice"],
@@ -106,7 +122,7 @@ PERI_VOICE_FIELDS = [
         "label": "PERI Voice JHA",
         "fieldtype": "Tab Break",
         "insert_after": "project_tools",
-        "description": "Configure the OpenAI Realtime behaviour used by Develop JHA with PERI. OpenAI credentials remain managed by Raven Settings.",
+        "description": "Configure GPT Realtime and GPT Live for Develop JHA with PERI. Both use the same JHA tools and review workflow. OpenAI credentials remain managed by Raven Settings.",
     },
     {
         "fieldname": "peri_voice_enabled",
@@ -116,10 +132,19 @@ PERI_VOICE_FIELDS = [
         "default": "1",
     },
     {
-        "fieldname": "peri_voice_model_section",
-        "label": "Realtime Model & Voice",
-        "fieldtype": "Section Break",
+        "fieldname": "peri_voice_engine",
+        "label": "Default Voice Engine",
+        "fieldtype": "Select",
         "insert_after": "peri_voice_enabled",
+        "options": _select_options(VOICE_ENGINES.values()),
+        "default": VOICE_ENGINES[DEFAULTS["engine"]],
+        "description": "Crews can choose either engine before connecting. Changing engines starts a new voice session and resumes the saved JHA.",
+    },
+    {
+        "fieldname": "peri_voice_model_section",
+        "label": "GPT Realtime Model & Voice",
+        "fieldtype": "Section Break",
+        "insert_after": "peri_voice_engine",
         "depends_on": "eval:doc.peri_voice_enabled",
     },
     {
@@ -178,10 +203,64 @@ PERI_VOICE_FIELDS = [
         "precision": "2",
     },
     {
+        "fieldname": "peri_voice_live_section",
+        "label": "GPT Live Model & Voice",
+        "fieldtype": "Section Break",
+        "insert_after": "peri_voice_speed",
+        "depends_on": "eval:doc.peri_voice_enabled",
+        "description": "GPT Live handles speech; its Responses backend runs the same restricted JHA tools. Realtime transcription, VAD and speed settings apply only to GPT Realtime.",
+    },
+    {
+        "fieldname": "peri_voice_live_model",
+        "label": "Live Voice Model",
+        "fieldtype": "Data",
+        "insert_after": "peri_voice_live_section",
+        "default": DEFAULTS["live_model"],
+        "description": "Model supported by OpenAI's Live sessions endpoint. Default: gpt-live-1.",
+    },
+    {
+        "fieldname": "peri_voice_live_backend_model",
+        "label": "Live Reasoning & Tools Model",
+        "fieldtype": "Data",
+        "insert_after": "peri_voice_live_model",
+        "default": DEFAULTS["live_backend_model"],
+        "description": "Responses model used for the JHA workflow and incident search. Default: gpt-6-luna. The OpenAI project must have access to both models.",
+    },
+    {
+        "fieldname": "peri_voice_live_reasoning_effort",
+        "label": "Live Backend Reasoning Effort",
+        "fieldtype": "Select",
+        "insert_after": "peri_voice_live_backend_model",
+        "options": _select_options(LIVE_REASONING_EFFORTS),
+        "default": DEFAULTS["live_reasoning_effort"],
+        "description": "Choose an effort supported by the configured Responses model.",
+    },
+    {
+        "fieldname": "peri_voice_live_output_column",
+        "fieldtype": "Column Break",
+        "insert_after": "peri_voice_live_reasoning_effort",
+    },
+    {
+        "fieldname": "peri_voice_live_voice",
+        "label": "Live Voice",
+        "fieldtype": "Select",
+        "insert_after": "peri_voice_live_output_column",
+        "options": _select_options(LIVE_VOICES),
+        "default": DEFAULTS["live_voice"],
+        "description": "Australian voices: quartz (feminine) and ripple (masculine).",
+    },
+    {
+        "fieldname": "peri_voice_live_custom_voice_id",
+        "label": "Live Custom Voice ID Override",
+        "fieldtype": "Data",
+        "insert_after": "peri_voice_live_voice",
+        "description": "Optional authorized OpenAI custom voice ID. Overrides the built-in Live Voice selection.",
+    },
+    {
         "fieldname": "peri_voice_conversation_section",
         "label": "Conversation Behaviour",
         "fieldtype": "Section Break",
-        "insert_after": "peri_voice_speed",
+        "insert_after": "peri_voice_live_custom_voice_id",
         "depends_on": "eval:doc.peri_voice_enabled",
     },
     {
@@ -250,7 +329,7 @@ PERI_VOICE_FIELDS = [
     },
     {
         "fieldname": "peri_voice_input_section",
-        "label": "Microphone & Transcription",
+        "label": "GPT Realtime Microphone & Transcription",
         "fieldtype": "Section Break",
         "insert_after": "peri_voice_silent_tool_success",
         "depends_on": "eval:doc.peri_voice_enabled",
@@ -262,7 +341,7 @@ PERI_VOICE_FIELDS = [
         "insert_after": "peri_voice_input_section",
         "options": _select_options(TRANSCRIPTION_MODELS),
         "default": DEFAULTS["transcription_model"],
-        "description": "Speech-to-text model used for the live crew transcript preview.",
+        "description": "Speech-to-text model for GPT Realtime. GPT Live supplies its own transcript events.",
     },
     {
         "fieldname": "peri_voice_custom_transcription_model",
@@ -451,6 +530,13 @@ def get_peri_voice_settings() -> dict:
 
     return {
         "enabled": bool(cint(_get_value(settings, "peri_voice_enabled", 1))),
+        "engine": next((key for key, label in VOICE_ENGINES.items()
+                        if label == _get_value(settings, "peri_voice_engine")), DEFAULTS["engine"]),
+        "live_model": str(_get_value(settings, "peri_voice_live_model", DEFAULTS["live_model"])).strip() or DEFAULTS["live_model"],
+        "live_backend_model": str(_get_value(settings, "peri_voice_live_backend_model", DEFAULTS["live_backend_model"])).strip() or DEFAULTS["live_backend_model"],
+        "live_reasoning_effort": _validated_choice(settings, "peri_voice_live_reasoning_effort", DEFAULTS["live_reasoning_effort"], LIVE_REASONING_EFFORTS),
+        "live_voice": _validated_choice(settings, "peri_voice_live_voice", DEFAULTS["live_voice"], LIVE_VOICES),
+        "live_custom_voice_id": str(_get_value(settings, "peri_voice_live_custom_voice_id", "") or "").strip(),
         "realtime_model": realtime_model or DEFAULTS["realtime_model"],
         "reasoning_effort": reasoning_effort,
         "voice": voice,
@@ -483,3 +569,21 @@ def get_peri_voice_settings() -> dict:
         "turn_detection": turn_detection,
         "semantic_vad_eagerness": semantic_eagerness,
     }
+
+
+def voice_config_for_engine(config: dict, requested_engine: str | None = None) -> dict:
+    engine = str(requested_engine or config.get("engine") or DEFAULTS["engine"]).strip()
+    if engine not in VOICE_ENGINES:
+        frappe.throw("Choose GPT Realtime or GPT Live.", frappe.ValidationError)
+    return {**DEFAULTS, **config, "engine": engine}
+
+
+def voice_engine_options(config: dict) -> list[dict]:
+    return [
+        {"id": "realtime", "label": VOICE_ENGINES["realtime"],
+         "model": config.get("realtime_model") or DEFAULTS["realtime_model"],
+         "voice": config.get("custom_voice_id") or config.get("voice") or DEFAULTS["voice"]},
+        {"id": "live", "label": VOICE_ENGINES["live"],
+         "model": config.get("live_model") or DEFAULTS["live_model"],
+         "voice": config.get("live_custom_voice_id") or config.get("live_voice") or DEFAULTS["live_voice"]},
+    ]

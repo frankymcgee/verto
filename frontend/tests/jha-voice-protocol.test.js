@@ -1,0 +1,141 @@
+import { describe, expect, it, vi } from 'vitest'
+import { LiveJhaToolLoop, liveTranscriptEntries, voiceGreeting, voiceToolResult } from '../src/lib/jhaVoiceProtocol'
+
+const tick = async () => { for (let i = 0; i < 8; i++) await Promise.resolve() }
+const wrap = (event, delegation_id = 'delegation-1') => ({ type: 'response.event', delegation_id, event })
+const call = (id = 'call-1', name = 'record_hazard_and_control') => ({ type: 'response.output_item.done', item: { type: 'function_call', name, call_id: id, arguments: '{"hazard_or_energy_source":"Pinch points"}' } })
+const created = (id = 'response-1') => ({ type: 'response.created', response: { id } })
+const completed = (id = 'response-1') => ({ type: 'response.completed', response: { id, output: [] } })
+
+describe('PERI voice engine protocols', () => {
+  it('uses a Live greeting instruction rather than a Realtime voice response', () => {
+    expect(voiceGreeting('live')).toMatchObject({ type: 'session.instructions.append', delegation_id: null })
+    expect(voiceGreeting('realtime')).toMatchObject({ type: 'response.create' })
+    expect(voiceGreeting('live').content).toContain('persisted facilitation stage')
+  })
+  it('uses the right tool-result envelope for each engine', () => {
+    expect(voiceToolResult('live', 'c', { ok: true })).toMatchObject({ type: 'response.item.create', item: { call_id: 'c', output: '{"ok":true}' } })
+    expect(voiceToolResult('realtime', 'c', { ok: true }).type).toBe('conversation.item.create')
+  })
+  it('waits for both the finished item and response completion before continuing', async () => {
+    const send = vi.fn(() => true), execute = vi.fn(async () => ({ saved: true }))
+    const loop = new LiveJhaToolLoop(execute, send, vi.fn())
+    loop.handle(wrap(created()))
+    loop.handle(wrap({ type: 'response.function_call_arguments.done', arguments: '{}' }))
+    expect(execute).not.toHaveBeenCalled()
+    loop.handle(wrap(call()))
+    await tick()
+    expect(send.mock.calls.map(([event]) => event.type)).toEqual(['response.item.create'])
+    loop.handle(wrap(completed()))
+    expect(send.mock.calls.map(([event]) => event.type)).toEqual(['response.item.create', 'response.create'])
+    loop.handle(wrap(completed()))
+    loop.handle(wrap(call()))
+    await tick()
+    expect(execute).toHaveBeenCalledTimes(1)
+    expect(send).toHaveBeenCalledTimes(2)
+  })
+  it('collects multiple calls despite empty completion output and submits every result first', async () => {
+    let resolveFirst
+    const send = vi.fn(() => true)
+    const execute = vi.fn().mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve })).mockResolvedValue({ ok: true })
+    const loop = new LiveJhaToolLoop(execute, send, vi.fn())
+    loop.handle(wrap(created()))
+    loop.handle(wrap(call('first')))
+    loop.handle(wrap(call('second', 'find_relevant_incidents')))
+    loop.handle(wrap(completed()))
+    await tick()
+    expect(execute).toHaveBeenCalledTimes(1)
+    expect(send).not.toHaveBeenCalled()
+    resolveFirst({ ok: true })
+    await loop.drain()
+    expect(send.mock.calls.map(([event]) => event.type)).toEqual(['response.item.create', 'response.item.create', 'response.create'])
+    expect(execute.mock.calls[1][0].call_id).toBe('second')
+  })
+  it('continues the correct overlapping delegations and does not execute text output', async () => {
+    const send = vi.fn(() => true), execute = vi.fn(async () => ({}))
+    const loop = new LiveJhaToolLoop(execute, send, vi.fn())
+    loop.handle(wrap(created('r1'), 'd1'))
+    loop.handle(wrap(created('r2'), 'd2'))
+    loop.handle(wrap(call('c1'), 'd1'))
+    loop.handle(wrap(call('c2'), 'd2'))
+    loop.handle(wrap({ type: 'response.output_item.done', item: { type: 'message' } }, 'd2'))
+    loop.handle(wrap(completed('r2'), 'd2'))
+    loop.handle(wrap(completed('r1'), 'd1'))
+    await loop.drain()
+    expect(execute).toHaveBeenCalledTimes(2)
+    expect(send.mock.calls.slice(0, 2).map(([e]) => e.type)).toEqual(['response.item.create', 'response.item.create'])
+    expect(send.mock.calls.filter(([e]) => e.type === 'response.create').map(([e]) => e.event_id)).toEqual(['jha-continue-r1', 'jha-continue-r2'])
+  })
+  it('waits for backend completion and follow-up tools before allowing graceful close', async () => {
+    const send = vi.fn(() => true), idle = vi.fn()
+    const loop = new LiveJhaToolLoop(async () => ({ ok: true }), send, vi.fn())
+    loop.handle({ type: 'session.delegation.created', delegation: { id: 'delegation-1', target: 'responses', response_id: 'response-1' } })
+    const finished = loop.waitForIdle().then(idle)
+    await tick()
+    expect(idle).not.toHaveBeenCalled()
+    loop.handle(wrap(created()))
+    loop.handle(wrap(call()))
+    await loop.drain()
+    expect(idle).not.toHaveBeenCalled()
+    loop.handle(wrap(completed()))
+    await tick()
+    expect(idle).not.toHaveBeenCalled()
+    loop.handle(wrap(created('continuation')))
+    loop.handle(wrap(call('follow-up', 'get_current_jha_state')))
+    loop.handle(wrap(completed('continuation')))
+    await loop.drain()
+    expect(idle).not.toHaveBeenCalled()
+    loop.handle(wrap(created('final')))
+    loop.handle(wrap(completed('final')))
+    await finished
+    expect(idle).toHaveBeenCalledWith(true)
+    loop.close()
+    loop.handle(wrap(call('too-late')))
+    expect(send).toHaveBeenCalledTimes(4)
+  })
+  it('releases pending close waiters when the connection is lost', async () => {
+    const loop = new LiveJhaToolLoop(vi.fn(), vi.fn(), vi.fn())
+    loop.handle(wrap(created()))
+    const finished = loop.waitForIdle()
+    loop.close()
+    expect(await finished).toBe(false)
+  })
+  it('returns failures to the backend and prevents delivery after cleanup', async () => {
+    const send = vi.fn(() => true)
+    const loop = new LiveJhaToolLoop(async () => { throw Error('Permission denied') }, send, vi.fn())
+    loop.handle(wrap(created()))
+    loop.handle(wrap(call()))
+    loop.handle(wrap(completed()))
+    await loop.drain()
+    expect(JSON.parse(send.mock.calls[0][0].item.output)).toEqual({ ok: false, error: 'Permission denied' })
+    let done
+    const late = new LiveJhaToolLoop(() => new Promise(resolve => { done = resolve }), send, vi.fn())
+    late.handle(wrap(created('late')))
+    late.handle(wrap(call('late')))
+    await tick()
+    late.close()
+    done({ ok: true })
+    await late.drain()
+    expect(send).toHaveBeenCalledTimes(2)
+  })
+  it('reports a failed backend without creating a spoken response', async () => {
+    const send = vi.fn(() => true), error = vi.fn()
+    const loop = new LiveJhaToolLoop(vi.fn(), send, error)
+    loop.handle(wrap(created()))
+    loop.handle(wrap({ type: 'response.failed', response: { id: 'response-1', error: { message: 'Backend unavailable' } } }))
+    expect(error).toHaveBeenCalledWith('Backend unavailable')
+    expect(send).not.toHaveBeenCalled()
+  })
+  it('keeps overlapping speakers, late fragments, spaces and repeated words', () => {
+    const fragments = [
+      { role: 'Crew', text: ' the flange', start_ms: 1300, end_ms: 1600 },
+      { role: 'PERI', text: 'Got it.', start_ms: 1100, end_ms: 1200 },
+      { role: 'Crew', text: 'Check check', start_ms: 1000, end_ms: 1250 },
+      { role: 'Crew', text: 'Next answer', start_ms: 5000, end_ms: 5300 },
+    ]
+    expect(liveTranscriptEntries(fragments).map(e => [e.role, e.text])).toEqual([
+      ['Crew', 'Check check the flange'], ['PERI', 'Got it.'], ['Crew', 'Next answer'],
+    ])
+    expect(fragments[0].text).toBe(' the flange')
+  })
+})
