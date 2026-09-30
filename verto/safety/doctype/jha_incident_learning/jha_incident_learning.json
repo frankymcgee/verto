@@ -1,0 +1,187 @@
+{
+ "actions": [],
+ "creation": "2026-09-30 13:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "source_section",
+  "source_system",
+  "source_reference",
+  "source_key",
+  "title",
+  "incident_date",
+  "site_name",
+  "available_for_jha",
+  "incident_summary",
+  "risk_section",
+  "critical_risks",
+  "mechanisms",
+  "investigation_section",
+  "investigation_findings",
+  "investigation_actions",
+  "actions",
+  "recommended_controls",
+  "search_text",
+  "indexed_critical_risks",
+  "indexed_mechanisms"
+ ],
+ "fields": [
+  {
+   "fieldname": "source_section",
+   "fieldtype": "Section Break",
+   "label": "Source Incident"
+  },
+  {
+   "fieldname": "source_system",
+   "fieldtype": "Data",
+   "label": "Source System",
+   "default": "INX InControl",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source_reference",
+   "fieldtype": "Data",
+   "label": "Source Incident Reference",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source_key",
+   "fieldtype": "Data",
+   "label": "Source Key",
+   "hidden": 1,
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "incident_date",
+   "fieldtype": "Date",
+   "label": "Incident Date"
+  },
+  {
+   "fieldname": "site_name",
+   "fieldtype": "Data",
+   "label": "Source Site"
+  },
+  {
+   "fieldname": "available_for_jha",
+   "fieldtype": "Check",
+   "label": "Available for JHA",
+   "default": "1",
+   "in_list_view": 1,
+   "description": "Enable this crew-facing incident lesson for PERI. Exclude personal identifiers and confidential raw investigation material."
+  },
+  {
+   "fieldname": "incident_summary",
+   "fieldtype": "Small Text",
+   "label": "What Happened",
+   "reqd": 1
+  },
+  {
+   "fieldname": "risk_section",
+   "fieldtype": "Section Break",
+   "label": "Risks and Exposure Mechanisms"
+  },
+  {
+   "fieldname": "critical_risks",
+   "fieldtype": "Small Text",
+   "label": "Critical Risk Categories",
+   "description": "Canonical labels separated by semicolons or newlines. See the Voice JHA incident-learning guide. Recognised terms in the incident summary are also indexed."
+  },
+  {
+   "fieldname": "mechanisms",
+   "fieldtype": "Small Text",
+   "label": "Exposure Mechanisms",
+   "description": "Canonical labels, e.g. Pinch Points; Line of Fire; Caught Between. Separated by semicolons or newlines."
+  },
+  {
+   "fieldname": "investigation_section",
+   "fieldtype": "Section Break",
+   "label": "Investigation Evidence"
+  },
+  {
+   "fieldname": "investigation_findings",
+   "fieldtype": "Small Text",
+   "label": "Investigation Findings"
+  },
+  {
+   "fieldname": "investigation_actions",
+   "fieldtype": "Small Text",
+   "label": "Recorded Investigation Actions",
+   "description": "For exports with a single actions text column. Preserve source action status; do not imply completion or effectiveness."
+  },
+  {
+   "fieldname": "actions",
+   "fieldtype": "Table",
+   "label": "Individual Investigation Actions",
+   "options": "JHA Incident Learning Action"
+  },
+  {
+   "fieldname": "recommended_controls",
+   "fieldtype": "Small Text",
+   "label": "Controls Recorded in the Source",
+   "description": "Controls or lessons recorded in the investigation. PERI must confirm applicability with the crew before adding them to the JHA."
+  },
+  {
+   "fieldname": "search_text",
+   "fieldtype": "Long Text",
+   "label": "Search Text",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "indexed_critical_risks",
+   "fieldtype": "Small Text",
+   "label": "Indexed Critical Risk Categories",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "indexed_mechanisms",
+   "fieldtype": "Small Text",
+   "label": "Indexed Exposure Mechanisms",
+   "hidden": 1,
+   "read_only": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-09-30 13:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "JHA Incident Learning",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "share": 1,
+   "import": 1
+  },
+  {
+   "role": "All",
+   "read": 1,
+   "print": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1,
+ "autoname": "field:source_key",
+ "naming_rule": "By fieldname",
+ "allow_import": 1,
+ "title_field": "title"
+}

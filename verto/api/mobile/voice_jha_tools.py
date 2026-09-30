@@ -7,6 +7,7 @@ from frappe import _
 from frappe.utils import cint, now_datetime
 
 from verto.api.mobile.voice_jha_permissions import user_can_access_work_summary
+from verto.api.mobile import jha_risk_signals as risk
 
 
 JHA_DOCTYPE = "Digital Job Hazard Analysis"
@@ -123,6 +124,8 @@ def get_realtime_jha_tools() -> list[dict]:
                         "enum": ["Not Verified", "Reported by Team", "Verified On Site"],
                     },
                     "critical_risk": {"type": "boolean"},
+                    "critical_risk_categories": {"type": "array", "items": {"type": "string", "enum": list(risk.CRITICAL_RISKS)}, "maxItems": 10},
+                    "exposure_mechanisms": {"type": "array", "items": {"type": "string", "enum": list(risk.MECHANISMS)}, "maxItems": 10},
                     "critical_control": {"type": "string"},
                     "permit_or_ccv_required": {"type": "string"},
                     "initial_risk": {"type": "string"},
@@ -400,7 +403,17 @@ def _record_hazard_and_control(doc, args: dict) -> dict:
     if "critical_risk" in args:
         row.critical_risk = _bool(args.get("critical_risk"))
 
+    for fieldname, vocabulary in (("critical_risk_categories", risk.CRITICAL_RISKS), ("exposure_mechanisms", risk.MECHANISMS)):
+        if fieldname in args:
+            try:
+                row.set(fieldname, "\n".join(risk.tags(args[fieldname], vocabulary)))
+            except (TypeError, ValueError) as exc:
+                frappe.throw(_(str(exc)), frappe.ValidationError)
+
     row.information_source = "Team discussion"
+
+    from verto.api.mobile.voice_jha_incidents import hazard_incident_learning
+    learning = hazard_incident_learning(doc, row)
 
     return {
         "created": created,
@@ -408,6 +421,7 @@ def _record_hazard_and_control(doc, args: dict) -> dict:
         "work_step_identifier": step_identifier,
         "work_step_sequence": step_sequence,
         "hazard_or_energy_source": row.hazard_or_energy_source,
+        "incident_learning": learning,
         "message": "Draft hazard/control recorded." if created else "Draft hazard/control updated.",
     }
 
@@ -490,6 +504,8 @@ def _state(doc) -> dict:
                 "verification_method": row.verification_method,
                 "verification_status": row.verification_status,
                 "critical_risk": cint(row.critical_risk),
+                "critical_risk_categories": row.get("critical_risk_categories"),
+                "exposure_mechanisms": row.get("exposure_mechanisms"),
                 "critical_control": row.critical_control,
                 "permit_or_ccv_required": row.permit_or_ccv_required,
                 "residual_risk": row.residual_risk,
@@ -603,7 +619,17 @@ def _find_audit_result(doc, call_id: str):
         return None
     for entry in reversed(_audit_entries(doc)):
         if entry.get("call_id") == call_id:
-            return entry.get("result")
+            result = entry.get("result")
+            if isinstance(result, dict) and "incident_learning" in result:
+                from verto.api.mobile.voice_jha_incidents import serialize_incident_learning
+                identifier = result["incident_learning"].get("hazard_identifier")
+                learning = next((item for item in serialize_incident_learning(doc)
+                                 if item["hazard_identifier"] == identifier), None)
+                # Never replay copied source text after a source record becomes inaccessible.
+                result = {**result, "incident_learning": learning or {
+                    "status": "unavailable", "incidents": [], "hazard_identifier": identifier,
+                }}
+            return result
     return None
 
 
@@ -611,12 +637,19 @@ def _append_audit(doc, call_id: str, tool_name: str, args: dict, result: dict):
     if not doc.meta.has_field("voice_tool_audit_log"):
         return
     entries = _audit_entries(doc)
+    audit_result = result
+    if "incident_learning" in result:
+        learning = result["incident_learning"]
+        audit_result = {**result, "incident_learning": {
+            **learning, "incidents": [{"name": item["name"], "modified": item["modified"],
+                                       "matched_on": item["matched_on"]} for item in learning["incidents"]],
+        }}
     entries.append(
         {
             "call_id": call_id,
             "tool_name": tool_name,
             "arguments": args,
-            "result": result,
+            "result": audit_result,
             "executed_by": frappe.session.user,
             "executed_at": str(now_datetime()),
         }

@@ -107,6 +107,8 @@ def _row_dict(row, fields):
 
 
 def _serialize_jha(doc):
+    from verto.api.mobile.voice_jha_incidents import serialize_incident_learning
+
     return {
         "name": doc.name,
         "status": doc.jha_status,
@@ -119,6 +121,7 @@ def _serialize_jha(doc):
         "ai_bot": doc.ai_bot,
         "source_revision": doc.source_revision,
         "modified": doc.modified,
+        "incident_learning": serialize_incident_learning(doc),
         "voice_session_reference": doc.get("voice_session_reference"),
         "voice_model": doc.get("voice_model"),
         "voice_started_at": doc.get("voice_started_at"),
@@ -165,6 +168,8 @@ def _serialize_jha(doc):
                     "verification_method",
                     "verification_status",
                     "critical_risk",
+                    "critical_risk_categories",
+                    "exposure_mechanisms",
                     "critical_control",
                     "permit_or_ccv_required",
                     "initial_risk",

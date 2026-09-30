@@ -6,6 +6,7 @@ import { Badge, Button, Checkbox } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
 import JhaFacilitationProgress from '../components/JhaFacilitationProgress.vue'
 import JhaReviewSignoff from '../components/JhaReviewSignoff.vue'
+import JhaIncidentLearning from '../components/JhaIncidentLearning.vue'
 
 type FrappeResponse<T> = { message: T }
 
@@ -92,6 +93,11 @@ const remoteAudio = ref<HTMLAudioElement | null>(null)
 const toolActivity = ref('')
 const processingToolCalls = ref(0)
 const completenessIssues = ref<string[]>([])
+const incidentPreview = ref<Record<string, any> | null>(null)
+const incidentSearches = computed(() => [
+  ...(jha.value?.incident_learning || []),
+  ...(incidentPreview.value ? [incidentPreview.value] : []),
+])
 
 let peerConnection: RTCPeerConnection | null = null
 let localStream: MediaStream | null = null
@@ -270,6 +276,11 @@ async function executeRealtimeTool(event: any) {
 
     if (data.message?.jha) jha.value = data.message.jha
     toolOutput = data.message?.result || { ok: Boolean(data.message?.ok) }
+    if (toolName === 'find_relevant_incidents') {
+      incidentPreview.value = { ...toolOutput, preview: true }
+    } else if (toolOutput.incident_learning?.work_step_sequence === incidentPreview.value?.work_step_sequence) {
+      incidentPreview.value = null
+    }
     toolActivity.value = toolActivityMessage(toolName, toolOutput)
 
     if (Array.isArray(toolOutput.issues)) {
@@ -583,6 +594,8 @@ onBeforeUnmount(() => {
             v-if="jha.facilitation"
             :progress="jha.facilitation"
           />
+
+          <JhaIncidentLearning :searches="incidentSearches" />
 
           <JhaReviewSignoff
             :jha="jha"

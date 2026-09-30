@@ -1,0 +1,83 @@
+{
+ "actions": [],
+ "creation": "2026-09-30 13:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "work_step_sequence",
+  "hazard_identifier",
+  "jha_revision",
+  "hazard_fingerprint",
+  "search_status",
+  "search_limited",
+  "detected_signals",
+  "incident_matches",
+  "searched_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "work_step_sequence",
+   "fieldtype": "Int",
+   "label": "Work Step",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "hazard_identifier",
+   "fieldtype": "Data",
+   "label": "Hazard Reference",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "jha_revision",
+   "fieldtype": "Int",
+   "label": "JHA Revision"
+  },
+  {
+   "fieldname": "hazard_fingerprint",
+   "fieldtype": "Data",
+   "label": "Hazard Fingerprint",
+   "hidden": 1
+  },
+  {
+   "fieldname": "search_status",
+   "fieldtype": "Select",
+   "label": "Search Status",
+   "options": "matches\nno_matches\nno_signals\nunavailable",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "search_limited",
+   "fieldtype": "Check",
+   "label": "Search Limited"
+  },
+  {
+   "fieldname": "detected_signals",
+   "fieldtype": "Long Text",
+   "label": "Detected Search Signals",
+   "hidden": 1
+  },
+  {
+   "fieldname": "incident_matches",
+   "fieldtype": "Long Text",
+   "label": "Matched Incident References",
+   "hidden": 1
+  },
+  {
+   "fieldname": "searched_at",
+   "fieldtype": "Datetime",
+   "label": "Searched At"
+  }
+ ],
+ "links": [],
+ "modified": "2026-09-30 13:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "Digital JHA Incident Reference",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1,
+ "istable": 1,
+ "editable_grid": 1
+}
