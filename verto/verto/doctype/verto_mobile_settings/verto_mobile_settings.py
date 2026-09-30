@@ -27,9 +27,11 @@ class VertoMobileSettings(Document):
             if not cint(row.get("enabled")):
                 continue
 
-            if cint(row.get("daily_timesheet_hours_exceeded")) and not cint(row.get("receive_push")):
+            if cint(row.get("daily_timesheet_hours_exceeded")) and not (
+                cint(row.get("receive_email")) or cint(row.get("receive_push"))
+            ):
                 frappe.throw(
-                    f"Global Notification List row for {user} has Daily Timesheet Hours Exceeded enabled but Push is not selected."
+                    f"Global Notification List row for {user} has Daily Timesheet Hours Exceeded enabled but no Email or Push channel selected."
                 )
 
             if cint(row.get("project_missing_purchase_order")) and not (

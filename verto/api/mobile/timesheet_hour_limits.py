@@ -1,13 +1,14 @@
-"""Opt-in push alerts for saved Daily Timesheet claims above Project limits."""
+"""Opt-in email/push alerts for saved Daily Timesheet claims above Project limits."""
 
 from __future__ import annotations
 
 import hashlib
 import math
+from html import escape
 from urllib.parse import quote
 
 import frappe
-from frappe.utils import cint, formatdate, getdate
+from frappe.utils import cint, formatdate, get_url, getdate
 
 from verto.api.mobile.global_notifications import _recipient_rows
 from verto.api.mobile.push_notifications import queue_push_to_users
@@ -31,17 +32,6 @@ def _positive_number(value):
     except (TypeError, ValueError):
         return 0.0
     return number if math.isfinite(number) and number > 0 else 0.0
-
-
-def _claim_signature(doc):
-    """Comments, signatures and modified timestamps do not change the claim."""
-    return (
-        str(getdate(doc.get("date"))) if doc.get("date") else "",
-        _positive_number(doc.get("duration")),
-        *(_clean(doc.get(field)) for field in (
-            "project_id", "shift", "shift_allocation", "current_user", "owner",
-        )),
-    )
 
 
 def _limit_field(shift):
@@ -97,44 +87,98 @@ def get_hours_exceeded(doc):
     }
 
 
+def _queue_email(recipient, doc, claim, claimed_hours, url):
+    """Create one normal Email Queue entry per recipient in the save transaction."""
+    email = _clean(recipient.get("email"))
+    if not email:
+        return
+
+    details = (
+        ("Person", claim["person"]),
+        ("Project", claim["project_name"]),
+        ("Project ID", claim["project"]),
+        ("Work date", formatdate(claim["date"])),
+        ("Shift", claim["shift"]),
+        ("Hours claimed", claimed_hours),
+        ("Maximum allowed", f"{claim['maximum']:g}"),
+        ("Project limit", LIMIT_LABELS[claim["limit_field"]]),
+        ("Daily Timesheet", doc.name),
+    )
+    rows = "".join(
+        f"<tr><th align=\"left\">{escape(label)}</th><td>{escape(str(value))}</td></tr>"
+        for label, value in details
+    )
+    frappe.sendmail(
+        recipients=[email],
+        subject=f"Daily Timesheet exceeds allowed hours: {claim['person']}",
+        message=(
+            "<p>A saved Daily Timesheet exceeds the Project's allowed hours. Please review the claim.</p>"
+            f"<table>{rows}</table>"
+            f'<p><a href="{escape(get_url(url), quote=True)}">Open Daily Timesheet in Verto</a></p>'
+        ),
+        delayed=True,
+        is_notification=True,
+        reference_doctype="Daily Timesheet",
+        reference_name=doc.name,
+    )
+
+
+def _log_delivery_error(doc, channel, recipient):
+    frappe.log_error(
+        title="Daily Timesheet hour-limit notification failed",
+        message=(f"Daily Timesheet: {doc.name}\nChannel: {channel}\n"
+                 f"Recipient: {recipient}\n{frappe.get_traceback()}"),
+    )
+
+
 def notify_daily_timesheet_hours_exceeded(doc, method=None):
     """Called by on_update for Desk, mobile and offline-sync saves.
 
-    Queue after commit via the existing push service, so rolled-back saves do
-    not notify. Re-saving an unchanged claim is silent; correcting it and later
-    exceeding the limit again is a new event. This is an alert, not a save block.
+    Push queues after commit; delayed email entries belong to the save transaction.
+    Every successful save of an over-limit claim can notify, including re-saves
+    with unchanged hours. A failed channel does not stop other deliveries.
     """
     try:
         if cint(doc.get("docstatus")) == 2:
             return
-        previous = doc.get_doc_before_save()
-        if previous and _claim_signature(previous) == _claim_signature(doc):
-            return
-
-        users = [row["user"] for row in _recipient_rows(NOTIFICATION_FLAG) if row["receive_push"]]
-        if not users:
+        recipients = _recipient_rows(NOTIFICATION_FLAG)
+        if not recipients:
             return
         claim = get_hours_exceeded(doc)
         if not claim:
             return
 
-        # A distinct timesheet gets its own notification; edits replace its old one.
+        # Re-saves replace the same timesheet's old push. The service worker sets
+        # renotify for tagged messages, so replacements still alert the recipient.
         tag = hashlib.sha256(doc.name.encode("utf-8")).hexdigest()[:24]
         claimed_hours = f"{claim['hours']:.4f}".rstrip("0").rstrip(".")
-        queue_push_to_users(
-            users,
-            {
-                "title": "Daily Timesheet exceeds allowed hours",
-                "body": (
-                    f"{claim['person']} · {claim['project_name']} · {formatdate(claim['date'])} "
-                    f"({claim['shift']}): {claimed_hours} h claimed; "
-                    f"{claim['maximum']:g} h allowed ({LIMIT_LABELS[claim['limit_field']]})."
-                ),
-                "url": f"/app/daily-timesheet/{quote(doc.name, safe='')}",
-                "tag": f"timesheet-hours-exceeded-{tag}",
-            },
-            notification_type=NOTIFICATION_FLAG,
-        )
+        url = f"/app/daily-timesheet/{quote(doc.name, safe='')}"
+        for recipient in recipients:
+            if recipient.get("receive_email"):
+                try:
+                    _queue_email(recipient, doc, claim, claimed_hours, url)
+                except Exception:
+                    _log_delivery_error(doc, "Email", recipient["user"])
+
+        users = [row["user"] for row in recipients if row.get("receive_push")]
+        if users:
+            try:
+                queue_push_to_users(
+                    users,
+                    {
+                        "title": "Daily Timesheet exceeds allowed hours",
+                        "body": (
+                            f"{claim['person']} · {claim['project_name']} · {formatdate(claim['date'])} "
+                            f"({claim['shift']}): {claimed_hours} h claimed; "
+                            f"{claim['maximum']:g} h allowed ({LIMIT_LABELS[claim['limit_field']]})."
+                        ),
+                        "url": url,
+                        "tag": f"timesheet-hours-exceeded-{tag}",
+                    },
+                    notification_type=NOTIFICATION_FLAG,
+                )
+            except Exception:
+                _log_delivery_error(doc, "Push", ", ".join(users))
     except Exception:
         # Notification problems must not lose the employee's timesheet.
         frappe.log_error(
