@@ -7,7 +7,8 @@ from frappe import _
 from frappe.utils import cint, now_datetime
 
 from verto.api.mobile import voice_jha as base
-from verto.api.mobile.peri_voice_settings import get_peri_voice_settings
+from verto.api.mobile.peri_voice_settings import get_peri_voice_settings, voice_config_for_engine
+from verto.api.mobile.voice_jha_live import build_live_session, create_live_call
 from verto.api.mobile.voice_jha_progress import (
     calculate_facilitation_progress,
     serialize_jha,
@@ -212,14 +213,29 @@ def _build_realtime_session(task, jha, bot, config: dict) -> dict:
     return session
 
 
-def _create_realtime_call(*, sdp: str, task, jha, bot):
+def _build_live_session(task, jha, bot, config: dict) -> dict:
+    return build_live_session(
+        config=config,
+        conversation_style=base._build_conversation_style_instructions(config),
+        backend_instructions=_build_facilitation_instructions(task, jha, bot, config),
+        tools=_streamlined_tools(),
+        work_summary=f"{task.name} — {task.subject or ''}",
+        progress=calculate_facilitation_progress(jha),
+    )
+
+
+def _create_voice_call(*, sdp: str, task, jha, bot, voice_engine: str | None = None):
     from raven.ai.openai_client import get_open_ai_client
 
-    config = get_peri_voice_settings()
+    config = voice_config_for_engine(get_peri_voice_settings(), voice_engine)
     if not config.get("enabled"):
         frappe.throw(_("PERI Voice JHA is disabled in Verto Mobile Settings."), frappe.ValidationError)
 
     client = get_open_ai_client()
+    if config["engine"] == "live":
+        call = create_live_call(client=client, sdp=sdp, session=_build_live_session(task, jha, bot, config))
+        return {**call, "engine": "live", "configuration": base._public_voice_configuration(config)}
+
     realtime = getattr(client, "realtime", None)
     calls = getattr(realtime, "calls", None) if realtime else None
     if calls is None or not hasattr(calls, "create"):
@@ -247,13 +263,14 @@ def _create_realtime_call(*, sdp: str, task, jha, bot):
     return {
         "sdp": answer_sdp,
         "model": config["realtime_model"],
+        "engine": "realtime",
         "configuration": base._public_voice_configuration(config),
         "session_reference": request_id,
     }
 
 
 @frappe.whitelist(methods=["POST"])
-def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0):
+def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_engine: str | None = None):
     base._require_login()
 
     if not cint(consent_confirmed):
@@ -282,7 +299,7 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0):
     bot = base._get_peri_bot_doc()
 
     try:
-        call = _create_realtime_call(sdp=offer_sdp, task=task, jha=jha, bot=bot)
+        call = _create_voice_call(sdp=offer_sdp, task=task, jha=jha, bot=bot, voice_engine=voice_engine)
     except (frappe.ValidationError, frappe.PermissionError):
         raise
     except Exception:
@@ -291,7 +308,7 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0):
             message=frappe.get_traceback(),
         )
         frappe.throw(
-            _("Could not start the PERI voice session. Check the Raven/OpenAI Realtime configuration."),
+            _("Could not start the PERI voice session. Check Raven's OpenAI credentials and access to the selected voice and backend models."),
             frappe.ValidationError,
         )
 
@@ -309,6 +326,7 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0):
     return {
         "sdp": call["sdp"],
         "model": call["model"],
+        "engine": call["engine"],
         "configuration": call.get("configuration") or {},
         "session_reference": call.get("session_reference") or "",
         "consent_confirmed_at": started_at,

@@ -2,7 +2,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, now_datetime
 
-from verto.api.mobile.peri_voice_settings import get_peri_voice_settings
+from verto.api.mobile.peri_voice_settings import get_peri_voice_settings, voice_engine_options
 from verto.api.mobile.voice_jha_permissions import user_can_access_work_summary
 from verto.api.mobile.voice_jha_tools import get_realtime_jha_tools
 
@@ -351,12 +351,18 @@ CURRENT STRUCTURED HAZARDS:
 
 
 def _public_voice_configuration(config: dict) -> dict:
-    voice_label = config.get("custom_voice_id") or config.get("voice") or ""
+    options = voice_engine_options(config)
+    selected = next(option for option in options if option["id"] == config.get("engine", "realtime"))
     return {
         "enabled": bool(config.get("enabled")),
+        "engine": selected["id"],
+        "engine_label": selected["label"],
+        "model": selected["model"],
+        "engines": options,
+        "live_backend_model": config.get("live_backend_model"),
         "realtime_model": config.get("realtime_model"),
         "reasoning_effort": config.get("reasoning_effort"),
-        "voice": voice_label,
+        "voice": selected["voice"],
         "speed": config.get("speed"),
         "response_style": config.get("response_style"),
         "acknowledgement_mode": config.get("acknowledgement_mode"),

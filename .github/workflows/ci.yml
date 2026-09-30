@@ -127,15 +127,16 @@ jobs:
         run: |
           bench build --app verto
 
-      - name: Verify Voice JHA incident learning
+      - name: Verify Voice JHA engines and incident learning
         working-directory: /home/runner/frappe-bench
         env:
           CI: 'Yes'
         run: |
           ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_jha_risk_signals.py'
           bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_incidents --skip-before-tests
+          bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_live --skip-before-tests
           cd apps/verto/frontend
-          yarn test:ui tests/jha-incident-learning.test.js
+          yarn test:ui tests/jha-incident-learning.test.js tests/jha-voice-protocol.test.js tests/jha-voice-engines.test.js
 
       - name: Verify automated Verto setup
         working-directory: /home/runner/frappe-bench
