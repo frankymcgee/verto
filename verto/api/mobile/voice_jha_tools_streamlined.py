@@ -310,6 +310,10 @@ def _execute_mark_ready(jha_name: str, arguments, call_id: str):
 def execute_voice_jha_tool(jha_name: str, tool_name: str, arguments="{}", call_id: str = ""):
     tool_name = base._text(tool_name, limit=100)
 
+    if tool_name == "find_relevant_incidents":
+        from verto.api.mobile.voice_jha_incidents import execute_incident_tool
+        return execute_incident_tool(jha_name, arguments)
+
     if tool_name == "confirm_job_steps":
         return _execute_confirm_job_steps(jha_name, arguments, call_id)
     if tool_name == "complete_current_step":
@@ -334,4 +338,5 @@ def execute_voice_jha_tool(jha_name: str, tool_name: str, arguments="{}", call_i
         if isinstance(response.get("result"), dict):
             response["result"]["facilitation"] = calculate_facilitation_progress(doc)
         response["jha"] = serialize_jha(doc)
+        response["result"]["incident_learning"] = response["jha"]["incident_learning"]
     return response

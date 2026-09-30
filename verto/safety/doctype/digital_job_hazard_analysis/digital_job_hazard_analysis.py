@@ -4,7 +4,7 @@ import json
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import cint, now_datetime
+from frappe.utils import cint, get_datetime, now_datetime
 
 from verto.api.mobile.home_child_tasks import get_work_summary_child_tasks
 
@@ -45,9 +45,27 @@ MAX_REVIEW_AUDIT_ENTRIES = 300
 class DigitalJobHazardAnalysis(Document):
     def validate(self):
         self._validate_protected_review_mutations()
+        self._validate_incident_references()
         self._set_work_summary_context()
         self._sync_planned_child_tasks()
         self._guard_source_revision()
+
+    def _validate_incident_references(self):
+        if self.flags.get("allow_jha_incident_mutation"):
+            return
+        before = self.get_doc_before_save() if not self.is_new() else None
+        fields = ("hazard_identifier", "work_step_sequence", "jha_revision", "hazard_fingerprint",
+                  "search_status", "search_limited", "detected_signals", "incident_matches", "searched_at")
+        def value(row, key):
+            if key in {"work_step_sequence", "jha_revision", "search_limited"}:
+                return cint(row.get(key))
+            if key == "searched_at" and row.get(key):
+                return str(get_datetime(row.get(key)))
+            return str(row.get(key) or "")
+        current = [[value(row, key) for key in fields] for row in self.get("incident_references") or []]
+        previous = [[value(row, key) for key in fields] for row in (before.get("incident_references") or [])] if before else []
+        if current != previous:
+            frappe.throw(_("Incident references are maintained by the JHA incident lookup."), frappe.PermissionError)
 
     def _validate_protected_review_mutations(self):
         if self.is_new() or self.flags.get("allow_jha_review_mutation"):
