@@ -138,6 +138,13 @@ jobs:
           cd apps/verto/frontend
           yarn test:ui tests/jha-incident-learning.test.js tests/jha-voice-protocol.test.js tests/jha-voice-engines.test.js
 
+      - name: Verify Daily Timesheet hour-limit alerts
+        working-directory: /home/runner/frappe-bench
+        env:
+          CI: 'Yes'
+        run: |
+          bench --site test_site run-tests --app verto --module verto.api.mobile.test_timesheet_hour_limits --skip-before-tests
+
       - name: Verify automated Verto setup
         working-directory: /home/runner/frappe-bench
         run: |

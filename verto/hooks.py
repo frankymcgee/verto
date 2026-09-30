@@ -113,6 +113,9 @@ has_permission = {
 # Document events
 # ---------------
 doc_events = {
+    "Daily Timesheet": {
+        "on_update": "verto.api.mobile.timesheet_hour_limits.notify_daily_timesheet_hours_exceeded",
+    },
     "Verto Mobile Settings": {
         "on_update": "verto.install.refresh_mobile_settings_configuration",
     },
