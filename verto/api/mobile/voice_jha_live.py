@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+from typing import Any
 
 import frappe
 from frappe import _
@@ -67,7 +68,8 @@ def create_live_call(*, client, sdp: str, session: dict) -> dict:
     elif callable(getattr(client, "post", None)):
         # Raven may pin an SDK predating the typed Live resource. Its public HTTP
         # client still applies the existing API key, base URL and project headers.
-        payload = client.post("/live/sessions", cast_to=dict, body={
+        # Older SDK parsers require both dictionary type arguments.
+        payload = client.post("/live/sessions", cast_to=dict[str, Any], body={
             "session": session, "transport": {"type": "webrtc", "sdp": sdp},
         })
     else:

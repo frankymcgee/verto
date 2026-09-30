@@ -224,10 +224,10 @@ def _build_live_session(task, jha, bot, config: dict) -> dict:
     )
 
 
-def _create_voice_call(*, sdp: str, task, jha, bot, voice_engine: str | None = None):
+def _create_voice_call(*, sdp: str, task, jha, bot):
     from raven.ai.openai_client import get_open_ai_client
 
-    config = voice_config_for_engine(get_peri_voice_settings(), voice_engine)
+    config = voice_config_for_engine(get_peri_voice_settings())
     if not config.get("enabled"):
         frappe.throw(_("PERI Voice JHA is disabled in Verto Mobile Settings."), frappe.ValidationError)
 
@@ -271,6 +271,8 @@ def _create_voice_call(*, sdp: str, task, jha, bot, voice_engine: str | None = N
 
 @frappe.whitelist(methods=["POST"])
 def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_engine: str | None = None):
+    # Accept the old parameter for cached mobile clients, but never use it to
+    # override the engine controlled by Verto Mobile Settings.
     base._require_login()
 
     if not cint(consent_confirmed):
@@ -299,7 +301,7 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_eng
     bot = base._get_peri_bot_doc()
 
     try:
-        call = _create_voice_call(sdp=offer_sdp, task=task, jha=jha, bot=bot, voice_engine=voice_engine)
+        call = _create_voice_call(sdp=offer_sdp, task=task, jha=jha, bot=bot)
     except (frappe.ValidationError, frappe.PermissionError):
         raise
     except Exception:
@@ -308,7 +310,7 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_eng
             message=frappe.get_traceback(),
         )
         frappe.throw(
-            _("Could not start the PERI voice session. Check Raven's OpenAI credentials and access to the selected voice and backend models."),
+            _("Could not start the PERI voice session. See the matching 'PERI voice connection failed' Error Log for details."),
             frappe.ValidationError,
         )
 

@@ -1,4 +1,6 @@
+import json
 from types import SimpleNamespace
+from typing import Any
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
@@ -36,16 +38,16 @@ class TestVoiceEngineSettings(TestCase):
         self.assertEqual((config['engine'], config['live_voice'], config['voice']), ('live', 'ripple', 'marin'))
         self.assertEqual(self.config(peri_voice_live_reasoning_effort='minimal')['live_reasoning_effort'], 'low')
 
-    def test_session_override_validates_engine_without_mutating_defaults(self):
-        self.assertEqual(settings.voice_config_for_engine(settings.DEFAULTS, 'live')['engine'], 'live')
+    def test_session_uses_configured_engine_without_mutating_defaults(self):
+        self.assertEqual(settings.voice_config_for_engine({**settings.DEFAULTS, 'engine': 'live'})['engine'], 'live')
         self.assertEqual(settings.DEFAULTS['engine'], 'realtime')
         with self.assertRaises(frappe.ValidationError):
-            settings.voice_config_for_engine(settings.DEFAULTS, 'unknown-provider')
+            settings.voice_config_for_engine({**settings.DEFAULTS, 'engine': 'unknown-provider'})
 
-    def test_public_config_reports_both_engines_and_selected_voice(self):
+    def test_public_config_reports_configured_engine_without_user_choices(self):
         config = base._public_voice_configuration({**settings.DEFAULTS, 'engine': 'live', 'live_custom_voice_id': 'voice_authorized'})
         self.assertEqual((config['engine'], config['model'], config['voice']), ('live', 'gpt-live-1', 'voice_authorized'))
-        self.assertEqual([row['id'] for row in config['engines']], ['realtime', 'live'])
+        self.assertNotIn('engines', config)
         self.assertNotIn('api_key', config)
 
 
@@ -93,7 +95,7 @@ class TestLiveSession(TestCase):
         client.with_options = Mock(return_value=client)
         session = live_session()
         self.assertEqual(create_live_call(client=client, sdp='v=0\noffer', session=session)['model'], 'gpt-live-1')
-        post.assert_called_once_with('/live/sessions', cast_to=dict, body={'session': session, 'transport': {'type': 'webrtc', 'sdp': 'v=0\noffer'}})
+        post.assert_called_once_with('/live/sessions', cast_to=dict[str, Any], body={'session': session, 'transport': {'type': 'webrtc', 'sdp': 'v=0\noffer'}})
 
     def test_invalid_answer_and_sdk_request_errors_do_not_create_another_session(self):
         create = Mock(return_value={'session': {'id': 'live_1'}, 'transport': {'sdp': ''}})
@@ -122,23 +124,36 @@ class TestVoiceCallRouting(TestCase):
         self.client.realtime.calls.create.assert_called_once_with(sdp='v=0', session={'type': 'realtime'})
 
     def test_live_routes_to_same_permission_checked_start_and_records_model(self):
+        self.config.return_value = {**settings.DEFAULTS, 'engine': 'live'}
         with patch.object(base, '_require_login'), patch.object(base, '_get_jha_doc', return_value=self.doc), \
              patch.object(base, '_validate_work_summary', return_value=self.task), patch.object(base, '_get_peri_bot_doc'), \
              patch.object(facilitator, 'sync_facilitation_fields'), patch.object(facilitator, 'serialize_jha', return_value={'name': 'JHA-1'}), \
              patch.object(facilitator, '_build_live_session', return_value=live_session()), \
              patch.object(facilitator, 'create_live_call', return_value={'sdp': 'v=0\nanswer', 'model': 'gpt-live-1', 'session_reference': 'live_1'}) as create:
-            result = facilitator.start_voice_jha_call('JHA-1', 'v=0\noffer', 1, 'live')
+            # A cached client's Realtime choice cannot override Live in settings.
+            result = facilitator.start_voice_jha_call('JHA-1', 'v=0\noffer', 1, 'realtime')
         self.assertEqual((result['engine'], self.doc.voice_model, self.doc.voice_session_reference), ('live', 'gpt-live-1', 'live_1'))
         self.assertEqual(result['jha']['name'], 'JHA-1')
         self.doc.save.assert_called_once()
         create.assert_called_once()
         self.client.realtime.calls.create.assert_not_called()
 
+    def test_client_live_override_cannot_change_configured_realtime(self):
+        with patch.object(base, '_require_login'), patch.object(base, '_get_jha_doc', return_value=self.doc), \
+             patch.object(base, '_validate_work_summary', return_value=self.task), patch.object(base, '_get_peri_bot_doc'), \
+             patch.object(facilitator, 'sync_facilitation_fields'), patch.object(facilitator, 'serialize_jha', return_value={'name': 'JHA-1'}), \
+             patch.object(facilitator, '_build_realtime_session', return_value={'type': 'realtime'}), \
+             patch.object(facilitator, 'create_live_call') as create:
+            result = facilitator.start_voice_jha_call('JHA-1', 'v=0\noffer', 1, 'live')
+        self.assertEqual(result['engine'], 'realtime')
+        self.client.realtime.calls.create.assert_called_once()
+        create.assert_not_called()
+
     def test_disabled_and_invalid_engine_make_no_api_request(self):
-        self.config.return_value = {**settings.DEFAULTS, 'enabled': False}
         for engine in ('live', 'realtime', 'unknown'):
+            self.config.return_value = {**settings.DEFAULTS, 'enabled': False, 'engine': engine}
             with self.assertRaises(frappe.ValidationError):
-                facilitator._create_voice_call(sdp='v=0', task=self.task, jha=self.doc, bot=None, voice_engine=engine)
+                facilitator._create_voice_call(sdp='v=0', task=self.task, jha=self.doc, bot=None)
         self.raven.assert_not_called()
 
     def test_consent_and_write_permission_are_required_for_live(self):
@@ -174,9 +189,20 @@ class IntegrationTestVoiceEngineSettings(IntegrationTestCase):
         self.assertIn('GPT Live', frappe.get_meta(settings.SETTINGS_DOCTYPE).get_field('peri_voice_engine').options)
 
     def test_raven_sdk_can_create_live_request_without_transmitting_credentials_to_browser(self):
+        self._assert_sdk_live_request(force_legacy=False)
+
+    def test_legacy_sdk_http_fallback_parses_the_real_response(self):
+        self._assert_sdk_live_request(force_legacy=True)
+
+    def _assert_sdk_live_request(self, *, force_legacy):
         from openai import _base_client
         from openai import OpenAI
-        # Exercise the HTTP implementation used by the installed Raven SDK.
+
+        # Disable only the typed Live resource. with_options and post still use
+        # the real SDK, including the parser that rejected a bare dict on older
+        # Raven installs. Exercise this path even when CI installs a newer SDK.
+        if force_legacy:
+            self.enterContext(patch.object(OpenAI, 'live', None, create=True))
         httpx = getattr(_base_client, 'httpx2', None) or _base_client.httpx
         requests = []
 
@@ -185,10 +211,30 @@ class IntegrationTestVoiceEngineSettings(IntegrationTestCase):
             return httpx.Response(201, json={'session': {'id': 'live_test'}, 'transport': {'type': 'webrtc', 'sdp': 'v=0\nanswer'}})
 
         with httpx.Client(transport=httpx.MockTransport(answer)) as http_client:
-            with OpenAI(api_key='test-dummy-key', http_client=http_client) as client:
+            with OpenAI(api_key='test-dummy-key', project='proj_test', http_client=http_client) as client:
                 result = create_live_call(client=client, sdp='v=0\noffer', session=live_session())
         self.assertEqual(len(requests), 1)
         self.assertEqual(requests[0].url.path, '/v1/live/sessions')
         self.assertEqual(requests[0].headers['authorization'], 'Bearer test-dummy-key')
+        self.assertEqual(requests[0].headers['openai-project'], 'proj_test')
+        self.assertEqual(json.loads(requests[0].content)['transport'], {'type': 'webrtc', 'sdp': 'v=0\noffer'})
         self.assertEqual(result['session_reference'], 'live_test')
+        self.assertEqual(result['sdp'], 'v=0\nanswer')
         self.assertNotIn('test-dummy-key', str(result))
+
+    def test_legacy_sdk_does_not_retry_a_failed_session_creation(self):
+        from openai import InternalServerError, OpenAI, _base_client
+
+        self.enterContext(patch.object(OpenAI, 'live', None, create=True))
+        httpx = getattr(_base_client, 'httpx2', None) or _base_client.httpx
+        requests = []
+
+        def fail(request):
+            requests.append(request)
+            return httpx.Response(500, json={'error': {'message': 'Session creation failed'}})
+
+        with httpx.Client(transport=httpx.MockTransport(fail)) as http_client:
+            with OpenAI(api_key='test-dummy-key', max_retries=2, http_client=http_client) as client:
+                with self.assertRaises(InternalServerError):
+                    create_live_call(client=client, sdp='v=0\noffer', session=live_session())
+        self.assertEqual(len(requests), 1)

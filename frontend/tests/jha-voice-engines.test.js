@@ -6,18 +6,16 @@ import VoiceJha from '../src/pages/VoiceJha.vue'
 vi.mock('../src/lib/api', () => ({ apiRequest: vi.fn() }))
 vi.mock('vue-router', () => ({ useRoute: () => ({ params: { workSummary: 'WS-1' } }), useRouter: () => ({ back: vi.fn() }) }))
 
-let wrapper, connections, track, snapshot
-const config = { engine: 'realtime', engines: [
-  { id: 'realtime', label: 'GPT Realtime', model: 'gpt-realtime-2.1', voice: 'marin' },
-  { id: 'live', label: 'GPT Live', model: 'gpt-live-1', voice: 'quartz' },
-] }
+let wrapper, connections, track, snapshot, configuredEngine
+const configuration = () => ({ engine: configuredEngine, engine_label: configuredEngine === 'live' ? 'GPT Live' : 'GPT Realtime', model: configuredEngine === 'live' ? 'gpt-live-1' : 'gpt-realtime-2.1', voice: configuredEngine === 'live' ? 'quartz' : 'marin' })
 const button = (text) => wrapper.findAll('button').find(item => item.text() === text)
 const channel = () => connections.at(-1).channel
 const sent = () => channel().send.mock.calls.map(([raw]) => JSON.parse(raw))
 const receive = async (event) => { channel().onmessage({ data: JSON.stringify(event) }); await flushPromises() }
 
 async function connect(engine = 'live') {
-  await wrapper.find('select').setValue(engine)
+  // Simulate an administrator changing the server setting after page load.
+  configuredEngine = engine
   await wrapper.find('input[type=checkbox]').setValue(true)
   await button('Connect Voice with PERI').trigger('click')
   await flushPromises()
@@ -28,6 +26,7 @@ async function connect(engine = 'live') {
 
 beforeEach(async () => {
   vi.clearAllMocks()
+  configuredEngine = 'live'
   connections = []
   track = { enabled: true, stop: vi.fn() }
   snapshot = { name: 'JHA-1', status: 'Voice Discussion in Progress', work_steps: [{ sequence: 1, activity: 'Fit pump' }], hazards_and_controls: [], participants: [], incident_learning: [] }
@@ -42,10 +41,11 @@ beforeEach(async () => {
   })
   Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: vi.fn(async () => ({ getAudioTracks: () => [track], getTracks: () => [track] })) } })
   apiRequest.mockImplementation(async (url, options) => {
-    if (url.includes('bootstrap')) return { message: { work_summary: 'WS-1', title: 'Pump service', realtime_enabled: true, voice_configuration: config, existing_jha: snapshot } }
+    if (url.includes('bootstrap')) return { message: { work_summary: 'WS-1', title: 'Pump service', realtime_enabled: true, voice_configuration: configuration(), existing_jha: snapshot } }
     if (url.includes('start_voice_jha_call')) {
-      const engine = options.body.get('voice_engine')
-      return { message: { sdp: 'v=0\nanswer', engine, model: engine === 'live' ? 'gpt-live-1' : 'gpt-realtime-2.1', jha: snapshot } }
+      expect(options.body.has('voice_engine')).toBe(false)
+      const config = configuration()
+      return { message: { sdp: 'v=0\nanswer', engine: config.engine, model: config.model, configuration: config, jha: snapshot } }
     }
     if (url.includes('execute_voice_jha_tool')) {
       snapshot = { ...snapshot, hazards_and_controls: [{ name: 'H-1', work_step_sequence: 1, hazard_or_energy_source: 'Pinch points', existing_controls: 'Alignment tool' }] }
@@ -58,12 +58,10 @@ beforeEach(async () => {
 })
 afterEach(() => { wrapper?.unmount(); vi.useRealTimers(); vi.unstubAllGlobals() })
 
-describe('Voice JHA engine selection and connection', () => {
-  it('offers both engines, requires consent, and shows the Australian Live default', async () => {
-    expect(wrapper.findAll('option').map(option => option.text())).toEqual(['GPT Realtime', 'GPT Live'])
+describe('Voice JHA configured engine connection', () => {
+  it('has no engine selector and still requires consent before connecting', async () => {
+    expect(wrapper.find('select').exists()).toBe(false)
     expect(button('Connect Voice with PERI').attributes('disabled')).toBeDefined()
-    await wrapper.find('select').setValue('live')
-    expect(wrapper.text()).toContain('GPT Live · gpt-live-1 · quartz')
     expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled()
   })
   it('preserves the Realtime greeting and restricted tool-result protocol', async () => {
@@ -79,7 +77,7 @@ describe('Voice JHA engine selection and connection', () => {
   it('waits for Live session startup, keeps push-to-talk muted, and renders both transcript speakers', async () => {
     await connect()
     expect(sent()).toEqual([])
-    expect(wrapper.find('select').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('select').exists()).toBe(false)
     expect(wrapper.find('[aria-label="Hold to talk to PERI"]').exists()).toBe(false)
     await receive({ type: 'session.started', session: { id: 'live_1' } })
     expect(sent().map(e => e.type)).toEqual(['session.instructions.append'])
@@ -110,7 +108,7 @@ describe('Voice JHA engine selection and connection', () => {
     expect(request[1].body.get('jha_name')).toBe('JHA-1')
     expect(request[1].body.get('call_id')).toBe('live-call')
   })
-  it('closes Live gracefully and switches to Realtime on the existing draft', async () => {
+  it('closes Live gracefully and applies changed server settings on the same draft', async () => {
     await connect()
     await receive({ type: 'session.started' })
     await button('Disconnect Voice').trigger('click')
@@ -119,11 +117,13 @@ describe('Voice JHA engine selection and connection', () => {
     expect(track.stop).not.toHaveBeenCalled()
     await receive({ type: 'session.closed' })
     expect(track.stop).toHaveBeenCalled()
-    expect(wrapper.find('select').exists()).toBe(true)
+    expect(wrapper.find('select').exists()).toBe(false)
     await connect('realtime')
     const starts = apiRequest.mock.calls.filter(([url]) => url.includes('start_voice_jha_call'))
-    expect(starts.map(([, options]) => options.body.get('voice_engine'))).toEqual(['live', 'realtime'])
+    expect(starts.map(([, options]) => options.body.get('voice_engine'))).toEqual([null, null])
     expect(starts.map(([, options]) => options.body.get('jha_name'))).toEqual(['JHA-1', 'JHA-1'])
+    expect(sent()[0].type).toBe('response.create')
+    expect(wrapper.text()).toContain('gpt-realtime-2.1')
   })
   it('keeps the saved draft visible after a Live session error', async () => {
     await connect()
