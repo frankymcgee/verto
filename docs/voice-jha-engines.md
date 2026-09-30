@@ -1,10 +1,12 @@
 # PERI Voice JHA engines
 
-Crews can choose **GPT Realtime** or **GPT Live** before connecting in Develop JHA
-with PERI. Both engines use the same Digital JHA, restricted server tools,
+Administrators choose **GPT Realtime** or **GPT Live** in **Verto Mobile Settings
+→ PERI Voice JHA → Voice Engine**. Develop JHA with PERI has no engine selector;
+the server always uses the saved setting, including for cached clients that
+send an old engine preference. Both engines use the same Digital JHA, restricted server tools,
 ordered step facilitation, critical-risk/mechanism detection, incident lessons,
-completeness checks, human review, sign-on and print workflow. Disconnect and
-choose the other engine to resume the saved draft.
+completeness checks, human review, sign-on and print workflow. A settings change
+applies on the next connection and resumes the saved draft.
 
 ## Configuration
 
@@ -13,7 +15,7 @@ Settings → PERI Voice JHA**, configure:
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
-| Default Voice Engine | GPT Realtime | Preselects the mobile engine; crews may change it before connecting. |
+| Voice Engine | GPT Realtime | Selects the engine for all new sessions; crews cannot override it. |
 | Realtime Model / Voice | Existing site values | Existing Realtime configuration is preserved. |
 | Live Voice Model | gpt-live-1 | GPT-Live speech conversation. |
 | Live Reasoning & Tools Model | gpt-6-luna | Responses backend running the shared JHA workflow and incident tools. |
@@ -24,7 +26,7 @@ Settings → PERI Voice JHA**, configure:
 OpenAI credentials and project configuration remain in Raven Settings. The
 configured project needs access to the selected voice model and, for Live, the
 Responses backend model. Model IDs are configurable on the server; the mobile
-request selects only an engine. Realtime custom voice/model overrides remain
+request cannot override the engine. Realtime custom voice/model overrides remain
 independent of Live configuration.
 
 Conversation style, acknowledgement, read-back and question settings apply to
@@ -36,7 +38,8 @@ turn-taking. Both use browser microphone noise suppression and push-to-talk.
 
 The server creates a WebRTC session at OpenAI's Live sessions endpoint using
 Raven's authenticated client. A typed Live SDK resource is used when available;
-the existing SDK's HTTP client is a compatibility path for older Raven pins.
+the existing SDK's HTTP client is a compatibility path for older Raven pins,
+using a typed dictionary response so older SDK parsers can decode the SDP.
 Session creation disables retries to avoid creating another billed session
 after an ambiguous failure. API keys never appear in the mobile response.
 
@@ -63,8 +66,9 @@ with `store: false`. The shared structured JHA and existing audit remain saved.
 CI runs the Voice JHA incident and engine tests against a fresh Frappe v16 site,
 including custom-field migration and an HTTP-mocked request using Raven's
 installed OpenAI SDK. No billed OpenAI session is opened by automated tests.
-Frontend tests exercise both engine connections, consent, push-to-talk,
-transcripts, restricted tool calls, disconnect and switching on the same draft.
+Tests exercise both typed and legacy SDK request paths. Frontend tests exercise
+both configured engines, consent, push-to-talk, transcripts, restricted tool
+calls, disconnect and administrator changes on the same draft.
 
 Before enabling Live for field use, test an actual development-site conversation
 with the configured OpenAI project. Check Quartz/Ripple pronunciation of site

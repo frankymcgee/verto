@@ -358,7 +358,6 @@ def _public_voice_configuration(config: dict) -> dict:
         "engine": selected["id"],
         "engine_label": selected["label"],
         "model": selected["model"],
-        "engines": options,
         "live_backend_model": config.get("live_backend_model"),
         "realtime_model": config.get("realtime_model"),
         "reasoning_effort": config.get("reasoning_effort"),

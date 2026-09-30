@@ -133,12 +133,12 @@ PERI_VOICE_FIELDS = [
     },
     {
         "fieldname": "peri_voice_engine",
-        "label": "Default Voice Engine",
+        "label": "Voice Engine",
         "fieldtype": "Select",
         "insert_after": "peri_voice_enabled",
         "options": _select_options(VOICE_ENGINES.values()),
         "default": VOICE_ENGINES[DEFAULTS["engine"]],
-        "description": "Crews can choose either engine before connecting. Changing engines starts a new voice session and resumes the saved JHA.",
+        "description": "Controls the engine for all new PERI voice sessions. Crews cannot override this setting. Existing calls keep their engine until reconnecting.",
     },
     {
         "fieldname": "peri_voice_model_section",
@@ -571,10 +571,10 @@ def get_peri_voice_settings() -> dict:
     }
 
 
-def voice_config_for_engine(config: dict, requested_engine: str | None = None) -> dict:
-    engine = str(requested_engine or config.get("engine") or DEFAULTS["engine"]).strip()
+def voice_config_for_engine(config: dict) -> dict:
+    engine = str(config.get("engine") or DEFAULTS["engine"]).strip()
     if engine not in VOICE_ENGINES:
-        frappe.throw("Choose GPT Realtime or GPT Live.", frappe.ValidationError)
+        frappe.throw("Choose a valid Voice Engine in Verto Mobile Settings.", frappe.ValidationError)
     return {**DEFAULTS, **config, "engine": engine}
 
 

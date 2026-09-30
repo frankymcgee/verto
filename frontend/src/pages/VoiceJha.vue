@@ -83,7 +83,6 @@ const creating = ref(false)
 const refreshing = ref(false)
 const connecting = ref(false)
 const disconnecting = ref(false)
-const selectedVoiceEngine = ref<VoiceEngine>('realtime')
 const activeVoiceEngine = ref<VoiceEngine>('realtime')
 const error = ref('')
 const context = ref<VoiceJhaBootstrap | null>(null)
@@ -140,10 +139,9 @@ const canConnectVoice = computed(() => Boolean(
 const voiceConfigSummary = computed(() => {
   const config = context.value?.voice_configuration
   if (!config) return ''
-  const selected = config.engines?.find((option: any) => option.id === selectedVoiceEngine.value)
-  return selected ? [selected.label, selected.model, selected.voice].filter(Boolean).join(' · ') : [config.realtime_model, config.voice].filter(Boolean).join(' · ')
+  return [config.engine_label, config.model || config.realtime_model, config.voice].filter(Boolean).join(' · ')
 })
-const voiceEngineOptions = computed(() => context.value?.voice_configuration?.engines || [{ id: 'realtime', label: 'GPT Realtime' }])
+const configuredVoiceEngine = computed<VoiceEngine>(() => context.value?.voice_configuration?.engine === 'live' ? 'live' : 'realtime')
 
 function handleReviewUpdated(value: Record<string, any>) {
   if (!jha.value) return
@@ -158,7 +156,6 @@ async function load() {
       `/api/method/verto.api.mobile.voice_jha.get_voice_jha_bootstrap?work_summary=${encodeURIComponent(workSummary.value)}`
     )
     context.value = data.message
-    selectedVoiceEngine.value = data.message?.voice_configuration?.engine === 'live' ? 'live' : 'realtime'
     jha.value = data.message?.existing_jha || null
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Could not load the Work Summary.'
@@ -547,7 +544,7 @@ async function connectVoice() {
   connectionGeneration += 1
   const generation = connectionGeneration
   let negotiated = false
-  activeVoiceEngine.value = selectedVoiceEngine.value
+  activeVoiceEngine.value = configuredVoiceEngine.value
   liveSessionReady = false
   liveCloseConfirmed = false
   liveToolLoop = new LiveJhaToolLoop(executeRealtimeTool, sendRealtimeEvent, (message) => {
@@ -621,7 +618,6 @@ async function connectVoice() {
     payload.append('jha_name', jha.value.name)
     payload.append('sdp', offerSdp)
     payload.append('consent_confirmed', '1')
-    payload.append('voice_engine', selectedVoiceEngine.value)
 
     const data = await apiRequest<FrappeResponse<VoiceCallResponse>>(
       '/api/method/verto.api.mobile.voice_jha.start_voice_jha_call',
@@ -632,7 +628,8 @@ async function connectVoice() {
     if (!data.message?.sdp) throw new Error('PERI did not return a WebRTC answer.')
     jha.value = data.message.jha
     voiceModel.value = data.message.model || ''
-    activeVoiceEngine.value = data.message.engine || selectedVoiceEngine.value
+    activeVoiceEngine.value = data.message.engine || configuredVoiceEngine.value
+    if (context.value && data.message.configuration) context.value.voice_configuration = data.message.configuration
     await pc.setRemoteDescription({ type: 'answer', sdp: data.message.sdp })
     negotiated = true
     setMicrophoneEnabled(false)
@@ -754,12 +751,7 @@ onBeforeUnmount(() => {
             </div>
 
             <div v-if="!voiceConnected" class="mt-4 rounded-7 border border-outline-gray-1 bg-surface-gray-1 p-3">
-              <label for="peri-voice-engine" class="text-sm-medium text-ink-gray-8">Voice engine</label>
-              <select id="peri-voice-engine" v-model="selectedVoiceEngine" :disabled="connecting || disconnecting" class="mt-1 w-full rounded-7 border border-outline-gray-2 bg-surface-base px-3 py-2 text-sm text-ink-gray-8">
-                <option v-for="option in voiceEngineOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
-              </select>
-              <p class="mt-2 text-xs leading-4 text-ink-gray-5">{{ voiceConfigSummary }}. Both engines resume the saved JHA and use the same tools and incident lessons.</p>
-              <label class="mt-3 flex cursor-pointer items-start gap-3">
+              <label class="flex cursor-pointer items-start gap-3">
                 <Checkbox class="mt-0.5 shrink-0" size="md" :model-value="consentConfirmed" :disabled="connecting" @update:model-value="(checked) => consentConfirmed = Boolean(checked)" />
                 <span class="text-sm leading-5 text-ink-gray-7">I confirm everyone present has agreed to microphone use and transcription for this JHA discussion.</span>
               </label>
