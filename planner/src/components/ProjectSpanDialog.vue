@@ -79,13 +79,13 @@
               type="number"
               label="DS Personnel Required"
               v-model="form.ds_requested"
-              :disabled="!form.can_update_ds || form.personnel_requirements.length > 0"
+              :disabled="!form.can_update_ds || hasPersonnelRequirements"
             />
             <FormControl
               type="number"
               label="NS Personnel Required"
               v-model="form.ns_requested"
-              :disabled="!form.can_update_ns || form.personnel_requirements.length > 0"
+              :disabled="!form.can_update_ns || hasPersonnelRequirements"
             />
 
             <template v-if="showProjectDateFields">
@@ -847,6 +847,7 @@ const form = reactive({
   personnel_requirements: [] as RequirementRow[],
   personnel_allocations: [] as PersonnelAllocation[],
   can_update_personnel_requirements: false,
+  had_personnel_requirements: false,
   is_active: true,
   project_start_date: "",
   project_end_date: "",
@@ -989,6 +990,7 @@ function assignProjectShifts(shiftType: "DS" | "NS", designation = "") {
 }
 
 const bootstrap = usePlannerBootstrap();
+const hasPersonnelRequirements = computed(() => form.personnel_requirements.length > 0 || form.had_personnel_requirements);
 function designationOptions(selected: string) {
   const names: string[] = (bootstrap.data?.references?.designation || []).map((row: { name: string }) => row.name);
   if (selected && !names.includes(selected)) names.unshift(selected);
@@ -1222,6 +1224,7 @@ function resetForm() {
   form.personnel_requirements = [];
   form.personnel_allocations = [];
   form.can_update_personnel_requirements = false;
+  form.had_personnel_requirements = false;
   form.is_active = true;
   form.project_start_date = "";
   form.project_end_date = "";
@@ -1268,6 +1271,7 @@ function applyDetails(data: ProjectDetails | undefined) {
   form.personnel_requirements = (data.personnel_requirements || []).map((row) => ({ ...row, designation: row.designation || "", key: nextRequirementKey++ }));
   form.personnel_allocations = data.personnel_allocations || [];
   form.can_update_personnel_requirements = Boolean(data.can_update_personnel_requirements);
+  form.had_personnel_requirements = Boolean(data.personnel_requirements?.length);
   form.is_active = boolValue(data.is_active, true);
   form.project_start_date = data.project_start_date || "";
   form.project_end_date = data.project_end_date || "";
@@ -1458,7 +1462,7 @@ const updateProject = createResource({
       project_notes: form.project_notes,
       expected_modified: expectedModified.value || undefined,
       personnel_requirements: form.can_update_personnel_requirements &&
-        (form.personnel_requirements.length || projectDetails.data?.personnel_requirements?.length)
+        (form.personnel_requirements.length || form.had_personnel_requirements)
         ? form.personnel_requirements.map(({ shift, designation, required_personnel }) => ({ shift, designation, required_personnel: Number(required_personnel) }))
         : undefined,
     };

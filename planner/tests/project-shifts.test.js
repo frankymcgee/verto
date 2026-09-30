@@ -478,12 +478,13 @@ describe("Project personnel designations", () => {
 
   it("blocks duplicate shift/designation rows and permits clearing all requirements", async () => {
     let submitted;
-    const details = { ...projectDetails(), can_update_personnel_requirements: true,
+    const details = { ...projectDetails(), can_update_personnel_requirements: true, can_update_ds: true, can_update_ns: true,
       personnel_requirements: [{ shift: "DS", designation: "Advisor", required_personnel: 2 }] };
     setConfig("resourceFetcher", async ({ url, params }) => {
       if (url.endsWith("get_bootstrap")) return structuredClone(bootstrapData);
       if (url.endsWith("get_project_planner_details")) return structuredClone(details);
-      if (url.endsWith("update_project_planner_details")) { submitted = params; return structuredClone(details); }
+      if (url.endsWith("update_project_planner_details")) { submitted = params; return { ...structuredClone(details),
+        personnel_requirements: params.personnel_requirements || [], ds_requested: params.ds_requested, ns_requested: params.ns_requested }; }
       throw new Error(`Unexpected request: ${url}`);
     });
     await mountComponent(ProjectSpanDialog, { isDialogOpen: true, modelValue: true, project });
@@ -496,9 +497,17 @@ describe("Project personnel designations", () => {
     const remove = [...document.querySelectorAll('button[aria-label^="Remove DS"]')];
     for (const element of remove) await new DOMWrapper(element).trigger("click");
     await settle();
+    const ds = wrapper.findAllComponents(FormControl).find((control) => control.props("label") === "DS Personnel Required");
+    expect(ds.find("input").element.disabled).toBe(true);
     await button("Update").trigger("click");
     await settle();
     expect(submitted).toMatchObject({ personnel_requirements: [], ds_requested: 0, ns_requested: 0 });
+    expect(ds.find("input").element.disabled).toBe(false);
+    await fieldValue("DS Personnel Required", "4");
+    await button("Update").trigger("click");
+    await settle();
+    expect(submitted.ds_requested).toBe("4");
+    expect(submitted.personnel_requirements).toBeUndefined();
   });
 
   it("prefills and saves a project role on a single shift", async () => {
