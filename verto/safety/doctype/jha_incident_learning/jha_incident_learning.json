@@ -19,6 +19,9 @@
   "source_review_required",
   "incident_summary",
   "immediate_actions",
+  "sanitisation_section",
+  "sanitisation_status",
+  "sanitisation_note",
   "risk_section",
   "critical_risks",
   "mechanisms",
@@ -32,7 +35,10 @@
   "indexed_mechanisms",
   "inx_source_section",
   "inx_source",
-  "inx_source_fingerprint"
+  "inx_source_fingerprint",
+  "sanitisation_job_token",
+  "sanitisation_source_fingerprint",
+  "sanitisation_field_hashes"
  ],
  "fields": [
   {
@@ -123,14 +129,14 @@
   },
   {
    "fieldname": "incident_summary",
-   "fieldtype": "Small Text",
+   "fieldtype": "Long Text",
    "label": "What Happened",
    "reqd": 0,
    "mandatory_depends_on": "eval:doc.available_for_jha"
   },
   {
    "fieldname": "immediate_actions",
-   "fieldtype": "Small Text",
+   "fieldtype": "Long Text",
    "label": "Immediate Response Recorded",
    "description": "Reviewed crew-facing immediate response. Keep treatment and initial response separate from investigation actions and preventive controls."
   },
@@ -221,10 +227,56 @@
    "read_only": 1,
    "hidden": 1,
    "permlevel": 1
+  },
+  {
+   "fieldname": "sanitisation_section",
+   "fieldtype": "Section Break",
+   "label": "INX Draft Preparation",
+   "depends_on": "eval:doc.inx_source"
+  },
+  {
+   "fieldname": "sanitisation_status",
+   "fieldtype": "Select",
+   "label": "Sanitisation Status",
+   "options": "Not Prepared\nQueued\nPrepared - Review Required\nFailed - Retry Required",
+   "default": "Not Prepared",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "sanitisation_note",
+   "fieldtype": "Small Text",
+   "label": "Preparation Note",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sanitisation_job_token",
+   "fieldtype": "Data",
+   "label": "Preparation Job Token",
+   "read_only": 1,
+   "hidden": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "sanitisation_source_fingerprint",
+   "fieldtype": "Data",
+   "label": "Prepared Source Fingerprint",
+   "read_only": 1,
+   "hidden": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "sanitisation_field_hashes",
+   "fieldtype": "Code",
+   "options": "JSON",
+   "label": "Source-Managed Draft Field Hashes",
+   "read_only": 1,
+   "hidden": 1,
+   "permlevel": 1
   }
  ],
  "links": [],
- "modified": "2026-09-30 13:00:00.000000",
+ "modified": "2026-10-01 07:18:40.153490",
  "modified_by": "Administrator",
  "module": "Safety",
  "name": "JHA Incident Learning",

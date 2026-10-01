@@ -31,4 +31,7 @@ class JHAINXIncident(Document):
             frappe.db.set_value("JHA Incident Learning", self.name, {
                 "available_for_jha": 0, "source_review_required": 1,
                 "inx_source_fingerprint": self.source_fingerprint,
+                "sanitisation_status": "Not Prepared",
+                "sanitisation_job_token": "",
+                "sanitisation_note": "The INX source changed. Prepare and review an updated draft.",
             })

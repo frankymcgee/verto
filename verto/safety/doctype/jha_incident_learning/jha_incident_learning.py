@@ -26,6 +26,8 @@ class JHAIncidentLearning(Document):
         if before and before.source_key != self.source_key:
             frappe.throw(_("The source incident identity cannot be changed. Import a separate incident instead."))
         enabled = bool(cint(self.get("available_for_jha")))
+        if enabled and self.get("sanitisation_status") == "Queued":
+            frappe.throw(_("Wait for draft sanitisation to finish before enabling this lesson."), frappe.ValidationError)
         if enabled and not risk.plain_text(self.incident_summary).strip():
             frappe.throw(_("Write a crew-facing incident summary before enabling this lesson."), frappe.ValidationError)
         if self.get("inx_source"):

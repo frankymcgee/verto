@@ -30,7 +30,7 @@ def _existing(doctype, names, fields):
 
 
 @frappe.whitelist(methods=["POST"])
-def import_inx_export(file_name, dry_run=True, expected_sha256=None):
+def import_inx_export(file_name, dry_run=True, expected_sha256=None, prepare_drafts=False):
     """Preview by default. An explicit import creates disabled lessons for review."""
     _require_manager()
     file_doc = frappe.get_doc("File", file_name)
@@ -44,6 +44,9 @@ def import_inx_export(file_name, dry_run=True, expected_sha256=None):
     if str(dry_run).lower() not in {"true", "false", "1", "0"}:
         frappe.throw(_("Dry run must be true or false."), frappe.ValidationError)
     preview = str(dry_run).lower() in {"true", "1"}
+    if str(prepare_drafts).lower() not in {"true", "false", "1", "0"}:
+        frappe.throw(_("Prepare drafts must be true or false."), frappe.ValidationError)
+    prepare = str(prepare_drafts).lower() in {"true", "1"}
     if not preview and expected_sha256 != digest:
         frappe.throw(_("Preview this file before importing. The export has changed or its preview is missing."), frappe.ValidationError)
     try:
@@ -80,6 +83,15 @@ def import_inx_export(file_name, dry_run=True, expected_sha256=None):
         file_doc.attached_to_doctype = SOURCE_DOCTYPE
         file_doc.attached_to_name = records[0]["source_key"]
         file_doc.save()
+        if prepare:
+            from verto.api.inx_incident_sanitisation import queue_drafts
+
+            candidates = frappe.get_list(LEARNING_DOCTYPE,
+                filters={"name": ["in", names], "available_for_jha": 0},
+                fields=["name", "sanitisation_status"], limit_page_length=len(names))
+            report["sanitised_drafts_queued"] = queue_drafts([
+                row.name for row in candidates if row.sanitisation_status not in {"Queued", "Prepared - Review Required"}
+            ])["queued"]
     except Exception:
         frappe.db.rollback(save_point="inx_incident_import")
         raise
@@ -112,4 +124,7 @@ def _upsert(record, file_url):
     lesson.inx_source = key
     lesson.available_for_jha = 0
     lesson.source_review_required = 1
+    lesson.sanitisation_status = "Not Prepared"
+    lesson.sanitisation_job_token = ""
+    lesson.sanitisation_note = "Prepare sanitised text from the INX source, then review the draft."
     lesson.save()

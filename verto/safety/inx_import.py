@@ -131,8 +131,7 @@ def parse_rows(rows):
     }
 
 
-def parse_workbook(content):
-    """Read XLSX only. Never evaluate formulas, external links or macros."""
+def _open_workbook(content):
     if not isinstance(content, bytes) or len(content) > MAX_FILE_BYTES:
         raise ValueError("Upload an XLSX export of no more than 10 MB.")
     try:
@@ -150,6 +149,17 @@ def parse_workbook(content):
         sheet = workbook[SHEET_NAME]
         if sheet.max_column > 64 or sheet.max_row > MAX_EVENTS + 1:
             raise ValueError(f"Import at most {MAX_EVENTS} events and 64 columns at a time.")
+        return workbook
+    except Exception:
+        workbook.close()
+        raise
+
+
+def parse_workbook(content):
+    """Read XLSX only. Never evaluate formulas, external links or macros."""
+    workbook = _open_workbook(content)
+    try:
+        sheet = workbook[SHEET_NAME]
 
         def rows():
             for cells in sheet.iter_rows():
@@ -158,5 +168,29 @@ def parse_workbook(content):
                 yield [cell.value for cell in cells]
 
         return parse_rows(rows())
+    finally:
+        workbook.close()
+
+
+def personnel_hints(content, reference):
+    """Read this incident's excluded name columns in memory only for redaction."""
+    workbook = _open_workbook(content)
+    try:
+        rows = iter(workbook[SHEET_NAME].iter_rows())
+        columns = [str(cell.value or "").strip().lstrip("\ufeff").casefold() for cell in next(rows, ())]
+        if "reference" not in columns or len(columns) != len(set(columns)):
+            raise ValueError("Invalid INX column headings.")
+        ref_column = columns.index("reference")
+        name_columns = [i for i, column in enumerate(columns) if column in PERSONNEL_COLUMNS]
+        for cells in rows:
+            value = cells[ref_column].value
+            if isinstance(value, float) and value.is_integer():
+                value = int(value)
+            if str(value or "").strip().casefold() != str(reference).strip().casefold():
+                continue
+            if any(cell.data_type == "f" for cell in cells):
+                raise ValueError("Personnel hints must contain values, not formulas.")
+            return [str(cells[i].value).strip() for i in name_columns if cells[i].value]
+        return []
     finally:
         workbook.close()
