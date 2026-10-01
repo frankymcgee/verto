@@ -17,6 +17,9 @@ class TestINXSanitisation(TestCase):
             immediate_actions="Called 0412 345 678 and (08) 9123 4567. Isolated the conveyor; first aid given.",
         )
         result = mask_known_identifiers(fields, ["Ann Anderson"])
+        result = apply_redactions(result, {"redactions": [
+            {"field": "incident_summary", "text": "ANDERSON", "kind": "person"},
+        ]})
         for value in ("Ann", "ANDERSON", "ann@example.test", "EMP-4299", "01/02/1985"):
             self.assertNotIn(value, result["incident_summary"])
         self.assertEqual(result["site_name"], "Port Anderson")
@@ -25,6 +28,12 @@ class TestINXSanitisation(TestCase):
         self.assertIn("Isolated the conveyor; first aid given.", result["immediate_actions"])
         self.assertNotIn("0412", result["immediate_actions"])
         self.assertNotIn("9123", result["immediate_actions"])
+
+    def test_whole_name_aliases_preserve_ordinary_words_that_are_also_names(self):
+        result = mask_known_identifiers(self.fields(
+            incident_summary="Will Long stopped. The task will take a long time.",
+        ), ["Long, Will", "Long"])
+        self.assertEqual(result["incident_summary"], "[person] stopped. The task will take a long time.")
 
     def test_model_can_only_replace_original_spans(self):
         fields = self.fields(incident_summary="Lee caught a hand between the flanges. Lee stopped.")

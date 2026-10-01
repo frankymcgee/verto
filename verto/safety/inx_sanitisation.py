@@ -25,7 +25,9 @@ PATTERNS = (
     (re.compile(r"\b(?:employee|personnel|payroll|patient|claim)\s*(?:ID|no\.?|number|#)\s*[:=-]?\s*(?=[A-Z0-9/-]*\d)[A-Z0-9][A-Z0-9/-]{2,}\b", re.I), "identifier"),
 )
 NON_NAMES = {"administrator", "admin", "system", "user", "unknown", "manager", "supervisor", "site", "assigned", "none", "not", "and",
-             "person", "personal", "contact", "detail", "removed", "identifier", "address", "private"}
+             "person", "personal", "contact", "detail", "removed", "identifier", "address", "private",
+             "will", "may", "mark", "long", "short", "day", "brown", "white", "black", "green", "rose",
+             "north", "south", "east", "west", "left", "right"}
 
 
 def text_hash(value):
@@ -55,11 +57,17 @@ def mask_known_identifiers(fields, personnel=()):
     """Known personnel names stay in process memory and are masked before inference."""
     names = set()
     for value in personnel:
-        value = str(value or "").strip()
-        if len(value) >= 3 and value.casefold() not in NON_NAMES:
-            names.add(value)
-        names.update(word for word in re.findall(r"[^\W\d_]+(?:[-'][^\W\d_]+)*", value)
-                     if len(word) >= 3 and word.casefold() not in NON_NAMES)
+        for part in re.split(r"[;\r\n]+", str(value or "")):
+            part = part.strip()
+            if len(part) < 3 or part.casefold() in NON_NAMES:
+                continue
+            names.add(part)
+            # INX often exports "Surname, Given name". Use whole-name aliases,
+            # leaving ambiguous name fragments for contextual model detection.
+            pieces = [piece.strip() for piece in part.split(",")]
+            if len(pieces) == 2 and all(pieces):
+                names.add(" ".join(pieces))
+                names.add(" ".join(reversed(pieces)))
     result = {}
     for field, text in fields.items():
         value = str(text or "")
