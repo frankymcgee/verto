@@ -16,7 +16,7 @@
         class="year-roster-scroller overflow-auto"
         :class="projectBirdsEye && 'year-project-birds-eye-scroller'"
         :style="projectScrollerStyle"
-        @scroll="onProjectScroll"
+        @scroll.passive="onProjectScroll"
       >
         <div class="year-table-stage">
           <div
@@ -322,7 +322,7 @@
         ref="employeeScroller"
         class="year-roster-scroller min-h-0 flex-1 overflow-auto"
         :style="{ maxHeight: employeeTableMaxHeight + 'px' }"
-        @scroll="onEmployeeScroll"
+        @scroll.passive="onEmployeeScroll"
       >
         <div class="year-table-stage">
           <div
@@ -514,61 +514,7 @@
   </div>
 
 
-  <Teleport to="body">
-    <div
-      v-if="hoverCard"
-      ref="hoverCardElement"
-      class="year-hover-card"
-      :class="`year-hover-card-${hoverCard.type}`"
-      :style="hoverCardStyle"
-      role="tooltip"
-    >
-      <div class="year-hover-card-header">
-        <div class="min-w-0">
-          <div class="year-hover-card-kicker">{{ hoverCard.kicker }}</div>
-          <div class="year-hover-card-title truncate">{{ hoverCard.title }}</div>
-          <div v-if="hoverCard.subtitle" class="year-hover-card-subtitle truncate">
-            {{ hoverCard.subtitle }}
-          </div>
-        </div>
-
-        <div
-          v-if="hoverCard.badge || hoverCard.secondaryBadge"
-          class="year-hover-card-badge-stack"
-        >
-          <span
-            v-if="hoverCard.badge"
-            class="year-hover-card-badge"
-            :class="`year-hover-card-badge-${hoverCard.badgeTone || 'gray'}`"
-          >
-            {{ hoverCard.badge }}
-          </span>
-          <span
-            v-if="hoverCard.secondaryBadge"
-            class="year-hover-card-badge"
-            :class="`year-hover-card-badge-${hoverCard.secondaryBadgeTone || 'gray'}`"
-          >
-            {{ hoverCard.secondaryBadge }}
-          </span>
-        </div>
-      </div>
-
-      <div class="year-hover-card-grid">
-        <template v-for="row in hoverCard.rows" :key="row.label">
-          <div v-if="row.value !== undefined && row.value !== null && row.value !== ''" class="year-hover-card-label">
-            {{ row.label }}
-          </div>
-          <div v-if="row.value !== undefined && row.value !== null && row.value !== ''" class="year-hover-card-value truncate">
-            {{ row.value }}
-          </div>
-        </template>
-      </div>
-
-      <div v-if="hoverCard.note" class="year-hover-card-note">
-        {{ hoverCard.note }}
-      </div>
-    </div>
-  </Teleport>
+  <YearHoverCard ref="yearHoverCard" />
 
   <ShiftAssignmentDialog
     v-model="showShiftAssignmentDialog"
@@ -604,7 +550,7 @@
 
 <script setup lang="ts">
 import { coalesceResource } from "../utils/coalesceResource";
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import colors from 'tailwindcss/colors'
 import { MultiSelect, createResource, Icon } from 'frappe-ui'
 import type { Dayjs } from 'dayjs'
@@ -615,6 +561,7 @@ import type { EmployeeFilters, ShiftFilters } from '../views/MonthView.vue'
 import ShiftAssignmentDialog from './ShiftAssignmentDialog.vue'
 import ProjectSpanDialog from './ProjectSpanDialog.vue'
 import LeaveApplicationDialog from './LeaveApplicationDialog.vue'
+import YearHoverCard, { type HoverCard, type HoverCardRow } from './YearHoverCard.vue'
 import type { ProjectShiftAssignmentDefaults } from '../types/shiftAssignment'
 
 type Color =
@@ -808,7 +755,6 @@ type YearEventsResponse = {
   timesheet_days?: TimesheetDays
 }
 
-const emit = defineEmits<{ (e: 'hscroll', left: number): void }>()
 const employeeScroller = ref<HTMLDivElement | null>(null)
 const projectScroller = ref<HTMLDivElement | null>(null)
 
@@ -879,39 +825,7 @@ const suppressNextCellClick = ref(false)
 let suppressClickTimer: number | null = null
 let dragPreviewElement: HTMLDivElement | null = null
 
-type HoverCardRow = {
-  label: string
-  value?: string | number | null
-}
-
-type HoverCard = {
-  type: 'shift' | 'project' | 'leave' | 'day-marker' | 'employee'
-  x?: number
-  y?: number
-  kicker: string
-  title: string
-  subtitle?: string
-  badge?: string
-  badgeTone?: 'green' | 'red' | 'gray' | 'blue' | 'yellow'
-  secondaryBadge?: string
-  secondaryBadgeTone?: 'green' | 'red' | 'gray' | 'blue' | 'yellow'
-  accent?: string
-  rows: HoverCardRow[]
-  note?: string
-}
-
-const hoverCard = shallowRef<HoverCard | null>(null)
-const hoverCardElement = ref<HTMLDivElement | null>(null)
-
-type HoverPointer = {
-  clientX: number
-  clientY: number
-}
-
-let hoverPositionFrame = 0
-let pendingHoverPointer: HoverPointer | null = null
-let hoverHideTimer: number | null = null
-let activeHoverKey = ''
+const yearHoverCard = ref<InstanceType<typeof YearHoverCard>>()
 const htmlPlainTextCache = new Map<string, string>()
 
 const LEFT_COLUMN_WIDTH = 300
@@ -951,31 +865,33 @@ const pendingProjectDateUpdate = ref<ProjectSpanDateUpdateParams | null>(null)
 
 let tableResizeStartY = 0
 let tableResizeStartProjectHeight = 0
-let syncingHorizontalScroll = false
+let horizontalScrollLeft = 0
+const lastScrollLeft = new WeakMap<HTMLElement, number>()
+
+function setHorizontalScroll(left: number) {
+  horizontalScrollLeft = left
+  for (const scroller of [projectScroller.value, employeeScroller.value]) {
+    if (!scroller) continue
+    if (scroller.scrollLeft !== left) scroller.scrollLeft = left
+    // Read back the actual position: different vertical scrollbars can clamp
+    // the two panels to slightly different positions at the end of the year.
+    lastScrollLeft.set(scroller, scroller.scrollLeft)
+  }
+}
+
+// Projects can mount after the employee table's first scroll-to-today, or after
+// a live refresh. Align newly mounted panels without resetting the visible date.
+watch([projectScroller, employeeScroller], () => setHorizontalScroll(horizontalScrollLeft), { flush: 'post' })
 
 function syncHorizontalScroll(source: 'project' | 'employee') {
   const sourceScroller = source === 'project' ? projectScroller.value : employeeScroller.value
-  const targetScroller = source === 'project' ? employeeScroller.value : projectScroller.value
-
   if (!sourceScroller) return
 
   const left = sourceScroller.scrollLeft
-
-  if (syncingHorizontalScroll) {
-    emit('hscroll', left)
-    return
-  }
-
-  if (targetScroller && Math.abs(targetScroller.scrollLeft - left) > 1) {
-    syncingHorizontalScroll = true
-    targetScroller.scrollLeft = left
-
-    window.requestAnimationFrame(() => {
-      syncingHorizontalScroll = false
-    })
-  }
-
-  emit('hscroll', left)
+  // Ignore only an unchanged position (a mirrored or vertical-only event).
+  // A frame-wide lock drops newer input and lets delayed peer events rewind it.
+  if (lastScrollLeft.get(sourceScroller) === left) return
+  setHorizontalScroll(left)
 }
 
 function clampProjectTableHeight(height: number) {
@@ -1103,9 +1019,6 @@ const todayOverlayStyle = computed(() => ({
   width: `${DAY_COLUMN_WIDTH}px`,
 }))
 
-const hoverCardStyle = computed(() => ({
-  '--year-hover-accent': hoverCard.value?.accent || 'rgb(59 130 246)',
-}))
 
 const employeeSearchOptions = computed(() => {
   return props.employees.map((employee) => ({
@@ -2908,120 +2821,21 @@ function stopProjectSpanDrag() {
 }
 
 
-function getHoverPointer(event: MouseEvent): HoverPointer {
-  return {
-    clientX: event.clientX,
-    clientY: event.clientY,
-  }
-}
-
-function applyHoverCardPosition(pointer: HoverPointer) {
-  if (!hoverCard.value || !hoverCardElement.value) return
-
-  const padding = 12
-  const cursorOffset = 14
-  const fallbackCardWidth = 340
-  const fallbackCardHeight = hoverCard.value.type === 'project' ? 168 : hoverCard.value.type === 'leave' ? 210 : hoverCard.value.type === 'employee' ? 280 : 240
-  const cardWidth = hoverCardElement.value.offsetWidth || fallbackCardWidth
-  const cardHeight = hoverCardElement.value.offsetHeight || fallbackCardHeight
-  const maxLeft = Math.max(padding, window.innerWidth - cardWidth - padding)
-  const maxTop = Math.max(padding, window.innerHeight - cardHeight - padding)
-
-  let x = pointer.clientX + cursorOffset
-  if (x + cardWidth + padding > window.innerWidth) {
-    x = pointer.clientX - cardWidth - cursorOffset
-  }
-
-  let y = pointer.clientY + cursorOffset
-  if (y + cardHeight + padding > window.innerHeight) {
-    y = pointer.clientY - cardHeight - cursorOffset
-  }
-
-  const clampedX = Math.min(Math.max(padding, x), maxLeft)
-  const clampedY = Math.min(Math.max(padding, y), maxTop)
-
-  hoverCardElement.value.style.transform = `translate3d(${clampedX}px, ${clampedY}px, 0)`
-}
-
-function scheduleHoverCardPosition(event: MouseEvent) {
-  if (!hoverCard.value) return
-
-  pendingHoverPointer = getHoverPointer(event)
-  if (hoverPositionFrame) return
-
-  hoverPositionFrame = window.requestAnimationFrame(() => {
-    hoverPositionFrame = 0
-    if (pendingHoverPointer) applyHoverCardPosition(pendingHoverPointer)
-    pendingHoverPointer = null
-  })
-}
-
-function cancelScheduledHoverClear() {
-  if (hoverHideTimer !== null) {
-    window.clearTimeout(hoverHideTimer)
-    hoverHideTimer = null
-  }
-}
-
+// The child owns tooltip state so crossing dates never rerenders the year grid.
 function setHoverCard(key: string, card: HoverCard, event: MouseEvent) {
-  cancelScheduledHoverClear()
-
-  const pointer = getHoverPointer(event)
-  const cardAlreadyMounted = Boolean(hoverCard.value && hoverCardElement.value)
-
-  if (activeHoverKey === key && hoverCard.value) {
-    pendingHoverPointer = pointer
-    if (hoverCardElement.value) applyHoverCardPosition(pointer)
-    return
-  }
-
-  activeHoverKey = key
-
-  // Move the existing mounted card before swapping its content. This makes rapid
-  // project/shift switching feel instant instead of waiting for the next render.
-  if (cardAlreadyMounted) {
-    applyHoverCardPosition(pointer)
-  }
-
-  hoverCard.value = card
-
-  if (hoverCardElement.value) {
-    pendingHoverPointer = pointer
-    window.requestAnimationFrame(() => {
-      if (pendingHoverPointer) applyHoverCardPosition(pendingHoverPointer)
-      pendingHoverPointer = null
-    })
-  } else {
-    nextTick(() => applyHoverCardPosition(pointer))
-  }
-}
-
-function positionHoverCard(event: MouseEvent) {
-  scheduleHoverCardPosition(event)
+  yearHoverCard.value?.setHoverCard(key, card, event)
 }
 
 function moveHoverCard(event: MouseEvent) {
-  scheduleHoverCardPosition(event)
+  yearHoverCard.value?.moveHoverCard(event)
 }
 
 function scheduleClearHoverCard(delay = 90) {
-  cancelScheduledHoverClear()
-  hoverHideTimer = window.setTimeout(() => {
-    clearHoverCard()
-  }, delay)
+  yearHoverCard.value?.scheduleClearHoverCard(delay)
 }
 
 function clearHoverCard() {
-  cancelScheduledHoverClear()
-
-  if (hoverPositionFrame) {
-    window.cancelAnimationFrame(hoverPositionFrame)
-    hoverPositionFrame = 0
-  }
-
-  activeHoverKey = ''
-  pendingHoverPointer = null
-  hoverCard.value = null
+  yearHoverCard.value?.clearHoverCard()
 }
 
 function compactDateRange(startDate?: string | null, endDate?: string | null) {
@@ -3385,10 +3199,7 @@ function scrollToToday() {
   const leftOffset = 4 * DAY_COLUMN_WIDTH
   const targetLeft = Math.max(0, targetTodayIndex * DAY_COLUMN_WIDTH - leftOffset)
 
-  if (projectScroller.value) projectScroller.value.scrollLeft = targetLeft
-  if (employeeScroller.value) employeeScroller.value.scrollLeft = targetLeft
-
-  emit('hscroll', targetLeft)
+  setHorizontalScroll(targetLeft)
   return true
 }
 
@@ -4457,163 +4268,6 @@ defineExpose({ events, scrollToToday, liveBusy, refreshLiveProjectDetails })
   color: rgb(14 165 233);
 }
 
-
-.year-hover-card {
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 45;
-  width: 340px;
-  transform: translate3d(-9999px, -9999px, 0);
-  will-change: transform;
-  max-width: calc(100vw - 24px);
-  pointer-events: none;
-  border: 1px solid rgb(209 213 219);
-  border-left: 4px solid var(--year-hover-accent, rgb(59 130 246));
-  border-radius: 10px;
-  background: rgb(255 255 255);
-  box-shadow: 0 18px 40px rgb(15 23 42 / 0.18), 0 4px 12px rgb(15 23 42 / 0.1);
-  color: rgb(31 41 55);
-  max-height: calc(100vh - 24px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  contain: layout paint style;
-  backface-visibility: hidden;
-}
-
-.year-hover-card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  border-bottom: 1px solid rgb(229 231 235);
-  background: linear-gradient(90deg, rgb(249 250 251), rgb(255 255 255));
-  padding: 10px 12px 8px;
-}
-
-.year-hover-card-kicker {
-  color: rgb(107 114 128);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.year-hover-card-title {
-  margin-top: 4px;
-  color: rgb(17 24 39);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.year-hover-card-subtitle {
-  margin-top: 3px;
-  color: rgb(75 85 99);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.2;
-}
-
-.year-hover-card-badge-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  margin-left: 12px;
-}
-
-.year-hover-card-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: max-content;
-  border-radius: 9999px;
-  padding: 4px 8px;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.year-hover-card-badge-green {
-  background: rgb(220 252 231);
-  color: rgb(22 101 52);
-}
-
-.year-hover-card-badge-red {
-  background: rgb(254 226 226);
-  color: rgb(153 27 27);
-}
-
-.year-hover-card-badge-blue {
-  background: rgb(219 234 254);
-  color: rgb(30 64 175);
-}
-
-.year-hover-card-badge-yellow {
-  background: rgb(254 249 195);
-  color: rgb(113 63 18);
-}
-
-.year-hover-card-badge-gray {
-  background: rgb(243 244 246);
-  color: rgb(55 65 81);
-}
-
-.year-hover-card-grid {
-  display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
-  gap: 5px 10px;
-  padding: 10px 12px;
-}
-
-.year-hover-card-label {
-  color: rgb(107 114 128);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-.year-hover-card-value {
-  color: rgb(31 41 55);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.year-hover-card-project .year-hover-card-value {
-  white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-}
-
-.year-hover-card-note {
-  margin: 0 12px 12px;
-  border: 1px solid rgb(254 202 202);
-  border-radius: 8px;
-  background: rgb(254 242 242);
-  padding: 8px;
-  color: rgb(127 29 29);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.35;
-  white-space: pre-line;
-}
-
-.year-hover-card-leave .year-hover-card-note {
-  border-color: rgb(251 207 232);
-  background: rgb(253 242 248);
-  color: rgb(157 23 77);
-}
-
-.year-hover-card-day-marker .year-hover-card-note {
-  border-color: rgb(191 219 254);
-  background: rgb(239 246 255);
-  color: rgb(30 64 175);
-}
 
 .year-project-span-date-dragging {
   position: relative;
