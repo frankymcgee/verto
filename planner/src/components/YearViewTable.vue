@@ -1,12 +1,8 @@
 <template>
+  <PlannerTableSurface>
   <div
     class="year-roster-shell flex flex-col gap-0"
-    :class="[
-      loading && 'animate-pulse pointer-events-none',
-      showShiftAssignmentDialog && 'year-dialog-open',
-      showProjectSpanDialog && 'year-dialog-open',
-      showLeaveApplicationDialog && 'year-dialog-open',
-    ]"
+    :class="loading && 'animate-pulse pointer-events-none'"
     :style="maxHeightPx ? { height: maxHeightPx + 'px' } : {}"
   >
     <!-- Annual project / planning view. This is intentionally separate from employees. -->
@@ -512,7 +508,7 @@
       </div>
     </section>
   </div>
-
+  </PlannerTableSurface>
 
   <YearHoverCard ref="yearHoverCard" />
 
@@ -562,6 +558,7 @@ import ShiftAssignmentDialog from './ShiftAssignmentDialog.vue'
 import ProjectSpanDialog from './ProjectSpanDialog.vue'
 import LeaveApplicationDialog from './LeaveApplicationDialog.vue'
 import YearHoverCard, { type HoverCard, type HoverCardRow } from './YearHoverCard.vue'
+import PlannerTableSurface from './PlannerTableSurface.vue'
 import type { ProjectShiftAssignmentDefaults } from '../types/shiftAssignment'
 
 type Color =
@@ -3502,6 +3499,7 @@ defineExpose({ events, scrollToToday, liveBusy, refreshLiveProjectDetails })
   position: sticky;
   left: 0;
   z-index: 10;
+  background-color: rgb(255 255 255);
 }
 
 .year-left-header {
@@ -4028,14 +4026,6 @@ defineExpose({ events, scrollToToday, liveBusy, refreshLiveProjectDetails })
   border-left-color: rgb(156 163 175) !important;
 }
 
-
-.year-dialog-open .year-left-col,
-.year-dialog-open .year-left-header,
-.year-dialog-open .year-month-header,
-.year-dialog-open .year-day-header,
-.year-dialog-open .year-today-overlay {
-  z-index: 0 !important;
-}
 
 .year-employee-search-header {
   height: var(--year-left-header-height, 104px) !important;

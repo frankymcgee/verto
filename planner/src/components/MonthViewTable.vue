@@ -1,4 +1,5 @@
 <template>
+  <PlannerTableSurface>
   <div
     ref="scroller"
     class="rounded-6 border overflow-auto"
@@ -256,6 +257,7 @@
       </tbody>
     </table>
   </div>
+  </PlannerTableSurface>
 
   <LeaveApplicationDialog
     ref="leaveApplicationDialog"
@@ -290,6 +292,7 @@ import { employeeAccentColor } from "../utils/employeeAppearance";
 import { EmployeeFilters, ShiftFilters } from "../views/MonthView.vue";
 import ShiftAssignmentDialog from "./ShiftAssignmentDialog.vue";
 import LeaveApplicationDialog from "./LeaveApplicationDialog.vue";
+import PlannerTableSurface from "./PlannerTableSurface.vue";
 
 interface Holiday {
   holiday: string;
