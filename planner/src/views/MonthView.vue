@@ -538,6 +538,7 @@ const employees = coalesceResource(createListResource({
     "last_name",
     "department",
     "designation",
+    "employment_type",
     "image",
   ],
   filters: employeeFilters,

@@ -4,6 +4,7 @@ import json
 import frappe
 
 from verto.api import planner
+from verto.api.planner_employee_colours import COLOUR_FIELD
 from verto.api.planner_realtime import can_subscribe
 
 MAX_BATCH_SIZE = 20
@@ -15,6 +16,7 @@ REFERENCES = {
     "department": ("Department", ["name", "company"], 10000),
     "branch": ("Branch", ["name"], 1000),
     "designation": ("Designation", ["name"], 1000),
+    "employment_type": ("Employment Type", ["name", COLOUR_FIELD], 1000),
     "shift_type": ("Shift Type", ["name"], 1000),
     "shift_location": ("Shift Location", ["name"], 1000),
 }
@@ -46,6 +48,13 @@ def _read_result(callback):
         return {"error": {"exc_type": "ServerError", "message": "Unable to load planner data. Please retry."}}
     finally:
         frappe.local.message_log = previous_messages
+
+
+def _reference_options(doctype, fields, limit):
+    if doctype == "Employment Type" and not frappe.get_meta(doctype).has_field(COLOUR_FIELD):
+        # A site that has not migrated yet can still use the blue fallback.
+        fields = ["name"]
+    return _list(doctype=doctype, fields=fields, order_by="name asc", limit_page_length=limit)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -89,9 +98,8 @@ def get_bootstrap(sections=None):
     if "references" in sections:
         result["references"] = {}
         for key, (doctype, fields, limit) in REFERENCES.items():
-            include(key, lambda d=doctype, f=fields, n=limit: _list(
-                doctype=d, fields=f, order_by="name asc", limit_page_length=n,
-            ), [], result["references"], error_key=f"references.{key}")
+            include(key, lambda d=doctype, f=fields, n=limit: _reference_options(d, f, n),
+                    [], result["references"], error_key=f"references.{key}")
     if "projects" in sections:
         include("projects", lambda: _list(
             doctype="Project", fields=["name", "project_name"],

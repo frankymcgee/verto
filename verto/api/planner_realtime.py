@@ -20,6 +20,7 @@ DOCTYPE_SCOPES = {
     "ToDo": ("projects",),
     "Customer": ("projects",),
     "Employee": ("employees", "roster"),
+    "Employment Type": ("references",),
     "Department": ("references", "employees"),
     "Designation": ("references", "employees"),
     "Branch": ("references", "employees"),

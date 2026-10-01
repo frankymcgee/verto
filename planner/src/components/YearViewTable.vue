@@ -442,7 +442,7 @@
             <tr v-for="employee in visibleEmployees" :key="employee.name" class="year-employee-row">
               <td
                 class="year-left-col year-employee-name-cell border-b border-r bg-white"
-                :style="{ boxShadow: `inset 4px 0 0 ${employeeAccentColor}` }"
+                :style="{ boxShadow: `inset 4px 0 0 ${employeeAccentColor(employee)}` }"
                 @mouseenter="showEmployeeNameHover(employee, $event)"
                 @mousemove="moveHoverCard"
                 @mouseleave="() => scheduleClearHoverCard()"
@@ -552,7 +552,7 @@ import { MultiSelect, createResource, Icon } from 'frappe-ui'
 import type { Dayjs } from 'dayjs'
 
 import { dayjs, raiseToast } from '../utils'
-import { employeeAccentColor } from '../utils/employeeAppearance'
+import { useEmployeeAppearance } from '../utils/employeeAppearance'
 import type { EmployeeFilters, ShiftFilters } from '../views/MonthView.vue'
 import ShiftAssignmentDialog from './ShiftAssignmentDialog.vue'
 import ProjectSpanDialog from './ProjectSpanDialog.vue'
@@ -580,6 +580,7 @@ type Employee = {
   first_name?: string
   last_name?: string
   designation?: string
+  employment_type?: string | null
   department?: string
   branch?: string
   company?: string
@@ -765,6 +766,7 @@ const props = defineProps<{
 }>()
 
 const loading = ref(true)
+const { employeeAccentColor } = useEmployeeAppearance()
 const employeeSearch = ref<string[]>([])
 const projectCollapsed = ref(false)
 const projectBirdsEye = ref(false)
@@ -1711,6 +1713,7 @@ function employeeExtraTooltipRows(employee: Employee): HoverCardRow[] {
 
 function showEmployeeNameHover(employee: Employee, event: MouseEvent) {
   const details = mergedEmployeeDetails(employee)
+  const currentEmployee = () => props.employees.find(row => row.name === employee.name) || employee
 
   setHoverCard(
     `employee:${employee.name}`,
@@ -1721,9 +1724,10 @@ function showEmployeeNameHover(employee: Employee, event: MouseEvent) {
       subtitle: [details.designation, details.department].filter(Boolean).join(' · '),
       badge: details.status || 'Employee',
       badgeTone: employeeStatusBadgeTone(employee),
-      accent: employeeAccentColor,
+      get accent() { return employeeAccentColor(currentEmployee()) },
       rows: [
         { label: 'Employee ID', value: details.name },
+        { label: 'Employment Type', get value() { return currentEmployee().employment_type } },
         { label: 'Employee Number', value: details.employee_number },
         { label: 'Company', value: details.company },
         { label: 'Branch', value: details.branch },

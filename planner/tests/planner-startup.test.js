@@ -87,6 +87,7 @@ describe('Planner HTTP request budget', () => {
     ])
     const reads = batchCalls()[0].params.requests
     expect(reads.filter(read => read.params.doctype === 'Employee')).toHaveLength(1)
+    expect(reads.find(read => read.params.doctype === 'Employee').params.fields).toContain('employment_type')
     expect(reads.filter(read => read.params.doctype === 'Project')).toHaveLength(view === 'Month' ? 1 : 0)
     expect(reads.find(read => read.method.includes(view === 'Month' ? 'get_events' : 'get_year_events')).params.employee_filters.company).toBe('MSS')
     expect(wrapper.findAllComponents(ShiftDialog).length).toBeGreaterThanOrEqual(2)
