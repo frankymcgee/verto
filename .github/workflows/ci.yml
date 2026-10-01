@@ -11,6 +11,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  planner-ui:
+    runs-on: ubuntu-latest
+    name: Planner UI regressions
+    steps:
+      - name: Checkout Verto
+        uses: actions/checkout@v4
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install planner dependencies
+        working-directory: planner
+        run: |
+          npm install --global yarn@1.22.22
+          yarn install --frozen-lockfile
+      - name: Run planner UI regressions
+        working-directory: planner
+        run: yarn test:ui
+
   validation:
     runs-on: ubuntu-latest
     name: Frappe v16 fresh install validation

@@ -140,7 +140,6 @@
           :employeeFilters="employeeFilters"
           :shiftFilters="shiftFilters"
           :maxHeightPx="tableHeight"
-          @hscroll="hScroll = $event"
         />
 
         <div v-else class="py-40 text-center">Please select a company.</div>
@@ -272,7 +271,7 @@ const projectFilters = reactive<{ company?: string; shifts_filled?: 0 | 1 }>(
 let roToolbar: ResizeObserver | null = null;
 let roFilters: ResizeObserver | null = null;
 let roTimeline: ResizeObserver | null = null;
-let todayScrollTimers: number[] = [];
+let todayScrollFrame: number | null = null;
 
 const activeViewLabel = computed(() => {
   if (!plannerViewReady.value) return "Loading...";
@@ -296,36 +295,26 @@ function setViewMode(mode: ViewMode) {
     return;
   }
 
-  clearTodayScrollTimers();
+  cancelTodayScroll();
   viewMode.value = mode;
   hScroll.value = 0;
 }
 
-function clearTodayScrollTimers() {
-  todayScrollTimers.forEach((timer) => window.clearTimeout(timer));
-  todayScrollTimers = [];
+function cancelTodayScroll() {
+  if (todayScrollFrame !== null) window.cancelAnimationFrame(todayScrollFrame);
+  todayScrollFrame = null;
 }
 
 async function scrollYearViewToToday() {
   await nextTick();
-  clearTodayScrollTimers();
+  cancelTodayScroll();
+  if (!shellRef.value || viewMode.value !== "year") return;
 
-  const runScroll = () => {
+  todayScrollFrame = window.requestAnimationFrame(() => {
+    todayScrollFrame = null;
     if (viewMode.value !== "year") return;
     yearViewTable.value?.scrollToToday?.();
-  };
-
-  window.requestAnimationFrame(() => {
-    runScroll();
     updateLayoutMeasurements();
-  });
-
-  [80, 180, 350, 700, 1200, 2000].forEach((delay) => {
-    const timer = window.setTimeout(() => {
-      runScroll();
-      updateLayoutMeasurements();
-    }, delay);
-    todayScrollTimers.push(timer);
   });
 }
 
@@ -502,7 +491,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  clearTodayScrollTimers();
+  cancelTodayScroll();
   unobserveHeights();
   window.removeEventListener("resize", onWindowResize);
 });

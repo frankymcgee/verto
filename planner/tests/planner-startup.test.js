@@ -25,7 +25,7 @@ import Header from '../src/components/MonthViewHeader.vue'
 import ShiftDialog from '../src/components/ShiftAssignmentDialog.vue'
 import { plannerRequest } from '../src/utils/requestCoordinator'
 import { usePlannerBootstrap } from '../src/utils/bootstrap'
-import { raiseToast } from '../src/utils'
+import { dayjs, raiseToast } from '../src/utils'
 vi.mock('../src/utils', async original => ({ ...await original(), raiseToast: vi.fn() }))
 
 let wrapper, defaultView, deniedProjects
@@ -104,6 +104,19 @@ describe('Planner HTTP request budget', () => {
     const reads = batchCalls().at(-1).params.requests
     expect(reads.filter(read => read.params.doctype === 'Employee')).toHaveLength(1)
     expect(reads.find(read => read.params.doctype === 'Employee').params.filters.company).toBe('DG')
+  })
+
+  it('does not snap back to today after the user starts scrolling the annual timeline', async () => {
+    await open('Annual')
+    await settle(40)
+    const scroller = wrapper.find('.year-roster-scroller').element
+    scroller.scrollLeft = 840
+    scroller.dispatchEvent(new Event('scroll'))
+    await settle(2200)
+    expect(scroller.scrollLeft).toBe(840)
+    const today = wrapper.findAll('button').find(button => button.text() === 'Today')
+    await today.trigger('click'); await settle(40)
+    expect(scroller.scrollLeft).toBe(Math.max(0, dayjs().diff(dayjs().startOf('year'), 'day') * 28 - 112))
   })
 
   it('batches reconnect recovery and applies roster event bursts in one data request', async () => {
