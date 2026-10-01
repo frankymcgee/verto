@@ -73,6 +73,9 @@ def import_inx_export(file_name, dry_run=True, expected_sha256=None):
     try:
         for record in sorted(records, key=lambda row: row["source_key"]):
             _upsert(record, file_doc.file_url)
+        # Saving an Attach field can update this File through Frappe's attachment hook.
+        # Refresh that timestamp before saving the final restricted attachment.
+        file_doc.reload()
         # The uploaded workbook inherits the restricted source record's attachment permissions.
         file_doc.attached_to_doctype = SOURCE_DOCTYPE
         file_doc.attached_to_name = records[0]["source_key"]

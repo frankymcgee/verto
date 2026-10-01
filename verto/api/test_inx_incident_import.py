@@ -1,5 +1,6 @@
 import hashlib
 from datetime import datetime
+from io import BytesIO
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
@@ -8,14 +9,18 @@ from frappe.tests import IntegrationTestCase
 
 from verto.api import inx_incident_import as importer
 from verto.api.mobile import voice_jha_incidents
-from verto.safety.inx_import import parse_rows, source_fingerprint
+from verto.safety.inx_import import SHEET_NAME, parse_rows, source_fingerprint
+
+
+def synthetic_export_rows(reference):
+    return [
+        ['Reference', 'Event Date', 'Short Observation', 'Detailed Observation', 'Immediate Action Taken', 'Status', 'Closed Out Date'],
+        [reference, '06/01/2025 03:30', 'Hand caught between flanges', 'Hand entered a pinch point.', 'Stopped the task.', 'Closed', datetime(2025, 1, 7, 10, 5, 7, 123000)],
+    ]
 
 
 def synthetic_export(reference='TEST-INX-101'):
-    return parse_rows([
-        ['Reference', 'Event Date', 'Short Observation', 'Detailed Observation', 'Immediate Action Taken', 'Status', 'Closed Out Date'],
-        [reference, '06/01/2025 03:30', 'Hand caught between flanges', 'Hand entered a pinch point.', 'Stopped the task.', 'Closed', datetime(2025, 1, 7, 10, 5, 7, 123000)],
-    ])
+    return parse_rows(synthetic_export_rows(reference))
 
 
 class TestINXImportEndpoint(TestCase):
@@ -65,6 +70,77 @@ class TestINXImportEndpoint(TestCase):
 
 
 class IntegrationTestINXIncidentImport(IntegrationTestCase):
+    def _upload_workbook(self):
+        from openpyxl import Workbook
+
+        references = [f'TEST-INX-{frappe.generate_hash(length=10)}' for _ in range(2)]
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = SHEET_NAME
+        sheet.append(synthetic_export_rows(references[0])[0])
+        for reference in references:
+            sheet.append(synthetic_export_rows(reference)[1])
+        content = BytesIO()
+        workbook.save(content)
+        workbook.close()
+        uploaded = frappe.get_doc({
+            'doctype': 'File', 'file_name': f'{references[0]}.xlsx',
+            'is_private': 1, 'content': content.getvalue(),
+        }).insert()
+        keys = [synthetic_export(reference)['records'][0]['source_key'] for reference in references]
+        return uploaded, keys
+
+    def test_private_workbook_import_handles_automatic_attachment_updates(self):
+        uploaded, keys = self._upload_workbook()
+        preview = importer.import_inx_export(uploaded.name)
+        self.assertEqual((preview['row_count'], preview['new_sources'], preview['new_lessons']), (2, 2, 2))
+        self.assertFalse(frappe.db.get_value('File', uploaded.name, 'attached_to_name'))
+
+        result = importer.import_inx_export(uploaded.name, dry_run=False, expected_sha256=preview['file_sha256'])
+        self.assertFalse(result['dry_run'])
+        uploaded.reload()
+        self.assertEqual(uploaded.is_private, 1)
+        self.assertEqual(uploaded.attached_to_doctype, importer.SOURCE_DOCTYPE)
+        self.assertEqual(uploaded.attached_to_name, keys[0])
+        self.assertEqual(uploaded.attached_to_field, 'source_file')
+        for key in keys:
+            source = frappe.get_doc(importer.SOURCE_DOCTYPE, key)
+            lesson = frappe.get_doc(importer.LEARNING_DOCTYPE, key)
+            self.assertEqual(source.source_file, uploaded.file_url)
+            self.assertEqual(lesson.available_for_jha, 0)
+            self.assertEqual(lesson.source_review_required, 1)
+
+        attachments = frappe.get_all('File', filters={'file_url': uploaded.file_url},
+                                     fields=['is_private', 'attached_to_doctype', 'attached_to_name'])
+        self.assertTrue(attachments)
+        for attachment in attachments:
+            self.assertEqual(attachment.is_private, 1)
+            self.assertEqual(attachment.attached_to_doctype, importer.SOURCE_DOCTYPE)
+            self.assertIn(attachment.attached_to_name, keys)
+
+        repeated = importer.import_inx_export(uploaded.name, dry_run=False, expected_sha256=preview['file_sha256'])
+        self.assertEqual((repeated['new_sources'], repeated['new_lessons'], repeated['unchanged_sources']), (0, 0, 2))
+
+    def test_final_file_save_failure_rolls_back_attachments_and_allows_retry(self):
+        uploaded, keys = self._upload_workbook()
+        preview = importer.import_inx_export(uploaded.name)
+        with patch('frappe.core.doctype.file.file.File.save', side_effect=RuntimeError('Synthetic attachment failure')):
+            with self.assertRaisesRegex(RuntimeError, 'Synthetic attachment failure'):
+                importer.import_inx_export(uploaded.name, dry_run=False, expected_sha256=preview['file_sha256'])
+
+        for key in keys:
+            self.assertFalse(frappe.db.exists(importer.SOURCE_DOCTYPE, key))
+            self.assertFalse(frappe.db.exists(importer.LEARNING_DOCTYPE, key))
+        uploaded.reload()
+        self.assertEqual(uploaded.is_private, 1)
+        self.assertFalse(uploaded.attached_to_doctype)
+        self.assertFalse(uploaded.attached_to_name)
+        self.assertFalse(uploaded.attached_to_field)
+        self.assertEqual(frappe.db.count('File', {'file_url': uploaded.file_url}), 1)
+
+        retried = importer.import_inx_export(uploaded.name, dry_run=False, expected_sha256=preview['file_sha256'])
+        self.assertEqual((retried['new_sources'], retried['new_lessons']), (2, 2))
+
     def test_repeat_import_preserves_curation_and_changed_source_withdraws_it(self):
         reference = f'TEST-INX-{frappe.generate_hash(length=10)}'
         record = synthetic_export(reference)['records'][0]
