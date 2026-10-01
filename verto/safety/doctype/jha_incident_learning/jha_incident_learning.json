@@ -10,9 +10,15 @@
   "source_key",
   "title",
   "incident_date",
+  "incident_datetime",
+  "source_event_type",
+  "source_event_sub_type",
+  "source_event_status",
   "site_name",
   "available_for_jha",
+  "source_review_required",
   "incident_summary",
+  "immediate_actions",
   "risk_section",
   "critical_risks",
   "mechanisms",
@@ -23,7 +29,10 @@
   "recommended_controls",
   "search_text",
   "indexed_critical_risks",
-  "indexed_mechanisms"
+  "indexed_mechanisms",
+  "inx_source_section",
+  "inx_source",
+  "inx_source_fingerprint"
  ],
  "fields": [
   {
@@ -67,6 +76,31 @@
    "label": "Incident Date"
   },
   {
+   "fieldname": "incident_datetime",
+   "fieldtype": "Datetime",
+   "label": "INX Event Date and Time",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_event_type",
+   "fieldtype": "Data",
+   "label": "Source Event Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_event_sub_type",
+   "fieldtype": "Data",
+   "label": "Source Event Sub Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_event_status",
+   "fieldtype": "Data",
+   "label": "Source Incident Status",
+   "read_only": 1,
+   "description": "The incident status does not establish action completion or control effectiveness."
+  },
+  {
    "fieldname": "site_name",
    "fieldtype": "Data",
    "label": "Source Site"
@@ -77,13 +111,28 @@
    "label": "Available for JHA",
    "default": "1",
    "in_list_view": 1,
-   "description": "Enable this crew-facing incident lesson for PERI. Exclude personal identifiers and confidential raw investigation material."
+   "description": "Enable the reviewed crew-facing lesson for PERI. Remove personal identifiers and medical details. INX imports remain disabled until reviewed."
+  },
+  {
+   "fieldname": "source_review_required",
+   "fieldtype": "Check",
+   "label": "INX Source Requires Review",
+   "read_only": 1,
+   "in_list_view": 1,
+   "description": "Review the restricted INX source, update the crew-facing lesson and enable Available for JHA."
   },
   {
    "fieldname": "incident_summary",
    "fieldtype": "Small Text",
    "label": "What Happened",
-   "reqd": 1
+   "reqd": 0,
+   "mandatory_depends_on": "eval:doc.available_for_jha"
+  },
+  {
+   "fieldname": "immediate_actions",
+   "fieldtype": "Small Text",
+   "label": "Immediate Response Recorded",
+   "description": "Reviewed crew-facing immediate response. Keep treatment and initial response separate from investigation actions and preventive controls."
   },
   {
    "fieldname": "risk_section",
@@ -150,6 +199,28 @@
    "label": "Indexed Exposure Mechanisms",
    "hidden": 1,
    "read_only": 1
+  },
+  {
+   "fieldname": "inx_source_section",
+   "fieldtype": "Section Break",
+   "label": "Restricted INX Source",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "inx_source",
+   "fieldtype": "Link",
+   "options": "JHA INX Incident",
+   "label": "INX Source Record",
+   "read_only": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "inx_source_fingerprint",
+   "fieldtype": "Data",
+   "label": "INX Source Fingerprint",
+   "read_only": 1,
+   "hidden": 1,
+   "permlevel": 1
   }
  ],
  "links": [],
@@ -175,6 +246,12 @@
    "role": "All",
    "read": 1,
    "print": 1
+  },
+  {
+   "role": "System Manager",
+   "permlevel": 1,
+   "read": 1,
+   "write": 1
   }
  ],
  "sort_field": "modified",

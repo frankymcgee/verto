@@ -45,4 +45,16 @@ describe('Voice JHA incident evidence', () => {
     expect(wrapper.find('img').exists()).toBe(false)
     expect(wrapper.text()).toContain('<img src=x onerror=alert(1)>')
   })
+  it('keeps an immediate response and closed incident separate from investigation actions', () => {
+    const wrapper = mount(JhaIncidentLearning, { props: { searches: [search([{
+      ...incident, actions: [], actions_available: false, investigation_findings: '',
+      recommended_controls: '', immediate_actions: 'Stopped the task and secured the area', source_event_status: 'Closed',
+    }])] } })
+    expect(wrapper.text()).toContain('Immediate response recorded')
+    expect(wrapper.text()).toContain('Stopped the task and secured the area')
+    expect(wrapper.text()).toContain('Source incident status: Closed')
+    expect(wrapper.text()).toContain('does not verify action completion or control effectiveness')
+    expect(wrapper.text()).toContain('Investigation actions were not recorded in this dataset')
+    expect(wrapper.text()).not.toContain('Controls recorded in the investigation')
+  })
 })

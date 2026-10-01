@@ -77,6 +77,16 @@ class TestIncidentRetrieval(TestCase):
         self.assertEqual(evidence['actions'], [])
         self.assertEqual(evidence['investigation_findings'], '')
 
+    def test_raw_inx_source_is_excluded_and_immediate_response_is_separate(self):
+        self.get_list.return_value = [dict(incident(), immediate_actions='Secured the area', source_event_status='Closed',
+            detailed_observation='Restricted source narrative', moderator_comment='Restricted comment', inx_source='SOURCE')]
+        evidence = incidents.find_incident_learning('Pinch points')['incidents'][0]
+        self.assertEqual(evidence['immediate_actions'], 'Secured the area')
+        self.assertEqual(evidence['source_event_status'], 'Closed')
+        self.assertFalse(evidence['actions_available'])
+        for field in ('detailed_observation', 'moderator_comment', 'inx_source'):
+            self.assertNotIn(field, evidence)
+
     def test_context_fallback_requires_two_matching_words(self):
         row = incident()
         row.update(critical_risks='', mechanisms='', search_text='pump alignment')
@@ -211,10 +221,13 @@ class TestIncidentRetrieval(TestCase):
 class TestIncidentImport(TestCase):
     def document(self, **values):
         doc = Mock()
-        for key, value in dict(source_system=' INX InControl ', source_reference=' TEST-101 ', title='Flange alignment',
+        defaults = dict(source_system=' INX InControl ', source_reference=' TEST-101 ', title='Flange alignment',
                                incident_summary='Finger crushed between pump flanges', critical_risks='', mechanisms='',
-                               recommended_controls='Inspect lifting gear', **values).items():
+                               recommended_controls='Inspect lifting gear', available_for_jha=1)
+        defaults.update(values)
+        for key, value in defaults.items():
             setattr(doc, key, value)
+        doc.get.side_effect = lambda key: vars(doc).get(key)
         doc.get_doc_before_save.return_value = None
         doc._source_key.side_effect = lambda: JHAIncidentLearning._source_key(doc)
         return doc
@@ -246,6 +259,13 @@ class TestIncidentImport(TestCase):
         JHAIncidentLearning.validate(doc)
         self.assertNotIn('Pinch Points', doc.indexed_mechanisms)
         self.assertIn('Loss of Containment', doc.indexed_mechanisms)
+
+    def test_incomplete_imported_lesson_cannot_be_enabled(self):
+        doc = self.document(incident_summary='')
+        with self.assertRaises(frappe.ValidationError):
+            JHAIncidentLearning.validate(doc)
+        doc.available_for_jha = 0
+        JHAIncidentLearning.validate(doc)
 
 
 class TestIncidentPermissions(TestCase):
