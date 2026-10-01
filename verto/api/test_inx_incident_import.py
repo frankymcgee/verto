@@ -87,14 +87,14 @@ class IntegrationTestINXIncidentImport(IntegrationTestCase):
         lesson.available_for_jha = 1
         lesson.save()
         self.assertEqual(lesson.source_review_required, 0)
-        approved_modified = lesson.modified
+        approved_modified = str(lesson.modified)
         source.reload()
         self.assertEqual(str(source.closed_out_datetime), '2025-01-07 10:05:07.123000')
         source.save()
         importer._upsert(record, None)
         lesson.reload()
         self.assertEqual(lesson.available_for_jha, 1)
-        self.assertEqual(lesson.modified, approved_modified)
+        self.assertEqual(str(lesson.modified), approved_modified)
         self.assertEqual(lesson.recommended_controls, 'Reviewed alignment tooling.')
         changed = dict(record, detailed_observation='Unexpected movement trapped a hand.')
         changed['source_fingerprint'] = source_fingerprint(changed)
