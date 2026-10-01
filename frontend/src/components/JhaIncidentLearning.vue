@@ -24,12 +24,18 @@ defineProps<{ searches?: Record<string, any>[] }>()
       <article v-for="incident in search.incidents || []" :key="incident.name" class="mt-3 rounded-7 bg-surface-gray-1 p-3">
         <a :href="incident.record_url" target="_blank" rel="noopener" class="break-words text-sm-medium text-blue-700 underline">{{ incident.source_system }} · {{ incident.source_reference }}</a>
         <p class="mt-1 text-xs text-ink-gray-5">{{ [incident.incident_date, incident.site_name].filter(Boolean).join(' · ') }}</p>
+        <p v-if="incident.source_event_status" class="mt-1 text-xs text-ink-gray-5">Source incident status: {{ incident.source_event_status }}. This does not verify action completion or control effectiveness.</p>
         <p class="mt-2 text-sm-medium text-ink-gray-9">{{ incident.title }}</p>
         <p class="mt-1 whitespace-pre-wrap text-sm leading-5 text-ink-gray-7">{{ incident.incident_summary }}</p>
         <p v-if="incident.matched_on?.mechanisms?.length" class="mt-2 text-xs text-ink-gray-6">Matching mechanism: {{ incident.matched_on.mechanisms.join(' · ') }}</p>
         <p v-if="incident.source_changed" class="mt-2 text-xs text-amber-800">The incident record has changed since this lookup. Discuss the updated lesson.</p>
         <p v-if="incident.evidence_excerpt" class="mt-2 text-xs text-ink-gray-5">Evidence excerpts are shown. Open the incident record for the full investigation details.</p>
 
+        <div v-if="incident.immediate_actions" class="mt-3">
+          <p class="text-xs-semibold text-ink-gray-8">Immediate response recorded</p>
+          <p class="mt-1 whitespace-pre-wrap text-sm leading-5 text-ink-gray-7">{{ incident.immediate_actions }}</p>
+          <p class="mt-1 text-xs text-ink-gray-5">Immediate response is separate from investigation actions and preventive controls.</p>
+        </div>
         <div v-if="incident.investigation_findings" class="mt-3">
           <p class="text-xs-semibold text-ink-gray-8">Investigation findings</p>
           <p class="mt-1 whitespace-pre-wrap text-sm leading-5 text-ink-gray-7">{{ incident.investigation_findings }}</p>

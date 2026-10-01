@@ -1,0 +1,229 @@
+{
+ "actions": [],
+ "creation": "2026-10-01 09:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "source_reference",
+  "source_key",
+  "event_datetime",
+  "event_type",
+  "event_sub_type",
+  "event_status",
+  "workgroup",
+  "re_workgroup",
+  "location",
+  "country",
+  "observations_section",
+  "short_observation",
+  "detailed_observation",
+  "immediate_actions",
+  "review_section",
+  "moderator_comment",
+  "review_date",
+  "reviewed_date",
+  "review_summary",
+  "closed_out_datetime",
+  "suggestions_section",
+  "suggested_critical_risks",
+  "suggested_mechanisms",
+  "import_section",
+  "source_file",
+  "imported_at",
+  "source_fingerprint"
+ ],
+ "fields": [
+  {
+   "fieldname": "source_reference",
+   "fieldtype": "Data",
+   "label": "INX Reference",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source_key",
+   "fieldtype": "Data",
+   "label": "Source Key",
+   "unique": 1,
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "event_datetime",
+   "fieldtype": "Datetime",
+   "label": "Event Date",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "event_type",
+   "fieldtype": "Data",
+   "label": "Event Type",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "event_sub_type",
+   "fieldtype": "Data",
+   "label": "Event Sub Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "event_status",
+   "fieldtype": "Data",
+   "label": "INX Incident Status",
+   "read_only": 1,
+   "description": "The incident status is not an investigation action status."
+  },
+  {
+   "fieldname": "workgroup",
+   "fieldtype": "Data",
+   "label": "Workgroup",
+   "read_only": 1
+  },
+  {
+   "fieldname": "re_workgroup",
+   "fieldtype": "Data",
+   "label": "RE Workgroup Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Data",
+   "label": "Location",
+   "read_only": 1
+  },
+  {
+   "fieldname": "country",
+   "fieldtype": "Data",
+   "label": "Country",
+   "read_only": 1
+  },
+  {
+   "fieldname": "observations_section",
+   "fieldtype": "Section Break",
+   "label": "INX Observations"
+  },
+  {
+   "fieldname": "short_observation",
+   "fieldtype": "Long Text",
+   "label": "Short Observation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "detailed_observation",
+   "fieldtype": "Long Text",
+   "label": "Detailed Observation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "immediate_actions",
+   "fieldtype": "Long Text",
+   "label": "Immediate Action Taken",
+   "read_only": 1
+  },
+  {
+   "fieldname": "review_section",
+   "fieldtype": "Section Break",
+   "label": "INX Review and Closure"
+  },
+  {
+   "fieldname": "moderator_comment",
+   "fieldtype": "Long Text",
+   "label": "Moderator Comment",
+   "read_only": 1
+  },
+  {
+   "fieldname": "review_date",
+   "fieldtype": "Datetime",
+   "label": "Review Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reviewed_date",
+   "fieldtype": "Datetime",
+   "label": "Reviewed Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "review_summary",
+   "fieldtype": "Long Text",
+   "label": "Review Summary",
+   "read_only": 1
+  },
+  {
+   "fieldname": "closed_out_datetime",
+   "fieldtype": "Datetime",
+   "label": "Closed Out Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "suggestions_section",
+   "fieldtype": "Section Break",
+   "label": "Suggested Search Tags"
+  },
+  {
+   "fieldname": "suggested_critical_risks",
+   "fieldtype": "Small Text",
+   "label": "Suggested Critical Risk Categories",
+   "read_only": 1,
+   "description": "Phrase matches from observations only. Review these against the source before using them in the crew lesson."
+  },
+  {
+   "fieldname": "suggested_mechanisms",
+   "fieldtype": "Small Text",
+   "label": "Suggested Exposure Mechanisms",
+   "read_only": 1
+  },
+  {
+   "fieldname": "import_section",
+   "fieldtype": "Section Break",
+   "label": "Import Details"
+  },
+  {
+   "fieldname": "source_file",
+   "fieldtype": "Attach",
+   "label": "Private INX Export",
+   "read_only": 1
+  },
+  {
+   "fieldname": "imported_at",
+   "fieldtype": "Datetime",
+   "label": "Imported At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_fingerprint",
+   "fieldtype": "Data",
+   "label": "Source Fingerprint",
+   "read_only": 1,
+   "hidden": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-10-01 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "JHA INX Incident",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "sort_field": "event_datetime",
+ "sort_order": "DESC",
+ "track_changes": 0,
+ "autoname": "field:source_key",
+ "naming_rule": "By fieldname",
+ "title_field": "source_reference"
+}
