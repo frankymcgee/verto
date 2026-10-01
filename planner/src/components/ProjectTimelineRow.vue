@@ -1,4 +1,5 @@
 <template>
+  <PlannerTableSurface>
   <div ref="root">
     <div
       ref="scroller"
@@ -176,6 +177,7 @@
       </table>
     </div>
   </div>
+  </PlannerTableSurface>
 </template>
 
 <script setup lang="ts">
@@ -184,6 +186,7 @@ import { computed, ref, watch, onMounted, onBeforeUnmount } from "vue";
 import { Icon, FormControl, Popover, createListResource } from "frappe-ui";
 import { Dayjs } from "dayjs";
 import { dayjs, raiseToast } from "../utils";
+import PlannerTableSurface from "./PlannerTableSurface.vue";
 
 const showAllProjects = ref(false);
 /**
