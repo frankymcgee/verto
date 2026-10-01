@@ -198,6 +198,8 @@ default_log_clearing_doctypes = {
 }
 
 override_whitelisted_methods = {
+    "frappe.desk.form.load.getdoc": "verto.api.inx_incident_sanitisation.get_learning_document",
+    "frappe.desk.form.load.get_docinfo": "verto.api.inx_incident_sanitisation.get_learning_docinfo",
     "frappe.apps.get_apps": "verto.default_apps.get_apps",
     "frappe.apps.set_app_as_default": "verto.default_apps.set_app_as_default",
     "frappe.geo.utils.get_coords": "verto.geo.utils.verto_get_coords",

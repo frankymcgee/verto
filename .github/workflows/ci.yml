@@ -157,8 +157,10 @@ jobs:
         run: |
           ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_jha_risk_signals.py'
           ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_inx_import.py'
+          ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_inx_sanitisation.py'
           node --test apps/verto/tests/inx-import-ui.test.mjs
           bench --site test_site run-tests --app verto --module verto.api.test_inx_incident_import --skip-before-tests
+          bench --site test_site run-tests --app verto --module verto.api.test_inx_incident_sanitisation --skip-before-tests
           bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_incidents --skip-before-tests
           bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_live --skip-before-tests
           cd apps/verto/frontend
