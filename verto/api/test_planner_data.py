@@ -14,6 +14,7 @@ class TestPlannerData(TestCase):
             patch.object(frappe, 'local', SimpleNamespace(message_log=[])),
             patch.object(frappe, 'call', side_effect=lambda fn, **kwargs: fn(**kwargs)),
             patch.object(frappe, 'log_error'),
+            patch.object(frappe, 'get_meta', return_value=SimpleNamespace(has_field=lambda field: True)),
         ]
         for context in patches:
             context.start()
@@ -97,7 +98,7 @@ class TestPlannerData(TestCase):
         self.assertNotIn('never send', json.dumps(data))
         doc.check_permission.assert_called_once_with('read')
         doc.apply_fieldlevel_read_permissions.assert_called_once()
-        self.assertEqual(read.call_count, 7)
+        self.assertEqual(read.call_count, 8)
         self.assertTrue(all(call.kwargs['limit_page_length'] > 0 for call in read.call_args_list))
         self.assertIn('company', next(call.kwargs['fields'] for call in read.call_args_list if call.kwargs['doctype'] == 'Department'))
 

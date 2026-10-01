@@ -35,10 +35,12 @@ def after_migrate():
 def ensure_verto_setup():
     from verto.access import ensure_access_roles_and_profiles
     from verto.api.planner_staffing import ensure_staffing_fields
+    from verto.api.planner_employee_colours import ensure_employee_colour_field
 
     results = {
         "access_profiles": ensure_access_roles_and_profiles(),
         "planner_staffing": ensure_staffing_fields(),
+        "planner_employee_colours": ensure_employee_colour_field(),
         "settings": False,
         "integration_defaults": False,
         "pwa_manifest": False,

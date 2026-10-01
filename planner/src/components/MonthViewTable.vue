@@ -40,7 +40,7 @@
               employeeSearch?.includes(employee?.name)
             "
             class="px-2 py-7 z-[5]"
-            :style="{ boxShadow: `inset 4px 0 0 ${employeeAccentColor}` }"
+            :style="{ boxShadow: `inset 4px 0 0 ${employeeAccentColor(employee)}` }"
             :class="{ 'border-t': rowIdx }"
           >
             <div class="flex" :class="!employee.designation && 'items-center'">
@@ -288,7 +288,7 @@ import { Avatar, MultiSelect, Icon, createResource } from "frappe-ui";
 import { Dayjs } from "dayjs";
 
 import { dayjs, raiseToast } from "../utils";
-import { employeeAccentColor } from "../utils/employeeAppearance";
+import { useEmployeeAppearance } from "../utils/employeeAppearance";
 import { EmployeeFilters, ShiftFilters } from "../views/MonthView.vue";
 import ShiftAssignmentDialog from "./ShiftAssignmentDialog.vue";
 import LeaveApplicationDialog from "./LeaveApplicationDialog.vue";
@@ -376,15 +376,16 @@ function onHScroll() {
 
 const props = defineProps<{
   firstOfMonth: Dayjs;
-  employees: {
+  employees: ({
     [K in "name" | "employee_name" | "designation" | "image"]: string;
-  }[];
+  } & { employment_type?: string | null })[];
   employeeFilters: { [K in keyof EmployeeFilters]?: string };
   shiftFilters: { [K in keyof ShiftFilters]?: string };
   maxHeightPx?: number;
 }>();
 
 const loading = ref(true);
+const { employeeAccentColor } = useEmployeeAppearance();
 const isDragging = ref(false);
 const employeeSearch = ref<string[]>([]);
 const shiftAssignment = ref<string>();
