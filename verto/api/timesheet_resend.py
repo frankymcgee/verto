@@ -87,11 +87,20 @@ def send_grouped_weekly_timesheets(project_id=None, week_start=None):
 
     names = [ts.name for ts in timesheets]
     summary = automate.get_grouped_week_summary(timesheets)
-    signing_url = automate.get_grouped_timesheet_signing_url(names)
     raw_project = timesheets[0].project_name or project.project_name or project.name
     display_project = html.escape(raw_project)
 
-    content_html = f"""
+    savepoint_name = "before_grouped_historical_timesheet_resend"
+
+    try:
+        frappe.db.savepoint(savepoint_name)
+        from verto.api.timesheet_approval import create_request, lock_project, record_approval_email
+        lock_project(project_id)
+        automate.submit_grouped_timesheets(timesheets)
+        approval_request = create_request(names, email_settings, recipients)
+        signing_url = automate.get_grouped_timesheet_signing_url(names, request_name=approval_request.name)
+
+        content_html = f"""
         <p>Please review the consolidated weekly timesheets for
         <strong>{display_project}</strong>.</p>
         <p><strong>Week Range:</strong>
@@ -100,28 +109,27 @@ def send_grouped_weekly_timesheets(project_id=None, week_start=None):
         <p><strong>Total Hours:</strong> {summary.total_hours} Hours</p>
         <p>The approval page shows Day Shift and Night Shift hours for
         every employee on each day of the week.</p>
-        <p><b><a href="{signing_url}">Click Here to Review and Sign</a></b></p>
+        <p><b><a href="{signing_url}">Click Here to Review, Sign or Reject</a></b></p>
         <p>One signature will approve all unsigned Timesheets displayed
         on the page. Any existing signatures will remain unchanged.</p>
+        <p>If changes are required, select Reject Week and give a reason.
+        Our site team will receive your reason by email.</p>
         <p>If you have any questions or concerns, please contact our site team.</p>
-    """
+        """
 
-    savepoint_name = "before_grouped_historical_timesheet_resend"
-
-    try:
-        frappe.db.savepoint(savepoint_name)
-        automate.submit_grouped_timesheets(timesheets)
-
-        frappe.sendmail(
+        email_queue = frappe.sendmail(
             recipients=recipients,
             subject=(
                 f"Weekly Timesheet Approval - {raw_project} - "
                 f"{summary.start_fmt} to {summary.end_fmt}"
             ),
             message=automate.build_email_body(content_html, email_settings),
-            delayed=False,
-            **sendmail_options,
+            delayed=True,
+            reference_doctype=approval_request.doctype,
+            reference_name=approval_request.name,
+            **{**sendmail_options, "reply_to": approval_request.reply_to_email},
         )
+        record_approval_email(approval_request, email_queue)
 
         frappe.db.commit()
         time.sleep(1)
@@ -153,6 +161,7 @@ def send_grouped_weekly_timesheets(project_id=None, week_start=None):
             "week_start": str(monday),
             "week_end": str(sunday),
             "status": "Sent",
+            "approval_request": approval_request.name,
             "timesheet_count": len(names),
             "employee_count": summary.employee_count,
             "total_hours": summary.total_hours,

@@ -1,0 +1,725 @@
+<style>
+  #grouped-timesheet-approval {
+    --gta-primary: #1f4b74;
+    --gta-primary-dark: #163954;
+    --gta-border: #dce3ea;
+    --gta-muted: #64748b;
+    --gta-ds: #eef7ff;
+    --gta-ns: #f4f0ff;
+    --gta-success: #16794a;
+    --gta-warning: #9a6700;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+    color: #17212b;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  #grouped-timesheet-approval * {
+    box-sizing: border-box;
+  }
+
+  .gta-card {
+    background: #fff;
+    border: 1px solid var(--gta-border);
+    border-radius: 14px;
+    box-shadow: 0 8px 30px rgba(15, 23, 42, 0.07);
+    overflow: hidden;
+  }
+
+  .gta-header {
+    padding: 28px 30px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--gta-primary-dark), var(--gta-primary));
+  }
+
+  .gta-header h1 {
+    margin: 0 0 6px;
+    color: #fff;
+    font-size: 27px;
+    font-weight: 700;
+  }
+
+  .gta-header p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  .gta-body {
+    padding: 28px 30px 32px;
+  }
+
+  .gta-hidden {
+    display: none !important;
+  }
+
+  .gta-loading,
+  .gta-error {
+    padding: 46px 20px;
+    text-align: center;
+  }
+
+  .gta-error {
+    color: #9f1c1c;
+  }
+
+  .gta-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .gta-meta-item {
+    min-height: 78px;
+    padding: 14px 16px;
+    border: 1px solid var(--gta-border);
+    border-radius: 10px;
+    background: #f8fafc;
+  }
+
+  .gta-meta-label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--gta-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .gta-meta-value {
+    display: block;
+    font-size: 16px;
+    font-weight: 650;
+  }
+
+  .gta-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 12px 15px;
+    border: 1px solid #cbd5e1;
+    border-radius: 9px;
+    background: #f8fafc;
+  }
+
+  .gta-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .gta-status-awaiting {
+    color: #754c00;
+    background: #fff3cd;
+  }
+
+  .gta-status-signed {
+    color: #0b5b36;
+    background: #dff6e9;
+  }
+
+  .gta-status-partial {
+    color: #7a271a;
+    background: #fee4e2;
+  }
+
+  .gta-table-note {
+    margin: 0 0 10px;
+    color: var(--gta-muted);
+    font-size: 13px;
+  }
+
+  .gta-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--gta-border);
+    border-radius: 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .gta-timesheet-table {
+    width: 100%;
+    min-width: 1330px;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+  }
+
+  .gta-timesheet-table th,
+  .gta-timesheet-table td {
+    padding: 10px 8px;
+    border-right: 1px solid var(--gta-border);
+    border-bottom: 1px solid var(--gta-border);
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .gta-timesheet-table tr > *:last-child {
+    border-right: 0;
+  }
+
+  .gta-timesheet-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .gta-timesheet-table thead th {
+    color: #334155;
+    background: #f1f5f9;
+    font-weight: 700;
+  }
+
+  .gta-timesheet-table thead tr:first-child th {
+    border-bottom-color: #cbd5e1;
+  }
+
+  .gta-employee-head,
+  .gta-employee-cell {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    min-width: 190px;
+    max-width: 230px;
+    text-align: left !important;
+    background: #fff !important;
+    box-shadow: 2px 0 0 rgba(148, 163, 184, 0.18);
+  }
+
+  .gta-employee-head {
+    z-index: 4;
+    background: #f1f5f9 !important;
+  }
+
+  .gta-employee-name {
+    display: block;
+    color: #17212b;
+    font-weight: 650;
+  }
+
+  .gta-role {
+    display: block;
+    margin-top: 2px;
+    overflow: hidden;
+    color: var(--gta-muted);
+    font-size: 11px;
+    font-weight: 400;
+    text-overflow: ellipsis;
+  }
+
+  .gta-ds-cell,
+  .gta-ds-head {
+    background: var(--gta-ds) !important;
+  }
+
+  .gta-ns-cell,
+  .gta-ns-head {
+    background: var(--gta-ns) !important;
+  }
+
+  .gta-total-cell {
+    font-weight: 700;
+    background: #f8fafc;
+  }
+
+  .gta-totals-row td {
+    font-weight: 750;
+    background: #edf2f7;
+  }
+
+  .gta-totals-row .gta-employee-cell {
+    background: #edf2f7 !important;
+  }
+
+  .gta-signature-section {
+    margin-top: 28px;
+    padding-top: 26px;
+    border-top: 1px solid var(--gta-border);
+  }
+
+  .gta-signature-section h2 {
+    margin: 0 0 6px;
+    font-size: 21px;
+  }
+
+  .gta-signature-intro {
+    margin: 0 0 18px;
+    color: var(--gta-muted);
+  }
+
+  .gta-form-row {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 12px;
+    max-width: 790px;
+    margin-bottom: 18px;
+  }
+
+  .gta-field label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  .gta-field input {
+    width: 100%;
+    height: 44px;
+    padding: 9px 11px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    background: #fff;
+  }
+
+  .gta-mode-toggle {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 13px;
+  }
+
+  .gta-mode-toggle label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+  }
+
+  #grouped-signature-pad {
+    display: block;
+    width: min(100%, 680px);
+    height: 220px;
+    border: 1px solid #b8c2cc;
+    border-radius: 8px;
+    background: #fff;
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  .gta-signature-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .gta-typed-signature {
+    max-width: 680px;
+  }
+
+  .gta-typed-signature input {
+    width: 100%;
+    height: 62px;
+    padding: 10px 15px;
+    border: 1px solid #b8c2cc;
+    border-radius: 8px;
+    font-family: "Brush Script MT", "Segoe Script", cursive;
+    font-size: 28px;
+  }
+
+  .gta-submit-row {
+    margin-top: 22px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  #grouped-reject-button,
+  #grouped-rejection-confirm {
+    padding: 10px 18px;
+    border: 1px solid #b42318;
+    border-radius: 7px;
+    color: #b42318;
+    background: #fff;
+    font-weight: 700;
+  }
+
+  #grouped-rejection-confirm {
+    color: #fff;
+    background: #b42318;
+  }
+
+  .gta-status-rejected {
+    color: #912018;
+    background: #fee4e2;
+  }
+
+  .gta-rejected-panel {
+    margin-top: 24px;
+    padding: 18px;
+    border: 1px solid #f7b4aa;
+    border-radius: 9px;
+    background: #fff2f0;
+  }
+
+  .gta-rejection-reason {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .gta-rejection-dialog,
+  .gta-rejection-dialog * {
+    box-sizing: border-box;
+  }
+
+  .gta-rejection-dialog {
+    width: min(560px, calc(100% - 32px));
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    padding: 24px;
+    border: 0;
+    border-radius: 12px;
+    color: #17212b;
+    background: #fff;
+  }
+
+  .gta-rejection-dialog::backdrop {
+    background: rgba(15, 23, 42, 0.55);
+  }
+
+  .gta-rejection-dialog input,
+  .gta-rejection-dialog textarea {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 16px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+  }
+
+  .gta-rejection-dialog label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 650;
+  }
+
+  #grouped-rejection-error {
+    color: #b42318;
+  }
+
+  #grouped-submit-button {
+    min-width: 190px;
+    padding: 10px 18px;
+    border: 0;
+    border-radius: 7px;
+    color: #fff;
+    background: var(--gta-primary);
+    font-weight: 700;
+  }
+
+  #grouped-submit-button:hover {
+    background: var(--gta-primary-dark);
+  }
+
+  #grouped-submit-button:disabled {
+    cursor: wait;
+    opacity: 0.65;
+  }
+
+  .gta-signed-panel,
+  .gta-partial-panel {
+    margin-top: 24px;
+    padding: 18px;
+    border-radius: 9px;
+  }
+
+  .gta-signed-panel {
+    color: #0b5b36;
+    border: 1px solid #a7dfc1;
+    background: #effbf4;
+  }
+
+  .gta-download-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 14px;
+    padding: 16px 18px;
+    border: 1px solid var(--gta-border);
+    border-radius: 9px;
+    background: #f8fafc;
+  }
+
+  .gta-download-section p {
+    margin: 0;
+    color: var(--gta-muted);
+    font-size: 13px;
+  }
+
+  #grouped-download-button {
+    flex: 0 0 auto;
+    padding: 10px 18px;
+    border: 0;
+    border-radius: 7px;
+    color: #fff;
+    background: var(--gta-success);
+    font-weight: 700;
+  }
+
+  #grouped-download-button:hover {
+    background: #0f6139;
+  }
+
+  #grouped-download-button:disabled {
+    cursor: wait;
+    opacity: 0.65;
+  }
+
+  .gta-partial-panel {
+    color: #7a271a;
+    border: 1px solid #f7b4aa;
+    background: #fff2f0;
+  }
+
+  .gta-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: rgba(15, 23, 42, 0.55);
+  }
+
+  .gta-modal-content {
+    width: min(100%, 430px);
+    padding: 24px;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.25);
+    text-align: center;
+  }
+
+  .gta-modal-content p {
+    margin: 0 0 18px;
+  }
+
+  @media (max-width: 900px) {
+    .gta-meta-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .gta-form-row {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 600px) {
+    #grouped-timesheet-approval {
+      padding: 10px 8px 30px;
+    }
+
+    .gta-header,
+    .gta-body {
+      padding: 20px 16px;
+    }
+
+    .gta-header h1 {
+      font-size: 22px;
+    }
+
+    .gta-meta-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .gta-status {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .gta-download-section {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    #grouped-download-button {
+      width: 100%;
+    }
+
+    #grouped-signature-pad {
+      height: 180px;
+    }
+  }
+
+  @media print {
+    #grouped-timesheet-approval {
+      max-width: none;
+      padding: 0;
+    }
+
+    .gta-card {
+      border: 0;
+      box-shadow: none;
+    }
+
+    .gta-signature-section,
+    .gta-submit-row,
+    .gta-download-section,
+    .gta-rejection-dialog,
+    .gta-table-note {
+      display: none !important;
+    }
+
+    .gta-table-wrap {
+      overflow: visible;
+    }
+
+    .gta-timesheet-table {
+      min-width: 0;
+      font-size: 9px;
+    }
+  }
+</style>
+
+<div id="grouped-timesheet-approval">
+  <div class="gta-card">
+    <div class="gta-header">
+      <h1>Weekly Timesheet Approval</h1>
+      <p>Review Day Shift and Night Shift hours for the complete project team.</p>
+    </div>
+
+    <div class="gta-body">
+      <div id="grouped-loading" class="gta-loading">
+        Loading weekly timesheets...
+      </div>
+
+      <div id="grouped-error" class="gta-error gta-hidden"></div>
+
+      <div id="grouped-approval-content" class="gta-hidden">
+        <div class="gta-meta-grid">
+          <div class="gta-meta-item">
+            <span class="gta-meta-label">Project</span>
+            <span id="grouped-project" class="gta-meta-value"></span>
+          </div>
+          <div class="gta-meta-item">
+            <span class="gta-meta-label">Week</span>
+            <span id="grouped-week" class="gta-meta-value"></span>
+          </div>
+          <div class="gta-meta-item">
+            <span class="gta-meta-label">Employees</span>
+            <span id="grouped-employees" class="gta-meta-value"></span>
+          </div>
+          <div class="gta-meta-item">
+            <span class="gta-meta-label">Total Hours</span>
+            <span id="grouped-hours" class="gta-meta-value"></span>
+          </div>
+        </div>
+
+        <div class="gta-status">
+          <span>Client approval status</span>
+          <span id="grouped-status-badge" class="gta-status-badge"></span>
+        </div>
+
+        <p class="gta-table-note">
+          DS = Day Shift &nbsp;&nbsp; NS = Night Shift
+        </p>
+
+        <div class="gta-table-wrap">
+          <table id="grouped-timesheet-table" class="gta-timesheet-table"></table>
+        </div>
+
+        <section id="grouped-signature-section" class="gta-signature-section">
+          <h2>Client Approval</h2>
+          <p class="gta-signature-intro">
+            Your signature will approve every unsigned Timesheet displayed
+            above. Any existing signatures will remain unchanged.
+          </p>
+
+          <div class="gta-form-row">
+            <div class="gta-field">
+              <label for="grouped-full-name">Full name</label>
+              <input id="grouped-full-name" type="text" maxlength="140" autocomplete="name">
+            </div>
+            <div class="gta-field">
+              <label for="grouped-date-signed">Date signed</label>
+              <input id="grouped-date-signed" type="date">
+            </div>
+          </div>
+
+          <div class="gta-mode-toggle">
+            <label>
+              <input type="radio" name="grouped_sig_mode" value="draw" checked>
+              Draw signature
+            </label>
+            <label>
+              <input type="radio" name="grouped_sig_mode" value="type">
+              Type signature
+            </label>
+          </div>
+
+          <div id="grouped-draw-wrapper">
+            <canvas id="grouped-signature-pad" width="900" height="300"></canvas>
+            <div class="gta-signature-actions">
+              <button id="grouped-clear-button" type="button" class="btn btn-default">
+                Clear signature
+              </button>
+            </div>
+          </div>
+
+          <div id="grouped-type-wrapper" class="gta-typed-signature gta-hidden">
+            <input id="grouped-typed-name" type="text" maxlength="140" placeholder="Type your signature">
+            <canvas id="grouped-typed-canvas" width="900" height="300" class="gta-hidden"></canvas>
+          </div>
+
+          <div class="gta-submit-row">
+            <button id="grouped-submit-button" type="button">
+              Approve and Sign Timesheets
+            </button>
+            <button id="grouped-reject-button" type="button" class="gta-hidden">
+              Reject Week
+            </button>
+          </div>
+        </section>
+
+        <div id="grouped-signed-panel" class="gta-signed-panel gta-hidden"></div>
+        <div id="grouped-download-section" class="gta-download-section gta-hidden">
+          <p>
+            Download one ZIP containing a separate signed PDF for every
+            employee Timesheet in this approval.
+          </p>
+          <button id="grouped-download-button" type="button">
+            Download Signed PDFs
+          </button>
+        </div>
+        <div id="grouped-partial-panel" class="gta-partial-panel gta-hidden">
+          Some Timesheets in this group were already signed separately. They
+          will remain unchanged, and the signature below will approve the
+          remaining unsigned Timesheets.
+        </div>
+        <div id="grouped-rejected-panel" class="gta-rejected-panel gta-hidden" role="status">
+          <strong id="grouped-decision-heading"></strong>
+          <p id="grouped-decision-note"></p>
+          <p id="grouped-rejection-by"></p>
+          <p id="grouped-rejection-reason" class="gta-rejection-reason"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<dialog id="grouped-rejection-dialog" class="gta-rejection-dialog" aria-labelledby="grouped-rejection-title">
+  <form id="grouped-rejection-form">
+    <h2 id="grouped-rejection-title">Reject Week</h2>
+    <p>Explain what needs to be corrected. Your reason will be emailed to the site team.</p>
+    <label for="grouped-rejection-name">Full name</label>
+    <input id="grouped-rejection-name" type="text" maxlength="140" autocomplete="name" required>
+    <label for="grouped-rejection-input">Reason for rejection</label>
+    <textarea id="grouped-rejection-input" rows="5" maxlength="5000" required></textarea>
+    <p id="grouped-rejection-error" role="alert"></p>
+    <div class="gta-submit-row">
+      <button id="grouped-rejection-cancel" type="button" class="btn btn-default">Cancel</button>
+      <button id="grouped-rejection-confirm" type="submit">Reject and Send Reason</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="grouped-status-modal" class="gta-modal gta-hidden">
+  <div class="gta-modal-content">
+    <p id="grouped-modal-message"></p>
+    <button id="grouped-modal-close" type="button" class="btn btn-primary">OK</button>
+  </div>
+</div>

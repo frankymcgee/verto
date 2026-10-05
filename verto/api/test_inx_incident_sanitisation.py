@@ -246,7 +246,7 @@ class IntegrationTestINXSanitisation(IntegrationTestCase):
             "data": json.dumps({"changed": [["incident_summary", "Ann Anderson's previous text", "Reviewed text"]]}),
         }).insert()
         service.get_learning_docinfo(doctype=importer.LEARNING_DOCTYPE, name=key)
-        self.assertIn("Ann Anderson", json.dumps(frappe.response["docinfo"]["versions"]))
+        self.assertIn("Ann Anderson", frappe.as_json(frappe.response["docinfo"]["versions"]))
         crew = frappe.get_doc({
             "doctype": "User", "email": f"inx-crew-{frappe.generate_hash(length=10)}@example.test",
             "first_name": "Synthetic Crew", "send_welcome_email": 0,
