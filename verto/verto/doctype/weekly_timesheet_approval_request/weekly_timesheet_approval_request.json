@@ -1,0 +1,234 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:WTA-{#####}",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "project",
+  "project_name",
+  "week_start",
+  "week_end",
+  "status",
+  "request_details",
+  "reply_to_email",
+  "recipient_emails",
+  "approval_email",
+  "timesheet_names",
+  "snapshot",
+  "rejection_details",
+  "rejected_by",
+  "rejected_on",
+  "rejection_reason",
+  "notification_status",
+  "rejection_email",
+  "approval_section",
+  "approved_by",
+  "approved_on",
+  "approval_details",
+  "replacement_section",
+  "superseded_by"
+ ],
+ "fields": [
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project",
+   "reqd": 1,
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "week_start",
+   "fieldtype": "Date",
+   "label": "Week Start",
+   "reqd": 1,
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "week_end",
+   "fieldtype": "Date",
+   "label": "Week End",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Client Decision",
+   "options": "Pending\nApproved\nRejected\nSuperseded",
+   "default": "Pending",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_details",
+   "fieldtype": "Section Break",
+   "label": "Approval Email",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reply_to_email",
+   "fieldtype": "Data",
+   "label": "Original Reply-To Email",
+   "options": "Email",
+   "reqd": 1,
+   "description": "Rejection notifications are sent to this address, captured when the approval email was sent.",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recipient_emails",
+   "fieldtype": "Small Text",
+   "label": "Approval Recipients",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approval_email",
+   "fieldtype": "Link",
+   "label": "Latest Approval Email",
+   "options": "Email Queue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "timesheet_names",
+   "fieldtype": "JSON",
+   "label": "Included Timesheets",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "snapshot",
+   "fieldtype": "JSON",
+   "label": "Requested Week Snapshot",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "rejection_details",
+   "fieldtype": "Section Break",
+   "label": "Client Rejection",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rejected_by",
+   "fieldtype": "Data",
+   "label": "Rejected By",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "rejected_on",
+   "fieldtype": "Datetime",
+   "label": "Rejected On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rejection_reason",
+   "fieldtype": "Long Text",
+   "label": "Rejection Reason",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notification_status",
+   "fieldtype": "Select",
+   "label": "Rejection Email Queueing",
+   "options": "\nQueued\nFailed",
+   "in_list_view": 1,
+   "description": "Queued means the notification was added to Email Queue. Check the linked email for its delivery status.",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rejection_email",
+   "fieldtype": "Link",
+   "label": "Rejection Email",
+   "options": "Email Queue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approval_section",
+   "fieldtype": "Section Break",
+   "label": "Client Approval",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Data",
+   "label": "Approved By",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_on",
+   "fieldtype": "Datetime",
+   "label": "Approved On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approval_details",
+   "fieldtype": "JSON",
+   "label": "Signature Details",
+   "read_only": 1
+  },
+  {
+   "fieldname": "replacement_section",
+   "fieldtype": "Section Break",
+   "label": "Replacement Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "superseded_by",
+   "fieldtype": "Link",
+   "label": "Replaced By",
+   "options": "Weekly Timesheet Approval Request",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "module": "Verto",
+ "name": "Weekly Timesheet Approval Request",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Projects Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Accounts Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

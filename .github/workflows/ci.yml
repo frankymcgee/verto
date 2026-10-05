@@ -173,6 +173,15 @@ jobs:
         run: |
           bench --site test_site run-tests --app verto --module verto.api.mobile.test_timesheet_hour_limits --skip-before-tests
 
+      - name: Verify weekly Timesheet client rejection
+        working-directory: /home/runner/frappe-bench
+        env:
+          CI: 'Yes'
+        run: |
+          bench --site test_site run-tests --app verto --module verto.api.test_timesheet_approval --skip-before-tests
+          cd apps/verto/frontend
+          yarn test:ui tests/weekly-timesheet-approval.test.js
+
       - name: Verify automated Verto setup
         working-directory: /home/runner/frappe-bench
         run: |
