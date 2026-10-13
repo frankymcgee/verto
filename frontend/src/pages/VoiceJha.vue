@@ -127,6 +127,8 @@ const reviewStage = computed(() => [
   'Signed',
   'Review Required - Work Changed',
 ].includes(String(jha.value?.status || '')))
+// Document readiness must not unmount an ongoing call's controls or audio.
+const voiceSessionActive = computed(() => connecting.value || voiceConnected.value || disconnecting.value)
 const canConnectVoice = computed(() => Boolean(
   jha.value?.name &&
   context.value?.realtime_enabled &&
@@ -238,7 +240,7 @@ function setPushToTalkIdleStatus() {
 }
 
 function startPushToTalk(event?: PointerEvent) {
-  if (!voiceConnected.value || connecting.value || disconnecting.value || reviewStage.value || pushToTalkActive.value) return
+  if (!voiceConnected.value || connecting.value || disconnecting.value || pushToTalkActive.value) return
   event?.preventDefault()
   const target = event?.currentTarget as HTMLElement | null
   if (target && event) {
@@ -744,7 +746,7 @@ onBeforeUnmount(() => {
             @updated="handleReviewUpdated"
           />
 
-          <section v-if="!reviewStage" class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
+          <section v-if="!reviewStage || voiceSessionActive" class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
             <div class="flex items-start justify-between gap-3">
               <div><p class="text-base-semibold text-ink-gray-9">Voice discussion</p><p class="mt-1 text-sm text-ink-gray-5">Push-to-talk structured JHA development with PERI</p></div>
               <Badge variant="subtle">{{ voiceConnected ? (processingToolCalls ? 'Updating draft' : (pushToTalkActive ? 'Talking' : 'Mic muted')) : voiceStatus }}</Badge>
@@ -762,6 +764,7 @@ onBeforeUnmount(() => {
               <p class="text-sm-medium text-green-900">PERI is connected · push-to-talk privacy mode</p>
               <p class="mt-1 text-sm text-green-800">{{ voiceStatus }}<span v-if="voiceModel"> · {{ voiceModel }}</span></p>
               <p class="mt-1 text-xs leading-4 text-green-700">The microphone track is muted whenever the button below is not being held. Your browser/device may still show that microphone permission is active while the PERI session remains connected.</p>
+              <p v-if="reviewStage" class="mt-2 text-sm text-green-800">You can keep talking to PERI during review, printing and downloading. Select Disconnect Voice when you are finished.</p>
             </div>
 
             <div v-if="voiceConnected" class="mt-4 flex flex-col items-center">
