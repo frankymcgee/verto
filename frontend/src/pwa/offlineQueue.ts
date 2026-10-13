@@ -370,14 +370,14 @@ export async function getCachedShiftCalendar(startDate: string, endDate: string)
   }
 }
 
-export async function getCachedShiftForDate(date: string) {
+export async function getCachedShiftForDate(date: string, shiftAllocation = '') {
   const calendar = await getCachedShiftCalendar(date, date)
   const payload = calendar?.message
 
   if (!payload) return null
 
   const shift = (payload.shifts || []).find((item: any) => {
-    return shiftOverlapsRange(item, date, date)
+    return (!shiftAllocation || item.name === shiftAllocation) && shiftOverlapsRange(item, date, date)
   })
 
   return {

@@ -173,6 +173,9 @@ scheduler_events = {
         "verto.api.qualifications.send_qualification_expiry_notifications",
     ],
     "cron": {
+        "*/5 * * * *": [
+            "verto.api.mobile.timesheet_reminders.send_shift_missing_hours_reminders",
+        ],
         "0 08 * * *": [
             "verto.api.mobile.global_notifications.send_project_missing_purchase_order_reminders",
         ],

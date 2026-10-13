@@ -303,7 +303,7 @@ async function getOfflinePrefillFallback<T>(url: string): Promise<T | null> {
   setAliases(['date', 'attendance_date', 'timesheet_date'], date)
 
   if (mobileDoctype === 'daily-timesheet' && date) {
-    const cached = await getCachedShiftForDate(date)
+    const cached = await getCachedShiftForDate(date, parsed.searchParams.get('shift_allocation') || '')
     const shift = cached?.shift
 
     if (cached?.user_fullname) {
@@ -313,8 +313,10 @@ async function getOfflinePrefillFallback<T>(url: string): Promise<T | null> {
     if (shift) {
       values.shift_allocation = shift.name || ''
       values.shift_type = shift.shift_type || ''
+      values.shift = shift.shift_type || ''
       values.custom_project = shift.custom_project || ''
-      values.project = shift.custom_project || ''
+      values.project_id = shift.custom_project || ''
+      values.project = shift.custom_project_name || ''
       values.project_name = shift.custom_project_name || ''
       values.custom_project_name = shift.custom_project_name || ''
       values.client = shift.custom_client || ''

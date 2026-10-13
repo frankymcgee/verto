@@ -1301,6 +1301,9 @@ async function saveForm() {
     }
 
     const savedDocument = await saveDocument()
+    if (schema.value?.doctype === 'Daily Timesheet' && !savedDocument.offline_operation_id) {
+      window.dispatchEvent(new Event('verto:timesheet-saved'))
+    }
 
     if (schema.value?.doctype && files.value.length) {
       await uploadFiles(
