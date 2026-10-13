@@ -10,6 +10,7 @@
           <AppHeader />
         </div>
         <OfflineSyncStatus />
+        <MissingHoursReminder />
 
         <main
           ref="mainEl"
@@ -37,6 +38,7 @@ import AppHeader from '../components/AppHeader.vue'
 import BottomTabs from '../components/BottomTabs.vue'
 import AppBrowserDrawer from '../components/AppBrowserDrawer.vue'
 import OfflineSyncStatus from '../components/OfflineSyncStatus.vue'
+import MissingHoursReminder from '../components/MissingHoursReminder.vue'
 import PwaUpdatePrompt from '../components/PwaUpdatePrompt.vue'
 import PwaInstallPrompt from '../components/PwaInstallPrompt.vue'
 import { handleAppBrowserLinkClick } from '../lib/appBrowser'

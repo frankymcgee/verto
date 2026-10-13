@@ -227,7 +227,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Button,
@@ -280,7 +280,14 @@ const router = useRouter()
 const loading = ref(true)
 const error = ref('')
 
-const today = new Date()
+function requestedDate() {
+  const value = router.currentRoute?.value.query.date
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const date = new Date(`${value}T12:00:00`)
+  return !Number.isNaN(date.getTime()) && formatDateString(date) === value ? date : null
+}
+
+const today = requestedDate() || new Date()
 
 const currentMonth = ref(today.getMonth())
 const currentYear = ref(today.getFullYear())
@@ -394,11 +401,15 @@ function isBlank(value?: string | null) {
 function getShiftForDate(date: string) {
   const selected = toDateKey(date)
 
+  const requestedShift = router.currentRoute?.value.query.shift
+  const linked = shifts.value.find((shift) => shift.name === requestedShift
+    && selected >= toDateKey(shift.start_date)
+    && (!shift.end_date || selected <= toDateKey(shift.end_date)))
+  if (linked) return linked
+
   return shifts.value.find((shift) => {
     const start = toDateKey(shift.start_date)
-    const end = toDateKey(shift.end_date || shift.start_date)
-
-    return selected >= start && selected <= end
+    return selected >= start && (!shift.end_date || selected <= toDateKey(shift.end_date))
   })
 }
 
@@ -508,6 +519,7 @@ function createDailyTimesheet(date: string) {
     path: '/new/daily-timesheet',
     query: {
       date,
+      ...(selectedShift.value?.name && !selectedShift.value.is_leave ? { shift_allocation: selectedShift.value.name } : {}),
     },
   })
 }
@@ -581,5 +593,14 @@ onMounted(() => {
 onBeforeUnmount(() => {
   calendarStopped = true
   window.removeEventListener('verto:offline-queue-synced', handleOfflineQueueSynced)
+})
+
+watch(() => router.currentRoute?.value.query.date, () => {
+  const date = requestedDate()
+  if (!date) return
+  currentMonth.value = date.getMonth()
+  currentYear.value = date.getFullYear()
+  selectedDate.value = formatDateString(date)
+  void loadCalendar()
 })
 </script>

@@ -83,6 +83,8 @@
   "vapid_public_key",
   "vapid_private_key",
   "vapid_generated_on",
+  "shift_missing_hours_reminders_enabled",
+  "shift_missing_hours_last_scan",
   "timesheet_reminder_exclusions",
   "ai_photo_analysis_tab",
   "ai_photo_analysis_section",
@@ -336,6 +338,20 @@
    "fieldname": "vapid_generated_on",
    "fieldtype": "Datetime",
    "label": "VAPID Keys Generated On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "shift_missing_hours_reminders_enabled",
+   "fieldtype": "Check",
+   "label": "Remind After Shift",
+   "default": "1",
+   "description": "Notify assigned employees one hour after their Shift Type end time when daily hours are missing. Keep outstanding hours visible in the app and send one follow-up at 09:00 the next day. Timesheet Reminder Exclusions apply."
+  },
+  {
+   "fieldname": "shift_missing_hours_last_scan",
+   "fieldtype": "Datetime",
+   "label": "Last Missing Hours Scan",
+   "hidden": 1,
    "read_only": 1
   },
   {

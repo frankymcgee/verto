@@ -1254,6 +1254,7 @@ async function loadPrefillValues() {
 
   const allowedQueryKeys = [
     'date',
+    'shift_allocation',
     'project',
     'link_task',
     'work_order_number',
@@ -1450,6 +1451,9 @@ async function submitForm() {
     }
 
     const created = await createDocument()
+    if (schema.value?.doctype === 'Daily Timesheet' && !created.offline_operation_id) {
+      window.dispatchEvent(new Event('verto:timesheet-saved'))
+    }
 
     if (schema.value?.doctype && created.name && files.value.length) {
       await uploadFiles(

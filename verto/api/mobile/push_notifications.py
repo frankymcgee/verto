@@ -586,7 +586,7 @@ def _get_timesheet_reminder_exclusions(target_date) -> set[tuple[str, str]]:
     return exclusions
 
 
-def _get_allocated_users_for_date(target_date) -> tuple[dict[str, dict], list[dict]]:
+def _get_allocated_users_for_date(target_date, user=None) -> tuple[dict[str, dict], list[dict]]:
     if not frappe.db.exists("DocType", "Shift Assignment"):
         _log_missing_hours_configuration_error(
             "Shift Assignment is not available; missing-hours reminders were skipped."
@@ -611,6 +611,8 @@ def _get_allocated_users_for_date(target_date) -> tuple[dict[str, dict], list[di
     shift_fields = ["name", "employee"]
     if shift_meta.has_field("employee_name"):
         shift_fields.append("employee_name")
+    if shift_meta.has_field("shift_type"):
+        shift_fields.append("shift_type")
 
     for fieldname in SHIFT_PROJECT_FIELD_CANDIDATES:
         if shift_meta.has_field(fieldname) and fieldname not in shift_fields:
@@ -619,7 +621,6 @@ def _get_allocated_users_for_date(target_date) -> tuple[dict[str, dict], list[di
     shift_filters = {
         "docstatus": 1,
         "start_date": ["<=", target_date],
-        "end_date": [">=", target_date],
     }
     if shift_meta.has_field("status"):
         shift_filters["status"] = "Active"
@@ -627,6 +628,7 @@ def _get_allocated_users_for_date(target_date) -> tuple[dict[str, dict], list[di
     shift_rows = frappe.get_all(
         "Shift Assignment",
         filters=shift_filters,
+        or_filters=[["end_date", ">=", target_date], ["end_date", "is", "not set"]],
         fields=shift_fields,
         limit_page_length=10000,
     )
@@ -643,6 +645,8 @@ def _get_allocated_users_for_date(target_date) -> tuple[dict[str, dict], list[di
     }
     if employee_meta.has_field("status"):
         employee_filters["status"] = "Active"
+    if user:
+        employee_filters["user_id"] = user
 
     employees = frappe.get_all(
         "Employee",
@@ -720,6 +724,9 @@ def _get_allocated_users_for_date(target_date) -> tuple[dict[str, dict], list[di
             {
                 "shift_assignment": _clean(shift.name),
                 "project": project,
+                "shift_type": _clean(shift.get("shift_type")),
+                "employee": _clean(employee.name),
+                "project_name": _clean(shift.get("custom_project_name") or shift.get("project_name")) or project,
             }
         )
 
@@ -748,8 +755,8 @@ def _get_daily_timesheets_with_hours(target_date):
         )
         return None
 
-    fields = ["name", "owner", "duration"]
-    for fieldname in ("employee", "employee_name", "current_user"):
+    fields = ["name", "owner", "duration", "date"]
+    for fieldname in ("employee", "employee_name", "current_user", "shift_allocation", "shift"):
         if timesheet_meta.has_field(fieldname):
             fields.append(fieldname)
 
@@ -883,6 +890,13 @@ def send_previous_day_missing_hours_reminders(target_date=None, dry_run=False):
     site's configured timezone. ``target_date`` and ``dry_run`` are provided so
     administrators can safely verify historical data with ``bench execute``.
     """
+    # The shift-aware replacement shares this existing 09:00 scheduler entry.
+    # Explicit historical-date calls retain the original diagnostic interface.
+    from verto.api.mobile.timesheet_reminders import reminders_enabled, send_next_day_missing_hours_reminders
+
+    if target_date is None and reminders_enabled():
+        return send_next_day_missing_hours_reminders(dry_run=dry_run)
+
     result = get_missing_hours_users(target_date)
     target_date = result["date"]
     missing_users = result["missing_users"]

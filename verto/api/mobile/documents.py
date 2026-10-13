@@ -968,6 +968,7 @@ def get_prefill_values(
     work_order_number=None,
     project_scope_name=None,
     parent_task_name=None,
+    shift_allocation=None,
 ):
     require_login()
 
@@ -1097,6 +1098,25 @@ def get_prefill_values(
 
         if date:
             daily_values["date"] = date
+
+        if shift_allocation:
+            # Reminder links carry the exact allocation. Verify ownership and
+            # date before returning any of its details to the requesting user.
+            selected_shift = frappe.get_doc("Shift Assignment", shift_allocation)
+            work_date = getdate(date or frappe.utils.today())
+            employee_user = frappe.db.get_value("Employee", selected_shift.get("employee"), "user_id")
+            if (employee_user != frappe.session.user or selected_shift.docstatus != 1
+                    or selected_shift.get("status") != "Active"
+                    or getdate(selected_shift.start_date) > work_date
+                    or (selected_shift.get("end_date") and getdate(selected_shift.end_date) < work_date)):
+                frappe.throw("This shift allocation is not available for your timesheet.", frappe.PermissionError)
+            daily_values.update({
+                "shift_allocation": selected_shift.name,
+                "current_user": selected_shift.get("employee_name") or get_user_full_name(),
+                "shift": selected_shift.get("shift_type"),
+                "project_id": selected_shift.get("custom_project"),
+                "project": selected_shift.get("custom_project_name"),
+            })
 
         daily_values = apply_daily_timesheet_defaults(daily_values)
 

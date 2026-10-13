@@ -1,0 +1,107 @@
+{
+ "doctype": "DocType",
+ "name": "Verto Timesheet Reminder",
+ "module": "Verto",
+ "autoname": "field:reminder_key",
+ "naming_rule": "By fieldname",
+ "engine": "InnoDB",
+ "field_order": [
+  "reminder_key",
+  "user",
+  "shift_assignment",
+  "work_date",
+  "due_at",
+  "status",
+  "first_notified_on",
+  "next_day_notified_on",
+  "last_error"
+ ],
+ "fields": [
+  {
+   "fieldname": "reminder_key",
+   "fieldtype": "Data",
+   "label": "Reminder Key",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "User",
+   "read_only": 1,
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "shift_assignment",
+   "fieldtype": "Data",
+   "label": "Shift Assignment",
+   "read_only": 1,
+   "reqd": 1,
+   "description": "Allocation ID retained for audit without preventing cancellation or deletion of the allocation."
+  },
+  {
+   "fieldname": "work_date",
+   "fieldtype": "Date",
+   "label": "Work Date",
+   "read_only": 1,
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "due_at",
+   "fieldtype": "Datetime",
+   "label": "Reminder Due At",
+   "read_only": 1,
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "read_only": 1,
+   "reqd": 1,
+   "default": "Open",
+   "options": "Open\nResolved",
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "first_notified_on",
+   "fieldtype": "Datetime",
+   "label": "First Push Delivered On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "next_day_notified_on",
+   "fieldtype": "Datetime",
+   "label": "Next-Day Push Delivered On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Small Text",
+   "label": "Last Push Error",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "work_date",
+ "sort_order": "DESC",
+ "track_changes": 0,
+ "actions": [],
+ "links": [],
+ "states": []
+}
