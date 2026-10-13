@@ -62,6 +62,10 @@ doctype_js = {
     "Employee": "public/js/employee.js",
 }
 
+doctype_list_js = {
+    "Timesheet": "public/js/internal-timesheet-approval-list.js",
+}
+
 # Installation / migration hardening
 # ----------------------------------
 after_install = [
@@ -113,6 +117,10 @@ has_permission = {
 # Document events
 # ---------------
 doc_events = {
+    "Timesheet": {
+        "before_save": "verto.api.internal_timesheet_approval.invalidate_changed_internal_approval",
+        "before_update_after_submit": "verto.api.internal_timesheet_approval.invalidate_changed_internal_approval",
+    },
     "Daily Timesheet": {
         "on_update": "verto.api.mobile.timesheet_hour_limits.notify_daily_timesheet_hours_exceeded",
     },

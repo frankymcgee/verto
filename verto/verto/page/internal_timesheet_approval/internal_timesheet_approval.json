@@ -1,0 +1,23 @@
+{
+ "doctype": "Page",
+ "name": "internal-timesheet-approval",
+ "page_name": "internal-timesheet-approval",
+ "title": "Internal Timesheet Approval",
+ "module": "Verto",
+ "standard": "Yes",
+ "system_page": 0,
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "HR Manager"
+  },
+  {
+   "role": "Projects Manager"
+  }
+ ]
+}

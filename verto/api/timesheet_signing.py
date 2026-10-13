@@ -122,16 +122,21 @@ def get_timesheet_public(name):
     )
 
 
-@frappe.whitelist()
-def approve_timesheet_with_signature(timesheet, signature_dataurl, approved_by):
-    doc = frappe.get_doc("Timesheet", timesheet)
-    doc.internal_approved = 1
-    doc.employee_approved = approved_by
-    doc.approved_signature = signature_dataurl
-    doc.save(ignore_permissions=True)
-    frappe.db.commit()
+@frappe.whitelist(methods=["POST"])
+def approve_timesheet_with_signature(timesheet, signature_dataurl, approved_by=None):
+    from verto.api import internal_timesheet_approval as internal
 
-    return {"status": "success", "message": f"{timesheet} updated"}
+    # Preserve the existing action for clean records while requiring flagged
+    # entries to be reviewed through the consolidated page. The session owns
+    # the approver identity, and approval remains in the request transaction.
+    review = internal.get_internal_timesheet_review(timesheets=[timesheet])
+    row = review["groups"][0]["rows"][0]
+    if row["flag_count"] and not row["internal_approved"]:
+        frappe.throw("This Timesheet has validation flags. Review it on the Internal Timesheet Approval page before signing.")
+    result = internal.approve_internal_timesheets(
+        selections=[{"name": timesheet, "review_hash": row["review_hash"]}], signature_dataurl=signature_dataurl,
+    )
+    return {**result, "status": "success", "message": f"{timesheet} internally approved"}
 
 
 # -----------------------------------------------------------------------------

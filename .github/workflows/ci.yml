@@ -191,3 +191,12 @@ jobs:
           bench --site test_site execute verto.install.ensure_verto_setup
           bench --site test_site execute verto.runtime_config.get_push_settings_config
           bench --site test_site execute verto.health.collect_system_health
+
+      - name: Verify consolidated internal Timesheet approval
+        working-directory: /home/runner/frappe-bench
+        env:
+          CI: 'Yes'
+        run: |
+          bench --site test_site run-tests --app verto --module verto.api.test_internal_timesheet_approval --skip-before-tests
+          cd apps/verto/frontend
+          yarn test:ui tests/internal-timesheet-approval.test.js
