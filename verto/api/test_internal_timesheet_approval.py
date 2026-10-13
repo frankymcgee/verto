@@ -91,6 +91,17 @@ class TestInternalValidation(TestCase):
                 self.assertEqual(row["flag_count"], 0)
                 self.assertEqual(row["missing_days"], [])
 
+    def test_missing_parent_project_does_not_break_review_or_hide_validation_flags(self):
+        for parent_project, log_project in ((None, "PROJ-1"), (None, None), (None, ""), ("", "PROJ-1"), ("", "")):
+            with self.subTest(parent_project=parent_project, log_project=log_project):
+                self.doc.parent_project = parent_project
+                self.doc.time_logs[0].project = log_project
+                row = self.row()
+                self.assertEqual(row["project"], "")
+                self.assertIn("missing_details", {flag["code"] for flag in row["flags"]})
+                self.assertEqual(len(row["review_hash"]), 64)
+                self.assertEqual(row["review_hash"], self.row()["review_hash"])
+
     def test_both_directions_of_opposite_shift_allocation_are_flagged(self):
         for allocated, declared, start, end in (("FG-NS", "FG-DS", "06:00:00", "18:00:00"), ("FG-DS", "FG-NS", "18:00:00", "06:00:00")):
             self.doc = timesheet(shift=declared, start=start, end=end)
@@ -260,6 +271,23 @@ class TestInternalBulkApproval(TestCase):
         self.assertFalse(self.docs[1].internal_approved)
         self.assertFalse(self.audit)
 
+    def test_missing_parent_project_keeps_limits_and_bulk_review_protection(self):
+        self.docs[0].parent_project = None
+        selected = self.selections()
+        original_maximum = self.context["projects"]["PROJ-1"].max_ds_hrs
+        self.context["projects"]["PROJ-1"].max_ds_hrs = 10
+        with self.assertRaisesRegex(frappe.ValidationError, "changed"):
+            self.approve(selected, acknowledge_flags=1, review_note="Reviewed missing parent project")
+        self.assertFalse(self.docs[0].internal_approved)
+        self.assertFalse(self.docs[1].internal_approved)
+        self.assertFalse(self.audit)
+        self.context["projects"]["PROJ-1"].max_ds_hrs = original_maximum
+        with self.assertRaisesRegex(frappe.ValidationError, "validation flags"):
+            self.approve(self.selections())
+        result = self.approve(self.selections(), acknowledge_flags=1, review_note="Reviewed missing parent project")
+        self.assertEqual(result["approved"], ["TS-1", "TS-2"])
+        self.assertEqual(self.audit[0]["review_note"], "Reviewed missing parent project")
+
     def test_only_selected_records_are_signed_and_cross_checks_use_full_review_scope(self):
         selected = self.selections()[:1]
         self.approve(selected, review_timesheets=[doc.name for doc in self.docs])
@@ -346,6 +374,32 @@ class TestInternalApprovalInvalidation(TestCase):
 
 
 class TestInternalApprovalIntegration(IntegrationTestCase):
+    def test_real_review_with_null_parent_project_retains_stale_limit_protection(self):
+        suffix = frappe.generate_hash(length=10)
+        project = frappe.get_doc(dict(doctype="Project", name="IA-PROJ-" + suffix, project_name="Missing parent test", max_ds_hrs=12))
+        project.db_insert()
+        doc = frappe.get_doc(dict(doctype="Timesheet", name="IA-TS-" + suffix, parent_project=None,
+                                 custom_monday_date="2026-10-12", custom_sunday_date="2026-10-18", start_date="2026-10-12",
+                                 total_hours=12, internal_approved=0))
+        doc.append("time_logs", dict(from_time="2026-10-12 06:00:00", to_time="2026-10-12 18:00:00", hours=12,
+                                     project=project.name, shift_type="DS"))
+        doc.db_insert()
+        for log in doc.time_logs: log.db_insert()
+        self.assertIsNone(frappe.db.get_value("Timesheet", doc.name, "parent_project"))
+        review = internal.get_internal_timesheet_review(timesheets=[doc.name])
+        row = review["groups"][0]["rows"][0]
+        self.assertIn("missing_details", {flag["code"] for flag in row["flags"]})
+        self.assertEqual(row["entries"][0]["maximum"], 12)
+        selected = [{"name": doc.name, "review_hash": row["review_hash"]}]
+        repeated = internal.get_internal_timesheet_review(timesheets=[doc.name])
+        self.assertEqual(row["review_hash"], repeated["groups"][0]["rows"][0]["review_hash"])
+        weekly_review = internal.get_internal_timesheet_review(week_start="2026-10-12")
+        self.assertIn(doc.name, [item["name"] for group in weekly_review["groups"] for item in group["rows"]])
+        frappe.db.set_value("Project", project.name, "max_ds_hrs", 10)
+        with self.assertRaisesRegex(frappe.ValidationError, "changed"):
+            internal.approve_internal_timesheets(selected, SIGNATURE, acknowledge_flags=1, review_note="Checked incomplete record")
+        self.assertFalse(frappe.db.get_value("Timesheet", doc.name, "internal_approved"))
+
     def test_real_review_signature_fields_audit_and_stale_source_protection(self):
         suffix = frappe.generate_hash(length=10)
         project = frappe.get_doc(dict(doctype="Project", name="IA-PROJ-" + suffix, project_name="Internal approval test", max_ds_hrs=12))

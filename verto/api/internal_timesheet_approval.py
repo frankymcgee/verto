@@ -385,10 +385,11 @@ def build_review(docs, context=None):
             row["days"][missing["date"]]["flag_count"] += 1
             row["days"][missing["date"]]["allocations"].append(missing["allocated_shift"])
         sources = [context["daily"].get(log.get("daily_timesheet_id") or log.get("custom_daily_timesheet_id")) for log in doc.time_logs]
+        # Absent Link values are retained in the document/flags, not as project-map keys.
+        project_names = {project for project in [doc.get("parent_project"), *[entry["project"] for entry in row["entries"]]] if project}
         snapshot = {"timesheet": doc.as_dict(), "row": row, "daily": sources,
                     "shifts": [shift for shift in context["shifts"] if shift.get("employee") == doc.get("employee")],
-                    "types": context["types"], "projects": {project: context["projects"].get(project) for project in
-                                                             {doc.get("parent_project"), *[entry["project"] for entry in row["entries"]]}}}
+                    "types": context["types"], "projects": {project: context["projects"].get(project) for project in project_names}}
         row["review_hash"] = hashlib.sha256(json.dumps(snapshot, sort_keys=True, default=str).encode()).hexdigest()
     groups = {}
     for row in rows:
