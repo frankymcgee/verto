@@ -58,6 +58,12 @@ tool results and backend continuations, sends `session.close`, then waits for
 closure with a bounded timeout. No new tools run after close starts. Timeouts
 and unconfirmed closure prompt the crew to reconnect and check the saved draft.
 Leaving the page sends a best-effort close and releases local capture.
+Reaching **Ready for Team Review** keeps the current voice call, push-to-talk,
+audio playback and live transcript available alongside review/sign-on and the
+**Print JHA** / **Download PDF** actions. The facilitator remains available until
+the crew selects **Disconnect Voice** (or leaves the page/the connection closes).
+Ready-for-review JHAs remain read-only to PERI; keeping the call open does not
+reopen drafting or permit automated signatures or approval.
 Neither engine stores raw audio in Verto; Live session recording is disabled
 with `store: false`. The shared structured JHA and existing audit remain saved.
 
@@ -69,6 +75,9 @@ installed OpenAI SDK. No billed OpenAI session is opened by automated tests.
 Tests exercise both typed and legacy SDK request paths. Frontend tests exercise
 both configured engines, consent, push-to-talk, transcripts, restricted tool
 calls, disconnect and administrator changes on the same draft.
+They also exercise the transition to review, both workpack actions, continued
+speech/transcripts/audio playback, later review status changes and explicit
+disconnect or page-exit cleanup.
 
 Before enabling Live for field use, test an actual development-site conversation
 with the configured OpenAI project. Check Quartz/Ripple pronunciation of site

@@ -48,9 +48,14 @@ beforeEach(async () => {
       return { message: { sdp: 'v=0\nanswer', engine: config.engine, model: config.model, configuration: config, jha: snapshot } }
     }
     if (url.includes('execute_voice_jha_tool')) {
-      snapshot = { ...snapshot, hazards_and_controls: [{ name: 'H-1', work_step_sequence: 1, hazard_or_energy_source: 'Pinch points', existing_controls: 'Alignment tool' }] }
+      if (options.body.get('tool_name') === 'mark_ready_for_human_review') {
+        snapshot = { ...snapshot, status: 'Ready for Team Review' }
+      } else if (options.body.get('tool_name') === 'record_hazard_and_control') {
+        snapshot = { ...snapshot, hazards_and_controls: [{ name: 'H-1', work_step_sequence: 1, hazard_or_energy_source: 'Pinch points', existing_controls: 'Alignment tool' }] }
+      }
       return { message: { ok: true, result: { saved: true }, jha: snapshot } }
     }
+    if (url.includes('get_jha_review_state')) return { message: snapshot }
     throw Error('Unexpected API request')
   })
   wrapper = mount(VoiceJha, { global: { stubs: { JhaFacilitationProgress: true, JhaReviewSignoff: true } } })
@@ -156,5 +161,141 @@ describe('Voice JHA configured engine connection', () => {
     await vi.advanceTimersByTimeAsync(15_000)
     expect(track.stop).toHaveBeenCalled()
     expect(wrapper.text()).toContain('did not confirm that the Live session finished')
+  })
+
+  it.each(['live', 'realtime'])('keeps %s speech, audio and transcripts working through print/download until disconnect', async (engine) => {
+    // Exercise the real review component so printing/downloading is part of the
+    // connected flow, including its review-state update back to this page.
+    wrapper.unmount()
+    wrapper = mount(VoiceJha, { global: { stubs: { JhaFacilitationProgress: true, SignatureField: true } } })
+    await flushPromises()
+    await connect(engine)
+    if (engine === 'live') await receive({ type: 'session.started' })
+
+    const pc = connections.at(-1)
+    const audio = wrapper.find('audio').element
+    const remoteStream = new MediaStream()
+    vi.spyOn(audio, 'play').mockResolvedValue()
+    pc.ontrack({ streams: [remoteStream] })
+    expect(audio.srcObject).toBe(remoteStream)
+
+    const execute = async (name, id) => {
+      const item = { type: 'function_call', name, call_id: id, arguments: '{}' }
+      if (engine === 'live') {
+        await receive({ type: 'response.event', delegation_id: 'review', event: { type: 'response.created', response: { id } } })
+        await receive({ type: 'response.event', delegation_id: 'review', event: { type: 'response.output_item.done', item } })
+        await receive({ type: 'response.event', delegation_id: 'review', event: { type: 'response.completed', response: { id, output: [] } } })
+        // Finish the no-tool continuation before the eventual explicit close.
+        await receive({ type: 'response.event', delegation_id: 'review', event: { type: 'response.created', response: { id: `${id}-continued` } } })
+        await receive({ type: 'response.event', delegation_id: 'review', event: { type: 'response.completed', response: { id: `${id}-continued`, output: [] } } })
+      } else {
+        await receive({ ...item, type: 'response.function_call_arguments.done' })
+      }
+    }
+    const talk = wrapper.find('[aria-label="Hold to talk to PERI"]')
+    await talk.trigger('pointerdown', { pointerId: 1 })
+    expect(track.enabled).toBe(true)
+    await execute('mark_ready_for_human_review', 'ready')
+
+    expect(wrapper.text()).toContain('Ready for Team Review')
+    expect(wrapper.find('audio').exists()).toBe(true)
+    expect(wrapper.find('audio').element).toBe(audio)
+    expect(audio.srcObject).toBe(remoteStream)
+    expect(wrapper.find('[aria-label="Release to send voice to PERI"]').element).toBe(talk.element)
+    await talk.trigger('pointerup', { pointerId: 1 })
+    expect(track.enabled).toBe(false)
+    expect(button('Disconnect Voice')).toBeDefined()
+    expect(track.stop).not.toHaveBeenCalled()
+
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    try {
+      await button('Print JHA').trigger('click')
+      await button('Download PDF').trigger('click')
+      expect(open.mock.calls.map(([url]) => new URL(url, 'https://verto.test').pathname)).toEqual([
+        '/printview', '/api/method/frappe.utils.print_format.download_pdf',
+      ])
+      for (const [url] of open.mock.calls) {
+        const query = new URL(url, 'https://verto.test').searchParams
+        expect(query.get('name')).toBe('JHA-1')
+        expect(query.get('format')).toBe('Digital JHA Workpack')
+      }
+    } finally {
+      open.mockRestore()
+    }
+
+    await talk.trigger('pointerdown', { pointerId: 1 })
+    expect(track.enabled).toBe(true)
+    await talk.trigger('pointerup', { pointerId: 1 })
+    expect(track.enabled).toBe(false)
+
+    if (engine === 'live') {
+      await receive({ type: 'session.input_transcript.delta', event_id: 'review-in', delta: 'How do we print it?', start_ms: 100, end_ms: 200 })
+      await receive({ type: 'session.output_transcript.delta', event_id: 'review-out', delta: 'Use Print JHA.', start_ms: 250, end_ms: 300 })
+    } else {
+      await receive({ type: 'conversation.item.input_audio_transcription.completed', transcript: 'How do we print it?' })
+      await receive({ type: 'response.output_audio_transcript.delta', delta: 'Use Print JHA.' })
+      expect(wrapper.text()).toContain('Use Print JHA.')
+      await receive({ type: 'response.output_audio_transcript.done', transcript: 'Use Print JHA.' })
+    }
+    expect(wrapper.text()).toContain('How do we print it?')
+    expect(wrapper.text()).toContain('Use Print JHA.')
+    await execute('get_current_jha_state', 'read-after-ready')
+    expect(apiRequest.mock.calls.filter(([url]) => url.includes('execute_voice_jha_tool'))).toHaveLength(2)
+    expect(sent().some(event => event.type === 'session.close')).toBe(false)
+    expect(pc.channel.close).not.toHaveBeenCalled()
+    expect(wrapper.find('audio').element).toBe(audio)
+
+    // Ending while the talk button is held must also mute/release the track.
+    await talk.trigger('pointerdown', { pointerId: 2 })
+    expect(track.enabled).toBe(true)
+    await button('Disconnect Voice').trigger('click')
+    await flushPromises()
+    expect(track.enabled).toBe(false)
+    if (engine === 'live') {
+      expect(sent().at(-1).type).toBe('session.close')
+      expect(button('Disconnect Voice').attributes('disabled')).toBeDefined()
+      expect(track.stop).not.toHaveBeenCalled()
+      await receive({ type: 'session.closed' })
+    }
+    expect(track.stop).toHaveBeenCalledOnce()
+    expect(pc.channel.close).toHaveBeenCalledOnce()
+    expect(pc.connectionState).toBe('closed')
+    expect(audio.srcObject).toBeNull()
+    expect(button('Disconnect Voice')).toBeUndefined()
+    expect(wrapper.find('[aria-label="Hold to talk to PERI"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('How do we print it?')
+    expect(button('Print JHA')).toBeDefined()
+    expect(button('Download PDF')).toBeDefined()
+  })
+
+  it.each(['Signed', 'Review Required - Work Changed'])('retains the connected facilitator when human review changes the status to %s', async (status) => {
+    await connect('realtime')
+    wrapper.findComponent({ name: 'JhaReviewSignoff' }).vm.$emit('updated', { status })
+    await flushPromises()
+    const talk = wrapper.find('[aria-label="Hold to talk to PERI"]')
+    await talk.trigger('pointerdown', { pointerId: 1 })
+    expect(track.enabled).toBe(true)
+    await talk.trigger('pointerup', { pointerId: 1 })
+    expect(track.enabled).toBe(false)
+    expect(button('Disconnect Voice')).toBeDefined()
+    expect(track.stop).not.toHaveBeenCalled()
+    await button('Disconnect Voice').trigger('click')
+    expect(track.stop).toHaveBeenCalledOnce()
+    expect(button('Connect Voice with PERI')).toBeUndefined()
+  })
+
+  it('releases a ready-for-review Live call when leaving the page', async () => {
+    await connect()
+    await receive({ type: 'session.started' })
+    wrapper.findComponent({ name: 'JhaReviewSignoff' }).vm.$emit('updated', { status: 'Ready for Team Review' })
+    await flushPromises()
+    const pc = connections.at(-1)
+    const voiceChannel = channel()
+    wrapper.unmount()
+    wrapper = null
+    expect(JSON.parse(voiceChannel.send.mock.calls.at(-1)[0])).toMatchObject({ type: 'session.close', event_id: 'jha-leave' })
+    expect(track.stop).toHaveBeenCalledOnce()
+    expect(voiceChannel.close).toHaveBeenCalledOnce()
+    expect(pc.connectionState).toBe('closed')
   })
 })
