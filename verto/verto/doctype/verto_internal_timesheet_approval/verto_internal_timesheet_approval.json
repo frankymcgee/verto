@@ -1,0 +1,93 @@
+{
+ "doctype": "DocType",
+ "name": "Verto Internal Timesheet Approval",
+ "module": "Verto",
+ "autoname": "hash",
+ "engine": "InnoDB",
+ "field_order": [
+  "approved_by",
+  "signer_name",
+  "approved_at",
+  "signature_mode",
+  "signature",
+  "timesheet_names",
+  "review_note",
+  "review_details"
+ ],
+ "fields": [
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approver",
+   "read_only": 1,
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "signer_name",
+   "fieldtype": "Data",
+   "label": "Signatory Name",
+   "read_only": 1,
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "approved_at",
+   "fieldtype": "Datetime",
+   "label": "Approved At",
+   "read_only": 1,
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "signature_mode",
+   "fieldtype": "Select",
+   "label": "Signature Method",
+   "read_only": 1,
+   "options": "draw\ntype",
+   "reqd": 1
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Internal Signature",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "timesheet_names",
+   "fieldtype": "Code",
+   "label": "Approved Timesheets",
+   "read_only": 1,
+   "options": "JSON",
+   "reqd": 1
+  },
+  {
+   "fieldname": "review_note",
+   "fieldtype": "Small Text",
+   "label": "Review Note",
+   "read_only": 1
+  },
+  {
+   "fieldname": "review_details",
+   "fieldtype": "Code",
+   "label": "Reviewed Hours and Validation Flags",
+   "read_only": 1,
+   "options": "JSON",
+   "reqd": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "actions": [],
+ "links": [],
+ "states": []
+}

@@ -37,12 +37,14 @@ def ensure_verto_setup():
     from verto.api.planner_staffing import ensure_staffing_fields
     from verto.api.planner_employee_colours import ensure_employee_colour_field
     from verto.api.timesheet_approval import ensure_approval_page
+    from verto.api.internal_timesheet_approval import ensure_internal_review_page_roles
 
     results = {
         "access_profiles": ensure_access_roles_and_profiles(),
         "planner_staffing": ensure_staffing_fields(),
         "planner_employee_colours": ensure_employee_colour_field(),
         "weekly_timesheet_approval_page": ensure_approval_page(),
+        "internal_timesheet_review_page": ensure_internal_review_page_roles(),
         "settings": False,
         "integration_defaults": False,
         "pwa_manifest": False,
