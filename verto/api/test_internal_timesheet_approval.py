@@ -77,6 +77,20 @@ class TestInternalValidation(TestCase):
         self.assertEqual(row["days"]["2026-10-05"]["ns"], 12)
         self.assertEqual(row["entries"][0]["daily_comments"], "Job complete")
 
+    def test_document_time_logs_classify_day_and_overnight_hours(self):
+        for shift, start, end, expected in (("FG-DS", "06:00:00", "18:00:00", "DS"), ("FG-NS", "18:00:00", "06:00:00", "NS")):
+            with self.subTest(shift=shift):
+                doc = timesheet(shift=shift, start=start, end=end)
+                loaded = context([doc])
+                values = dict(doc.time_logs[0])
+                # Frappe child documents expose get()/attributes, not [] access.
+                doc.time_logs = [SimpleNamespace(**values, get=values.get)]
+                row = internal.build_review([doc], loaded)["groups"][0]["rows"][0]
+                self.assertEqual(row["entries"][0]["elapsed_hours"], 12)
+                self.assertEqual(row["entries"][0]["recorded_shift"], expected)
+                self.assertEqual(row["flag_count"], 0)
+                self.assertEqual(row["missing_days"], [])
+
     def test_both_directions_of_opposite_shift_allocation_are_flagged(self):
         for allocated, declared, start, end in (("FG-NS", "FG-DS", "06:00:00", "18:00:00"), ("FG-DS", "FG-NS", "18:00:00", "06:00:00")):
             self.doc = timesheet(shift=declared, start=start, end=end)

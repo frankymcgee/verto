@@ -188,7 +188,7 @@ def inspect_time_log(doc, log, index, context):
     start = end = None
     try:
         if log.get("from_time") and log.get("to_time"):
-            start, end = get_datetime(log["from_time"]), get_datetime(log["to_time"])
+            start, end = get_datetime(log.get("from_time")), get_datetime(log.get("to_time"))
     except (TypeError, ValueError):
         pass
     actual_kind = "NS" if start and start.time() >= DAY_SHIFT_CUTOFF else "DS" if start else ""
