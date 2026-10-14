@@ -163,7 +163,7 @@ class IntegrationTestJhaStepBriefing(IntegrationTestCase):
         jha.reload()
         self.assertEqual(jha.jha_status, 'Signed')
         self.assertEqual(jha.review_signature, 'original-review')
-        self.assertEqual(jha.modified, original_modified)
+        self.assertEqual(frappe.utils.get_datetime(jha.modified), frappe.utils.get_datetime(original_modified))
 
     def test_real_voice_metadata_lives_on_the_briefing_and_old_revision_cannot_reconnect(self):
         jha, _ = self.make_jha()
