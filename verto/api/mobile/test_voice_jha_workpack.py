@@ -106,6 +106,23 @@ class TestJhaWorkpack(TestCase):
         first = self.resource()['name']; Record.records[0].step_row = 'OTHER'
         with self.assertRaises(frappe.ValidationError): self.resource(request_id='bad', replaces=first)
 
+    def test_draft_step_edits_require_rechecking_and_renumbering_follows_the_exact_step(self):
+        self.jha.jha_status = 'Draft'
+        self.resource(status='Confirmed')
+        self.jha.work_steps[0].sequence = 2
+        self.assertEqual(pack.resource_state(self.jha)[0]['work_step'], 2)
+        self.assertEqual(pack.resource_state(self.jha)[0]['recorded_work_step'], 1)
+        self.assertEqual(pack.resource_state(self.jha)[0]['effective_status'], 'Confirmed')
+        self.jha.work_steps[0].activity = 'Different work scope'
+        self.assertEqual(pack.resource_state(self.jha)[0]['effective_status'], 'Recheck Required')
+
+    def test_supporting_records_for_removed_draft_steps_remain_historical(self):
+        self.jha.jha_status = 'Draft'
+        self.resource(status='Confirmed')
+        self.jha.work_steps = []
+        self.assertTrue(pack.resource_state(self.jha)[0]['historical'])
+        self.assertEqual(pack.outstanding_references(self.jha), [])
+
     def test_photo_evidence_is_private_attached_and_actual_image_data(self):
         image = BytesIO(); Image.new('RGB', (32, 32)).save(image, format='PNG')
         file = Record(doctype='File', name='FILE-1', file_url='/private/files/pump.png', attached_to_doctype=review.JHA_DOCTYPE,

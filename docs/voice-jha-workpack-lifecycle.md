@@ -10,6 +10,8 @@ Pending and Confirmed describe the person's check of the reference. The display 
 
 **Update Supporting Record** appends a replacement and retains the earlier record. Changing a permit/isolation number, linked permit, file or expiry, or withdrawing it, requires JHA change review. Confirming an unchanged reference leaves signed content intact. The **changed work / missing control** checkbox also marks a reviewed JHA Review Required. **Review Reported Changes with PERI** carries the recorded description into the existing separate change-revision process; the crew still confirms placement and reassesses affected steps.
 
+While a draft is developed, a supporting record follows its exact step identity through renumbering. A changed step activity requires a recheck; records for removed steps remain in retained history.
+
 Photos accept JPG, PNG and WebP up to 10 MB / 40 megapixels. Enter a description, upload the photo and add labelled markers by tapping the image. Up to 20 relative-coordinate markers are stored alongside the original private file. Photo files must be readable attachments on that exact JHA. The change review can show photos from earlier revisions with their original revision and step numbers.
 
 Printed workpacks append supporting-record pages in groups of four. They include permit references, recorded state/expiry, recorder/time and annotated photo previews. Long descriptions and marker notes are labelled excerpts; the cover QR opens the full authenticated records. Earlier signed JHA content and signatures are retained.
@@ -46,4 +48,4 @@ Three standalone DocTypes hold these records: JHA Step Resource, JHA Job Templat
 
 Run the normal Verto migration and asset build. Migration creates the DocTypes and updates the workpack print format. Regenerate existing PDFs to include supporting-record pages. Validate the upload/marker workflow, an offline/reconnect observation, template review/reuse and a closeout review on development before field rollout.
 
-CI runs the existing JHA regressions plus 17 new backend unit tests, three Frappe document-lifecycle integration tests and 18 UI/offline regressions. PDF QA includes a nine-record workpack spanning three supporting-record pages with annotated image previews and continuous page numbering.
+CI runs the existing JHA regressions plus 19 new backend unit tests, three Frappe document-lifecycle integration tests and 18 UI/offline regressions. PDF QA includes a nine-record workpack spanning three supporting-record pages with annotated image previews and continuous page numbering.

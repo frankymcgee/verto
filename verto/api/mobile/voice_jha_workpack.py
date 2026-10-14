@@ -115,6 +115,7 @@ def resource_rows(jha):
 
 def resource_state(jha):
     rows = resource_rows(jha)
+    steps = {row.name: row for row in jha.work_steps or []}
     replaced = {row.replaces for row in rows if row.replaces}
     result = []
     for row in rows:
@@ -136,6 +137,17 @@ def resource_state(jha):
                     item["effective_status"] = "Expired"
                 elif source.start and get_datetime(source.start) > now_datetime():
                     item["effective_status"] = "Not Yet Valid"
+        if row.kind in KINDS:
+            step = steps.get(row.step_row)
+            item["recorded_work_step"] = row.work_step
+            if not step:
+                item["historical"] = True
+                item["step_changed"] = True
+            else:
+                item["work_step"] = step.sequence
+                item["step_changed"] = step.activity != row.step_activity
+                if item["step_changed"] and row.status != "Withdrawn":
+                    item["effective_status"] = "Recheck Required"
         # Only expose a file URL while the current user can still read it.
         if row.evidence:
             try:
