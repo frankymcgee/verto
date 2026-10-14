@@ -250,8 +250,15 @@ class IntegrationTestJhaFieldwork(IntegrationTestCase):
         self.assertEqual(check.revision, jha.revision)
         check.result = 'Verified'
         with self.assertRaises(frappe.PermissionError): check.save(ignore_permissions=True)
+        # A rejected Frappe save still advances the in-memory modified timestamp.
+        # Reload so the next attempt reaches validation instead of the stale-write check.
+        check.reload()
+        self.assertEqual(check.result, 'Failed')
+        check.result = 'Verified'
         check.flags.allow_jha_field_mutation = True
         with self.assertRaises(frappe.PermissionError): check.save(ignore_permissions=True)
+        check.reload()
+        self.assertEqual(check.result, 'Failed')
         review_state = shifts.begin_jha_shift_review(jha.name, shifts.today(), 'Day', 1)
         revalidation = frappe.get_doc(shifts.DOCTYPE, review_state['name'])
         revalidation.status = 'No Change'
