@@ -121,7 +121,7 @@ def get_realtime_jha_tools() -> list[dict]:
                     "verification_method": {"type": "string"},
                     "verification_status": {
                         "type": "string",
-                        "enum": ["Not Verified", "Reported by Team", "Verified On Site"],
+                        "enum": ["Not Verified", "Reported by Team"],
                     },
                     "critical_risk": {"type": "boolean"},
                     "critical_risk_categories": {"type": "array", "items": {"type": "string", "enum": list(risk.CRITICAL_RISKS)}, "maxItems": 10},
@@ -398,7 +398,9 @@ def _record_hazard_and_control(doc, args: dict) -> dict:
         if status and status not in VERIFICATION_STATUSES:
             frappe.throw(_("Invalid verification status."), frappe.ValidationError)
         if status:
-            row.verification_status = status
+            # A spoken report is not an authenticated field-check record. Keep
+            # compatibility with older tool schemas without asserting verification.
+            row.verification_status = "Reported by Team" if status == "Verified On Site" else status
 
     if "critical_risk" in args:
         row.critical_risk = _bool(args.get("critical_risk"))

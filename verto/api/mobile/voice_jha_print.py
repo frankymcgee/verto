@@ -1,17 +1,43 @@
 from __future__ import annotations
 
+import base64
+from io import BytesIO
+
 import frappe
 
 
 PRINT_FORMAT_NAME = "Digital JHA Workpack"
 JHA_DOCTYPE = "Digital Job Hazard Analysis"
 
+
+def jha_workpack_qr(doc):
+    import qrcode
+    from frappe.utils import get_url
+    from verto.api.mobile.voice_jha_fieldwork import workpack_path
+
+    # Encode the printed revision, not an automatically changing target. The
+    # authenticated destination checks its replacement chain live on each scan.
+    url = get_url(workpack_path(doc))
+    qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=5, border=4)
+    qr.add_data(url)
+    qr.make(fit=True)
+    output = BytesIO()
+    qr.make_image(fill_color="black", back_color="white").save(output, format="PNG")
+    return {"url": url, "image": "data:image/png;base64," + base64.b64encode(output.getvalue()).decode()}
+
+
+def jha_print_field_checks(doc):
+    from verto.api.mobile.voice_jha_fieldwork import verification_rows
+    return verification_rows(doc)
+
 PRINT_HTML = r"""
 {% set present_people = doc.participants | selectattr('present_for_discussion') | list %}
 {% set critical_rows = doc.hazards_and_controls | selectattr('critical_risk') | list %}
 {% set permit_rows = doc.hazards_and_controls | selectattr('permit_or_ccv_required') | list %}
 {% set matrix_pages = ((doc.work_steps|length + 1) // 2) if doc.work_steps else 1 %}
-{% set total_pages = matrix_pages + 4 %}
+{% set field_checks = jha_print_field_checks(doc) %}
+{% set ccv_pages = [1, ((field_checks|length + 12) // 13)] | max %}
+{% set total_pages = matrix_pages + 3 + ccv_pages %}
 
 {% macro page_footer(page_no) -%}
 <div class="page-footer">
@@ -28,6 +54,8 @@ PRINT_HTML = r"""
         <div class="subtitle">Health and Safety</div>
       </div>
       <div class="brand">MINE SITE SUPPORT</div>
+      {% set qr = jha_workpack_qr(doc) %}
+      <a class="workpack-qr" href="{{ qr.url | e }}"><img src="{{ qr.image }}" alt="Check this JHA revision" /><span>Check current revision<br />Login required</span></a>
     </div>
 
     <table class="form-grid context-grid">
@@ -284,20 +312,26 @@ PRINT_HTML = r"""
     {{ page_footer(matrix_pages + 3) }}
   </section>
 
-  <section class="pack-page page-break-before ccv-page last-page">
+  {% for ccv_page in range(ccv_pages) %}
+  {% set page_checks = field_checks[ccv_page * 13:(ccv_page + 1) * 13] %}
+  <section class="pack-page page-break-before ccv-page {% if loop.last %}last-page{% endif %}">
     <div class="page-title compact-title">
       <div><h1>Job Hazard Analysis - Form</h1><div class="subtitle">Health and Safety</div></div>
       <div class="brand">MINE SITE SUPPORT</div>
     </div>
     <h2>CCV - Field Leadership Log</h2>
     <p class="ccv-intent"><strong>JHA Task:</strong> {{ doc.work_summary_title or doc.work_summary or '' }}</p>
-    <p class="ccv-intent">Use this page to record Critical Control Verifications completed against this work. If a repeat verification of the same critical risk is requested during the same shift, challenge the need and escalate in accordance with site requirements.</p>
+    <p class="ccv-intent">Digital checks below are historical records for this revision at print time. Scan the cover QR code for live revision status. Use blank rows for field notes; manual entries are not automatically recorded digitally.</p>
     <table class="ccv-table">
-      <thead><tr><th>Critical Risk</th><th>Date</th><th>Time</th><th>Name</th><th>Improvements Identified</th></tr></thead>
-      <tbody>{% for i in range(13) %}<tr><td></td><td></td><td></td><td></td><td></td></tr>{% endfor %}</tbody>
+      <thead><tr><th>Control / Step</th><th>Date</th><th>Time</th><th>Name</th><th>Result / CCV / Observations</th></tr></thead>
+      <tbody>
+        {% for check in page_checks %}<tr><td>{{ check.work_step }} · {{ check.critical_control | striptags | truncate(85, True, "…") | e }}</td><td>{{ frappe.utils.formatdate(check.verified_at) }}</td><td>{{ frappe.utils.get_datetime(check.verified_at).strftime('%H:%M') }}</td><td>{{ check.verifier_name | e }}</td><td>{{ check.result }} · {{ (check.ccv or 'No CCV linked') | e }}{% if check.notes %} · {{ check.notes | striptags | truncate(240, True, '…') | e }}{% endif %}</td></tr>{% endfor %}
+        {% for i in range(13 - page_checks|length) %}<tr><td></td><td></td><td></td><td></td><td></td></tr>{% endfor %}
+      </tbody>
     </table>
-    {{ page_footer(matrix_pages + 4) }}
+    {{ page_footer(matrix_pages + 4 + ccv_page) }}
   </section>
+  {% endfor %}
 </div>
 """.strip()
 
@@ -312,6 +346,8 @@ PRINT_CSS = r"""
 }
 
 .jha-pack { color: #111; font-family: Arial, Helvetica, sans-serif; font-size: 7.8pt; line-height: 1.18; }
+.workpack-qr { display: block; width: 25mm; color: #111; text-align: center; font-size: 6pt; text-decoration: none; }
+.workpack-qr img { display: block; width: 25mm; height: 25mm; }
 .pack-page { position: relative; box-sizing: border-box; min-height: 186mm; padding: 0 0 8mm; page-break-after: always; }
 .last-page { page-break-after: auto; }
 .page-break-before { page-break-before: always; }
@@ -322,7 +358,7 @@ PRINT_CSS = r"""
 .brand { font-size: 14pt; font-weight: 800; letter-spacing: .06em; white-space: nowrap; }
 
 .form-grid, .matrix-table, .change-table, .ack-table, .ccv-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.form-grid th, .form-grid td, .matrix-table th, .matrix-table td, .change-table th, .change-table td, .ack-table th, .ack-table td, .ccv-table th, .ccv-table td { border: 1px solid #222; padding: 3px 5px; vertical-align: top; }
+.form-grid th, .form-grid td, .matrix-table th, .matrix-table td, .change-table th, .change-table td, .ack-table th, .ack-table td, .ccv-table th, .ccv-table td { box-sizing: border-box; border: 1px solid #222; padding: 3px 5px; vertical-align: top; }
 .form-grid th, .matrix-table thead th, .change-table thead th, .ack-table thead th, .ccv-table thead th { background: #f47a20; color: white; font-weight: 700; }
 
 .cover-page { font-size: 7pt; }
@@ -392,6 +428,7 @@ PRINT_CSS = r"""
 .ccv-table th:nth-child(4) { width: 14%; }
 .ccv-table th:nth-child(5) { width: 50%; }
 .ccv-table tbody td { height: 8.4mm; }
+.ccv-table td { overflow-wrap: anywhere; }
 
 .page-footer { position: absolute; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; border-top: 1px solid #999; padding-top: 1.5mm; font-size: 5.8pt; color: #666; }
 

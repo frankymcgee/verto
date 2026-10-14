@@ -120,6 +120,9 @@ def _streamlined_tools() -> list[dict]:
 
 
 def _build_facilitation_instructions(task, jha, bot, config: dict) -> str:
+    if (getattr(jha, "flags", None) or {}).get("shift_review"):
+        from verto.api.mobile.voice_jha_revalidation import shift_instructions
+        return shift_instructions(jha, config)
     bot_instructions = base._get_bot_instructions(bot)
     conversation_style = base._build_conversation_style_instructions(config)
     progress = calculate_facilitation_progress(jha)
@@ -230,19 +233,39 @@ PERSISTED STEP PROGRESS:
 def _build_realtime_session(task, jha, bot, config: dict) -> dict:
     session = base._build_realtime_session(task, jha, bot, config)
     session["instructions"] = _build_facilitation_instructions(task, jha, bot, config)
-    session["tools"] = _streamlined_tools()
+    session["tools"] = _session_tools(jha)
     return session
 
 
 def _build_live_session(task, jha, bot, config: dict) -> dict:
-    return build_live_session(
+    session = build_live_session(
         config=config,
         conversation_style=base._build_conversation_style_instructions(config),
         backend_instructions=_build_facilitation_instructions(task, jha, bot, config),
-        tools=_streamlined_tools(),
+        tools=_session_tools(jha),
         work_summary=f"{task.name} — {task.subject or ''}",
         progress=calculate_facilitation_progress(jha),
     )
+    if (getattr(jha, "flags", None) or {}).get("shift_review"):
+        session["instructions"] = f"""You are PERI facilitating a short start-of-shift review of signed JHA {jha.name}.
+Speak English using the selected voice. {base._build_conversation_style_instructions(config)}
+Work Summary: {task.subject or task.name}. Saved shift review: {jha.flags.shift_review}.
+Delegate to the backend to read the persisted shift review, record each explicit crew answer and obtain
+the next missing check. Immediately speak its next specific question after the backend completes.
+The backend owns the order: crew, equipment, environment, method, controls. Resume without repeating
+completed checks or developing the JHA again. Do not ask whether the crew is ready to proceed.
+When a change is identified, ask the user to select Review Changes with PERI to start a separate revision.
+When all checks are unchanged, read back the result and ask the human to select Confirm No Changes.
+Never confirm, sign, approve, verify controls or authorise work for the user. Stay available until Disconnect Voice.
+Never invent site conditions or claim a record was saved before the backend confirms it."""
+    return session
+
+
+def _session_tools(jha):
+    if (getattr(jha, "flags", None) or {}).get("shift_review"):
+        from verto.api.mobile.voice_jha_revalidation import shift_review_tools
+        return shift_review_tools()
+    return _streamlined_tools()
 
 
 def _create_voice_call(*, sdp: str, task, jha, bot):
@@ -291,7 +314,8 @@ def _create_voice_call(*, sdp: str, task, jha, bot):
 
 
 @frappe.whitelist(methods=["POST"])
-def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_engine: str | None = None):
+def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_engine: str | None = None,
+                         shift_review: str | None = None):
     # Accept the old parameter for cached mobile clients, but never use it to
     # override the engine controlled by Verto Mobile Settings.
     base._require_login()
@@ -311,7 +335,15 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_eng
     jha = base._get_jha_doc(jha_name)
     if not jha.has_permission("write"):
         frappe.throw(_("You cannot start voice for this Digital JHA."), frappe.PermissionError)
-    if jha.jha_status not in base.ACTIVE_JHA_STATUSES:
+    if shift_review:
+        from verto.api.mobile.voice_jha_revalidation import get_review, serialize_review, OPEN_STATUSES
+        from verto.api.mobile.voice_jha_fieldwork import locked_jha
+        jha = locked_jha(jha_name)
+        shift = get_review(jha, shift_review)
+        if jha.jha_status != "Signed" or jha.get("replacement_jha") or shift.status not in OPEN_STATUSES:
+            frappe.throw(_("Resume an open shift review against the current signed JHA."), frappe.ValidationError)
+        jha.flags.shift_review = serialize_review(shift)
+    elif jha.jha_status not in base.ACTIVE_JHA_STATUSES:
         frappe.throw(
             _("Voice discussion is only available while the Digital JHA is active."),
             frappe.ValidationError,
@@ -336,15 +368,25 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_eng
         )
 
     started_at = now_datetime()
-    jha.jha_status = "Voice Discussion in Progress"
-    jha.voice_transcription_consent_confirmed = 1
-    jha.voice_transcription_consent_confirmed_by = frappe.session.user
-    jha.voice_transcription_consent_confirmed_at = started_at
-    jha.voice_model = call["model"]
-    jha.voice_started_at = started_at
-    jha.voice_session_reference = call.get("session_reference") or ""
-    sync_facilitation_fields(jha)
-    jha.save()
+    if shift_review:
+        from verto.api.mobile.voice_jha_revalidation import _save
+        shift.voice_consent_confirmed = 1
+        shift.voice_consent_confirmed_by = frappe.session.user
+        shift.voice_consent_confirmed_at = started_at
+        shift.voice_model = call["model"]
+        shift.voice_started_at = started_at
+        shift.voice_session_reference = call.get("session_reference") or ""
+        _save(shift)
+    else:
+        jha.jha_status = "Voice Discussion in Progress"
+        jha.voice_transcription_consent_confirmed = 1
+        jha.voice_transcription_consent_confirmed_by = frappe.session.user
+        jha.voice_transcription_consent_confirmed_at = started_at
+        jha.voice_model = call["model"]
+        jha.voice_started_at = started_at
+        jha.voice_session_reference = call.get("session_reference") or ""
+        sync_facilitation_fields(jha)
+        jha.save()
 
     return {
         "sdp": call["sdp"],

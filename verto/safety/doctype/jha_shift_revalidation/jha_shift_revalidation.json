@@ -1,0 +1,194 @@
+{
+ "doctype": "DocType",
+ "name": "JHA Shift Revalidation",
+ "module": "Safety",
+ "autoname": "hash",
+ "engine": "InnoDB",
+ "field_order": [
+  "jha",
+  "revision",
+  "work_summary",
+  "project",
+  "shift_date",
+  "shift",
+  "status",
+  "checks",
+  "started_by",
+  "started_at",
+  "confirmed_by",
+  "confirmed_at",
+  "replacement_jha",
+  "tool_audit",
+  "review_key",
+  "voice_consent_confirmed",
+  "voice_consent_confirmed_by",
+  "voice_consent_confirmed_at",
+  "voice_model",
+  "voice_started_at",
+  "voice_session_reference"
+ ],
+ "fields": [
+  {
+   "fieldname": "jha",
+   "fieldtype": "Link",
+   "label": "JHA",
+   "read_only": 1,
+   "options": "Digital Job Hazard Analysis",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "revision",
+   "fieldtype": "Int",
+   "label": "Revision",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "work_summary",
+   "fieldtype": "Link",
+   "label": "Work Summary",
+   "read_only": 1,
+   "options": "Task",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "read_only": 1,
+   "options": "Project"
+  },
+  {
+   "fieldname": "shift_date",
+   "fieldtype": "Date",
+   "label": "Shift Date",
+   "read_only": 1,
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "shift",
+   "fieldtype": "Select",
+   "label": "Shift",
+   "read_only": 1,
+   "options": "Day\nNight",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "read_only": 1,
+   "options": "In Progress\nAwaiting Confirmation\nNo Change\nChange Required",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "checks",
+   "fieldtype": "Long Text",
+   "label": "Recorded Checks",
+   "read_only": 1
+  },
+  {
+   "fieldname": "started_by",
+   "fieldtype": "Link",
+   "label": "Started By",
+   "read_only": 1,
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "started_at",
+   "fieldtype": "Datetime",
+   "label": "Started At",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "confirmed_by",
+   "fieldtype": "Link",
+   "label": "Confirmed By",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "confirmed_at",
+   "fieldtype": "Datetime",
+   "label": "Confirmed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "replacement_jha",
+   "fieldtype": "Link",
+   "label": "Change Revision",
+   "read_only": 1,
+   "options": "Digital Job Hazard Analysis"
+  },
+  {
+   "fieldname": "tool_audit",
+   "fieldtype": "Long Text",
+   "label": "Discussion Audit",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "review_key",
+   "fieldtype": "Data",
+   "label": "Review Key",
+   "read_only": 1,
+   "unique": 1,
+   "hidden": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "voice_consent_confirmed",
+   "fieldtype": "Check",
+   "label": "Voice / Transcription Consent Confirmed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "voice_consent_confirmed_by",
+   "fieldtype": "Link",
+   "label": "Voice Consent Confirmed By",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "voice_consent_confirmed_at",
+   "fieldtype": "Datetime",
+   "label": "Voice Consent Confirmed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "voice_model",
+   "fieldtype": "Data",
+   "label": "Voice Model",
+   "read_only": 1
+  },
+  {
+   "fieldname": "voice_started_at",
+   "fieldtype": "Datetime",
+   "label": "Voice Started At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "voice_session_reference",
+   "fieldtype": "Data",
+   "label": "Voice Session Reference",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "All",
+   "read": 1,
+   "print": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

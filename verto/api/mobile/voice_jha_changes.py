@@ -64,6 +64,7 @@ def begin_jha_change(jha_name: str, confirmation=0):
         row.source_step_identifier = row.get("source_step_identifier") or f"step-{row.sequence}"
     hazard_ids = {}
     for index, (before, row) in enumerate(zip(original.hazards_and_controls or [], revision.hazards_and_controls or []), 1):
+        row.verification_status = "Not Verified"
         row.source_hazard_identifier = row.get("source_hazard_identifier") or f"hazard-{index}"
         hazard_ids[before.get("source_hazard_identifier") or before.name] = row.source_hazard_identifier
         step = next((s for s in revision.work_steps if cint(s.sequence) == cint(row.work_step_sequence)), None)

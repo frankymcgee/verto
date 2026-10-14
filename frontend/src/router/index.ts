@@ -9,6 +9,7 @@ const Chat = () => import('../pages/Chat.vue')
 const NewDocument = () => import('../pages/NewDocument.vue')
 const EditDocument = () => import('../pages/EditDocument.vue')
 const VoiceJha = () => import('../pages/VoiceJha.vue')
+const JhaWorkpack = () => import('../pages/JhaWorkpack.vue')
 
 const routes = [
   {
@@ -58,6 +59,12 @@ const routes = [
         meta: {
           title: 'Develop JHA with PERI',
         },
+      },
+      {
+        path: 'jha/:jhaName',
+        name: 'jha-workpack',
+        component: JhaWorkpack,
+        meta: { title: 'JHA revision check' },
       },
       {
         path: 'new/digital-job-hazard-analysis',

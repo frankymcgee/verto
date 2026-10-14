@@ -232,6 +232,8 @@ async function makeCacheKey(url: string, options: RequestInit) {
 }
 
 function isCacheableRead(url: string, options: RequestInit) {
+  // Live revision/field checks must never fall back to a cached safety status.
+  if (options.cache === 'no-store') return false
   const method = getMethod(options)
 
   // primeOfflineData stores each dataset explicitly. Caching the aggregate as
@@ -624,6 +626,8 @@ async function performApiRequest<T>(url: string, options: RequestInit): Promise<
       if (fallback) return fallback
     }
 
-    throw new Error('Offline — this data has not been cached on this device yet.')
+    throw new Error(options.cache === 'no-store'
+      ? 'Connection unavailable — current status could not be checked.'
+      : 'Offline — this data has not been cached on this device yet.')
   }
 }

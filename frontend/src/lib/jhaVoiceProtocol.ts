@@ -2,8 +2,10 @@ export type VoiceEngine = 'realtime' | 'live'
 export type VoiceToolCall = { call_id: string; name: string; arguments: string }
 type VoiceEvent = Record<string, any>
 
-export function voiceGreeting(engine: VoiceEngine): VoiceEvent {
-  const instructions = 'Greet the crew now in English, briefly identify the Work Summary, and resume the persisted facilitation stage and current step in your instructions. Ask the next missing question, then pause and listen. Do not restart a confirmed or completed phase.'
+export function voiceGreeting(engine: VoiceEngine, shiftReview = false): VoiceEvent {
+  const instructions = shiftReview
+    ? 'Greet the crew briefly in English and resume the persisted start-of-shift review. Ask its next missing shift question. Do not restart JHA development or repeat completed checks. Read the saved shift review before asking a question.'
+    : 'Greet the crew now in English, briefly identify the Work Summary, and resume the persisted facilitation stage and current step in your instructions. Ask the next missing question, then pause and listen. Do not restart a confirmed or completed phase.'
   return engine === 'live'
     ? { type: 'session.instructions.append', event_id: 'jha-greeting', delegation_id: null, content: instructions + ' Delegate to the backend to verify the current JHA and obtain the next workflow question before asking it.' }
     : { type: 'response.create', response: { instructions } }
