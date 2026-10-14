@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Button, Checkbox } from 'frappe-ui'
 import { useMobileBoot } from '../lib/mobileBoot'
 
@@ -11,13 +11,42 @@ const props = defineProps<{
 const emit = defineEmits<{
   connect: []; disconnect: []; consent: [value: boolean]
   talkStart: [event: PointerEvent]; talkStop: [event: PointerEvent]
+  clearanceChange: [pixels: number]
 }>()
 const { periBotImageUrl } = useMobileBoot()
+const dock = ref<HTMLElement | null>(null)
 const imageFailed = ref(false)
 const speaking = computed(() => props.connected && props.level > 0)
 const activity = computed(() => props.disconnecting ? 'Ending call' : props.connecting ? 'Connecting' :
   speaking.value ? 'Speaking' : props.talking ? 'Listening' : props.busy ? 'Thinking' : props.connected ? 'Ready to listen' : 'Not connected')
 const bars = [0.45, 0.8, 1, 0.65, 0.9, 0.5]
+
+watch(dock, (element, _previous, onCleanup) => {
+  const scrollArea = element?.closest<HTMLElement>('.mobile-shell-main')
+  if (!element || !scrollArea) {
+    emit('clearanceChange', 0)
+    return
+  }
+
+  // Navigation sits outside the scroller. Reserve only the area the fixed dock
+  // covers inside it, including the gap beneath the dock, at its rendered size.
+  const measure = () => emit('clearanceChange', getComputedStyle(element).position === 'fixed'
+    ? Math.max(0, Math.ceil(scrollArea.getBoundingClientRect().bottom - element.getBoundingClientRect().top))
+    : 0)
+  const observer = new ResizeObserver(measure)
+  observer.observe(element)
+  observer.observe(scrollArea)
+  window.addEventListener('resize', measure)
+  window.visualViewport?.addEventListener('resize', measure)
+  measure()
+  onCleanup(() => {
+    observer.disconnect()
+    window.removeEventListener('resize', measure)
+    window.visualViewport?.removeEventListener('resize', measure)
+  })
+}, { flush: 'post' })
+
+onBeforeUnmount(() => emit('clearanceChange', 0))
 </script>
 
 <template>
@@ -27,7 +56,7 @@ const bars = [0.45, 0.8, 1, 0.65, 0.9, 0.5]
       <p class="truncate text-sm-medium text-ink-gray-8">{{ changing ? 'Change review with PERI' : 'Develop JHA with PERI' }}</p>
       <p v-if="step" class="max-w-[60%] truncate text-xs text-ink-gray-5">{{ step }}</p>
     </div>
-    <div v-if="connected" class="voice-controls">
+    <div v-if="connected" ref="dock" class="voice-controls jha-voice-dock">
       <div class="flex min-w-0 flex-col items-center gap-1.5" role="status" :aria-label="`PERI: ${activity}`">
         <div class="peri-avatar" :class="{ 'peri-speaking': speaking, 'peri-thinking': busy && !speaking }">
           <img v-if="periBotImageUrl && !imageFailed" :src="periBotImageUrl" alt="PERI" class="h-full w-full rounded-full object-cover" @error="imageFailed = true" />

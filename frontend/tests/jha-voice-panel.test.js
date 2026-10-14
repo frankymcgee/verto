@@ -4,8 +4,12 @@ import JhaVoicePanel from '../src/components/JhaVoicePanel.vue'
 import { monitorRemoteVoice } from '../src/lib/remoteVoiceActivity'
 
 vi.mock('../src/lib/mobileBoot', () => ({ useMobileBoot: () => ({ periBotImageUrl: { __v_isRef: true, value: '/files/peri.png' } }) }))
-let wrapper
-afterEach(() => { wrapper?.unmount(); wrapper = null; vi.unstubAllGlobals() })
+let wrapper, scrollArea
+afterEach(() => {
+  wrapper?.unmount(); wrapper = null
+  scrollArea?.remove(); scrollArea = null
+  vi.restoreAllMocks(); vi.unstubAllGlobals()
+})
 const props = { connected: true, connecting: false, disconnecting: false, canConnect: false,
   consent: true, talking: false, busy: false, level: 0, status: 'Connected', step: 'Step 2 · Fit pump' }
 
@@ -20,6 +24,46 @@ describe('compact PERI voice panel', () => {
     expect(wrapper.emitted('talkStart')).toHaveLength(1)
     await wrapper.find('[aria-label="Hold to talk to PERI"]').trigger('pointerup', { pointerId: 1 })
     expect(wrapper.emitted('talkStop')).toHaveLength(1)
+  })
+  it('reserves the actual dock overlap and updates it on layout changes without leaving resize listeners behind', async () => {
+    scrollArea = document.createElement('main')
+    scrollArea.className = 'mobile-shell-main'
+    document.body.append(scrollArea)
+    let scrollBottom = 732, dockTop = 560
+    const rectangles = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function () {
+      return { bottom: this === scrollArea ? scrollBottom : 0, top: this.classList.contains('jha-voice-dock') ? dockTop : 0 }
+    })
+    const computeStyle = getComputedStyle.bind(window)
+    vi.stubGlobal('getComputedStyle', element => element.classList.contains('jha-voice-dock') ? { position: 'fixed' } : computeStyle(element))
+    const observers = []
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback) { this.callback = callback; observers.push(this) }
+      observe = vi.fn()
+      disconnect = vi.fn()
+    })
+    wrapper = mount(JhaVoicePanel, { props, attachTo: scrollArea })
+    await wrapper.vm.$nextTick()
+    const dock = wrapper.find('.jha-voice-dock').element
+    const observer = observers.find(item => item.observe.mock.calls.some(([element]) => element === dock))
+    expect(observer.observe).toHaveBeenCalledWith(scrollArea)
+    // The bottom tabs are outside the scroller, so their height is excluded.
+    expect(wrapper.emitted('clearanceChange').at(-1)).toEqual([172])
+    dockTop = 524
+    observer.callback()
+    expect(wrapper.emitted('clearanceChange').at(-1)).toEqual([208])
+    scrollBottom = 900; dockTop = 704
+    window.dispatchEvent(new Event('resize'))
+    expect(wrapper.emitted('clearanceChange').at(-1)).toEqual([196])
+    await wrapper.setProps({ connected: false })
+    expect(wrapper.emitted('clearanceChange').at(-1)).toEqual([0])
+    expect(observer.disconnect).toHaveBeenCalledOnce()
+    await wrapper.setProps({ connected: true })
+    expect(wrapper.emitted('clearanceChange').at(-1)).toEqual([196])
+    wrapper.unmount(); wrapper = null
+    const measurements = rectangles.mock.calls.length
+    window.dispatchEvent(new Event('resize'))
+    expect(rectangles).toHaveBeenCalledTimes(measurements)
+    expect(observers.every(item => item.disconnect.mock.calls.length === 1)).toBe(true)
   })
   it('shows speech only when received audio has activity, with a quiet thinking state', async () => {
     wrapper = mount(JhaVoicePanel, { props: { ...props, busy: true } })

@@ -39,7 +39,7 @@ body {
    scrolls through the work steps, hazards and transcript. The mobile shell's
    bottom navigation is outside the scroll container, so the dock sits just
    above it and honours the device safe-area inset. */
-.mobile-shell-main div:has(> button[aria-pressed][aria-label$='PERI']) {
+.mobile-shell-main .jha-voice-dock {
   position: fixed;
   left: 50%;
   bottom: calc(var(--mobile-bottom-tabs-height) + 0.5rem);
@@ -56,31 +56,20 @@ body {
   -webkit-backdrop-filter: blur(12px);
 }
 
-.mobile-shell-main div:has(> button[aria-pressed][aria-label$='PERI']) > button {
+.mobile-shell-main .jha-voice-dock > button {
   width: 5.25rem;
   height: 5.25rem;
   flex-shrink: 0;
 }
 
-.mobile-shell-main div:has(> button[aria-pressed][aria-label$='PERI']) > p {
+.mobile-shell-main .jha-voice-dock > p {
   margin-top: 0.375rem;
 }
 
-/* Reserve enough scroll space that the fixed PTT dock never covers the last
-   JHA card or transcript entry. This applies only while the microphone dock
-   exists (that is, while PERI is connected). */
-.mobile-shell-main:has(button[aria-pressed][aria-label$='PERI']) .mobile-shell-page {
-  padding-bottom: 8.5rem;
-}
-
 @media (min-width: 1024px) {
-  .mobile-shell-main div:has(> button[aria-pressed][aria-label$='PERI']) {
+  .mobile-shell-main .jha-voice-dock {
     bottom: 1rem;
     width: min(calc(100vw - 4rem), 36rem);
-  }
-
-  .mobile-shell-main:has(button[aria-pressed][aria-label$='PERI']) .mobile-shell-page {
-    padding-bottom: 7rem;
   }
 }
 
