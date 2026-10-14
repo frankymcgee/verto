@@ -158,7 +158,7 @@ const reviewStage = computed(() => [
 // Document readiness must not unmount an ongoing call's controls or audio.
 const voiceSessionActive = computed(() => connecting.value || voiceConnected.value || disconnecting.value)
 const shiftReviewOpen = computed(() => Boolean(shiftReview.value && ['In Progress', 'Awaiting Confirmation'].includes(shiftReview.value.status) && jha.value?.status === 'Signed'))
-const stepBriefingOpen = computed(() => Boolean(stepVoiceMode.value && stepBriefing.value?.active_step && jha.value?.status === 'Signed' && !jha.value?.replacement_jha))
+const stepBriefingOpen = computed(() => Boolean(stepVoiceMode.value && stepBriefing.value?.active_step && stepBriefing.value?.can_select && jha.value?.status === 'Signed' && !jha.value?.replacement_jha))
 const canConnectVoice = computed(() => Boolean(
   networkOnline.value &&
   jha.value?.name &&
@@ -188,13 +188,14 @@ function handleShiftReviewUpdated(value: Record<string, any>) {
 }
 
 function handleStepBriefing(value: Record<string, any> | null, selected: boolean) {
+  if (!pageActive || (value && value.jha !== jha.value?.name)) return
   stepBriefing.value = value
   if (selected && value?.active_step) void discussActiveStep()
   else if (value?.active_step && !shiftReview.value) stepVoiceMode.value = true
 }
 
 async function discussActiveStep() {
-  if (!stepBriefing.value?.active_step || !networkOnline.value || jha.value?.status !== 'Signed') return
+  if (!pageActive || changingJha.value || connecting.value || disconnecting.value || !stepBriefing.value?.can_select || !stepBriefing.value?.active_step || !networkOnline.value || jha.value?.status !== 'Signed') return
   voiceContextGeneration += 1
   stepVoiceMode.value = true
   shiftReview.value = null

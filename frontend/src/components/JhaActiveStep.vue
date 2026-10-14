@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Button } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
 import JhaIncidentLearning from './JhaIncidentLearning.vue'
@@ -13,6 +13,7 @@ const state = ref<Record<string, any> | null>(null)
 const loading = ref(false)
 const error = ref('')
 let generation = 0
+onBeforeUnmount(() => { generation += 1 })
 const current = computed(() => props.jha.status === 'Signed' && !props.jha.replacement_jha)
 const active = computed(() => state.value?.active_step)
 const learning = computed(() => state.value?.incident_learning)
@@ -103,7 +104,7 @@ async function selectStep(event: Event) {
         <p class="mt-2 text-sm text-ink-gray-7">Hold / pause point: {{ active.hold_or_pause_point ? 'Recorded — check the signed JHA before continuing.' : 'None recorded.' }}</p>
       </details>
       <div class="mt-3 flex flex-wrap gap-2">
-        <Button variant="subtle" :disabled="busy" @click="emit('discuss')">Ask PERI about this step</Button>
+        <Button variant="subtle" :disabled="busy || loading || !state?.can_select" @click="emit('discuss')">Ask PERI about this step</Button>
         <Button variant="subtle" :disabled="busy || !state?.can_select" @click="emit('requestChange')">Review/change JHA</Button>
       </div>
     </template>

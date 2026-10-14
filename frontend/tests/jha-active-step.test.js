@@ -59,6 +59,17 @@ describe('JHA execution step picker', () => {
     expect(wrapper.find('[role=alert]').text()).toContain('current signed revision')
     expect(wrapper.emitted('briefing').filter(([, selected]) => selected)).toHaveLength(0)
   })
+  it('does not request a voice briefing after leaving while a selection is saving', async () => {
+    const listener = vi.fn()
+    await open({ onBriefing: listener })
+    listener.mockClear()
+    let finish
+    apiRequest.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    await wrapper.find('select').setValue('STEP-1'); await flushPromises()
+    wrapper.unmount()
+    finish({ message: briefing() }); await flushPromises()
+    expect(listener).not.toHaveBeenCalled()
+  })
   it.each(['no_matches', 'unavailable'])('clearly reports %s without implying safety', async status => {
     apiRequest.mockResolvedValue({ message: briefing('STEP-1', status) }); await open()
     expect(wrapper.text()).toContain(status === 'unavailable' ? 'Incident evidence is unavailable' : 'No relevant incidents found')
