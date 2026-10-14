@@ -1,0 +1,163 @@
+{
+ "doctype": "DocType",
+ "name": "JHA Step Briefing",
+ "module": "Safety",
+ "autoname": "hash",
+ "engine": "InnoDB",
+ "field_order": [
+  "jha",
+  "revision",
+  "work_summary",
+  "project",
+  "voice_consent_confirmed",
+  "voice_consent_confirmed_by",
+  "voice_consent_confirmed_at",
+  "voice_model",
+  "voice_started_at",
+  "voice_session_reference",
+  "step_row",
+  "work_step",
+  "selection_number",
+  "selected_by",
+  "selected_at",
+  "request_key",
+  "incident_references"
+ ],
+ "fields": [
+  {
+   "fieldname": "jha",
+   "fieldtype": "Link",
+   "label": "JHA",
+   "read_only": 1,
+   "options": "Digital Job Hazard Analysis",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "revision",
+   "fieldtype": "Int",
+   "label": "Revision",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "work_summary",
+   "fieldtype": "Link",
+   "label": "Work Summary",
+   "read_only": 1,
+   "options": "Task",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "read_only": 1,
+   "options": "Project"
+  },
+  {
+   "fieldname": "voice_consent_confirmed",
+   "fieldtype": "Check",
+   "label": "Voice / Transcription Consent Confirmed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "voice_consent_confirmed_by",
+   "fieldtype": "Link",
+   "label": "Voice Consent Confirmed By",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "voice_consent_confirmed_at",
+   "fieldtype": "Datetime",
+   "label": "Voice Consent Confirmed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "voice_model",
+   "fieldtype": "Data",
+   "label": "Voice Model",
+   "read_only": 1
+  },
+  {
+   "fieldname": "voice_started_at",
+   "fieldtype": "Datetime",
+   "label": "Voice Started At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "voice_session_reference",
+   "fieldtype": "Data",
+   "label": "Voice Session Reference",
+   "read_only": 1
+  },
+  {
+   "fieldname": "step_row",
+   "fieldtype": "Data",
+   "label": "Step Row",
+   "read_only": 1,
+   "reqd": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "work_step",
+   "fieldtype": "Int",
+   "label": "Step Number",
+   "read_only": 1,
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "selection_number",
+   "fieldtype": "Int",
+   "label": "Selection Number",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "selected_by",
+   "fieldtype": "Link",
+   "label": "Selected By",
+   "read_only": 1,
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "selected_at",
+   "fieldtype": "Datetime",
+   "label": "Selected At",
+   "read_only": 1,
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "request_key",
+   "fieldtype": "Data",
+   "label": "Request Key",
+   "read_only": 1,
+   "reqd": 1,
+   "hidden": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "incident_references",
+   "fieldtype": "Long Text",
+   "label": "Incident References at Selection",
+   "read_only": 1,
+   "hidden": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "All",
+   "read": 1,
+   "print": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "selection_number",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
