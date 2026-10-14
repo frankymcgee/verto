@@ -8,6 +8,7 @@ requires-python = ">=3.14,<3.15"
 readme = "README.md"
 dynamic = ["version"]
 dependencies = [
+    "qrcode[pil]>=8,<9",
     "python-docx>=1.1.0",
     "pywebpush>=2.3,<3",
 ]

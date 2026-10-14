@@ -103,16 +103,22 @@ extend_doctype_class = {
 # Permissions
 # -----------
 permission_query_conditions = {
+    "JHA Control Verification": "verto.api.mobile.voice_jha_fieldwork.verification_query_conditions",
+    "JHA Shift Revalidation": "verto.api.mobile.voice_jha_fieldwork.shift_query_conditions",
     "Verto Whiteboard": "verto.api.whiteboard.get_permission_query_conditions",
     "Digital Job Hazard Analysis": "verto.api.mobile.voice_jha_permissions.get_permission_query_conditions",
     "JHA Incident Learning": "verto.api.mobile.voice_jha_incidents.incident_query_conditions",
 }
 
 has_permission = {
+    "JHA Control Verification": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
+    "JHA Shift Revalidation": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
     "Verto Whiteboard": "verto.api.whiteboard.has_permission",
     "Digital Job Hazard Analysis": "verto.api.mobile.voice_jha_permissions.has_permission",
     "JHA Incident Learning": "verto.api.mobile.voice_jha_incidents.incident_has_permission",
 }
+
+jinja = {"methods": ["verto.api.mobile.voice_jha_print.jha_workpack_qr", "verto.api.mobile.voice_jha_print.jha_print_field_checks"]}
 
 # Document events
 # ---------------

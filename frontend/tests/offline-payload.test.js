@@ -71,4 +71,17 @@ describe('Compact offline download compatibility', () => {
     await apiRequest('/api/method/verto.api.mobile.offline.get_offline_bootstrap?contract_version=2')
     expect(mocks.cache).not.toHaveBeenCalled()
   })
+  it('never caches a live JHA status requested with no-store', async () => {
+    const { apiRequest } = await vi.importActual('../src/lib/api')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ message: { status: 'Signed' } }))))
+    await apiRequest('/api/method/verto.api.mobile.voice_jha_fieldwork.get_jha_workpack_status?jha_name=JHA-1', { cache: 'no-store' })
+    expect(mocks.cache).not.toHaveBeenCalled()
+    expect(fetch.mock.calls[0][1].cache).toBe('no-store')
+  })
+  it('fails a live status request on network loss without reading an offline status', async () => {
+    const { apiRequest } = await vi.importActual('../src/lib/api')
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Network failure') }))
+    await expect(apiRequest('/api/method/verto.api.mobile.voice_jha_fieldwork.get_jha_workpack_status?jha_name=JHA-1', { cache: 'no-store' })).rejects.toThrow('current status could not be checked')
+    expect(mocks.cache).not.toHaveBeenCalled()
+  })
 })

@@ -56,7 +56,10 @@ beforeEach(async () => {
       return { message: { ok: true, result: { saved: true }, jha: snapshot } }
     }
     if (url.includes('get_jha_review_state')) return { message: snapshot }
-    if (url.includes('begin_jha_change')) {
+    if (url.includes('get_jha_fieldwork')) return { message: { controls: [], ccv_options: [], shift_reviews: [], today: '2026-10-14' } }
+    if (url.includes('begin_jha_shift_review')) return { message: { name: 'SHIFT-1', jha: snapshot.name, revision: 1,
+      shift_date: '2026-10-14', shift: 'Day', status: 'In Progress', checks: {} } }
+    if (url.includes('begin_jha_change') || url.includes('begin_shift_change')) {
       snapshot = { ...snapshot, name: 'JHA-2', previous_jha: 'JHA-1', revision: 2,
         status: 'Incomplete - Actions Required', change_management_stage: 'Describe Change',
         facilitation: { stage: 'Change Request' }, review_completed: 0 }
@@ -70,6 +73,49 @@ beforeEach(async () => {
 afterEach(() => { wrapper?.unmount(); vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('Voice JHA configured engine connection', () => {
+  it.each(['live', 'realtime'])('runs a %s shift review against the signed revision with consent and its own tool context', async engine => {
+    snapshot = { ...snapshot, status: 'Signed', revision: 1 }
+    wrapper.unmount()
+    wrapper = mount(VoiceJha, { global: { stubs: { JhaReviewSignoff: true, JhaFieldwork: true } } })
+    await flushPromises()
+    wrapper.findComponent({ name: 'JhaFieldwork' }).vm.$emit('startReview', { shift_date: '2026-10-14', shift: 'Day' })
+    await flushPromises()
+    expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Shift review with PERI')
+    await connect(engine)
+    if (engine === 'live') await receive({ type: 'session.started' })
+    const start = apiRequest.mock.calls.find(([url]) => url.includes('start_voice_jha_call'))
+    expect(start[1].body.get('shift_review')).toBe('SHIFT-1')
+    expect(start[1].body.get('jha_name')).toBe('JHA-1')
+    expect(JSON.stringify(sent())).toContain('start-of-shift review')
+    expect(wrapper.text()).toContain('Signed')
+    const item = { name: 'record_jha_shift_check', call_id: 'shift-answer', arguments: '{"category":"crew","changed":false,"notes":""}' }
+    if (engine === 'live') {
+      await receive({ type: 'response.event', delegation_id: 'shift', event: { type: 'response.created', response: { id: 'shift-response' } } })
+      await receive({ type: 'response.event', delegation_id: 'shift', event: { type: 'response.output_item.done', item: { ...item, type: 'function_call' } } })
+    } else await receive({ ...item, type: 'response.function_call_arguments.done' })
+    const request = apiRequest.mock.calls.find(([url]) => url.includes('execute_voice_jha_tool'))
+    expect(request[1].body.get('shift_review')).toBe('SHIFT-1')
+    expect(request[1].body.get('jha_name')).toBe('JHA-1')
+    expect(button('Disconnect Voice')).toBeDefined()
+  })
+  it('hands a changed shift review to a new revision and clears the old tool context', async () => {
+    snapshot = { ...snapshot, status: 'Signed', revision: 1 }
+    wrapper.unmount()
+    wrapper = mount(VoiceJha, { global: { stubs: { JhaReviewSignoff: true, JhaFieldwork: true } } })
+    await flushPromises()
+    const fields = wrapper.findComponent({ name: 'JhaFieldwork' })
+    fields.vm.$emit('startReview', { shift_date: '2026-10-14', shift: 'Day' }); await flushPromises()
+    await connect('realtime')
+    fields.vm.$emit('reviewChanges', { name: 'SHIFT-1', jha: 'JHA-1', status: 'Change Required' })
+    await flushPromises()
+    const change = apiRequest.mock.calls.find(([url]) => url.includes('begin_shift_change'))
+    expect(change[1].body.get('shift_review')).toBe('SHIFT-1')
+    expect(track.stop).toHaveBeenCalledOnce()
+    const starts = apiRequest.mock.calls.filter(([url]) => url.includes('start_voice_jha_call'))
+    expect(starts.map(([, options]) => options.body.get('shift_review'))).toEqual(['SHIFT-1', null])
+    expect(starts.at(-1)[1].body.get('jha_name')).toBe('JHA-2')
+  })
   it('has no engine selector and still requires consent before connecting', async () => {
     expect(wrapper.find('select').exists()).toBe(false)
     expect(button('Connect Voice with PERI').attributes('disabled')).toBeDefined()

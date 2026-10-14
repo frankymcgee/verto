@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Badge, Button, Checkbox } from 'frappe-ui'
 
@@ -8,6 +8,7 @@ import JhaFacilitationProgress from '../components/JhaFacilitationProgress.vue'
 import JhaReviewSignoff from '../components/JhaReviewSignoff.vue'
 import JhaIncidentLearning from '../components/JhaIncidentLearning.vue'
 import JhaVoicePanel from '../components/JhaVoicePanel.vue'
+import JhaFieldwork from '../components/JhaFieldwork.vue'
 import { monitorRemoteVoice } from '../lib/remoteVoiceActivity'
 import { LiveJhaToolLoop, liveTranscriptEntries, voiceGreeting, voiceToolResult } from '../lib/jhaVoiceProtocol'
 import type { LiveTranscriptFragment, VoiceEngine } from '../lib/jhaVoiceProtocol'
@@ -35,7 +36,7 @@ type JhaSnapshot = {
   work_steps?: any[]
   hazards_and_controls?: any[]
   participants?: any[]
-  facilitation?: Record<string, any>
+  facilitation?: { stage: string; job_steps_confirmed: boolean; [key: string]: any }
   [key: string]: any
 }
 
@@ -92,6 +93,8 @@ const jha = ref<JhaSnapshot | null>(null)
 const consentConfirmed = ref(false)
 const voiceConnected = ref(false)
 const voicePanelClearance = ref(0)
+const shiftReview = ref<Record<string, any> | null>(null)
+const voicePanel = ref<InstanceType<typeof JhaVoicePanel> | null>(null)
 const pushToTalkActive = ref(false)
 const voiceStatus = ref('Not connected')
 const voiceModel = ref('')
@@ -103,7 +106,7 @@ const processingToolCalls = ref(0)
 const remoteVoiceLevel = ref(0)
 const changingJha = ref(false)
 const latestPeriSpeech = computed(() => pendingPeriTranscript.value || [...transcript.value].reverse().find(entry => entry.role === 'PERI')?.text || '')
-const currentStepLabel = computed(() => jha.value?.facilitation?.current_step_sequence
+const currentStepLabel = computed(() => shiftReview.value ? `${shiftReview.value.shift_date} · ${shiftReview.value.shift} · ${shiftReview.value.status}` : jha.value?.facilitation?.current_step_sequence
   ? `Step ${jha.value.facilitation.current_step_sequence} · ${jha.value.facilitation.current_step_activity || ''}`
   : jha.value?.facilitation?.stage || '')
 const completenessIssues = ref<string[]>([])
@@ -137,9 +140,12 @@ const reviewStage = computed(() => [
   'Ready for Team Review',
   'Signed',
   'Review Required - Work Changed',
+  'Superseded',
+  'Cancelled',
 ].includes(String(jha.value?.status || '')))
 // Document readiness must not unmount an ongoing call's controls or audio.
 const voiceSessionActive = computed(() => connecting.value || voiceConnected.value || disconnecting.value)
+const shiftReviewOpen = computed(() => Boolean(shiftReview.value && ['In Progress', 'Awaiting Confirmation'].includes(shiftReview.value.status) && jha.value?.status === 'Signed'))
 const canConnectVoice = computed(() => Boolean(
   jha.value?.name &&
   context.value?.realtime_enabled &&
@@ -147,7 +153,7 @@ const canConnectVoice = computed(() => Boolean(
   !connecting.value &&
   !disconnecting.value &&
   !voiceConnected.value &&
-  !reviewStage.value
+  (!reviewStage.value || shiftReviewOpen.value)
 ))
 const voiceConfigSummary = computed(() => {
   const config = context.value?.voice_configuration
@@ -162,7 +168,12 @@ function handleReviewUpdated(value: Record<string, any>) {
   jha.value = { ...jha.value, ...value }
 }
 
-async function beginChangeManagement() {
+function handleShiftReviewUpdated(value: Record<string, any>) {
+  if (value.jha !== jha.value?.name || (shiftReview.value && shiftReview.value.name !== value.name)) return
+  shiftReview.value = value
+}
+
+async function beginChangeManagement(fromShift?: Record<string, any>) {
   if (!jha.value?.name || changingJha.value || connecting.value || disconnecting.value) return
   changingJha.value = true
   error.value = ''
@@ -173,23 +184,52 @@ async function beginChangeManagement() {
     const payload = new FormData()
     payload.append('jha_name', originalName)
     payload.append('confirmation', '1')
+    if (fromShift?.name) payload.append('shift_review', fromShift.name)
     const data = await apiRequest<FrappeResponse<JhaSnapshot>>(
-      '/api/method/verto.api.mobile.voice_jha_changes.begin_jha_change',
+      fromShift?.name ? '/api/method/verto.api.mobile.voice_jha_revalidation.begin_shift_change' : '/api/method/verto.api.mobile.voice_jha_changes.begin_jha_change',
       { method: 'POST', body: payload }
     )
     if (!pageActive) return
     jha.value = data.message
+    shiftReview.value = null
     transcript.value = []
     pendingPeriTranscript.value = ''
     incidentPreview.value = null
     toolActivity.value = ''
     completenessIssues.value = []
     if (consentConfirmed.value && !reviewStage.value) await connectVoice()
+    else {
+      await nextTick()
+      if (pageActive) voicePanel.value?.$el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Could not start JHA change management.'
   } finally {
     changingJha.value = false
   }
+}
+
+async function beginShiftReview(value: { shift_date: string; shift: string; existing?: Record<string, any> }) {
+  if (!jha.value?.name || changingJha.value || connecting.value || disconnecting.value) return
+  changingJha.value = true; error.value = ''
+  try {
+    if (voiceConnected.value) await disconnectVoice()
+    if (!pageActive) return
+    const body = new FormData()
+    body.append('jha_name', jha.value.name); body.append('shift_date', value.shift_date)
+    body.append('shift', value.shift); body.append('confirmation', '1')
+    const data = await apiRequest<any>('/api/method/verto.api.mobile.voice_jha_revalidation.begin_jha_shift_review', { method: 'POST', body })
+    if (!pageActive) return
+    shiftReview.value = data.message
+    if (!['In Progress', 'Awaiting Confirmation'].includes(data.message.status)) {
+      toolActivity.value = `Shift review already recorded: ${data.message.status}`
+    } else if (consentConfirmed.value) await connectVoice()
+    else {
+      await nextTick()
+      if (pageActive) voicePanel.value?.$el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  } catch (err) { if (pageActive) error.value = err instanceof Error ? err.message : 'Could not start the shift review.' }
+  finally { changingJha.value = false }
 }
 
 async function load() {
@@ -201,6 +241,13 @@ async function load() {
     )
     context.value = data.message
     jha.value = data.message?.existing_jha || null
+    if (typeof route.query?.jha === 'string') {
+      const snapshot = await apiRequest<FrappeResponse<JhaSnapshot>>(
+        `/api/method/verto.api.mobile.voice_jha_phase2.get_voice_jha_snapshot?jha_name=${encodeURIComponent(route.query.jha)}`, { cache: 'no-store' }
+      )
+      if (snapshot.message.work_summary !== workSummary.value) throw new Error('This JHA belongs to a different Work Summary.')
+      jha.value = snapshot.message
+    }
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Could not load the Work Summary.'
   } finally {
@@ -330,6 +377,7 @@ async function executeRealtimeTool(event: any) {
     payload.append('tool_name', toolName)
     payload.append('arguments', String(event.arguments || '{}'))
     payload.append('call_id', callId)
+    if (shiftReview.value?.name) payload.append('shift_review', shiftReview.value.name)
 
     const data = await apiRequest<FrappeResponse<VoiceToolResponse>>(
       '/api/method/verto.api.mobile.voice_jha_tools.execute_voice_jha_tool',
@@ -339,6 +387,7 @@ async function executeRealtimeTool(event: any) {
     toolOutput = data.message?.result || { ok: Boolean(data.message?.ok) }
     if (generation !== connectionGeneration) return toolOutput
     if (data.message?.jha) jha.value = data.message.jha
+    if (toolOutput.shift_review) shiftReview.value = toolOutput.shift_review
     if (toolName === 'find_relevant_incidents') {
       incidentPreview.value = { ...toolOutput, preview: true }
     } else if (toolOutput.incident_learning?.work_step_sequence === incidentPreview.value?.work_step_sequence) {
@@ -386,7 +435,7 @@ async function handleRealtimeEvent(raw: string) {
       voiceConnected.value = true
       setMicrophoneEnabled(false)
       setPushToTalkIdleStatus()
-      sendRealtimeEvent(voiceGreeting('live'))
+      sendRealtimeEvent(voiceGreeting('live', Boolean(shiftReview.value)))
     } else if (event.type === 'session.closed') {
       liveCloseConfirmed = true
       resolveLiveClose?.()
@@ -468,7 +517,7 @@ function configureDataChannel(channel: RTCDataChannel) {
     voiceConnected.value = true
     pushToTalkActive.value = false
     voiceStatus.value = 'Connected · starting PERI…'
-    sendRealtimeEvent(voiceGreeting('realtime'))
+    sendRealtimeEvent(voiceGreeting('realtime', Boolean(shiftReview.value)))
   }
 
   channel.onmessage = (event) => {
@@ -572,7 +621,7 @@ async function disconnectVoice() {
 }
 
 async function connectVoice() {
-  if (!jha.value?.name || !consentConfirmed.value || reviewStage.value || connecting.value || voiceConnected.value || disconnecting.value) return
+  if (!jha.value?.name || !consentConfirmed.value || (reviewStage.value && !shiftReviewOpen.value) || connecting.value || voiceConnected.value || disconnecting.value) return
   if (!navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === 'undefined') {
     error.value = 'This browser does not support the microphone/WebRTC features required for PERI voice.'
     return
@@ -672,6 +721,7 @@ async function connectVoice() {
     payload.append('jha_name', jha.value.name)
     payload.append('sdp', offerSdp)
     payload.append('consent_confirmed', '1')
+    if (shiftReview.value?.name) payload.append('shift_review', shiftReview.value.name)
 
     const data = await apiRequest<FrappeResponse<VoiceCallResponse>>(
       '/api/method/verto.api.mobile.voice_jha.start_voice_jha_call',
@@ -735,7 +785,7 @@ onBeforeUnmount(() => {
       <template v-else-if="context">
         <section class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
           <div class="flex flex-wrap items-center gap-2">
-            <Badge variant="subtle">Develop JHA with PERI</Badge>
+            <Badge variant="subtle">{{ shiftReview ? 'Shift review with PERI' : 'Develop JHA with PERI' }}</Badge>
             <Badge v-if="jha?.status" variant="subtle">{{ jha.status }}</Badge>
             <Badge v-if="context.work_order_number" variant="subtle">WO: {{ context.work_order_number }}</Badge>
           </div>
@@ -760,12 +810,14 @@ onBeforeUnmount(() => {
 
         <template v-else>
           <JhaVoicePanel
-            v-if="!reviewStage || voiceSessionActive"
+            ref="voicePanel"
+            v-if="!reviewStage || voiceSessionActive || shiftReviewOpen"
             :connected="voiceConnected" :connecting="connecting" :disconnecting="disconnecting"
             :can-connect="canConnectVoice" :consent="consentConfirmed" :talking="pushToTalkActive"
             :busy="Boolean(processingToolCalls) || voiceStatus.includes('considering')" :level="remoteVoiceLevel"
             :status="voiceStatus" :step="currentStepLabel" :latest-speech="latestPeriSpeech"
             :changing="Boolean(jha.previous_jha)"
+            :revalidating="Boolean(shiftReview)"
             @consent="consentConfirmed = $event" @connect="connectVoice" @disconnect="disconnectVoice"
             @talk-start="startPushToTalk" @talk-stop="stopPushToTalk"
             @clearance-change="voicePanelClearance = $event"
@@ -825,6 +877,8 @@ onBeforeUnmount(() => {
             :jha="jha" :change-starting="changingJha || connecting || disconnecting"
             @request-change="beginChangeManagement" @updated="handleReviewUpdated"
           />
+          <JhaFieldwork :jha="jha" :voice-review="shiftReview" :busy="changingJha || connecting || disconnecting"
+            @start-review="beginShiftReview" @review-updated="handleShiftReviewUpdated" @review-changes="beginChangeManagement" />
 
 
           <details v-if="transcript.length || pendingPeriTranscript" class="rounded-7 border border-outline-gray-1 bg-surface-base">

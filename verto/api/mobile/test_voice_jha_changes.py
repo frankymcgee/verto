@@ -95,6 +95,17 @@ class TestJhaChanges(TestCase):
         self.assertEqual(changes.begin_jha_change(self.original.name, 1)['name'], draft.name)
         self.copy.assert_called_once()
 
+    def test_field_verification_is_not_carried_to_a_new_revision_or_created_by_a_voice_report(self):
+        self.original.hazards_and_controls[0].verification_status = 'Verified On Site'
+        draft = self.begin()
+        self.assertEqual(draft.hazards_and_controls[0].verification_status, 'Not Verified')
+        self.assertEqual(self.original.hazards_and_controls[0].verification_status, 'Verified On Site')
+        self.scope()
+        with patch('verto.api.mobile.voice_jha_incidents.hazard_incident_learning', return_value={'incidents': [], 'search_status': 'No Matches'}):
+            self.call('record_hazard_and_control', {'hazard_identifier': 'hazard-2',
+                'work_step_identifier': 'step-2', 'work_step_sequence': 2, 'verification_status': 'Verified On Site'})
+        self.assertEqual(draft.hazards_and_controls[1].verification_status, 'Reported by Team')
+
     def test_only_the_confirmed_affected_step_is_reopened_and_editable(self):
         draft = self.begin()
         result = self.scope()['result']
