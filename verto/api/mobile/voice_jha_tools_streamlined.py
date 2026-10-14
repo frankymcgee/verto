@@ -40,6 +40,8 @@ def _streamlined_completeness(doc) -> dict:
     issues: list[str] = []
     progress = calculate_facilitation_progress(doc)
     participants = list(doc.participants or [])
+    if doc.get("previous_jha") and doc.get("change_management_stage") != "Confirmed":
+        issues.append("The crew has not confirmed the requested JHA changes.")
 
     if not progress["total_step_count"]:
         issues.append("No job steps have been recorded.")
@@ -246,9 +248,20 @@ def _mark_hold_point_confirmed(doc, args: dict):
         row.hold_point_confirmed = 1
 
 
-def _post_process_base_tool(jha_name: str, tool_name: str, arguments, response: dict):
+def _post_process_base_tool(jha_name: str, tool_name: str, arguments, response: dict, *, invalidate_change_confirmation=False):
     doc = base._get_jha(jha_name)
     args = base._load_arguments(arguments)
+    if response.get("replayed"):
+        response["jha"] = serialize_jha(doc)
+        return response
+    if invalidate_change_confirmation:
+        doc.change_management_stage = "Assess Change"
+        doc.flags.allow_jha_change_mutation = True
+    if doc.get("previous_jha") and tool_name in {"record_work_step", "record_hazard_and_control"}:
+        sequence = cint(args.get("sequence" if tool_name == "record_work_step" else "work_step_sequence"))
+        for step in doc.work_steps or []:
+            if cint(step.sequence) == sequence and cint(step.get("step_discussion_complete")):
+                step.step_discussion_complete = step.critical_controls_reviewed = step.hold_point_confirmed = 0
 
     if tool_name == "record_work_step":
         _mark_hold_point_confirmed(doc, args)
@@ -320,6 +333,13 @@ def _execute_mark_ready(jha_name: str, arguments, call_id: str):
 @frappe.whitelist(methods=["POST"])
 def execute_voice_jha_tool(jha_name: str, tool_name: str, arguments="{}", call_id: str = ""):
     tool_name = base._text(tool_name, limit=100)
+    from verto.api.mobile.voice_jha_changes import CHANGE_TOOLS, execute_change_tool, validate_change_scope
+    invalidate_change_confirmation = False
+    if tool_name in CHANGE_TOOLS:
+        return execute_change_tool(jha_name, tool_name, arguments, call_id)
+    if tool_name in base.MUTATING_TOOLS | {"confirm_job_steps", "complete_current_step"}:
+        base._require_login()
+        invalidate_change_confirmation = validate_change_scope(base._get_jha(jha_name), tool_name, base._load_arguments(arguments))
 
     if tool_name == "find_relevant_incidents":
         from verto.api.mobile.voice_jha_incidents import execute_incident_tool
@@ -342,7 +362,7 @@ def execute_voice_jha_tool(jha_name: str, tool_name: str, arguments="{}", call_i
     )
 
     if tool_name in {"record_work_step", "record_hazard_and_control", "record_participant"}:
-        return _post_process_base_tool(jha_name, tool_name, arguments, response)
+        return _post_process_base_tool(jha_name, tool_name, arguments, response, invalidate_change_confirmation=invalidate_change_confirmation)
 
     if tool_name == "get_current_jha_state" and isinstance(response, dict):
         doc = base._get_jha(jha_name)
@@ -350,6 +370,9 @@ def execute_voice_jha_tool(jha_name: str, tool_name: str, arguments="{}", call_i
             response["result"]["facilitation"] = calculate_facilitation_progress(doc)
         response["jha"] = serialize_jha(doc)
         response["result"]["incident_learning"] = response["jha"]["incident_learning"]
+        response["result"]["change_management"] = {key: response["jha"].get(key) for key in (
+            "previous_jha", "change_summary", "change_management_stage", "change_target_steps", "change_participants",
+        )}
         if doc.jha_status == STAGE_READY:
             response["result"]["review_voice_guidance"] = REVIEW_VOICE_GUIDANCE
     return response

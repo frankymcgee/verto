@@ -108,11 +108,20 @@ def _row_dict(row, fields):
 
 def _serialize_jha(doc):
     from verto.api.mobile.voice_jha_incidents import serialize_incident_learning
+    from verto.api.mobile.voice_jha_changes import target_steps
 
     return {
         "name": doc.name,
         "status": doc.jha_status,
         "revision": doc.revision,
+        "previous_jha": doc.get("previous_jha"),
+        "replacement_jha": doc.get("replacement_jha"),
+        "change_management_stage": doc.get("change_management_stage"),
+        "change_summary": doc.get("change_summary"),
+        "change_target_steps": target_steps(doc),
+        "change_participants": cint(doc.get("change_participants")),
+        "change_requested_by": doc.get("change_requested_by"),
+        "change_requested_at": doc.get("change_requested_at"),
         "project": doc.project,
         "work_summary": doc.work_summary,
         "work_summary_title": doc.work_summary_title,

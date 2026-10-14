@@ -229,47 +229,13 @@ def acknowledge_jha_participant(
 
     doc.flags.allow_jha_review_mutation = True
     doc.save()
+    if doc.jha_status == "Signed":
+        from verto.api.mobile.voice_jha_changes import supersede_previous_revision
+        supersede_previous_revision(doc)
     return _serialize_review(doc)
 
 
 @frappe.whitelist(methods=["POST"])
 def reopen_changed_jha(jha_name: str, confirmation=0):
-    _require_login()
-    if not cint(confirmation):
-        frappe.throw(
-            _("Confirm that the JHA should be reopened for the changed work."),
-            frappe.ValidationError,
-        )
-
-    doc = _get_jha(jha_name, require_write=True)
-    if doc.jha_status != "Review Required - Work Changed":
-        frappe.throw(_("This JHA does not require a work-change review."), frappe.ValidationError)
-
-    old_revision = cint(doc.revision or 1)
-    doc.revision = old_revision + 1
-    doc.jha_status = "Incomplete - Actions Required"
-    doc.review_completed = 0
-    doc.reviewed_by = None
-    doc.reviewer_name = None
-    doc.reviewed_at = None
-    doc.review_signature = None
-    doc.signed_at = None
-    doc.signed_by_user = None
-
-    for row in doc.participants or []:
-        row.acknowledged = 0
-        row.acknowledged_at = None
-        row.acknowledged_by_user = None
-        row.acknowledgement_signature = None
-
-    if hasattr(doc, "calculate_source_revision"):
-        doc.source_revision = doc.calculate_source_revision()
-
-    _append_review_audit(
-        doc,
-        "reopened_for_work_change",
-        {"from_revision": old_revision, "to_revision": doc.revision},
-    )
-    doc.flags.allow_jha_review_mutation = True
-    doc.save()
-    return _serialize_review(doc)
+    from verto.api.mobile.voice_jha_changes import begin_jha_change
+    return begin_jha_change(jha_name, confirmation)
