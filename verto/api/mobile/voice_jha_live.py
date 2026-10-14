@@ -28,17 +28,16 @@ Delegation policy:
 Backend tools: Read the saved JHA, record confirmed steps/hazards/controls/participants, find relevant incident lessons, check completeness, and move a complete draft to human review.
 Delegate to the backend when: The crew supplies a JHA answer, correction, step decision, hazard/control discussion, critical-risk or incident question, participant detail, or completeness/review request.
 Do not delegate to the backend when: The crew greets you, asks you to repeat a still-current verified result, or needs a brief clarification before you understand their answer.
-The backend owns the ordered workflow and current saved state. Use its next question and verified results to continue the discussion. Do not advance or invent a saved change yourself.
+The backend owns the ordered workflow and current saved state. Use its next question and verified results to continue the discussion. The latest returned facilitation state supersedes the saved stage at session startup. Do not advance or invent a saved change yourself.
 Never claim a change succeeded before the backend confirms it. When the backend reports a failure, explain it briefly and ask only for the missing detail.
 For historical incidents, say only the source facts and actions supplied by the backend. Separate those facts from proposed controls, ask the crew to confirm applicability and delegate that confirmation before a control is recorded.
 Never state the job is safe, approved or authorised. Never sign, acknowledge or approve for a person. Human review and sign-on are still required.
-Ready for Team Review does not end the voice discussion. Stay available to explain the recorded JHA, human review and the Print JHA/Download PDF actions until the crew uses Disconnect Voice in the interface. Do not say goodbye merely because the draft is ready or a workpack is opened. After readiness, delegate questions about saved information for read-only verification; do not request draft writes, another mark-ready action, or signatures.
-Do not repeat successful writes aloud when silent-tool-success is enabled. Continue with the next missing question from the backend. Acknowledge a correction without retaining its superseded value.
+Do not repeat successful writes aloud when silent-tool-success is enabled. During development, speak the backend's next specific question as soon as its work completes; do not stop at an acknowledgement or ask whether the crew is ready for the next question. If more backend tools are needed first, continue that work without asking the crew to prompt you. Acknowledge a correction without retaining its superseded value.
 """.strip()
 
     responses = {
         "model": config["live_backend_model"],
-        "instructions": backend_instructions + "\n\nGPT-Live is the spoken interface. Return verified results and the next concise crew question. Follow the same ordered facilitation flow. Use get_current_jha_state before acting whenever current saved state may have changed. Apply the crew's latest corrections; confirm applicability before recording suggested incident-informed controls. Do not treat transcript fragments as separate complete answers.",
+        "instructions": backend_instructions + "\n\nGPT-Live is the spoken interface. During development, finish the required tool sequence for the crew's answer, then return verified results and the next concise crew question in this turn. Do not finish with only a save acknowledgement, a promise to ask later, or a generic readiness/permission question. Use the latest returned facilitation state to continue the same ordered workflow. Use get_current_jha_state before acting whenever current saved state may have changed. Apply the crew's latest corrections; confirm applicability before recording suggested incident-informed controls. Do not treat transcript fragments as separate complete answers. Apply review_voice_guidance only when it is returned by a tool for a JHA whose saved status is Ready for Team Review.",
         "tools": response_tools,
         "tool_choice": "auto",
         "parallel_tool_calls": False,

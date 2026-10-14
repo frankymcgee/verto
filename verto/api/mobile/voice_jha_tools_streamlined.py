@@ -6,10 +6,20 @@ from frappe.utils import cint
 
 from verto.api.mobile import voice_jha_tools as base
 from verto.api.mobile.voice_jha_progress import (
+    STAGE_READY,
     STAGE_STEP_ANALYSIS,
     calculate_facilitation_progress,
     persist_facilitation_fields,
     serialize_jha,
+)
+
+
+REVIEW_VOICE_GUIDANCE = (
+    "The JHA is now Ready for Team Review. Explain that human review and sign-on are still required, "
+    "then remain available for the crew's review or print/download questions until they select Disconnect Voice. "
+    "Print JHA and Download PDF do not end the call. The ready JHA is read-only to PERI: "
+    "use get_current_jha_state for questions about saved information, and do not call draft-writing "
+    "or mark-ready tools again. If changes are requested, explain the human review/change workflow."
 )
 
 
@@ -286,6 +296,7 @@ def _execute_mark_ready(jha_name: str, arguments, call_id: str):
             "status": doc.jha_status,
             "facilitation": progress,
             "message": "Draft marked Ready for Team Review. Human review and sign-on remain required.",
+            "review_voice_guidance": REVIEW_VOICE_GUIDANCE,
         }
     else:
         result = {
@@ -339,4 +350,6 @@ def execute_voice_jha_tool(jha_name: str, tool_name: str, arguments="{}", call_i
             response["result"]["facilitation"] = calculate_facilitation_progress(doc)
         response["jha"] = serialize_jha(doc)
         response["result"]["incident_learning"] = response["jha"]["incident_learning"]
+        if doc.jha_status == STAGE_READY:
+            response["result"]["review_voice_guidance"] = REVIEW_VOICE_GUIDANCE
     return response

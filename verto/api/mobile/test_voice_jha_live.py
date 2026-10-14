@@ -10,6 +10,8 @@ from frappe.tests import IntegrationTestCase
 from verto.api.mobile import peri_voice_settings as settings
 from verto.api.mobile import voice_jha as base
 from verto.api.mobile import voice_jha_facilitator as facilitator
+from verto.api.mobile import voice_jha_tools as draft_tools
+from verto.api.mobile import voice_jha_tools_streamlined as workflow
 from verto.api.mobile.voice_jha_live import build_live_session, create_live_call
 
 
@@ -173,6 +175,115 @@ class TestVoiceCallRouting(TestCase):
                 with self.assertRaises(frappe.ValidationError):
                     facilitator.start_voice_jha_call('JHA-1', 'v=0', 1, engine)
         self.raven.assert_not_called()
+
+
+class TestVoiceFacilitationProgression(TestCase):
+    def setUp(self):
+        self.doc = frappe._dict(
+            name='JHA-FLOW', jha_status='Voice Discussion in Progress', revision=1,
+            work_summary='WS-FLOW', job_steps_confirmed=0, participants=[],
+            work_steps=[frappe._dict(
+                name=f'STEP-{sequence}', idx=sequence, sequence=sequence,
+                source_step_identifier=f'step-{sequence}', activity=activity,
+                hold_point_confirmed=1, hold_or_pause_point=0,
+            ) for sequence, activity in [(1, 'Isolate pump'), (2, 'Fit pump')]],
+            hazards_and_controls=[frappe._dict(
+                name=f'HAZARD-{sequence}', work_step_sequence=sequence,
+                hazard_or_energy_source='Pinch points', existing_controls='Alignment tooling',
+            ) for sequence in (1, 2)],
+            meta=SimpleNamespace(has_field=lambda key: False),
+            has_permission=Mock(return_value=True), save=Mock(),
+        )
+        self.enterContext(patch.object(draft_tools, '_require_login'))
+        self.enterContext(patch.object(draft_tools, '_get_jha', return_value=self.doc))
+
+    def execute(self, name, **arguments):
+        return workflow.execute_voice_jha_tool(
+            self.doc.name, name, json.dumps(arguments), call_id=f'flow-{name}'
+        )['result']
+
+    def complete_steps(self):
+        self.execute('confirm_job_steps')
+        for sequence in (1, 2):
+            self.execute('complete_current_step', step_sequence=sequence)
+
+    def record_team(self):
+        self.doc.participants = [frappe._dict(
+            name='PERSON-1', participant_name='Crew member',
+            present_for_discussion=1, transcription_consent=1,
+        )]
+
+    def test_confirmed_steps_advance_without_an_extra_readiness_gate(self):
+        result = self.execute('confirm_job_steps')
+        self.assertEqual(result['facilitation']['current_step_sequence'], 1)
+        self.assertNotIn('review_voice_guidance', result)
+        for sequence in (1, 2):
+            result = self.execute('complete_current_step', step_sequence=sequence)
+            self.assertTrue(result['changed'])
+            self.assertEqual(result['completed_step_sequence'], sequence)
+            self.assertEqual(result['facilitation']['current_step_sequence'], 2 if sequence == 1 else 0)
+            self.assertNotIn('review_voice_guidance', result)
+        self.assertEqual(result['facilitation']['stage'], 'Development Team')
+
+    def test_a_missing_hold_point_answer_still_blocks_progression(self):
+        self.execute('confirm_job_steps')
+        self.doc.work_steps[0].hold_point_confirmed = 0
+        result = self.execute('complete_current_step', step_sequence=1)
+        self.assertFalse(result['changed'])
+        self.assertEqual(result['facilitation']['current_step_sequence'], 1)
+        self.assertTrue(any('hold-point' in issue for issue in result['issues']))
+        self.assertNotIn('review_voice_guidance', result)
+
+    def test_a_missing_critical_control_owner_still_blocks_progression(self):
+        self.execute('confirm_job_steps')
+        self.doc.hazards_and_controls[0].critical_control = 'Isolation'
+        result = self.execute('complete_current_step', step_sequence=1)
+        self.assertFalse(result['changed'])
+        self.assertTrue(any('owner' in issue for issue in result['issues']))
+        self.assertNotIn('review_voice_guidance', result)
+
+    def test_incomplete_drafts_do_not_receive_the_review_waiting_guidance(self):
+        result = self.execute('mark_ready_for_human_review')
+        self.assertFalse(result['complete'])
+        self.assertFalse(result['changed'])
+        self.assertEqual(self.doc.jha_status, 'Voice Discussion in Progress')
+        self.assertNotIn('review_voice_guidance', result)
+        state = self.execute('get_current_jha_state')
+        self.assertEqual(state['facilitation']['stage'], 'Job Steps')
+        self.assertNotIn('review_voice_guidance', state)
+
+    def test_review_guidance_arrives_only_after_the_draft_becomes_ready(self):
+        self.complete_steps()
+        self.record_team()
+        result = self.execute('run_jha_completeness_check')
+        self.assertTrue(result['complete'])
+        self.assertNotIn('review_voice_guidance', result)
+        result = self.execute('mark_ready_for_human_review')
+        self.assertEqual(self.doc.jha_status, 'Ready for Team Review')
+        self.assertEqual(result['facilitation']['stage'], 'Ready for Team Review')
+        self.assertIn('Disconnect Voice', result['review_voice_guidance'])
+        self.assertIn('Print JHA', result['review_voice_guidance'])
+        state = self.execute('get_current_jha_state')
+        self.assertEqual(state['review_voice_guidance'], result['review_voice_guidance'])
+        with self.assertRaises(frappe.PermissionError):
+            self.execute('record_work_step', step_identifier='step-1', sequence=1, activity='Changed work')
+        self.assertEqual(self.doc.work_steps[0].activity, 'Isolate pump')
+
+    def test_development_prompts_do_not_include_the_post_review_waiting_mode(self):
+        task = frappe._dict(name='WS-FLOW', subject='Pump service')
+        with patch.object(base, '_get_bot_instructions', return_value=''):
+            for silent in (True, False):
+                config = {**settings.DEFAULTS, 'silent_tool_success': silent}
+                realtime = facilitator._build_realtime_session(task, self.doc, None, config)
+                live = facilitator._build_live_session(task, self.doc, None, config)
+                for instructions in (
+                    realtime['instructions'], live['instructions'],
+                    live['delegation']['responses']['instructions'],
+                ):
+                    self.assertNotIn(workflow.REVIEW_VOICE_GUIDANCE, instructions)
+                    self.assertNotIn('Stay available to explain the recorded JHA', instructions)
+                    self.assertIn('next', instructions.lower())
+                self.assertIn("Do not wait for 'next question'", realtime['instructions'])
 
 
 class IntegrationTestVoiceEngineSettings(IntegrationTestCase):
