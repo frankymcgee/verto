@@ -91,6 +91,7 @@ const context = ref<VoiceJhaBootstrap | null>(null)
 const jha = ref<JhaSnapshot | null>(null)
 const consentConfirmed = ref(false)
 const voiceConnected = ref(false)
+const voicePanelClearance = ref(0)
 const pushToTalkActive = ref(false)
 const voiceStatus = ref('Not connected')
 const voiceModel = ref('')
@@ -715,7 +716,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="min-h-full bg-surface-gray-1 px-[var(--verto-page-x,0.75rem)] py-[var(--verto-page-y,0.75rem)]">
+  <section class="min-h-full bg-surface-gray-1 px-[var(--verto-page-x,0.75rem)] py-[var(--verto-page-y,0.75rem)]"
+    :style="{ paddingBottom: `calc(var(--verto-page-y, 0.75rem) + ${voicePanelClearance}px)` }">
     <div class="mx-auto w-full max-w-3xl space-y-3">
       <div class="flex items-center justify-between gap-3">
         <Button variant="subtle" theme="gray" size="sm" @click="router.back()">Back</Button>
@@ -766,6 +768,7 @@ onBeforeUnmount(() => {
             :changing="Boolean(jha.previous_jha)"
             @consent="consentConfirmed = $event" @connect="connectVoice" @disconnect="disconnectVoice"
             @talk-start="startPushToTalk" @talk-stop="stopPushToTalk"
+            @clearance-change="voicePanelClearance = $event"
           />
           <audio ref="remoteAudio" autoplay playsinline class="hidden" />
           <section v-if="jha.previous_jha" class="rounded-7 border border-blue-200 bg-blue-50 p-3">
