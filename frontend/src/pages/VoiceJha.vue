@@ -12,8 +12,9 @@ import JhaFieldwork from '../components/JhaFieldwork.vue'
 import JhaStepResources from '../components/JhaStepResources.vue'
 import JhaJobLearning from '../components/JhaJobLearning.vue'
 import JhaOfflineCopy from '../components/JhaOfflineCopy.vue'
+import JhaActiveStep from '../components/JhaActiveStep.vue'
 import { monitorRemoteVoice } from '../lib/remoteVoiceActivity'
-import { LiveJhaToolLoop, liveTranscriptEntries, voiceGreeting, voiceToolResult } from '../lib/jhaVoiceProtocol'
+import { LiveJhaToolLoop, liveTranscriptEntries, stepBriefingEvent, voiceGreeting, voiceToolResult } from '../lib/jhaVoiceProtocol'
 import type { LiveTranscriptFragment, VoiceEngine } from '../lib/jhaVoiceProtocol'
 
 type FrappeResponse<T> = { message: T }
@@ -99,6 +100,8 @@ const consentConfirmed = ref(false)
 const voiceConnected = ref(false)
 const voicePanelClearance = ref(0)
 const shiftReview = ref<Record<string, any> | null>(null)
+const stepBriefing = ref<Record<string, any> | null>(null)
+const stepVoiceMode = ref(false)
 const voicePanel = ref<InstanceType<typeof JhaVoicePanel> | null>(null)
 const pushToTalkActive = ref(false)
 const voiceStatus = ref('Not connected')
@@ -111,7 +114,9 @@ const processingToolCalls = ref(0)
 const remoteVoiceLevel = ref(0)
 const changingJha = ref(false)
 const latestPeriSpeech = computed(() => pendingPeriTranscript.value || [...transcript.value].reverse().find(entry => entry.role === 'PERI')?.text || '')
-const currentStepLabel = computed(() => shiftReview.value ? `${shiftReview.value.shift_date} · ${shiftReview.value.shift} · ${shiftReview.value.status}` : jha.value?.facilitation?.current_step_sequence
+const currentStepLabel = computed(() => stepVoiceMode.value && stepBriefing.value?.active_step
+  ? `Step ${stepBriefing.value.active_step.sequence} · ${stepBriefing.value.active_step.activity}`
+  : shiftReview.value ? `${shiftReview.value.shift_date} · ${shiftReview.value.shift} · ${shiftReview.value.status}` : jha.value?.facilitation?.current_step_sequence
   ? `Step ${jha.value.facilitation.current_step_sequence} · ${jha.value.facilitation.current_step_activity || ''}`
   : jha.value?.facilitation?.stage || '')
 const completenessIssues = ref<string[]>([])
@@ -130,6 +135,8 @@ let liveCloseConfirmed = false
 let liveToolLoop: LiveJhaToolLoop | null = null
 let resolveLiveClose: (() => void) | null = null
 let connectionGeneration = 0
+let voiceContextGeneration = 0
+let realtimeResponseActive = false
 let voiceStartTimer: ReturnType<typeof setTimeout> | null = null
 let stopVoiceActivity: (() => void) | null = null
 let pageActive = true
@@ -151,6 +158,7 @@ const reviewStage = computed(() => [
 // Document readiness must not unmount an ongoing call's controls or audio.
 const voiceSessionActive = computed(() => connecting.value || voiceConnected.value || disconnecting.value)
 const shiftReviewOpen = computed(() => Boolean(shiftReview.value && ['In Progress', 'Awaiting Confirmation'].includes(shiftReview.value.status) && jha.value?.status === 'Signed'))
+const stepBriefingOpen = computed(() => Boolean(stepVoiceMode.value && stepBriefing.value?.active_step && jha.value?.status === 'Signed' && !jha.value?.replacement_jha))
 const canConnectVoice = computed(() => Boolean(
   networkOnline.value &&
   jha.value?.name &&
@@ -159,7 +167,7 @@ const canConnectVoice = computed(() => Boolean(
   !connecting.value &&
   !disconnecting.value &&
   !voiceConnected.value &&
-  (!reviewStage.value || shiftReviewOpen.value)
+  (!reviewStage.value || shiftReviewOpen.value || stepBriefingOpen.value)
 ))
 const voiceConfigSummary = computed(() => {
   const config = context.value?.voice_configuration
@@ -177,6 +185,32 @@ function handleReviewUpdated(value: Record<string, any>) {
 function handleShiftReviewUpdated(value: Record<string, any>) {
   if (value.jha !== jha.value?.name || (shiftReview.value && shiftReview.value.name !== value.name)) return
   shiftReview.value = value
+}
+
+function handleStepBriefing(value: Record<string, any> | null, selected: boolean) {
+  stepBriefing.value = value
+  if (selected && value?.active_step) void discussActiveStep()
+  else if (value?.active_step && !shiftReview.value) stepVoiceMode.value = true
+}
+
+async function discussActiveStep() {
+  if (!stepBriefing.value?.active_step || !networkOnline.value || jha.value?.status !== 'Signed') return
+  voiceContextGeneration += 1
+  stepVoiceMode.value = true
+  shiftReview.value = null
+  setMicrophoneEnabled(false)
+  pushToTalkActive.value = false
+  pendingPeriTranscript.value = ''
+  if (voiceConnected.value) {
+    if (activeVoiceEngine.value === 'realtime' && realtimeResponseActive) sendRealtimeEvent({ type: 'response.cancel' })
+    sendRealtimeEvent(stepBriefingEvent(activeVoiceEngine.value))
+    if (activeVoiceEngine.value === 'realtime') sendRealtimeEvent({ type: 'response.create' })
+    voiceStatus.value = 'PERI is considering this step…'
+  } else if (consentConfirmed.value) await connectVoice()
+  else {
+    await nextTick()
+    if (pageActive) voicePanel.value?.$el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 }
 
 async function beginChangeManagement(fromShift?: Record<string, any>) {
@@ -199,6 +233,9 @@ async function beginChangeManagement(fromShift?: Record<string, any>) {
     if (!pageActive) return
     jha.value = data.message
     shiftReview.value = null
+    stepBriefing.value = null
+    stepVoiceMode.value = false
+    voiceContextGeneration += 1
     transcript.value = []
     pendingPeriTranscript.value = ''
     incidentPreview.value = null
@@ -228,6 +265,8 @@ async function beginShiftReview(value: { shift_date: string; shift: string; exis
     const data = await apiRequest<any>('/api/method/verto.api.mobile.voice_jha_revalidation.begin_jha_shift_review', { method: 'POST', body })
     if (!pageActive) return
     shiftReview.value = data.message
+    stepVoiceMode.value = false
+    voiceContextGeneration += 1
     if (!['In Progress', 'Awaiting Confirmation'].includes(data.message.status)) {
       toolActivity.value = `Shift review already recorded: ${data.message.status}`
     } else if (consentConfirmed.value) await connectVoice()
@@ -290,9 +329,13 @@ async function refreshJha() {
   error.value = ''
   try {
     const data = await apiRequest<FrappeResponse<JhaSnapshot>>(
-      `/api/method/verto.api.mobile.voice_jha_phase2.get_voice_jha_snapshot?jha_name=${encodeURIComponent(jha.value.name)}`
+      `/api/method/verto.api.mobile.voice_jha_phase2.get_voice_jha_snapshot?jha_name=${encodeURIComponent(jha.value.name)}`, { cache: 'no-store' }
     )
     jha.value = data.message
+    if (data.message.status === 'Signed' && !data.message.replacement_jha) {
+      const step = await apiRequest<any>(`/api/method/verto.api.mobile.voice_jha_steps.get_jha_step_briefing?jha_name=${encodeURIComponent(data.message.name)}`, { cache: 'no-store' })
+      if (pageActive && jha.value?.name === step.message?.jha) handleStepBriefing(step.message, false)
+    }
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Could not refresh the Digital JHA.'
   } finally {
@@ -372,10 +415,11 @@ async function executeRealtimeTool(event: any) {
   const toolName = String(event.name || '').trim()
   if (!callId || !toolName || !jha.value?.name || processedToolCalls.has(callId)) return { ok: false, error: 'Invalid or duplicate JHA tool call.' }
   const generation = connectionGeneration
+  const contextGeneration = voiceContextGeneration
 
   processedToolCalls.add(callId)
   processingToolCalls.value += 1
-  voiceStatus.value = 'PERI is updating the draft…'
+  voiceStatus.value = stepVoiceMode.value ? 'PERI is checking this step…' : 'PERI is updating the draft…'
 
   let toolOutput: Record<string, any>
   try {
@@ -384,7 +428,8 @@ async function executeRealtimeTool(event: any) {
     payload.append('tool_name', toolName)
     payload.append('arguments', String(event.arguments || '{}'))
     payload.append('call_id', callId)
-    if (shiftReview.value?.name) payload.append('shift_review', shiftReview.value.name)
+    if (stepVoiceMode.value) payload.append('step_briefing', '1')
+    else if (shiftReview.value?.name) payload.append('shift_review', shiftReview.value.name)
 
     const data = await apiRequest<FrappeResponse<VoiceToolResponse>>(
       '/api/method/verto.api.mobile.voice_jha_tools.execute_voice_jha_tool',
@@ -393,7 +438,9 @@ async function executeRealtimeTool(event: any) {
 
     toolOutput = data.message?.result || { ok: Boolean(data.message?.ok) }
     if (generation !== connectionGeneration) return toolOutput
+    if (contextGeneration !== voiceContextGeneration) return { ok: false, message: 'The human selected a different conversation context. Read get_current_jha_state again before speaking.' }
     if (data.message?.jha) jha.value = data.message.jha
+    if (toolOutput.step_briefing) stepBriefing.value = toolOutput.step_briefing
     if (toolOutput.shift_review) shiftReview.value = toolOutput.shift_review
     if (toolName === 'find_relevant_incidents') {
       incidentPreview.value = { ...toolOutput, preview: true }
@@ -442,7 +489,7 @@ async function handleRealtimeEvent(raw: string) {
       voiceConnected.value = true
       setMicrophoneEnabled(false)
       setPushToTalkIdleStatus()
-      sendRealtimeEvent(voiceGreeting('live', Boolean(shiftReview.value)))
+      sendRealtimeEvent(voiceGreeting('live', Boolean(shiftReview.value), stepVoiceMode.value))
     } else if (event.type === 'session.closed') {
       liveCloseConfirmed = true
       resolveLiveClose?.()
@@ -462,6 +509,7 @@ async function handleRealtimeEvent(raw: string) {
     return
   }
 
+  if (event.type === 'response.created') { realtimeResponseActive = true; return }
   if (event.type === 'session.created' || event.type === 'session.updated') {
     setPushToTalkIdleStatus()
     return
@@ -499,6 +547,7 @@ async function handleRealtimeEvent(raw: string) {
     return
   }
   if (event.type === 'response.done' || event.type === 'response.output_audio.done' || event.type === 'response.audio.done') {
+    if (event.type === 'response.done') realtimeResponseActive = false
     if (!processingToolCalls.value) setPushToTalkIdleStatus()
     return
   }
@@ -524,7 +573,7 @@ function configureDataChannel(channel: RTCDataChannel) {
     voiceConnected.value = true
     pushToTalkActive.value = false
     voiceStatus.value = 'Connected · starting PERI…'
-    sendRealtimeEvent(voiceGreeting('realtime', Boolean(shiftReview.value)))
+    sendRealtimeEvent(voiceGreeting('realtime', Boolean(shiftReview.value), stepVoiceMode.value))
   }
 
   channel.onmessage = (event) => {
@@ -547,6 +596,7 @@ function configureDataChannel(channel: RTCDataChannel) {
 }
 
 function cleanupVoice(status = 'Not connected') {
+  realtimeResponseActive = false
   stopVoiceActivity?.()
   stopVoiceActivity = null
   remoteVoiceLevel.value = 0
@@ -628,7 +678,7 @@ async function disconnectVoice() {
 }
 
 async function connectVoice() {
-  if (!jha.value?.name || !consentConfirmed.value || (reviewStage.value && !shiftReviewOpen.value) || connecting.value || voiceConnected.value || disconnecting.value) return
+  if (!canConnectVoice.value || !jha.value?.name) return
   if (!navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === 'undefined') {
     error.value = 'This browser does not support the microphone/WebRTC features required for PERI voice.'
     return
@@ -728,7 +778,8 @@ async function connectVoice() {
     payload.append('jha_name', jha.value.name)
     payload.append('sdp', offerSdp)
     payload.append('consent_confirmed', '1')
-    if (shiftReview.value?.name) payload.append('shift_review', shiftReview.value.name)
+    if (stepVoiceMode.value) payload.append('step_briefing', '1')
+    else if (shiftReview.value?.name) payload.append('shift_review', shiftReview.value.name)
 
     const data = await apiRequest<FrappeResponse<VoiceCallResponse>>(
       '/api/method/verto.api.mobile.voice_jha.start_voice_jha_call',
@@ -799,7 +850,7 @@ onBeforeUnmount(() => {
       <template v-else-if="context">
         <section class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
           <div class="flex flex-wrap items-center gap-2">
-            <Badge variant="subtle">{{ shiftReview ? 'Shift review with PERI' : 'Develop JHA with PERI' }}</Badge>
+            <Badge variant="subtle">{{ stepVoiceMode ? 'Step briefing with PERI' : shiftReview ? 'Shift review with PERI' : 'Develop JHA with PERI' }}</Badge>
             <Badge v-if="jha?.status" variant="subtle">{{ jha.status }}</Badge>
             <Badge v-if="context.work_order_number" variant="subtle">WO: {{ context.work_order_number }}</Badge>
           </div>
@@ -807,7 +858,8 @@ onBeforeUnmount(() => {
           <p class="mt-1 text-sm text-ink-gray-5">{{ context.project }}<span v-if="context.work_area"> · {{ context.work_area }}</span></p>
           <div class="mt-4 rounded-7 border border-amber-200 bg-amber-50 p-3">
             <p class="text-sm-medium text-amber-900">Human review remains mandatory.</p>
-            <p class="mt-1 text-sm leading-5 text-amber-800">PERI can record confirmed discussion points into this draft JHA. It cannot approve, submit, sign, authorise work or declare the job safe.</p>
+            <p v-if="jha?.status === 'Signed'" class="mt-1 text-sm leading-5 text-amber-800">Use PERI to discuss incident lessons and check this step’s controls with the crew. Changes need a new JHA revision and human sign-on.</p>
+            <p v-else class="mt-1 text-sm leading-5 text-amber-800">PERI can record confirmed discussion points into this draft JHA. It cannot approve, submit, sign, authorise work or declare the job safe.</p>
           </div>
         </section>
 
@@ -826,18 +878,22 @@ onBeforeUnmount(() => {
           <p v-if="!networkOnline" role="status" class="rounded-7 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Offline reference view. Current revision and field conditions cannot be confirmed. Open your downloaded signed copy below to record observations.</p>
           <JhaVoicePanel
             ref="voicePanel"
-            v-if="!reviewStage || voiceSessionActive || shiftReviewOpen"
+            v-if="!reviewStage || voiceSessionActive || shiftReviewOpen || stepBriefingOpen"
             :connected="voiceConnected" :connecting="connecting" :disconnecting="disconnecting"
             :can-connect="canConnectVoice" :consent="consentConfirmed" :talking="pushToTalkActive"
             :busy="Boolean(processingToolCalls) || voiceStatus.includes('considering')" :level="remoteVoiceLevel"
             :status="voiceStatus" :step="currentStepLabel" :latest-speech="latestPeriSpeech"
             :changing="Boolean(jha.previous_jha)"
             :revalidating="Boolean(shiftReview)"
+            :briefing="stepVoiceMode"
             @consent="consentConfirmed = $event" @connect="connectVoice" @disconnect="disconnectVoice"
             @talk-start="startPushToTalk" @talk-stop="stopPushToTalk"
             @clearance-change="voicePanelClearance = $event"
           />
           <audio ref="remoteAudio" autoplay playsinline class="hidden" />
+          <JhaActiveStep :jha="jha" :online="networkOnline" :voice-briefing="stepBriefing"
+            :busy="changingJha || connecting || disconnecting || Boolean(processingToolCalls) || pushToTalkActive"
+            @briefing="handleStepBriefing" @discuss="discussActiveStep" @request-change="beginChangeManagement()" />
           <section v-if="jha.previous_jha" class="rounded-7 border border-blue-200 bg-blue-50 p-3">
             <p class="text-sm-medium text-blue-900">Change review · Revision {{ jha.revision }}</p>
             <p class="mt-1 text-sm text-blue-800">Based on {{ jha.previous_jha }}. {{ jha.change_summary || 'Tell PERI what has changed or needs adding.' }}</p>

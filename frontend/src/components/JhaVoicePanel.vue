@@ -6,7 +6,7 @@ import { useMobileBoot } from '../lib/mobileBoot'
 const props = defineProps<{
   connected: boolean; connecting: boolean; disconnecting: boolean; canConnect: boolean
   consent: boolean; talking: boolean; busy: boolean; level: number; status: string
-  step?: string; latestSpeech?: string; changing?: boolean; revalidating?: boolean
+  step?: string; latestSpeech?: string; changing?: boolean; revalidating?: boolean; briefing?: boolean
 }>()
 const emit = defineEmits<{
   connect: []; disconnect: []; consent: [value: boolean]
@@ -53,7 +53,7 @@ onBeforeUnmount(() => emit('clearanceChange', 0))
   <section data-testid="jha-voice-panel" class="voice-panel rounded-7 border border-outline-gray-2 bg-surface-base p-3 shadow-sm"
     :class="{ 'voice-panel-sticky': connected || connecting || disconnecting }">
     <div class="mb-2 flex items-center justify-between gap-2">
-      <p class="truncate text-sm-medium text-ink-gray-8">{{ revalidating ? 'Shift review with PERI' : changing ? 'Change review with PERI' : 'Develop JHA with PERI' }}</p>
+      <p class="truncate text-sm-medium text-ink-gray-8">{{ briefing ? 'Step briefing with PERI' : revalidating ? 'Shift review with PERI' : changing ? 'Change review with PERI' : 'Develop JHA with PERI' }}</p>
       <p v-if="step" class="max-w-[60%] truncate text-xs text-ink-gray-5">{{ step }}</p>
     </div>
     <div v-if="connected" ref="dock" class="voice-controls jha-voice-dock">

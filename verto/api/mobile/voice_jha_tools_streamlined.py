@@ -331,7 +331,10 @@ def _execute_mark_ready(jha_name: str, arguments, call_id: str):
 
 
 @frappe.whitelist(methods=["POST"])
-def execute_voice_jha_tool(jha_name: str, tool_name: str, arguments="{}", call_id: str = "", shift_review: str = ""):
+def execute_voice_jha_tool(jha_name: str, tool_name: str, arguments="{}", call_id: str = "", shift_review: str = "", step_briefing=0):
+    if cint(step_briefing):
+        from verto.api.mobile.voice_jha_steps import execute_step_tool
+        return execute_step_tool(jha_name, tool_name)
     if shift_review:
         from verto.api.mobile.voice_jha_revalidation import execute_shift_tool
         return execute_shift_tool(jha_name, shift_review, tool_name, arguments, call_id)

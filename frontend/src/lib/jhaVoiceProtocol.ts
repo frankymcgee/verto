@@ -2,8 +2,16 @@ export type VoiceEngine = 'realtime' | 'live'
 export type VoiceToolCall = { call_id: string; name: string; arguments: string }
 type VoiceEvent = Record<string, any>
 
-export function voiceGreeting(engine: VoiceEngine, shiftReview = false): VoiceEvent {
-  const instructions = shiftReview
+export const stepBriefingPrompt = 'The human has selected an active execution step on the signed JHA. Switch to read-only step briefing. Use get_current_jha_state now to read the latest step_briefing; it supersedes all earlier development or shift questions. Tell the crew what happened in its relevant incidents, with source reference/date and recorded findings/actions, then ask one specific question about the recorded controls being in place and effective today. Never invent incidents, verify controls, change the signed JHA or advance the step. For missing controls prompt the crew to pause affected work and use Review/change JHA. Stay available until Disconnect Voice.'
+
+export function stepBriefingEvent(engine: VoiceEngine): VoiceEvent {
+  return engine === 'live'
+    ? { type: 'session.instructions.append', event_id: `jha-step-${crypto.randomUUID()}`, delegation_id: null, content: stepBriefingPrompt + ' Delegate to the backend now for the latest facts and speak the resulting briefing.' }
+    : { type: 'conversation.item.create', item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: stepBriefingPrompt }] } }
+}
+
+export function voiceGreeting(engine: VoiceEngine, shiftReview = false, stepBriefing = false): VoiceEvent {
+  const instructions = stepBriefing ? stepBriefingPrompt : shiftReview
     ? 'Greet the crew briefly in English and resume the persisted start-of-shift review. Ask its next missing shift question. Do not restart JHA development or repeat completed checks. Read the saved shift review before asking a question.'
     : 'Greet the crew now in English, briefly identify the Work Summary, and resume the persisted facilitation stage and current step in your instructions. Ask the next missing question, then pause and listen. Do not restart a confirmed or completed phase.'
   return engine === 'live'

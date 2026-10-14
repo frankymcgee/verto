@@ -103,6 +103,7 @@ extend_doctype_class = {
 # Permissions
 # -----------
 permission_query_conditions = {
+    "JHA Step Briefing": "verto.api.mobile.voice_jha_steps.briefing_query_conditions",
     "JHA Step Resource": "verto.api.mobile.voice_jha_workpack.resource_query_conditions",
     "JHA Job Template": "verto.api.mobile.voice_jha_learning.template_query_conditions",
     "JHA Job Closeout": "verto.api.mobile.voice_jha_learning.closeout_query_conditions",
@@ -114,6 +115,7 @@ permission_query_conditions = {
 }
 
 has_permission = {
+    "JHA Step Briefing": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
     "JHA Step Resource": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
     "JHA Job Template": "verto.api.mobile.voice_jha_learning.template_has_permission",
     "JHA Job Closeout": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",

@@ -146,6 +146,7 @@ def shift_review_tools():
 
 
 def shift_instructions(jha, config):
+    from verto.api.mobile.voice_jha_steps import STEP_MODE_TRANSITION
     from verto.api.mobile.voice_jha import _build_conversation_style_instructions
     state = jha.flags.shift_review
     return f"""You are PERI running a short START-OF-SHIFT REVALIDATION, not developing the job again.
@@ -165,7 +166,8 @@ No Change records this shift discussion only. Existing site permits, isolations 
 The signed JHA and prior signatures remain intact. Never invent crew answers or site conditions.
 Use get_current_jha_state to resume without repeating completed checks. Once complete, remain available
 for questions until Disconnect Voice. There is no voice tool to confirm the final human review.
-{_build_conversation_style_instructions(config)}"""
+{_build_conversation_style_instructions(config)}
+{STEP_MODE_TRANSITION}"""
 
 
 def execute_shift_tool(jha_name, shift_review, tool_name, arguments, call_id):

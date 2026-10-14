@@ -6,7 +6,7 @@ import VoiceJha from '../src/pages/VoiceJha.vue'
 vi.mock('../src/lib/api', () => ({ apiRequest: vi.fn() }))
 vi.mock('vue-router', () => ({ useRoute: () => ({ params: { workSummary: 'WS-1' } }), useRouter: () => ({ back: vi.fn() }) }))
 
-let wrapper, connections, track, snapshot, configuredEngine
+let wrapper, connections, track, snapshot, configuredEngine, activeStep
 const configuration = () => ({ engine: configuredEngine, engine_label: configuredEngine === 'live' ? 'GPT Live' : 'GPT Realtime', model: configuredEngine === 'live' ? 'gpt-live-1' : 'gpt-realtime-2.1', voice: configuredEngine === 'live' ? 'quartz' : 'marin' })
 const button = (text) => wrapper.findAll('button').find(item => item.text() === text)
 const channel = () => connections.at(-1).channel
@@ -27,6 +27,7 @@ async function connect(engine = 'live') {
 beforeEach(async () => {
   vi.clearAllMocks()
   configuredEngine = 'live'
+  activeStep = null
   connections = []
   track = { enabled: true, stop: vi.fn() }
   snapshot = { name: 'JHA-1', status: 'Voice Discussion in Progress', work_steps: [{ sequence: 1, activity: 'Fit pump' }], hazards_and_controls: [], participants: [], incident_learning: [] }
@@ -48,6 +49,7 @@ beforeEach(async () => {
       return { message: { sdp: 'v=0\nanswer', engine: config.engine, model: config.model, configuration: config, jha: snapshot } }
     }
     if (url.includes('execute_voice_jha_tool')) {
+      if (options.body.get('step_briefing') === '1') return { message: { ok: true, result: { step_briefing: activeStep }, jha: snapshot } }
       if (options.body.get('tool_name') === 'mark_ready_for_human_review') {
         snapshot = { ...snapshot, status: 'Ready for Team Review' }
       } else if (options.body.get('tool_name') === 'record_hazard_and_control') {
@@ -56,6 +58,14 @@ beforeEach(async () => {
       return { message: { ok: true, result: { saved: true }, jha: snapshot } }
     }
     if (url.includes('get_jha_review_state')) return { message: snapshot }
+    if (url.includes('get_jha_step_briefing')) return { message: activeStep || { jha: snapshot.name, revision: 1, can_select: true, active_step: null } }
+    if (url.includes('select_jha_active_step')) {
+      const step = snapshot.work_steps.find(row => row.name === options.body.get('step_row'))
+      activeStep = { jha: snapshot.name, revision: 1, can_select: true, active_step: { name: `BRIEF-${step.name}`,
+        step_row: step.name, sequence: step.sequence, activity: step.activity, hazards: [], critical_controls: [] },
+        incident_learning: { status: 'no_matches', incidents: [] } }
+      return { message: activeStep }
+    }
     if (url.includes('get_jha_fieldwork')) return { message: { controls: [], ccv_options: [], shift_reviews: [], today: '2026-10-14' } }
     if (url.includes('begin_jha_shift_review')) return { message: { name: 'SHIFT-1', jha: snapshot.name, revision: 1,
       shift_date: '2026-10-14', shift: 'Day', status: 'In Progress', checks: {} } }
@@ -73,6 +83,57 @@ beforeEach(async () => {
 afterEach(() => { wrapper?.unmount(); vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('Voice JHA configured engine connection', () => {
+  it.each(['live', 'realtime'])('switches an existing %s shift conversation to the selected step without reconnecting', async engine => {
+    snapshot = { ...snapshot, status: 'Signed', revision: 1, work_steps: [{ name: 'STEP-1', sequence: 1, activity: 'Restrain pump' }] }
+    wrapper.unmount(); wrapper = mount(VoiceJha, { global: { stubs: { JhaReviewSignoff: true, JhaFieldwork: true } } })
+    await flushPromises()
+    wrapper.findComponent({ name: 'JhaFieldwork' }).vm.$emit('startReview', { shift_date: '2026-10-14', shift: 'Day' })
+    await flushPromises(); await connect(engine)
+    if (engine === 'live') await receive({ type: 'session.started' })
+    await wrapper.find('select[aria-label="Active JHA step"]').setValue('STEP-1'); await flushPromises()
+    expect(connections).toHaveLength(1); expect(track.stop).not.toHaveBeenCalled()
+    expect(wrapper.findComponent({ name: 'JhaVoicePanel' }).props()).toMatchObject({ briefing: true, revalidating: false, connected: true })
+    expect(JSON.stringify(sent().at(engine === 'live' ? -1 : -2))).toContain('supersedes all earlier development or shift questions')
+    const item = { name: 'get_current_jha_state', call_id: 'switched-state', arguments: '{}' }
+    if (engine === 'live') {
+      await receive({ type: 'response.event', delegation_id: 'switch', event: { type: 'response.created', response: { id: 'switch-response' } } })
+      await receive({ type: 'response.event', delegation_id: 'switch', event: { type: 'response.output_item.done', item: { ...item, type: 'function_call' } } })
+    } else await receive({ ...item, type: 'response.function_call_arguments.done' })
+    const request = apiRequest.mock.calls.find(([url]) => url.includes('execute_voice_jha_tool'))
+    expect(request[1].body.get('step_briefing')).toBe('1')
+    expect(request[1].body.has('shift_review')).toBe(false)
+  })
+  it.each(['live', 'realtime'])('briefs selected execution steps with %s, keeps the same call and uses only the step tool context', async engine => {
+    snapshot = { ...snapshot, status: 'Signed', revision: 1, work_steps: [
+      { name: 'STEP-1', sequence: 1, activity: 'Restrain pump' }, { name: 'STEP-2', sequence: 2, activity: 'Lift pump' },
+    ] }
+    wrapper.unmount(); wrapper = mount(VoiceJha, { global: { stubs: { JhaReviewSignoff: true, JhaFieldwork: true } } })
+    await flushPromises()
+    await wrapper.find('select[aria-label="Active JHA step"]').setValue('STEP-1'); await flushPromises()
+    expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Step briefing with PERI')
+    await connect(engine)
+    if (engine === 'live') await receive({ type: 'session.started' })
+    const start = apiRequest.mock.calls.find(([url]) => url.includes('start_voice_jha_call'))
+    expect(start[1].body.get('step_briefing')).toBe('1')
+    expect(start[1].body.has('shift_review')).toBe(false)
+    expect(JSON.stringify(sent())).toContain('read-only step briefing')
+    await wrapper.find('select[aria-label="Active JHA step"]').setValue('STEP-2'); await flushPromises()
+    expect(connections).toHaveLength(1)
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1)
+    expect(track.stop).not.toHaveBeenCalled()
+    expect(button('Disconnect Voice')).toBeDefined()
+    expect(wrapper.text()).toContain('Step 2 · Lift pump')
+    const item = { name: 'get_current_jha_state', call_id: 'step-state', arguments: '{}' }
+    if (engine === 'live') {
+      await receive({ type: 'response.event', delegation_id: 'step', event: { type: 'response.created', response: { id: 'step-response' } } })
+      await receive({ type: 'response.event', delegation_id: 'step', event: { type: 'response.output_item.done', item: { ...item, type: 'function_call' } } })
+    } else await receive({ ...item, type: 'response.function_call_arguments.done' })
+    const request = apiRequest.mock.calls.find(([url]) => url.includes('execute_voice_jha_tool'))
+    expect(request[1].body.get('step_briefing')).toBe('1')
+    expect(request[1].body.has('shift_review')).toBe(false)
+    expect(JSON.stringify(sent())).toContain('Lift pump')
+  })
   it.each(['live', 'realtime'])('runs a %s shift review against the signed revision with consent and its own tool context', async engine => {
     snapshot = { ...snapshot, status: 'Signed', revision: 1 }
     wrapper.unmount()

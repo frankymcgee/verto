@@ -16,6 +16,7 @@ from verto.api.mobile.voice_jha_progress import (
 )
 from verto.api.mobile.voice_jha_tools import get_realtime_jha_tools
 from verto.api.mobile.voice_jha_incidents import EVIDENCE_RULES, realtime_incident_tool
+from verto.api.mobile.voice_jha_steps import STEP_MODE_TRANSITION
 
 
 NORMAL_FACILITATION_FLOW = """
@@ -120,6 +121,9 @@ def _streamlined_tools() -> list[dict]:
 
 
 def _build_facilitation_instructions(task, jha, bot, config: dict) -> str:
+    if (getattr(jha, "flags", None) or {}).get("step_briefing"):
+        from verto.api.mobile.voice_jha_steps import step_instructions
+        return step_instructions(jha, config)
     if (getattr(jha, "flags", None) or {}).get("shift_review"):
         from verto.api.mobile.voice_jha_revalidation import shift_instructions
         return shift_instructions(jha, config)
@@ -162,6 +166,8 @@ CHANGE MANAGEMENT — THIS REPLACES THE NORMAL START-TO-FINISH INTERVIEW FOR THI
 
     return f"""
 {bot_instructions}
+
+{STEP_MODE_TRANSITION}
 
 You are PERI, facilitating a live crew discussion to DEVELOP A DRAFT Job Hazard Analysis (JHA) for Mine Site Support. The field JHA must flow in the same order as the workpack: TASK STEP -> HAZARD -> CONTROL -> CRITICAL CONTROL OWNER -> HOLD POINT.
 
@@ -251,7 +257,9 @@ def _build_live_session(task, jha, bot, config: dict) -> dict:
         work_summary=f"{task.name} — {task.subject or ''}",
         progress=calculate_facilitation_progress(jha),
     )
-    if (getattr(jha, "flags", None) or {}).get("shift_review"):
+    if (getattr(jha, "flags", None) or {}).get("step_briefing"):
+        session["instructions"] = _build_facilitation_instructions(task, jha, bot, config) + "\nDelegate to the backend for current step facts before speaking the briefing. Speak its incident lessons and specific controls question immediately when it completes."
+    elif (getattr(jha, "flags", None) or {}).get("shift_review"):
         session["instructions"] = f"""You are PERI facilitating a short start-of-shift review of signed JHA {jha.name}.
 Speak English using the selected voice. {base._build_conversation_style_instructions(config)}
 Work Summary: {task.subject or task.name}. Saved shift review: {jha.flags.shift_review}.
@@ -263,10 +271,14 @@ When a change is identified, ask the user to select Review Changes with PERI to 
 When all checks are unchanged, read back the result and ask the human to select Confirm No Changes.
 Never confirm, sign, approve, verify controls or authorise work for the user. Stay available until Disconnect Voice.
 Never invent site conditions or claim a record was saved before the backend confirms it."""
+    session["instructions"] += "\n" + STEP_MODE_TRANSITION
     return session
 
 
 def _session_tools(jha):
+    if (getattr(jha, "flags", None) or {}).get("step_briefing"):
+        from verto.api.mobile.voice_jha_steps import step_briefing_tools
+        return step_briefing_tools()
     if (getattr(jha, "flags", None) or {}).get("shift_review"):
         from verto.api.mobile.voice_jha_revalidation import shift_review_tools
         return shift_review_tools()
@@ -320,7 +332,7 @@ def _create_voice_call(*, sdp: str, task, jha, bot):
 
 @frappe.whitelist(methods=["POST"])
 def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_engine: str | None = None,
-                         shift_review: str | None = None):
+                         shift_review: str | None = None, step_briefing=0):
     # Accept the old parameter for cached mobile clients, but never use it to
     # override the engine controlled by Verto Mobile Settings.
     base._require_login()
@@ -340,7 +352,18 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_eng
     jha = base._get_jha_doc(jha_name)
     if not jha.has_permission("write"):
         frappe.throw(_("You cannot start voice for this Digital JHA."), frappe.PermissionError)
-    if shift_review:
+    if shift_review and cint(step_briefing):
+        frappe.throw(_("Choose either a shift review or an active-step briefing."), frappe.ValidationError)
+    if cint(step_briefing):
+        from verto.api.mobile.voice_jha_steps import _latest, require_signed
+        from verto.api.mobile.voice_jha_fieldwork import locked_jha
+        jha = locked_jha(jha_name)
+        require_signed(jha)
+        briefing = _latest(jha)
+        if not briefing:
+            frappe.throw(_("Select the active JHA step before connecting PERI."), frappe.ValidationError)
+        jha.flags.step_briefing = True
+    elif shift_review:
         from verto.api.mobile.voice_jha_revalidation import get_review, serialize_review, OPEN_STATUSES
         from verto.api.mobile.voice_jha_fieldwork import locked_jha
         jha = locked_jha(jha_name)
@@ -354,7 +377,8 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_eng
             frappe.ValidationError,
         )
 
-    sync_facilitation_fields(jha, update_timestamp=False)
+    if not shift_review and not cint(step_briefing):
+        sync_facilitation_fields(jha, update_timestamp=False)
     task = base._validate_work_summary(jha.work_summary)
     bot = base._get_peri_bot_doc()
 
@@ -373,15 +397,17 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_eng
         )
 
     started_at = now_datetime()
-    if shift_review:
-        from verto.api.mobile.voice_jha_revalidation import _save
-        shift.voice_consent_confirmed = 1
-        shift.voice_consent_confirmed_by = frappe.session.user
-        shift.voice_consent_confirmed_at = started_at
-        shift.voice_model = call["model"]
-        shift.voice_started_at = started_at
-        shift.voice_session_reference = call.get("session_reference") or ""
-        _save(shift)
+    if shift_review or cint(step_briefing):
+        record = briefing if cint(step_briefing) else shift
+        record.voice_consent_confirmed = 1
+        record.voice_consent_confirmed_by = frappe.session.user
+        record.voice_consent_confirmed_at = started_at
+        record.voice_model = call["model"]
+        record.voice_started_at = started_at
+        record.voice_session_reference = call.get("session_reference") or ""
+        record.flags.allow_jha_step_mutation = bool(cint(step_briefing))
+        record.flags.allow_jha_field_mutation = bool(shift_review)
+        record.save(ignore_permissions=True)
     else:
         jha.jha_status = "Voice Discussion in Progress"
         jha.voice_transcription_consent_confirmed = 1
