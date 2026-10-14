@@ -275,6 +275,9 @@ def _build_conversation_style_instructions(config: dict) -> str:
 
     rules.extend(
         [
+            "- During JHA development, after a complete crew answer, finish the required tool calls and ask the next specific missing question in the same turn. Do not wait for 'next question', 'ready to proceed', or permission to continue. Pause only after asking for information or a required crew confirmation.",
+            "- During development, silent tool success means omitting save announcements, not omitting the next question. An acknowledgement or read-back must lead directly into that question; shorten the acknowledgement rather than using up the spoken sentence limit before the question.",
+            "- A request to move on is not an answer to a missing safety question. Still obtain the actual job-step confirmation, hazard/control details, critical-control decision/owner and explicit hold-point yes/no required by the workflow.",
             "- When a tool fails, briefly ask only for the information needed to resolve the failure.",
             "- Never trade safety-critical clarification for brevity. If an answer is ambiguous or contradictory, clarify it before recording it.",
             "- The final JHA review may be longer than the normal sentence limit because it is a deliberate verification checkpoint.",

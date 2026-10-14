@@ -34,6 +34,15 @@ both engines. Realtime transcription, VAD, noise reduction and numeric output
 speed settings configure Realtime only. Live handles its own transcripts and
 turn-taking. Both use browser microphone noise suppression and push-to-talk.
 
+During development, each complete crew answer leads through the required tools
+directly to the next specific question. PERI does not ask for permission to ask
+another question or require a repeated "next question" / "ready to proceed".
+Silent tool success suppresses save announcements; the next question is still
+spoken. Actual job-step confirmations, critical-control details and hold-point
+answers remain required. Review-question guidance is returned by the server
+only once the saved JHA is **Ready for Team Review**, so it does not put an
+unfinished discussion into a waiting mode.
+
 ## Live connection and tools
 
 The server creates a WebRTC session at OpenAI's Live sessions endpoint using
