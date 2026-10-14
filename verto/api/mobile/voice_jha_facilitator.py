@@ -124,6 +124,8 @@ def _build_facilitation_instructions(task, jha, bot, config: dict) -> str:
         from verto.api.mobile.voice_jha_revalidation import shift_instructions
         return shift_instructions(jha, config)
     bot_instructions = base._get_bot_instructions(bot)
+    from verto.api.mobile.voice_jha_learning import learning_instructions
+    job_guidance = learning_instructions(jha)
     conversation_style = base._build_conversation_style_instructions(config)
     progress = calculate_facilitation_progress(jha)
     change_instructions = ""
@@ -207,6 +209,7 @@ TOOL RULES:
 - Record only information stated or confirmed by the crew.
 - Reuse stable identifiers for corrections.
 - Use get_current_jha_state if unsure what is already recorded.
+- Supporting records are human-reported references and observations, not permit approval or current control verification. Photo descriptions and markers do not establish what is visible or implemented; ask the crew rather than inventing image findings.
 - confirm_job_steps requires explicit crew confirmation of the whole ordered list.
 - complete_current_step is the only normal way to advance the persisted current step.
 - record_participant never acknowledges or signs for a person.
@@ -224,6 +227,8 @@ Planned description: {task.get('description') or 'No description supplied.'}
 
 CURRENT JOB STEPS:
 {existing_steps}
+
+{job_guidance}
 
 PERSISTED STEP PROGRESS:
 {current_progress}

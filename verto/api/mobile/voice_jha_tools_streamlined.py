@@ -373,6 +373,9 @@ def execute_voice_jha_tool(jha_name: str, tool_name: str, arguments="{}", call_i
             response["result"]["facilitation"] = calculate_facilitation_progress(doc)
         response["jha"] = serialize_jha(doc)
         response["result"]["incident_learning"] = response["jha"]["incident_learning"]
+        response["result"]["job_learning"] = response["jha"]["job_learning"]
+        from verto.api.mobile.voice_jha_workpack import resource_state
+        response["result"]["supporting_records"] = resource_state(doc)
         response["result"]["change_management"] = {key: response["jha"].get(key) for key in (
             "previous_jha", "change_summary", "change_management_stage", "change_target_steps", "change_participants",
         )}

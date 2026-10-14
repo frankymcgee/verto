@@ -16,6 +16,7 @@ const routes = [
     path: '/',
     component: MobileShell,
     children: [
+      { path: 'jha-saved', name: 'jha-saved', component: () => import('../pages/JhaSaved.vue'), meta: { title: 'Offline JHAs' } },
       {
         path: '',
         component: Home,

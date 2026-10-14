@@ -1,0 +1,231 @@
+{
+ "doctype": "DocType",
+ "name": "JHA Step Resource",
+ "module": "Safety",
+ "autoname": "hash",
+ "engine": "InnoDB",
+ "field_order": [
+  "jha",
+  "revision",
+  "work_summary",
+  "project",
+  "kind",
+  "step_row",
+  "work_step",
+  "step_activity",
+  "reference",
+  "details",
+  "evidence",
+  "annotations",
+  "expires_at",
+  "status",
+  "ehs_permit",
+  "source_snapshot",
+  "replaces",
+  "recorded_by",
+  "recorder_name",
+  "recorded_at",
+  "observed_at",
+  "work_changed",
+  "stale_revision",
+  "job_template",
+  "request_key",
+  "request_fingerprint"
+ ],
+ "fields": [
+  {
+   "fieldname": "jha",
+   "label": "Jha",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "in_list_view": 1,
+   "options": "Digital Job Hazard Analysis",
+   "reqd": 1
+  },
+  {
+   "fieldname": "revision",
+   "label": "Revision",
+   "fieldtype": "Int",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "work_summary",
+   "label": "Work Summary",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "Task",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project",
+   "label": "Project",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "Project"
+  },
+  {
+   "fieldname": "kind",
+   "label": "Kind",
+   "fieldtype": "Select",
+   "read_only": 1,
+   "in_list_view": 1,
+   "options": "Permit\nIsolation\nDocument\nPhoto\nObservation\nTemplate",
+   "reqd": 1
+  },
+  {
+   "fieldname": "step_row",
+   "label": "Step Row",
+   "fieldtype": "Data",
+   "read_only": 1
+  },
+  {
+   "fieldname": "work_step",
+   "label": "Work Step",
+   "fieldtype": "Int",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "step_activity",
+   "label": "Step Activity",
+   "fieldtype": "Small Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reference",
+   "label": "Reference",
+   "fieldtype": "Data",
+   "read_only": 1
+  },
+  {
+   "fieldname": "details",
+   "label": "Details",
+   "fieldtype": "Small Text",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "evidence",
+   "label": "Evidence",
+   "fieldtype": "Attach",
+   "read_only": 1
+  },
+  {
+   "fieldname": "annotations",
+   "label": "Annotations",
+   "fieldtype": "Long Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "expires_at",
+   "label": "Expires At",
+   "fieldtype": "Datetime",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "label": "Status",
+   "fieldtype": "Select",
+   "read_only": 1,
+   "in_list_view": 1,
+   "options": "Pending\nConfirmed\nWithdrawn\nRecorded",
+   "reqd": 1
+  },
+  {
+   "fieldname": "ehs_permit",
+   "label": "Ehs Permit",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "EHS Permit"
+  },
+  {
+   "fieldname": "source_snapshot",
+   "label": "Source Snapshot",
+   "fieldtype": "Long Text",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "replaces",
+   "label": "Replaces",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "JHA Step Resource"
+  },
+  {
+   "fieldname": "recorded_by",
+   "label": "Recorded By",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "recorder_name",
+   "label": "Recorder Name",
+   "fieldtype": "Data",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recorded_at",
+   "label": "Recorded At",
+   "fieldtype": "Datetime",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "observed_at",
+   "label": "Observed At",
+   "fieldtype": "Data",
+   "read_only": 1
+  },
+  {
+   "fieldname": "work_changed",
+   "label": "Work Changed",
+   "fieldtype": "Check",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stale_revision",
+   "label": "Stale Revision",
+   "fieldtype": "Check",
+   "read_only": 1
+  },
+  {
+   "fieldname": "job_template",
+   "label": "Job Template",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "JHA Job Template"
+  },
+  {
+   "fieldname": "request_key",
+   "label": "Request Key",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "unique": 1,
+   "hidden": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "request_fingerprint",
+   "label": "Request Fingerprint",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "hidden": 1,
+   "reqd": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "All",
+   "read": 1,
+   "print": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

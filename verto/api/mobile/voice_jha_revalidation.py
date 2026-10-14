@@ -97,6 +97,9 @@ def confirm_jha_shift_review(jha_name: str, shift_review: str, confirmation=0):
         frappe.throw(_("Complete every shift check without changes before confirming. Identified changes need a new JHA revision."), frappe.ValidationError)
     if any(control["status"] in {"Failed", "Recheck Required"} for control in control_state(jha)):
         frappe.throw(_("Resolve failed or stale critical-control checks before confirming unchanged conditions."), frappe.ValidationError)
+    from verto.api.mobile.voice_jha_workpack import outstanding_references
+    if outstanding_references(jha):
+        frappe.throw(_("Check outstanding, expired or changed permit/isolation references before confirming unchanged conditions."), frappe.ValidationError)
     doc.status = "No Change"
     doc.confirmed_by = frappe.session.user
     doc.confirmed_at = now_datetime()

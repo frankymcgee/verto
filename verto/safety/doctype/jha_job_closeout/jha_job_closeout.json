@@ -1,0 +1,163 @@
+{
+ "doctype": "DocType",
+ "name": "JHA Job Closeout",
+ "module": "Safety",
+ "autoname": "hash",
+ "engine": "InnoDB",
+ "field_order": [
+  "jha",
+  "revision",
+  "work_summary",
+  "project",
+  "status",
+  "deviations",
+  "control_improvements",
+  "follow_up",
+  "lesson",
+  "recorded_by",
+  "recorded_at",
+  "reviewed_by",
+  "reviewed_at",
+  "review_notes",
+  "future_guidance",
+  "request_key",
+  "request_fingerprint"
+ ],
+ "fields": [
+  {
+   "fieldname": "jha",
+   "label": "Jha",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "in_list_view": 1,
+   "options": "Digital Job Hazard Analysis",
+   "reqd": 1
+  },
+  {
+   "fieldname": "revision",
+   "label": "Revision",
+   "fieldtype": "Int",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "work_summary",
+   "label": "Work Summary",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "Task",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project",
+   "label": "Project",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "Project"
+  },
+  {
+   "fieldname": "status",
+   "label": "Status",
+   "fieldtype": "Select",
+   "read_only": 1,
+   "in_list_view": 1,
+   "options": "Pending Review\nApproved\nRejected",
+   "reqd": 1
+  },
+  {
+   "fieldname": "deviations",
+   "label": "Deviations",
+   "fieldtype": "Small Text",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "control_improvements",
+   "label": "Control Improvements",
+   "fieldtype": "Small Text",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "follow_up",
+   "label": "Follow Up",
+   "fieldtype": "Small Text",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "lesson",
+   "label": "Lesson",
+   "fieldtype": "Small Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recorded_by",
+   "label": "Recorded By",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "recorded_at",
+   "label": "Recorded At",
+   "fieldtype": "Datetime",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "reviewed_by",
+   "label": "Reviewed By",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "reviewed_at",
+   "label": "Reviewed At",
+   "fieldtype": "Datetime",
+   "read_only": 1
+  },
+  {
+   "fieldname": "review_notes",
+   "label": "Review Notes",
+   "fieldtype": "Small Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "future_guidance",
+   "label": "Future Guidance",
+   "fieldtype": "Small Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_key",
+   "label": "Request Key",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "unique": 1,
+   "hidden": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "request_fingerprint",
+   "label": "Request Fingerprint",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "hidden": 1,
+   "reqd": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "All",
+   "read": 1,
+   "print": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

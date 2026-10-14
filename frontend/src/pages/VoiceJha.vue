@@ -9,6 +9,9 @@ import JhaReviewSignoff from '../components/JhaReviewSignoff.vue'
 import JhaIncidentLearning from '../components/JhaIncidentLearning.vue'
 import JhaVoicePanel from '../components/JhaVoicePanel.vue'
 import JhaFieldwork from '../components/JhaFieldwork.vue'
+import JhaStepResources from '../components/JhaStepResources.vue'
+import JhaJobLearning from '../components/JhaJobLearning.vue'
+import JhaOfflineCopy from '../components/JhaOfflineCopy.vue'
 import { monitorRemoteVoice } from '../lib/remoteVoiceActivity'
 import { LiveJhaToolLoop, liveTranscriptEntries, voiceGreeting, voiceToolResult } from '../lib/jhaVoiceProtocol'
 import type { LiveTranscriptFragment, VoiceEngine } from '../lib/jhaVoiceProtocol'
@@ -82,6 +85,8 @@ const route = useRoute()
 const router = useRouter()
 
 const loading = ref(true)
+const networkOnline = ref(navigator.onLine)
+function updateNetworkState() { networkOnline.value = navigator.onLine }
 const creating = ref(false)
 const refreshing = ref(false)
 const connecting = ref(false)
@@ -147,6 +152,7 @@ const reviewStage = computed(() => [
 const voiceSessionActive = computed(() => connecting.value || voiceConnected.value || disconnecting.value)
 const shiftReviewOpen = computed(() => Boolean(shiftReview.value && ['In Progress', 'Awaiting Confirmation'].includes(shiftReview.value.status) && jha.value?.status === 'Signed'))
 const canConnectVoice = computed(() => Boolean(
+  networkOnline.value &&
   jha.value?.name &&
   context.value?.realtime_enabled &&
   consentConfirmed.value &&
@@ -186,7 +192,8 @@ async function beginChangeManagement(fromShift?: Record<string, any>) {
     payload.append('confirmation', '1')
     if (fromShift?.name) payload.append('shift_review', fromShift.name)
     const data = await apiRequest<FrappeResponse<JhaSnapshot>>(
-      fromShift?.name ? '/api/method/verto.api.mobile.voice_jha_revalidation.begin_shift_change' : '/api/method/verto.api.mobile.voice_jha_changes.begin_jha_change',
+      fromShift?.name ? '/api/method/verto.api.mobile.voice_jha_revalidation.begin_shift_change' : fromShift?.workpack
+        ? '/api/method/verto.api.mobile.voice_jha_workpack.begin_workpack_change' : '/api/method/verto.api.mobile.voice_jha_changes.begin_jha_change',
       { method: 'POST', body: payload }
     )
     if (!pageActive) return
@@ -756,8 +763,14 @@ async function connectVoice() {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  window.addEventListener('online', updateNetworkState)
+  window.addEventListener('offline', updateNetworkState)
+  void load()
+})
 onBeforeUnmount(() => {
+  window.removeEventListener('online', updateNetworkState)
+  window.removeEventListener('offline', updateNetworkState)
   pageActive = false
   manualDisconnect = true
   if (activeVoiceEngine.value === 'live' && liveSessionReady) sendRealtimeEvent({ type: 'session.close', event_id: 'jha-leave' })
@@ -771,6 +784,7 @@ onBeforeUnmount(() => {
     <div class="mx-auto w-full max-w-3xl space-y-3">
       <div class="flex items-center justify-between gap-3">
         <Button variant="subtle" theme="gray" size="sm" @click="router.back()">Back</Button>
+        <a href="/verto-mobile/jha-saved" class="text-sm text-blue-700 underline">Offline JHAs</a>
         <Button v-if="jha" variant="subtle" theme="gray" size="sm" :loading="refreshing" :disabled="refreshing || voiceConnected || connecting || changingJha" @click="refreshJha">Refresh</Button>
       </div>
 
@@ -805,10 +819,11 @@ onBeforeUnmount(() => {
             <p class="mt-1 text-sm-medium text-ink-gray-8">{{ context.peri_bot || 'PERI bot configuration required' }}</p>
             <p v-if="voiceConfigSummary" class="mt-1 text-xs text-ink-gray-5">{{ voiceConfigSummary }}</p>
           </div>
-          <Button variant="solid" theme="gray" size="lg" class="mt-4 w-full justify-center" :loading="creating" :disabled="creating || !context.peri_bot" @click="createOrResumeDraft">Start JHA with PERI</Button>
+          <Button variant="solid" theme="gray" size="lg" class="mt-4 w-full justify-center" :loading="creating" :disabled="!networkOnline || creating || !context.peri_bot" @click="createOrResumeDraft">Start JHA with PERI</Button>
         </section>
 
         <template v-else>
+          <p v-if="!networkOnline" role="status" class="rounded-7 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Offline reference view. Current revision and field conditions cannot be confirmed. Open your downloaded signed copy below to record observations.</p>
           <JhaVoicePanel
             ref="voicePanel"
             v-if="!reviewStage || voiceSessionActive || shiftReviewOpen"
@@ -874,11 +889,15 @@ onBeforeUnmount(() => {
             <p v-for="issue in completenessIssues" :key="issue">{{ issue }}</p>
           </div>
           <JhaReviewSignoff
+            v-if="networkOnline"
             :jha="jha" :change-starting="changingJha || connecting || disconnecting"
             @request-change="beginChangeManagement" @updated="handleReviewUpdated"
           />
-          <JhaFieldwork :jha="jha" :voice-review="shiftReview" :busy="changingJha || connecting || disconnecting"
+          <JhaFieldwork v-if="networkOnline" :jha="jha" :voice-review="shiftReview" :busy="changingJha || connecting || disconnecting"
             @start-review="beginShiftReview" @review-updated="handleShiftReviewUpdated" @review-changes="beginChangeManagement" />
+          <JhaStepResources :jha="jha" :busy="changingJha || connecting || disconnecting" @updated="handleReviewUpdated" @request-change="beginChangeManagement({ workpack: true })" />
+          <JhaJobLearning :jha="jha" :busy="voiceSessionActive || changingJha" />
+          <JhaOfflineCopy :jha-name="jha.name" :can-download="jha.status === 'Signed' && !jha.replacement_jha" @changed="refreshJha" />
 
 
           <details v-if="transcript.length || pendingPeriTranscript" class="rounded-7 border border-outline-gray-1 bg-surface-base">
