@@ -29,6 +29,7 @@ REVIEW_PROTECTED_FIELDS = {
     "reviewer_name",
     "reviewed_at",
     "review_signature",
+    "review_notes",
     "signed_at",
     "signed_by_user",
     "review_audit_log",
@@ -40,15 +41,45 @@ PARTICIPANT_PROTECTED_FIELDS = {
     "acknowledgement_signature",
 }
 MAX_REVIEW_AUDIT_ENTRIES = 300
+CHANGE_PROTECTED_FIELDS = {
+    "previous_jha", "replacement_jha", "change_management_stage", "change_summary",
+    "change_target_steps", "change_participants", "change_requested_by", "change_requested_at",
+}
 
 
 class DigitalJobHazardAnalysis(Document):
     def validate(self):
+        self._validate_change_mutations()
+        self._validate_locked_content()
         self._validate_protected_review_mutations()
         self._validate_incident_references()
         self._set_work_summary_context()
         self._sync_planned_child_tasks()
         self._guard_source_revision()
+
+    def _validate_change_mutations(self):
+        if self.flags.get("allow_jha_change_mutation"):
+            return
+        before = self.get_doc_before_save() if not self.is_new() else None
+        for field in CHANGE_PROTECTED_FIELDS:
+            changed = self.get(field) != before.get(field) if before else self.get(field) not in (None, "", 0, "0")
+            if changed:
+                frappe.throw(_("Change-management fields are controlled by the JHA change workflow."), frappe.PermissionError)
+
+    def _validate_locked_content(self):
+        before = self.get_doc_before_save() if not self.is_new() else None
+        if not before or before.jha_status not in REVIEW_LOCKED_STATUSES | {"Review Required - Work Changed", "Superseded"}:
+            return
+        ignored = {"name", "owner", "creation", "modified", "modified_by", "parent", "parentfield", "parenttype", "idx"} | PARTICIPANT_PROTECTED_FIELDS
+        def content(rows):
+            return [{key: value for key, value in row.as_dict().items() if key not in ignored} for row in rows or []]
+        if any(self.get(field) != before.get(field) for field in (
+            "project", "work_summary", "work_summary_title", "work_area", "work_order_number",
+        )) or any(
+            content(self.get(field)) != content(before.get(field))
+            for field in ("work_steps", "hazards_and_controls", "participants")
+        ):
+            frappe.throw(_("Start a JHA change revision before changing reviewed content."), frappe.PermissionError)
 
     def _validate_incident_references(self):
         if self.flags.get("allow_jha_incident_mutation"):
@@ -132,6 +163,10 @@ class DigitalJobHazardAnalysis(Document):
 
     def _sync_planned_child_tasks(self):
         """Mirror direct Task children into editable JHAs as planned work steps."""
+        # A change revision retains the crew's reviewed sequence. New/renamed
+        # steps are inserted explicitly through the change workflow.
+        if self.get("previous_jha"):
+            return
         if not self.work_summary or not frappe.db.exists("Task", self.work_summary):
             return
         if not self.is_new() and self.jha_status not in EDITABLE_JHA_STATUSES:
@@ -165,7 +200,8 @@ class DigitalJobHazardAnalysis(Document):
                 existing_by_task[source_task] = row
             else:
                 row.sequence = sequence
-                row.activity = child.get("subject") or source_task
+                if not cint(self.get("job_steps_confirmed")):
+                    row.activity = child.get("subject") or source_task
                 row.step_origin = "Planned"
 
     def calculate_source_revision(self) -> str:

@@ -100,6 +100,9 @@ def calculate_facilitation_progress(doc) -> dict:
     elif status == "Ready for Team Review":
         stage = STAGE_READY
         current_sequence = 0
+    elif doc.get("previous_jha") and doc.get("change_management_stage") == "Describe Change":
+        stage = "Change Request"
+        current_sequence = 0
     elif not steps or not job_steps_confirmed:
         stage = STAGE_JOB_STEPS
         current_sequence = 0
@@ -115,7 +118,10 @@ def calculate_facilitation_progress(doc) -> dict:
             participants = [
                 row for row in (doc.participants or []) if cint(row.get("present_for_discussion"))
             ]
-            stage = STAGE_COMPLETENESS if participants else STAGE_DEVELOPMENT_TEAM
+            if doc.get("previous_jha") and doc.get("change_management_stage") != "Confirmed":
+                stage = "Change Confirmation"
+            else:
+                stage = STAGE_COMPLETENESS if participants else STAGE_DEVELOPMENT_TEAM
 
     for state in step_states:
         state["is_current"] = bool(

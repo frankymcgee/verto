@@ -36,6 +36,8 @@ const steps = computed(() => props.progress?.steps || [])
 const stageHelp = computed(() => {
   const stage = props.progress?.stage || ''
   if (stage === 'Job Steps') return 'Confirm the complete ordered job-step list before hazard analysis begins.'
+  if (stage === 'Change Request') return 'Tell PERI what changed and confirm which steps or participants are affected.'
+  if (stage === 'Change Confirmation') return 'Check PERI’s change read-back before the revised JHA returns for human review.'
   if (stage === 'Step Analysis') return `PERI is working through Step ${props.progress?.current_step_sequence || ''} only.`
   if (stage === 'Development Team') return 'All job steps are complete. Record the people who participated in the JHA discussion.'
   if (stage === 'Completeness Check') return 'The field discussion is complete. PERI is checking for any remaining JHA gaps.'

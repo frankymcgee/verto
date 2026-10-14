@@ -56,6 +56,12 @@ beforeEach(async () => {
       return { message: { ok: true, result: { saved: true }, jha: snapshot } }
     }
     if (url.includes('get_jha_review_state')) return { message: snapshot }
+    if (url.includes('begin_jha_change')) {
+      snapshot = { ...snapshot, name: 'JHA-2', previous_jha: 'JHA-1', revision: 2,
+        status: 'Incomplete - Actions Required', change_management_stage: 'Describe Change',
+        facilitation: { stage: 'Change Request' }, review_completed: 0 }
+      return { message: snapshot }
+    }
     throw Error('Unexpected API request')
   })
   wrapper = mount(VoiceJha, { global: { stubs: { JhaFacilitationProgress: true, JhaReviewSignoff: true } } })
@@ -128,7 +134,7 @@ describe('Voice JHA configured engine connection', () => {
     expect(starts.map(([, options]) => options.body.get('voice_engine'))).toEqual([null, null])
     expect(starts.map(([, options]) => options.body.get('jha_name'))).toEqual(['JHA-1', 'JHA-1'])
     expect(sent()[0].type).toBe('response.create')
-    expect(wrapper.text()).toContain('gpt-realtime-2.1')
+    expect(wrapper.find('[data-testid="jha-voice-panel"]').exists()).toBe(true)
   })
   it('keeps the saved draft visible after a Live session error', async () => {
     await connect()
@@ -297,5 +303,45 @@ describe('Voice JHA configured engine connection', () => {
     expect(track.stop).toHaveBeenCalledOnce()
     expect(voiceChannel.close).toHaveBeenCalledOnce()
     expect(pc.connectionState).toBe('closed')
+  })
+
+  it('opens a signed JHA change revision and connects PERI to that revision after consent', async () => {
+    snapshot = { ...snapshot, status: 'Signed', revision: 1 }
+    wrapper.unmount()
+    wrapper = mount(VoiceJha, { global: { stubs: { JhaFacilitationProgress: true, SignatureField: true } } })
+    await flushPromises()
+    await button('Request a JHA Change').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Change review · Revision 2')
+    expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled()
+    await connect('live')
+    await receive({ type: 'session.started' })
+    const starts = apiRequest.mock.calls.filter(([url]) => url.includes('start_voice_jha_call'))
+    expect(starts.at(-1)[1].body.get('jha_name')).toBe('JHA-2')
+    expect(wrapper.text()).toContain('Change review with PERI')
+    wrapper.findComponent({ name: 'JhaReviewSignoff' }).vm.$emit('updated', { name: 'JHA-1', status: 'Signed' })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Change review · Revision 2')
+  })
+
+  it('finishes the old call before reconnecting to a requested change revision', async () => {
+    wrapper.unmount()
+    wrapper = mount(VoiceJha, { global: { stubs: { JhaFacilitationProgress: true, SignatureField: true } } })
+    await flushPromises()
+    await connect('live')
+    await receive({ type: 'session.started' })
+    snapshot = { ...snapshot, status: 'Ready for Team Review' }
+    wrapper.findComponent({ name: 'JhaReviewSignoff' }).vm.$emit('updated', { name: 'JHA-1', status: 'Ready for Team Review' })
+    await flushPromises()
+    await button('Request a JHA Change').trigger('click')
+    await flushPromises()
+    expect(sent().at(-1).type).toBe('session.close')
+    expect(apiRequest.mock.calls.some(([url]) => url.includes('begin_jha_change'))).toBe(false)
+    await receive({ type: 'session.closed' })
+    expect(track.stop).toHaveBeenCalledOnce()
+    expect(connections).toHaveLength(2)
+    expect(wrapper.text()).toContain('Change review · Revision 2')
+    const starts = apiRequest.mock.calls.filter(([url]) => url.includes('start_voice_jha_call'))
+    expect(starts.map(([, options]) => options.body.get('jha_name'))).toEqual(['JHA-1', 'JHA-2'])
   })
 })

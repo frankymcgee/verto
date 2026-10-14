@@ -7,6 +7,8 @@ import { apiRequest } from '../lib/api'
 import JhaFacilitationProgress from '../components/JhaFacilitationProgress.vue'
 import JhaReviewSignoff from '../components/JhaReviewSignoff.vue'
 import JhaIncidentLearning from '../components/JhaIncidentLearning.vue'
+import JhaVoicePanel from '../components/JhaVoicePanel.vue'
+import { monitorRemoteVoice } from '../lib/remoteVoiceActivity'
 import { LiveJhaToolLoop, liveTranscriptEntries, voiceGreeting, voiceToolResult } from '../lib/jhaVoiceProtocol'
 import type { LiveTranscriptFragment, VoiceEngine } from '../lib/jhaVoiceProtocol'
 
@@ -97,6 +99,12 @@ const pendingPeriTranscript = ref('')
 const remoteAudio = ref<HTMLAudioElement | null>(null)
 const toolActivity = ref('')
 const processingToolCalls = ref(0)
+const remoteVoiceLevel = ref(0)
+const changingJha = ref(false)
+const latestPeriSpeech = computed(() => pendingPeriTranscript.value || [...transcript.value].reverse().find(entry => entry.role === 'PERI')?.text || '')
+const currentStepLabel = computed(() => jha.value?.facilitation?.current_step_sequence
+  ? `Step ${jha.value.facilitation.current_step_sequence} · ${jha.value.facilitation.current_step_activity || ''}`
+  : jha.value?.facilitation?.stage || '')
 const completenessIssues = ref<string[]>([])
 const incidentPreview = ref<Record<string, any> | null>(null)
 const incidentSearches = computed(() => [
@@ -114,6 +122,8 @@ let liveToolLoop: LiveJhaToolLoop | null = null
 let resolveLiveClose: (() => void) | null = null
 let connectionGeneration = 0
 let voiceStartTimer: ReturnType<typeof setTimeout> | null = null
+let stopVoiceActivity: (() => void) | null = null
+let pageActive = true
 const liveFragments: LiveTranscriptFragment[] = []
 const liveTranscriptEvents = new Set<string>()
 const processedToolCalls = new Set<string>()
@@ -147,7 +157,38 @@ const configuredVoiceEngine = computed<VoiceEngine>(() => context.value?.voice_c
 
 function handleReviewUpdated(value: Record<string, any>) {
   if (!jha.value) return
+  if (value.name && value.name !== jha.value.name) return
   jha.value = { ...jha.value, ...value }
+}
+
+async function beginChangeManagement() {
+  if (!jha.value?.name || changingJha.value || connecting.value || disconnecting.value) return
+  changingJha.value = true
+  error.value = ''
+  try {
+    const originalName = jha.value.name
+    if (voiceConnected.value) await disconnectVoice()
+    if (!pageActive) return
+    const payload = new FormData()
+    payload.append('jha_name', originalName)
+    payload.append('confirmation', '1')
+    const data = await apiRequest<FrappeResponse<JhaSnapshot>>(
+      '/api/method/verto.api.mobile.voice_jha_changes.begin_jha_change',
+      { method: 'POST', body: payload }
+    )
+    if (!pageActive) return
+    jha.value = data.message
+    transcript.value = []
+    pendingPeriTranscript.value = ''
+    incidentPreview.value = null
+    toolActivity.value = ''
+    completenessIssues.value = []
+    if (consentConfirmed.value && !reviewStage.value) await connectVoice()
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Could not start JHA change management.'
+  } finally {
+    changingJha.value = false
+  }
 }
 
 async function load() {
@@ -449,6 +490,9 @@ function configureDataChannel(channel: RTCDataChannel) {
 }
 
 function cleanupVoice(status = 'Not connected') {
+  stopVoiceActivity?.()
+  stopVoiceActivity = null
+  remoteVoiceLevel.value = 0
   if (voiceStartTimer) clearTimeout(voiceStartTimer)
   voiceStartTimer = null
   connectionGeneration += 1
@@ -576,6 +620,13 @@ async function connectVoice() {
       if (!remoteAudio.value) return
       const stream = event.streams?.[0] || new MediaStream([event.track])
       remoteAudio.value.srcObject = stream
+      stopVoiceActivity?.()
+      stopVoiceActivity = monitorRemoteVoice(stream, (level) => {
+        const wasSpeaking = remoteVoiceLevel.value > 0
+        remoteVoiceLevel.value = level
+        if (level > 0 && voiceConnected.value && !pushToTalkActive.value) voiceStatus.value = 'PERI is speaking…'
+        else if (wasSpeaking && level === 0) setPushToTalkIdleStatus()
+      })
       remoteAudio.value.play().catch(() => {})
     }
 
@@ -656,6 +707,7 @@ async function connectVoice() {
 
 onMounted(load)
 onBeforeUnmount(() => {
+  pageActive = false
   manualDisconnect = true
   if (activeVoiceEngine.value === 'live' && liveSessionReady) sendRealtimeEvent({ type: 'session.close', event_id: 'jha-leave' })
   cleanupVoice('Disconnected')
@@ -667,7 +719,7 @@ onBeforeUnmount(() => {
     <div class="mx-auto w-full max-w-3xl space-y-3">
       <div class="flex items-center justify-between gap-3">
         <Button variant="subtle" theme="gray" size="sm" @click="router.back()">Back</Button>
-        <Button v-if="jha" variant="subtle" theme="gray" size="sm" :loading="refreshing" :disabled="refreshing || voiceConnected || connecting" @click="refreshJha">Refresh</Button>
+        <Button v-if="jha" variant="subtle" theme="gray" size="sm" :loading="refreshing" :disabled="refreshing || voiceConnected || connecting || changingJha" @click="refreshJha">Refresh</Button>
       </div>
 
       <section v-if="loading" class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
@@ -705,6 +757,24 @@ onBeforeUnmount(() => {
         </section>
 
         <template v-else>
+          <JhaVoicePanel
+            v-if="!reviewStage || voiceSessionActive"
+            :connected="voiceConnected" :connecting="connecting" :disconnecting="disconnecting"
+            :can-connect="canConnectVoice" :consent="consentConfirmed" :talking="pushToTalkActive"
+            :busy="Boolean(processingToolCalls) || voiceStatus.includes('considering')" :level="remoteVoiceLevel"
+            :status="voiceStatus" :step="currentStepLabel" :latest-speech="latestPeriSpeech"
+            :changing="Boolean(jha.previous_jha)"
+            @consent="consentConfirmed = $event" @connect="connectVoice" @disconnect="disconnectVoice"
+            @talk-start="startPushToTalk" @talk-stop="stopPushToTalk"
+          />
+          <audio ref="remoteAudio" autoplay playsinline class="hidden" />
+          <section v-if="jha.previous_jha" class="rounded-7 border border-blue-200 bg-blue-50 p-3">
+            <p class="text-sm-medium text-blue-900">Change review · Revision {{ jha.revision }}</p>
+            <p class="mt-1 text-sm text-blue-800">Based on {{ jha.previous_jha }}. {{ jha.change_summary || 'Tell PERI what has changed or needs adding.' }}</p>
+            <p class="mt-1 text-xs text-blue-700">The revised JHA needs fresh human review and sign-on.</p>
+          </section>
+          <details class="rounded-7 border border-outline-gray-1 bg-surface-base">
+            <summary class="cursor-pointer p-3 text-sm-medium text-ink-gray-8">Recorded JHA · {{ workStepCount }} steps · {{ hazardCount }} hazards · {{ participantCount }} people</summary>
           <section class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0"><p class="text-xs-semibold uppercase tracking-wide text-ink-gray-5">Digital JHA</p><p class="mt-1 truncate text-base-semibold text-ink-gray-9">{{ jha.name }}</p></div>
@@ -733,83 +803,29 @@ onBeforeUnmount(() => {
               </div>
             </div>
           </section>
+          </details>
 
-          <JhaFacilitationProgress
-            v-if="jha.facilitation"
-            :progress="jha.facilitation"
-          />
+          <details v-if="jha.facilitation" class="rounded-7 border border-outline-gray-1 bg-surface-base">
+            <summary class="cursor-pointer p-3 text-sm-medium text-ink-gray-8">Step progress · {{ jha.facilitation.completed_step_count || 0 }}/{{ workStepCount }} complete</summary>
+            <JhaFacilitationProgress :progress="jha.facilitation" />
+          </details>
+          <details v-if="incidentSearches.length" class="rounded-7 border border-outline-gray-1 bg-surface-base">
+            <summary class="cursor-pointer p-3 text-sm-medium text-ink-gray-8">Previous incident learning</summary>
+            <JhaIncidentLearning :searches="incidentSearches" />
+          </details>
 
-          <JhaIncidentLearning :searches="incidentSearches" />
-
+          <div v-if="toolActivity" class="rounded-7 bg-surface-gray-1 px-3 py-2 text-xs text-ink-gray-6">{{ toolActivity }}</div>
+          <div v-if="completenessIssues.length" class="rounded-7 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p v-for="issue in completenessIssues" :key="issue">{{ issue }}</p>
+          </div>
           <JhaReviewSignoff
-            :jha="jha"
-            @updated="handleReviewUpdated"
+            :jha="jha" :change-starting="changingJha || connecting || disconnecting"
+            @request-change="beginChangeManagement" @updated="handleReviewUpdated"
           />
 
-          <section v-if="!reviewStage || voiceSessionActive" class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
-            <div class="flex items-start justify-between gap-3">
-              <div><p class="text-base-semibold text-ink-gray-9">Voice discussion</p><p class="mt-1 text-sm text-ink-gray-5">Push-to-talk structured JHA development with PERI</p></div>
-              <Badge variant="subtle">{{ voiceConnected ? (processingToolCalls ? 'Updating draft' : (pushToTalkActive ? 'Talking' : 'Mic muted')) : voiceStatus }}</Badge>
-            </div>
 
-            <div v-if="!voiceConnected" class="mt-4 rounded-7 border border-outline-gray-1 bg-surface-gray-1 p-3">
-              <label class="flex cursor-pointer items-start gap-3">
-                <Checkbox class="mt-0.5 shrink-0" size="md" :model-value="consentConfirmed" :disabled="connecting" @update:model-value="(checked) => consentConfirmed = Boolean(checked)" />
-                <span class="text-sm leading-5 text-ink-gray-7">I confirm everyone present has agreed to microphone use and transcription for this JHA discussion.</span>
-              </label>
-              <p class="mt-3 text-xs leading-4 text-ink-gray-5">This confirmation is recorded against the Digital JHA. Raw audio is not stored by this Verto workflow. Once connected, crew audio is transmitted only while the push-to-talk button is held.</p>
-            </div>
-
-            <div v-if="voiceConnected" class="mt-4 rounded-7 border border-green-200 bg-green-50 p-3">
-              <p class="text-sm-medium text-green-900">PERI is connected · push-to-talk privacy mode</p>
-              <p class="mt-1 text-sm text-green-800">{{ voiceStatus }}<span v-if="voiceModel"> · {{ voiceModel }}</span></p>
-              <p class="mt-1 text-xs leading-4 text-green-700">The microphone track is muted whenever the button below is not being held. Your browser/device may still show that microphone permission is active while the PERI session remains connected.</p>
-              <p v-if="reviewStage" class="mt-2 text-sm text-green-800">You can keep talking to PERI during review, printing and downloading. Select Disconnect Voice when you are finished.</p>
-            </div>
-
-            <div v-if="voiceConnected" class="mt-4 flex flex-col items-center">
-              <button
-                type="button"
-                class="flex h-28 w-28 touch-none select-none flex-col items-center justify-center rounded-full border-2 shadow-sm transition active:scale-95"
-                :class="pushToTalkActive ? 'border-red-500 bg-red-50 text-red-700' : 'border-outline-gray-3 bg-surface-gray-1 text-ink-gray-8'"
-                :aria-pressed="pushToTalkActive"
-                :aria-label="pushToTalkActive ? 'Release to send voice to PERI' : 'Hold to talk to PERI'"
-                @pointerdown="startPushToTalk"
-                @pointerup="stopPushToTalk"
-                @pointercancel="stopPushToTalk"
-                @lostpointercapture="stopPushToTalk"
-                @contextmenu.prevent
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-8 w-8" aria-hidden="true">
-                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                  <path d="M12 19v3" />
-                  <path d="M8 22h8" />
-                </svg>
-                <span class="mt-2 text-sm-medium">{{ pushToTalkActive ? 'Release' : 'Hold to talk' }}</span>
-              </button>
-              <p class="mt-2 text-center text-xs text-ink-gray-5">Press and hold while speaking. Release when finished.</p>
-            </div>
-
-            <div v-if="toolActivity" class="mt-3 rounded-7 border border-blue-200 bg-blue-50 p-3">
-              <p class="text-xs-semibold uppercase tracking-wide text-blue-700">Latest draft activity</p>
-              <p class="mt-1 text-sm text-blue-900">{{ toolActivity }}</p>
-            </div>
-
-            <div v-if="completenessIssues.length" class="mt-3 rounded-7 border border-amber-200 bg-amber-50 p-3">
-              <p class="text-sm-medium text-amber-900">Outstanding completeness items</p>
-              <ul class="mt-2 space-y-1 pl-4 text-sm text-amber-800 list-disc">
-                <li v-for="issue in completenessIssues" :key="issue">{{ issue }}</li>
-              </ul>
-            </div>
-
-            <p class="mt-4 text-xs leading-4 text-ink-gray-5">PERI can only write to the draft through the restricted fields shown above. No submit, approval, acknowledgement, signature or work-authorisation tool is available.</p>
-
-            <Button v-if="!voiceConnected" variant="solid" theme="gray" size="lg" class="mt-4 w-full justify-center" :loading="connecting" :disabled="!canConnectVoice" @click="connectVoice">Connect Voice with PERI</Button>
-            <Button v-else variant="subtle" theme="gray" size="lg" class="mt-4 w-full justify-center" :loading="disconnecting" :disabled="disconnecting" @click="disconnectVoice">Disconnect Voice</Button>
-            <audio ref="remoteAudio" autoplay playsinline class="hidden" />
-          </section>
-
+          <details v-if="transcript.length || pendingPeriTranscript" class="rounded-7 border border-outline-gray-1 bg-surface-base">
+            <summary class="cursor-pointer p-3 text-sm-medium text-ink-gray-8">Full conversation transcript</summary>
           <section v-if="transcript.length || pendingPeriTranscript" class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
             <div class="flex items-center justify-between gap-3"><p class="text-base-semibold text-ink-gray-9">Live transcript preview</p><Badge variant="subtle">Session preview</Badge></div>
             <div class="mt-3 max-h-80 space-y-2 overflow-y-auto">
@@ -819,6 +835,7 @@ onBeforeUnmount(() => {
               <div v-if="pendingPeriTranscript" class="rounded-7 bg-surface-gray-1 p-3"><p class="text-xs-semibold uppercase tracking-wide text-ink-gray-5">PERI</p><p class="mt-1 text-sm leading-5 text-ink-gray-8">{{ pendingPeriTranscript }}</p></div>
             </div>
           </section>
+          </details>
         </template>
 
         <section v-if="error" class="rounded-7 border border-red-200 bg-red-50 p-3 shadow-sm"><p class="text-sm text-red-700">{{ error }}</p></section>

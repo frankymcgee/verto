@@ -37,17 +37,18 @@ type ReviewState = {
 
 const props = defineProps<{
   jha: Record<string, any>
+  changeStarting?: boolean
 }>()
 
 const emit = defineEmits<{
   updated: [value: ReviewState]
+  'request-change': []
 }>()
 
 const PRINT_FORMAT = 'Digital JHA Workpack'
 const loading = ref(false)
 const submittingReview = ref(false)
 const submittingParticipant = ref('')
-const reopening = ref(false)
 const error = ref('')
 const state = ref<ReviewState | null>(null)
 const reviewSignature = ref('')
@@ -120,10 +121,13 @@ async function loadReviewState() {
 
   loading.value = true
   error.value = ''
+  const requestName = props.jha.name
+  const requestStatus = props.jha.status
   try {
     const data = await apiRequest<FrappeResponse<ReviewState>>(
       `/api/method/verto.api.mobile.voice_jha_review.get_jha_review_state?jha_name=${encodeURIComponent(props.jha.name)}`
     )
+    if (props.jha.name !== requestName || props.jha.status !== requestStatus) return
     state.value = data.message
     reviewNotes.value = data.message?.review_notes || ''
 
@@ -195,27 +199,14 @@ async function acknowledgeParticipant(participant: ReviewParticipant) {
   }
 }
 
-async function reopenForChange() {
-  if (!props.jha?.name) return
-
-  reopening.value = true
-  error.value = ''
-  try {
-    const payload = new FormData()
-    payload.append('jha_name', props.jha.name)
-    payload.append('confirmation', '1')
-
-    const data = await apiRequest<FrappeResponse<ReviewState>>(
-      '/api/method/verto.api.mobile.voice_jha_review.reopen_changed_jha',
-      { method: 'POST', body: payload }
-    )
-    mergeAndEmit(data.message)
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Could not reopen the JHA for changed work.'
-  } finally {
-    reopening.value = false
-  }
-}
+watch(() => props.jha?.name, () => {
+  state.value = null
+  reviewSignature.value = ''
+  reviewConfirmation.value = false
+  reviewNotes.value = ''
+  participantSignatures.value = {}
+  participantConfirmations.value = {}
+})
 
 watch(
   [() => props.jha?.name, () => props.jha?.status],
@@ -242,6 +233,14 @@ onMounted(() => {
         </p>
       </div>
       <Badge variant="subtle">{{ state?.status || jha.status }}</Badge>
+    </div>
+
+    <div class="mt-3 rounded-7 border border-blue-200 bg-blue-50 p-3">
+      <p class="text-sm-medium text-blue-900">Something changed or needs adding?</p>
+      <p class="mt-1 text-sm text-blue-800">PERI will guide a new revision, keep the previous record, and reassess the affected parts. Fresh review and sign-on are required.</p>
+      <Button class="mt-3 w-full justify-center" variant="solid" :loading="changeStarting" :disabled="changeStarting" @click="emit('request-change')">
+        {{ jha.replacement_jha ? 'Resume Change Review with PERI' : 'Request a JHA Change' }}
+      </Button>
     </div>
 
     <div class="mt-4 rounded-7 border border-outline-gray-1 bg-surface-gray-1 p-3">
@@ -297,16 +296,6 @@ onMounted(() => {
         <p class="mt-1 text-sm leading-5 text-red-800">
           This JHA can no longer rely on its previous review or signatures. Reopen it as a new revision, reassess the changed work with the crew, then complete review and sign-on again.
         </p>
-        <Button
-          variant="solid"
-          theme="gray"
-          class="mt-3 w-full justify-center"
-          :loading="reopening"
-          :disabled="reopening"
-          @click="reopenForChange"
-        >
-          Reopen as Revision {{ (state.revision || 1) + 1 }}
-        </Button>
       </div>
 
       <div
