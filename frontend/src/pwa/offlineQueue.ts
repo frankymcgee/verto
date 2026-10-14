@@ -4,7 +4,7 @@ import { withCsrfHeaders } from '../lib/csrf'
 import { reportClientError } from '../lib/diagnostics'
 
 export type OfflineQueueItemStatus = 'queued' | 'syncing' | 'synced' | 'failed'
-export type OfflineQueueItemKind = 'mobile_document' | 'attachment_upload' | 'legacy_request'
+export type OfflineQueueItemKind = 'mobile_document' | 'attachment_upload' | 'legacy_request' | 'jha_observation'
 export type OfflineDocumentAction = 'create' | 'update'
 
 export type OfflineAttachment = {
@@ -442,6 +442,17 @@ export async function queueMobileDocumentAction(input: {
   return item
 }
 
+export async function queueJhaObservation(values: Record<string, any>) {
+  if (!values.actor || !values.jha_name || !values.request_id) throw new Error('The JHA observation is incomplete.')
+  const timestamp = nowIso()
+  const item: OfflineQueueItem = {
+    id: `jha-observation-${values.request_id}`, kind: 'jha_observation', type: 'JHA observation',
+    values, created_at: timestamp, updated_at: timestamp, attempts: 0, status: 'queued',
+  }
+  await putOfflineQueueItem(item)
+  return item
+}
+
 export async function queueAttachmentUpload(input: {
   targetDoctype: string
   targetName: string
@@ -823,6 +834,14 @@ async function replayLegacyQueueItem(item: OfflineQueueItem) {
 }
 
 async function replayQueueItem(item: OfflineQueueItem) {
+  if (item.kind === 'jha_observation') {
+    const response = await fetch('/api/method/verto.api.mobile.voice_jha_workpack.record_jha_observation', {
+      method: 'POST', credentials: 'include',
+      headers: withCsrfHeaders({ 'Content-Type': 'application/json' }, 'POST'),
+      body: JSON.stringify(item.values),
+    })
+    return ensureSyncResponse(response)
+  }
   if (item.kind === 'mobile_document') {
     return syncMobileDocumentItem(item)
   }

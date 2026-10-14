@@ -110,7 +110,7 @@ describe('printed workpack revision check', () => {
     await button('Check again').trigger('click'); await flushPromises()
     expect(wrapper.text()).toContain('Current status could not be confirmed')
     expect(wrapper.text()).not.toContain('current signed revision')
-    expect(wrapper.find('a').exists()).toBe(false)
+    expect(wrapper.find('a[href*="/voice-jha/"]').exists()).toBe(false)
   })
   it('does not assert revision status while offline', async () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: false })

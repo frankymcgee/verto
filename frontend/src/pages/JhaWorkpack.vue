@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Button } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
+import JhaOfflineCopy from '../components/JhaOfflineCopy.vue'
 
 const route = useRoute(), state = ref<any>(null), error = ref(''), loading = ref(false)
 let generation = 0, alive = true
@@ -61,6 +62,8 @@ onBeforeUnmount(() => {
           <p class="mt-3 text-xs text-ink-gray-6">Checked {{ state.checked_at }}. Revision and sign-on status do not replace field checks, permits, isolations or site work authorisation.</p>
         </section>
       </template>
+      <JhaOfflineCopy :jha-name="name" :can-download="Boolean(state?.is_current && !state?.requires_review)" @changed="load" />
+      <a href="/verto-mobile/jha-saved" class="inline-block text-sm text-blue-700 underline">All offline JHAs on this device</a>
     </div>
   </section>
 </template>

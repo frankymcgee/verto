@@ -30,6 +30,26 @@ def jha_print_field_checks(doc):
     from verto.api.mobile.voice_jha_fieldwork import verification_rows
     return verification_rows(doc)
 
+
+def jha_print_resources(doc):
+    from verto.api.mobile.voice_jha_workpack import resource_state, evidence_file, KINDS
+    from PIL import Image, ImageOps
+    rows = [row for row in resource_state(doc) if row["kind"] in KINDS and not row["historical"]]
+    for row in rows:
+        row["thumbnail"] = None
+        if row["kind"] != "Photo" or not row.get("evidence"):
+            continue
+        try:
+            file = evidence_file(doc, row["evidence"], photo=True)
+            with Image.open(BytesIO(file.get_content())) as original:
+                image = ImageOps.exif_transpose(original).convert("RGB")
+                image.thumbnail((500, 300))
+                output = BytesIO(); image.save(output, format="JPEG", quality=80)
+                row["thumbnail"] = "data:image/jpeg;base64," + base64.b64encode(output.getvalue()).decode()
+        except (frappe.PermissionError, frappe.ValidationError, OSError):
+            row["thumbnail"] = None
+    return rows
+
 PRINT_HTML = r"""
 {% set present_people = doc.participants | selectattr('present_for_discussion') | list %}
 {% set critical_rows = doc.hazards_and_controls | selectattr('critical_risk') | list %}
@@ -37,7 +57,9 @@ PRINT_HTML = r"""
 {% set matrix_pages = ((doc.work_steps|length + 1) // 2) if doc.work_steps else 1 %}
 {% set field_checks = jha_print_field_checks(doc) %}
 {% set ccv_pages = [1, ((field_checks|length + 12) // 13)] | max %}
-{% set total_pages = matrix_pages + 3 + ccv_pages %}
+{% set supporting_records = jha_print_resources(doc) %}
+{% set resource_pages = (supporting_records|length + 3) // 4 %}
+{% set total_pages = matrix_pages + 3 + ccv_pages + resource_pages %}
 
 {% macro page_footer(page_no) -%}
 <div class="page-footer">
@@ -314,7 +336,7 @@ PRINT_HTML = r"""
 
   {% for ccv_page in range(ccv_pages) %}
   {% set page_checks = field_checks[ccv_page * 13:(ccv_page + 1) * 13] %}
-  <section class="pack-page page-break-before ccv-page {% if loop.last %}last-page{% endif %}">
+  <section class="pack-page page-break-before ccv-page {% if loop.last and not resource_pages %}last-page{% endif %}">
     <div class="page-title compact-title">
       <div><h1>Job Hazard Analysis - Form</h1><div class="subtitle">Health and Safety</div></div>
       <div class="brand">MINE SITE SUPPORT</div>
@@ -330,6 +352,23 @@ PRINT_HTML = r"""
       </tbody>
     </table>
     {{ page_footer(matrix_pages + 4 + ccv_page) }}
+  </section>
+  {% endfor %}
+  {% for resource_page in range(resource_pages) %}
+  <section class="pack-page page-break-before supporting-page {% if loop.last %}last-page{% endif %}">
+    <div class="page-title compact-title"><div><h1>JHA - Supporting Records</h1><div class="subtitle">Permits, isolations, documents and step photos</div></div><div class="brand">MINE SITE SUPPORT</div></div>
+    <p class="field-note">Records and confirmations at print time for this revision. Descriptions and marker notes below are excerpts. Scan the cover QR for complete records, full-size photos and current status. A confirmed reference does not authorise work.</p>
+    <table class="support-table"><thead><tr><th>Step / Reference</th><th>Record / Confirmation</th><th>Photo / Evidence</th></tr></thead><tbody>
+    {% for item in supporting_records[resource_page * 4:(resource_page + 1) * 4] %}
+      <tr><td><strong>Step {{ item.work_step }}</strong><br />{{ item.step_activity | striptags | truncate(80, True, '...') | e }}<br /><strong>{{ item.kind | e }}: {{ (item.reference or item.ehs_permit or item.name) | e }}</strong></td>
+      <td><strong>{{ item.effective_status | e }}</strong>{% if item.expires_at %} - Expires {{ item.expires_at | e }}{% endif %}<br />{{ item.details | striptags | truncate(200, True, '...') | e }}
+        {% for point in item.annotations[:3] %}<div>{{ loop.index }}. {{ point.label | striptags | truncate(90, True, '...') | e }}</div>{% endfor %}
+        {% if item.annotations|length > 3 %}<div>{{ item.annotations|length - 3 }} more marker notes in the digital record.</div>{% endif %}
+        <div class="minor">{{ item.recorder_name | e }} - {{ item.recorded_at | e }}</div></td>
+      <td>{% if item.thumbnail %}<div class="support-photo"><img src="{{ item.thumbnail }}" alt="Step supporting photo" />{% for point in item.annotations %}<span style="left:{{ point.x * 100 }}%;top:{{ point.y * 100 }}%;">{{ loop.index }}</span>{% endfor %}</div>{% elif item.evidence %}Supporting file attached. Open through the digital JHA.{% else %}No readable supporting file attached.{% endif %}</td></tr>
+    {% endfor %}
+    </tbody></table>
+    {{ page_footer(matrix_pages + 4 + ccv_pages + resource_page) }}
   </section>
   {% endfor %}
 </div>
@@ -429,6 +468,16 @@ PRINT_CSS = r"""
 .ccv-table th:nth-child(5) { width: 50%; }
 .ccv-table tbody td { height: 8.4mm; }
 .ccv-table td { overflow-wrap: anywhere; }
+.support-table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 3mm; font-size: 7pt; }
+.support-table th, .support-table td { box-sizing: border-box; border: 1px solid #222; padding: 2mm; vertical-align: top; overflow-wrap: anywhere; }
+.support-table th { background: #f47a20; color: white; }
+.support-table th:nth-child(1) { width: 24%; }
+.support-table th:nth-child(2) { width: 52%; }
+.support-table th:nth-child(3) { width: 24%; }
+.support-table tbody tr { height: 34mm; page-break-inside: avoid; }
+.support-photo { position: relative; display: inline-block; }
+.support-photo img { display: block; max-height: 27mm; max-width: 55mm; }
+.support-photo span { position: absolute; transform: translate(-50%, -50%); border: 1px solid white; border-radius: 50%; background: #c00; color: white; width: 3.5mm; height: 3.5mm; text-align: center; line-height: 3.5mm; font-size: 6pt; }
 
 .page-footer { position: absolute; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; border-top: 1px solid #999; padding-top: 1.5mm; font-size: 5.8pt; color: #666; }
 

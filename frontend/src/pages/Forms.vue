@@ -1,6 +1,7 @@
 <template>
   <section class="h-full min-h-0 bg-surface-gray-1">
     <main class="space-y-3 px-[var(--verto-page-x,0.75rem)] py-[var(--verto-page-y,0.75rem)]">
+      <a href="/verto-mobile/jha-saved" class="inline-block text-sm text-blue-700 underline">Open offline JHAs saved on this device</a>
       <!-- Filters -->
       <section class="bg-surface-base rounded-7 shadow-sm p-3 !py-1 !px-1">
         <div class="space-y-4">

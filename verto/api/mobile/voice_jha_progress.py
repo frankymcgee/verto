@@ -178,6 +178,8 @@ def serialize_jha(doc) -> dict:
     from verto.api.mobile import voice_jha
 
     snapshot = voice_jha._serialize_jha(doc)
+    from verto.api.mobile.voice_jha_learning import learning_context
+    snapshot["job_learning"] = learning_context(doc)
     progress = sync_facilitation_fields(doc, update_timestamp=False)
     snapshot["facilitation"] = progress
     snapshot["facilitation_stage"] = progress["stage"]

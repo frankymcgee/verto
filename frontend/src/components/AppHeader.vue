@@ -550,9 +550,18 @@ function openAbout() {
   aboutOpen.value = true
 }
 
-function logout() {
+async function logout() {
   menuOpen.value = false
-  window.location.href = '/logout'
+  // Remove the offline identity immediately, even if IndexedDB is unavailable.
+  try { window.localStorage.removeItem('verto:offline-actor') } catch { /* Browser storage may be disabled. */ }
+  try {
+    const { clearOfflineReadCache } = await import('../pwa/offlineSecurity')
+    await clearOfflineReadCache()
+  } catch {
+    // Logout must remain available when browser storage is disabled.
+  } finally {
+    window.location.href = '/logout'
+  }
 }
 </script>
 
