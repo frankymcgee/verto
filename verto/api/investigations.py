@@ -130,12 +130,18 @@ def validate_document(doc):
 
     if doc.reviewer and doc.reviewer == doc.lead_investigator:
         frappe.throw(_("The reviewer must be different from the lead investigator."))
-    _eligible_user(doc.lead_investigator)
-    _eligible_user(doc.reviewer, reviewer=True)
+    # Historic personnel stay in the record after account deactivation. Check
+    # eligibility when assigning people, and again before approving new work.
+    if not old or old.lead_investigator != doc.lead_investigator:
+        _eligible_user(doc.lead_investigator)
+    if not old or old.reviewer != doc.reviewer:
+        _eligible_user(doc.reviewer, reviewer=True)
+    old_team = {row.user: row.team_role for row in old.get("team") or []} if old else {}
     members = {doc.lead_investigator, doc.reviewer} - {None, ""}
     contributors = set(members)
     for row in doc.get("team") or []:
-        _eligible_user(row.user)
+        if old_team.get(row.user) != row.team_role:
+            _eligible_user(row.user)
         if row.user in members:
             frappe.throw(_("List each team member once; the lead and reviewer already have access."))
         if row.team_role not in ("Investigator", "Subject matter expert", "Observer"):
@@ -203,8 +209,9 @@ def validate_document(doc):
                 frappe.throw(_("Retain the details of actions with progress history; add a replacement action after reopening."))
         if row.control_type and row.control_type not in CONTROL_TYPES:
             frappe.throw(_("Choose a valid hierarchy-of-control category."))
-        for user in (row.assigned_to_user, row.verifier):
-            if user and user not in contributors:
+        for field in ("assigned_to_user", "verifier"):
+            user = row.get(field)
+            if user and user not in contributors and (not previous or previous.get(field) != user):
                 frappe.throw(_("Add action owners and verifiers to the investigation team before assigning them."))
         if row.assigned_to_user and row.assigned_to_user == row.verifier:
             frappe.throw(_("Assign an independent action verifier."))
@@ -273,6 +280,7 @@ def _payload(doc):
     result["capabilities"] = {
         "can_edit": writable and doc.status in EDITABLE_STATUSES,
         "can_review": writable and manager and user == doc.reviewer and user != doc.lead_investigator and doc.status == "In Review",
+        "can_withdraw": writable and (manager or user == doc.lead_investigator) and doc.status == "In Review",
         "can_close": writable and manager and doc.status == "Actions in Progress",
         "can_reopen": writable and manager and doc.status in ("Closed", "Actions in Progress"),
         "can_upload": writable and doc.status in EDITABLE_STATUSES | {"Actions in Progress"},
@@ -284,6 +292,7 @@ def _payload(doc):
         action["can_complete"] = active and user != action.get("verifier") and (user == action.get("assigned_to_user") or manager) and action.get("action_status") in ("Open", "In Progress")
         action["can_verify"] = active and user == action.get("verifier") and user not in (action.get("assigned_to_user"), action.get("completed_by")) and action.get("action_status") == "Completed"
         action["can_cancel"] = active and manager and action.get("action_status") not in ("Verified", "Cancelled")
+        action["can_reassign"] = writable and manager and doc.status in ("Actions in Progress", "Reopened") and action.get("action_status") not in ("Verified", "Cancelled")
     return result
 
 
@@ -362,10 +371,15 @@ def transition(name, action, expected_modified, notes=""):
     elif action == "analyse" and current in ("Draft", "Evidence Gathering", "Reopened"):
         doc.status = "Analysis"
     elif action == "submit_review" and current in EDITABLE_STATUSES:
+        _check_review_people(doc)
         errors = review_readiness(doc.as_dict())
         if errors:
             frappe.throw("\n".join(errors))
         doc.status = "In Review"
+    elif action == "withdraw_review" and current == "In Review" and (is_manager() or doc.lead_investigator == frappe.session.user):
+        if not notes:
+            frappe.throw(_("Record why the investigation is being withdrawn from review."))
+        doc.status = "Analysis"
     elif action in ("approve", "return") and current == "In Review":
         if not is_manager() or doc.reviewer != frappe.session.user or doc.lead_investigator == frappe.session.user:
             frappe.throw(_("Only the appointed independent reviewer can record this decision."), frappe.PermissionError)
@@ -373,6 +387,7 @@ def transition(name, action, expected_modified, notes=""):
             frappe.throw(_("Record the review decision and its reasons."))
         doc.review_notes = notes
         if action == "approve":
+            _check_review_people(doc)
             errors = review_readiness(doc.as_dict())
             if errors:
                 frappe.throw("\n".join(errors))
@@ -400,10 +415,25 @@ def transition(name, action, expected_modified, notes=""):
     return _payload(doc)
 
 
+def _check_review_people(doc):
+    _eligible_user(doc.lead_investigator)
+    _eligible_user(doc.reviewer, reviewer=True)
+    members = {doc.lead_investigator, doc.reviewer} | {row.user for row in doc.team if row.team_role != "Observer"}
+    for row in doc.actions:
+        if row.action_status in ("Verified", "Cancelled"):
+            continue
+        fields = ("verifier",) if row.action_status == "Completed" else ("assigned_to_user", "verifier")
+        for field in fields:
+            user = row.get(field)
+            _eligible_user(user)
+            if user and user not in members:
+                frappe.throw(_("Add current action owners and verifiers to the team, or reassign the action."))
+
+
 @frappe.whitelist(methods=["POST"])
-def update_action(name, entry_id, action, expected_modified, notes="", file_url=None):
+def update_action(name, entry_id, action, expected_modified, notes="", file_url=None, verifier=None, assigned_to_user=None):
     doc = _get(name, expected_modified, lock=True)
-    if doc.status != "Actions in Progress":
+    if doc.status != "Actions in Progress" and not (doc.status == "Reopened" and action == "reassign"):
         frappe.throw(_("Approve the investigation before progressing corrective actions."))
     row = next((row for row in doc.actions if row.entry_id == entry_id), None)
     if not row:
@@ -428,6 +458,18 @@ def update_action(name, entry_id, action, expected_modified, notes="", file_url=
             row.verified_by = row.verified_on = None
     elif action == "cancel" and row.action_status not in ("Verified", "Cancelled") and is_manager():
         row.action_status, row.cancellation_reason = "Cancelled", notes
+    elif action == "reassign" and row.action_status not in ("Verified", "Cancelled") and is_manager():
+        owner = assigned_to_user or row.assigned_to_user
+        verifier = verifier or row.verifier
+        if row.action_status == "Completed" and owner != row.assigned_to_user:
+            frappe.throw(_("Retain the owner of completed work; reassign its verifier instead."))
+        if row.action_status != "Completed":
+            _eligible_user(owner)
+        _eligible_user(verifier)
+        if not owner or not verifier or verifier in (owner, row.completed_by) or (owner, verifier) == (row.assigned_to_user, row.verifier):
+            frappe.throw(_("Choose updated action responsibilities and an independent verifier."))
+        notes = f"Owner: {row.assigned_to_user} → {owner}. Verifier: {row.verifier} → {verifier}. {notes}"
+        row.assigned_to_user, row.verifier = owner, verifier
     else:
         frappe.throw(_("That action update is not available to you."), frappe.PermissionError)
     _history(doc, f"{entry_id}: {action}", notes)

@@ -48,9 +48,15 @@ The app is selectable as a separate default app, `verto_investigations`.
 6. Submit for review. The app checks evidence, unresolved hypotheses, causal
    branches, ICAM category coverage and action mappings. Content locks while
    the appointed independent reviewer approves it or returns it with reasons.
+   The lead or a manager can withdraw it for revision with a recorded reason,
+   including when its appointed reviewer has left the business.
 7. After approval, owners record completion evidence. The appointed independent
    verifier records effectiveness or sends the action back for further work.
    Investigation managers can cancel an action with a recorded reason.
+   Managers can also reassign outstanding responsibilities with reasons;
+   completed work retains its recorded owner and completion evidence when a
+   replacement verifier is appointed. Historic users remain in the record
+   after their accounts are deactivated.
 8. Close only after actions are verified effective or cancelled with reasons,
    and the reportability assessment is complete. Record the close-out summary.
    A manager can reopen with reasons; fresh investigation review is required.

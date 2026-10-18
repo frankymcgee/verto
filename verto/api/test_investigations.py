@@ -136,6 +136,30 @@ class IntegrationTestInvestigations(IntegrationTestCase):
         self.assertFalse(doc["actions"][0]["verified_by"])
         self.assertTrue(doc["closure_readiness"])
 
+    def test_deactivated_reviewer_does_not_trap_a_submitted_investigation(self):
+        doc = self._draft(complete=True)
+        doc = api.transition(doc["name"], "submit_review", doc["modified"])
+        frappe.set_user("Administrator")
+        frappe.db.set_value("User", self.reviewer, "enabled", 0)
+        frappe.set_user(self.lead)
+        doc = api.transition(doc["name"], "withdraw_review", doc["modified"], "Appoint a replacement reviewer after the personnel change.")
+        self.assertEqual(doc["status"], "Analysis")
+        self.assertEqual(doc["history"][-1]["event"], "Withdraw Review")
+
+    def test_manager_can_reassign_verification_without_erasing_completed_work(self):
+        doc = self._approve()
+        frappe.set_user(self.lead)
+        doc = api.update_action(doc["name"], "A-000000000001", "complete", doc["modified"], "Updated procedure and work packs.")
+        frappe.set_user("Administrator")
+        doc = api.transition(doc["name"], "reopen", doc["modified"], "Personnel change requires a replacement verifier.")
+        doc["team"].append({"user": self.outsider, "team_role": "Investigator"})
+        doc = api.save_investigation(doc, doc["modified"])
+        doc = api.update_action(doc["name"], "A-000000000001", "reassign", doc["modified"], "Replacement verifier appointed.", verifier=self.outsider)
+        self.assertEqual(doc["actions"][0]["verifier"], self.outsider)
+        self.assertEqual(doc["actions"][0]["completed_by"], self.lead)
+        self.assertEqual(doc["actions"][0]["action_status"], "Completed")
+        self.assertIn("Replacement verifier", doc["history"][-1]["notes"])
+
     def test_changed_verified_evidence_is_withdrawn_until_reverified(self):
         doc = self._draft(complete=True)
         self.assertEqual(doc["evidence"][0]["verified_by"], self.lead)

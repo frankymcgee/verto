@@ -169,7 +169,7 @@
               type="button"
               :class="{ active: tab === item.key }"
               :aria-current="tab === item.key ? 'page' : undefined"
-                @click="selectTab(item.key)"
+              @click="selectTab(item.key)"
             >
               <span>{{ String(index + 1).padStart(2, '0') }}</span
               >{{ item.label }}
@@ -843,6 +843,12 @@
                   @click="actionOperation(row, 'cancel')"
                   >Cancel action</Button
                 >
+                <Button
+                  v-if="row.can_reassign"
+                  :disabled="busy"
+                  @click="actionOperation(row, 'reassign')"
+                  >Reassign responsibilities</Button
+                >
               </div>
             </article>
           </section>
@@ -896,6 +902,11 @@
                 @click="decision('return')"
                 >Return for further work</Button
               ><Button
+                v-if="doc.capabilities.can_withdraw"
+                :disabled="busy"
+                @click="decision('withdraw_review')"
+                >Withdraw for revision</Button
+              ><Button
                 v-if="doc.capabilities.can_close"
                 variant="solid"
                 :disabled="busy || doc.closure_readiness.length > 0"
@@ -939,6 +950,28 @@
           <section v-if="operation" ref="operationPanel" class="decision-panel">
             <h3>{{ operationTitle }}</h3>
             <p v-if="operation.type === 'action'">Action {{ operation.entry_id }}</p>
+            <div v-if="operation.action === 'reassign'" class="form-grid">
+              <label class="field"
+                ><span>Action owner</span
+                ><select v-model="operationOwner" :disabled="operation.completed || busy">
+                  <option v-for="user in contributors" :key="user">{{ user }}</option>
+                </select></label
+              >
+              <label class="field"
+                ><span>Independent verifier</span
+                ><select v-model="operationVerifier" :disabled="busy">
+                  <option value="">Select a team member</option>
+                  <option
+                    v-for="user in contributors.filter(
+                      (user) => user !== operationOwner && user !== operation.completed_by,
+                    )"
+                    :key="user"
+                  >
+                    {{ user }}
+                  </option>
+                </select></label
+              >
+            </div>
             <label class="field"
               ><span>{{
                 operation.action === 'complete'
@@ -1005,6 +1038,8 @@ const filters = ref({ search: '', status: '', method: '' }),
 const operation = ref(null),
   operationNotes = ref(''),
   operationFile = ref(''),
+  operationOwner = ref(''),
+  operationVerifier = ref(''),
   operationPanel = ref(null)
 const severities = ['Minor', 'Moderate', 'Serious', 'Major', 'Severe', 'Catastrophic']
 const categoryPrompts = [
@@ -1066,6 +1101,8 @@ const operationTitle = computed(
       verify: 'Verify action effectiveness',
       ineffective: 'Record further work required',
       cancel: 'Cancel corrective action',
+      reassign: 'Reassign action responsibilities',
+      withdraw_review: 'Withdraw investigation for revision',
     })[operation.value?.action] || 'Record decision',
 )
 let filterTimer,
@@ -1073,7 +1110,10 @@ let filterTimer,
   routeGeneration = 0,
   listGeneration = 0,
   lastRoute = location.hash || '#/'
-function selectTab(key) { tab.value = key; operation.value = null }
+function selectTab(key) {
+  tab.value = key
+  operation.value = null
+}
 function statusClass(value) {
   return String(value || '')
     .toLowerCase()
@@ -1296,9 +1336,17 @@ async function decision(action) {
   operationPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 async function actionOperation(row, action) {
-  operation.value = { type: 'action', action, entry_id: row.entry_id }
+  operation.value = {
+    type: 'action',
+    action,
+    entry_id: row.entry_id,
+    completed: row.action_status === 'Completed',
+    completed_by: row.completed_by,
+  }
   operationNotes.value = ''
   operationFile.value = ''
+  operationOwner.value = row.assigned_to_user
+  operationVerifier.value = row.verifier
   await nextTick()
   operationPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
@@ -1319,7 +1367,13 @@ async function confirmOperation() {
       expected_modified: doc.value.modified,
       notes: operationNotes.value,
       ...(op.type === 'action'
-        ? { entry_id: op.entry_id, file_url: operationFile.value || null }
+        ? {
+            entry_id: op.entry_id,
+            file_url: operationFile.value || null,
+            ...(op.action === 'reassign'
+              ? { assigned_to_user: operationOwner.value, verifier: operationVerifier.value }
+              : {}),
+          }
         : {}),
     })
     setDoc(result)
