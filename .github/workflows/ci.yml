@@ -30,6 +30,9 @@ jobs:
         working-directory: planner
         run: yarn test:ui
 
+      - name: Verify Desk geolocation loading
+        run: node --test tests/geolocation-loading.test.mjs
+
   validation:
     runs-on: ubuntu-latest
     name: Frappe v16 fresh install validation

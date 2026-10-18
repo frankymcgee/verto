@@ -29,19 +29,38 @@ frappe.ui.form.ControlGeolocation = class ControlGeolocation extends frappe.ui.f
 		$(this.disp_area).removeClass("hide");
 		$(this.disp_area).css("display", "block");
 
+		// The document may change while Frappe's map bundles are loading.
+		this._map_value = value;
 		if (this.frm) {
-			this.make_map();
-			if (value) {
-				this.bind_leaflet_data(value);
-			}
-		} else {
-			$(document).on("frappe.ui.Dialog:shown", () => {
-				this.make_map();
-				if (value) {
-					this.bind_leaflet_data(value);
-				}
-			});
+			return this.render_map();
+		} else if (!this._dialog_map_handler) {
+			this._dialog_map_handler = () => this.render_map();
+			$(document).on("frappe.ui.Dialog:shown", this._dialog_map_handler);
 		}
+	}
+
+	load_lib() {
+		// Frappe v16 loads Leaflet and its draw/locate plugins on demand.
+		return Promise.all([
+			frappe.require("leaflet.bundle.js"),
+			frappe.require("leaflet.bundle.css"),
+		]);
+	}
+
+	render_map() {
+		return this.load_lib()
+			.then(() => {
+				this.make_map();
+				if (this._map_value) {
+					this.bind_leaflet_data(this._map_value);
+				} else {
+					this.clear_editable_layers();
+				}
+			})
+			.catch((error) => {
+				// A map failure must not interrupt the remaining form/grid setup.
+				console.error("Verto: unable to render geolocation field.", error);
+			});
 	}
 
 	make_map(value) {
