@@ -65,9 +65,15 @@ class IntegrationTestInvestigations(IntegrationTestCase):
     def test_unassigned_investigator_cannot_list_or_fetch_another_investigation(self):
         doc = self._draft()
         frappe.set_user(self.outsider)
-        self.assertNotIn(doc["name"], [row.name for row in api.list_investigations()["items"]])
+        listing = api.list_investigations()
+        self.assertNotIn(doc["name"], [row.name for row in listing["items"]])
+        self.assertEqual(listing["counts"], {})
         with self.assertRaises(frappe.PermissionError):
             api.get_investigation(doc["name"])
+        frappe.set_user(self.observer)
+        listing = api.list_investigations()
+        self.assertIn(doc["name"], [row.name for row in listing["items"]])
+        self.assertEqual(listing["counts"], {"Draft": 1})
         frappe.set_user("Guest")
         with self.assertRaises(frappe.PermissionError):
             api.get_bootstrap()

@@ -318,7 +318,7 @@ def list_investigations(search="", status="", method="", start=0, page_length=25
     rows = frappe.get_list(DOCTYPE, filters=filters, or_filters=or_filters,
         fields=["name", "title", "status", "method", "incident_datetime", "site_location", "project", "due_date", "lead_investigator", "potential_severity", "open_actions", "modified"],
         order_by="modified desc", start=start, page_length=page_length + 1)
-    groups = frappe.get_list(DOCTYPE, fields=["status", "count(name) as total"], group_by="status", limit_page_length=0)
+    groups = frappe.get_list(DOCTYPE, fields=["status", {"COUNT": "name", "as": "total"}], group_by="status", limit=0)
     return {"items": rows[:page_length], "has_more": len(rows) > page_length,
         "counts": {row.status: row.total for row in groups}, "today": today()}
 
