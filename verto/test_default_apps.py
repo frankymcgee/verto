@@ -82,6 +82,22 @@ class TestDefaultApps(TestCase):
         self.assertEqual(apps[2]["title"], "Verto Mobile")
         self.assertEqual(self.app_cards[2]["name"], "verto")
 
+    def test_investigations_has_its_own_alias_and_default_route(self):
+        self.app_cards.append({"name": "verto", "title": "Verto Investigations", "route": "/investigations"})
+        self.assertEqual(default_apps.get_apps()[-1]["name"], "verto_investigations")
+        user = ExtendedUser("verto_investigations")
+        user.validate()
+        self.assertEqual(user.default_app, "verto_investigations")
+        self.user_default.return_value = "verto_investigations"
+        default_apps.configure_default_apps()
+        self.assertEqual(frappe_apps.get_default_path(), "/investigations")
+
+    def test_investigations_alias_keeps_core_permission_filtering(self):
+        self.assertNotIn("verto_investigations", [app["name"] for app in default_apps.get_apps()])
+        self.permission.return_value = False
+        default_apps.configure_default_apps()
+        self.assertEqual(frappe_apps.get_route("verto_investigations"), "/apps")
+
     def test_dropdown_does_not_restore_permission_filtered_apps(self):
         self.app_cards.pop()
         self.assertEqual([app["name"] for app in default_apps.get_apps()], ["erpnext", "verto"])

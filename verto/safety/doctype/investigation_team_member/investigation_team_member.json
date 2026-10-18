@@ -1,0 +1,31 @@
+{
+ "doctype": "DocType",
+ "name": "Investigation Team Member",
+ "module": "Safety",
+ "engine": "InnoDB",
+ "field_order": [
+  "user",
+  "team_role"
+ ],
+ "fields": [
+  {
+   "fieldname": "user",
+   "label": "Team member",
+   "fieldtype": "Link",
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "team_role",
+   "label": "Role",
+   "fieldtype": "Select",
+   "options": "Investigator\nSubject matter expert\nObserver",
+   "default": "Investigator",
+   "reqd": 1,
+   "in_list_view": 1
+  }
+ ],
+ "permissions": [],
+ "istable": 1
+}

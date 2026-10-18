@@ -1,0 +1,56 @@
+{
+ "doctype": "DocType",
+ "name": "EHS ICAM Factors",
+ "module": "Verto",
+ "engine": "InnoDB",
+ "field_order": [
+  "entry_id",
+  "category",
+  "description",
+  "finding_status",
+  "evidence_refs",
+  "contributes_to"
+ ],
+ "fields": [
+  {
+   "fieldname": "entry_id",
+   "label": "Reference",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "category",
+   "label": "Category",
+   "fieldtype": "Select",
+   "options": "Absent or Failed Defences\nIndividual or Team Actions\nTask or Environmental Conditions\nOrganisational Factors",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "description",
+   "label": "Factor",
+   "fieldtype": "Small Text",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "finding_status",
+   "label": "Finding status",
+   "fieldtype": "Select",
+   "options": "Hypothesis\nSupported\nNot supported",
+   "default": "Hypothesis"
+  },
+  {
+   "fieldname": "evidence_refs",
+   "label": "Supporting evidence",
+   "fieldtype": "Small Text"
+  },
+  {
+   "fieldname": "contributes_to",
+   "label": "Contributes to factor references",
+   "fieldtype": "Small Text"
+  }
+ ],
+ "permissions": [],
+ "istable": 1
+}

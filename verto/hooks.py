@@ -24,6 +24,13 @@ add_to_apps_screen = [
         "route": "/verto-mobile",
         "has_permission": "verto.access.can_view_mobile_app",
     },
+    {
+        "name": "verto_investigations",
+        "logo": "/assets/verto/images/investigations.svg",
+        "title": "Verto Investigations",
+        "route": "/investigations",
+        "has_permission": "verto.access.can_view_investigations_app",
+    },
 ]
 
 app_include_css = [
@@ -97,12 +104,14 @@ before_job = ["verto.runtime_config.apply_runtime_job_config"]
 on_session_creation = "verto.default_apps.configure_default_apps"
 
 extend_doctype_class = {
+    "File": ["verto.api.investigations.InvestigationFileMixin"],
     "User": ["verto.default_apps.VertoDefaultAppMixin"],
 }
 
 # Permissions
 # -----------
 permission_query_conditions = {
+    "Verto Investigation": "verto.api.investigations.query_conditions",
     "JHA Step Briefing": "verto.api.mobile.voice_jha_steps.briefing_query_conditions",
     "JHA Step Resource": "verto.api.mobile.voice_jha_workpack.resource_query_conditions",
     "JHA Job Template": "verto.api.mobile.voice_jha_learning.template_query_conditions",
@@ -115,6 +124,7 @@ permission_query_conditions = {
 }
 
 has_permission = {
+    "Verto Investigation": "verto.api.investigations.has_permission",
     "JHA Step Briefing": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
     "JHA Step Resource": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
     "JHA Job Template": "verto.api.mobile.voice_jha_learning.template_has_permission",
@@ -131,6 +141,9 @@ jinja = {"methods": ["verto.api.mobile.voice_jha_print.jha_workpack_qr", "verto.
 # Document events
 # ---------------
 doc_events = {
+    "File": {
+        "before_validate": "verto.api.investigations.validate_attachment",
+    },
     "Timesheet": {
         "before_save": "verto.api.internal_timesheet_approval.invalidate_changed_internal_approval",
         "before_update_after_submit": "verto.api.internal_timesheet_approval.invalidate_changed_internal_approval",
@@ -242,6 +255,7 @@ page_renderer = [
 ]
 
 website_route_rules = [
+    {"from_route": "/investigations/<path:app_path>", "to_route": "investigations"},
     {"from_route": "/verto-mobile/<path:app_path>", "to_route": "verto-mobile"},
     {"from_route": "/planner/<path:app_path>", "to_route": "planner"},
 ]

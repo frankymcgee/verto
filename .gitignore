@@ -20,3 +20,7 @@ verto/public/dist/
 /verto/public/verto-mobile/verto-sw.js
 /verto/public/verto-mobile/manifest.webmanifest
 /verto/public/pwa/verto-mobile-sw.js
+
+# Generated Investigations app assets
+/verto/public/investigations/
+/verto/www/investigations.html
