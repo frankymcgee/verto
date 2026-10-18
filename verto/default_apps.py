@@ -1,4 +1,4 @@
-"""Keep Verto's two frontends selectable as independent default apps."""
+"""Keep Verto's frontends selectable as independent default apps."""
 
 from functools import wraps
 
@@ -11,9 +11,11 @@ from frappe import apps as frappe_apps
 
 
 MOBILE_APP = "verto_mobile"
+INVESTIGATIONS_APP = "verto_investigations"
+ALIASES = (MOBILE_APP, INVESTIGATIONS_APP)
 
 
-def _mobile_app():
+def _alias_app(app_name):
     # Workers can serve multiple sites; never retain site-specific hook data.
     if "verto" not in frappe.get_installed_apps():
         return None
@@ -21,14 +23,18 @@ def _mobile_app():
         (
             app
             for app in frappe.get_hooks("add_to_apps_screen", app_name="verto")
-            if app.get("name") == MOBILE_APP
+            if app.get("name") == app_name
         ),
         None,
     )
 
 
-def _mobile_route():
-    app = _mobile_app()
+def _mobile_app():
+    return _alias_app(MOBILE_APP)
+
+
+def _alias_route(app_name):
+    app = _alias_app(app_name)
     if not app or frappe.session.user == "Guest":
         return "/apps"
     permission = app.get("has_permission")
@@ -37,25 +43,31 @@ def _mobile_route():
     return app.get("route") or "/apps"
 
 
+def _mobile_route():
+    return _alias_route(MOBILE_APP)
+
+
 @frappe.whitelist()
 def get_apps():
     """Preserve core visibility filtering, but give Mobile its own identifier."""
     apps = [dict(app) for app in frappe_apps.get_apps()]
-    mobile = _mobile_app()
-    if mobile:
+    for alias in ALIASES:
+        frontend = _alias_app(alias)
+        if not frontend:
+            continue
         for app in apps:
-            if app.get("name") == "verto" and app.get("route") == mobile.get("route"):
-                app["name"] = MOBILE_APP
+            if app.get("name") == "verto" and app.get("route") == frontend.get("route"):
+                app["name"] = alias
     return apps
 
 
 @frappe.whitelist()
 def set_app_as_default(app_name: str):
-    if app_name != MOBILE_APP:
+    if app_name not in ALIASES:
         return frappe_apps.set_app_as_default(app_name)
 
-    if not any(app["name"] == MOBILE_APP for app in get_apps()):
-        frappe.throw(_("You do not have access to Verto Mobile."), frappe.PermissionError)
+    if not any(app["name"] == app_name for app in get_apps()):
+        frappe.throw(_("You do not have access to this Verto app."), frappe.PermissionError)
 
     user = frappe.session.user
     current = frappe.db.get_value("User", user, "default_app")
@@ -69,7 +81,7 @@ class VertoDefaultAppMixin:
         # Run every core/extension validation, then restore only our known alias.
         default_app = self.default_app
         super().validate()
-        if default_app == MOBILE_APP and _mobile_app():
+        if default_app in ALIASES and _alias_app(default_app):
             self.default_app = default_app
 
 
@@ -81,7 +93,7 @@ def configure_default_apps(login_manager=None):
 
     default_app = frappe.get_cached_value("User", frappe.session.user, "default_app")
     default_app = default_app or frappe.get_system_settings("default_app")
-    if default_app in ("verto", MOBILE_APP):
+    if default_app in ("verto", *ALIASES):
         # System-user password login uses get_home_page(), whereas OAuth,
         # password reset and website-user login use get_default_path().
         route = frappe_apps.get_route(default_app)
@@ -127,8 +139,8 @@ def _install_route_resolver():
 
     @wraps(original)
     def get_route(app_name):
-        if app_name == MOBILE_APP and _mobile_app():
-            return _mobile_route()
+        if app_name in ALIASES and _alias_app(app_name):
+            return _alias_route(app_name)
         return original(app_name)
 
     get_route._verto_default_apps = True

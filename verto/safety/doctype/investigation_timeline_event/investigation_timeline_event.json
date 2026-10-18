@@ -1,0 +1,40 @@
+{
+ "doctype": "DocType",
+ "name": "Investigation Timeline Event",
+ "module": "Safety",
+ "engine": "InnoDB",
+ "field_order": [
+  "entry_id",
+  "event_datetime",
+  "description",
+  "evidence_refs"
+ ],
+ "fields": [
+  {
+   "fieldname": "entry_id",
+   "label": "Reference",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "event_datetime",
+   "label": "Event time",
+   "fieldtype": "Datetime"
+  },
+  {
+   "fieldname": "description",
+   "label": "Event",
+   "fieldtype": "Small Text",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "evidence_refs",
+   "label": "Evidence references",
+   "fieldtype": "Small Text"
+  }
+ ],
+ "permissions": [],
+ "istable": 1
+}

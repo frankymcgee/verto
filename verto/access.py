@@ -7,18 +7,22 @@ VERTO_PLANNER_MANAGER = "Verto Planner Manager"
 VERTO_PLANNER_USER = "Verto Planner User"
 VERTO_MOBILE_MANAGER = "Verto Mobile Manager"
 VERTO_MOBILE_USER = "Verto Mobile User"
+VERTO_INVESTIGATION_MANAGER = "Verto Investigation Manager"
+VERTO_INVESTIGATOR = "Verto Investigator"
 
 ROLE_PROFILE_DEFINITIONS = {
     VERTO_PLANNER_MANAGER: (VERTO_PLANNER_MANAGER,),
     VERTO_PLANNER_USER: (VERTO_PLANNER_USER,),
     VERTO_MOBILE_MANAGER: (VERTO_MOBILE_MANAGER,),
     VERTO_MOBILE_USER: (VERTO_MOBILE_USER,),
+    VERTO_INVESTIGATION_MANAGER: (VERTO_INVESTIGATION_MANAGER,),
+    VERTO_INVESTIGATOR: (VERTO_INVESTIGATOR,),
 }
 
 # Both app cards intentionally use all four roles for now. These sets can be
 # narrowed independently when Planner and Mobile permissions become granular.
-PLANNER_APP_ROLES = frozenset(ROLE_PROFILE_DEFINITIONS)
-MOBILE_APP_ROLES = frozenset(ROLE_PROFILE_DEFINITIONS)
+PLANNER_APP_ROLES = frozenset({VERTO_PLANNER_MANAGER, VERTO_PLANNER_USER, VERTO_MOBILE_MANAGER, VERTO_MOBILE_USER})
+MOBILE_APP_ROLES = PLANNER_APP_ROLES
 SYSTEM_ACCESS_ROLES = frozenset({"System Manager"})
 
 
@@ -30,6 +34,10 @@ def can_view_planner_app() -> bool:
 def can_view_mobile_app() -> bool:
     """Return whether the current user can see the Verto Mobile app card."""
     return _current_user_has_any_role(MOBILE_APP_ROLES)
+
+
+def can_view_investigations_app() -> bool:
+    return _current_user_has_any_role(frozenset({VERTO_INVESTIGATION_MANAGER, VERTO_INVESTIGATOR}))
 
 
 def _current_user_has_any_role(allowed_roles: frozenset[str]) -> bool:

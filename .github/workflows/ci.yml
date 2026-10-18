@@ -170,6 +170,17 @@ jobs:
           cd apps/verto/frontend
           yarn test:ui tests/jha-incident-learning.test.js tests/jha-voice-protocol.test.js tests/jha-voice-engines.test.js tests/jha-voice-panel.test.js tests/jha-fieldwork.test.js tests/jha-workpack-ui.test.js tests/jha-active-step.test.js tests/jha-offline.test.js tests/offline-payload.test.js
 
+      - name: Verify Investigations app, approvals and evidence privacy
+        working-directory: /home/runner/frappe-bench
+        env:
+          CI: 'Yes'
+        run: |
+          ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_investigation_rules.py'
+          bench --site test_site run-tests --app verto --module verto.api.test_investigations --skip-before-tests
+          bench --site test_site run-tests --app verto --module verto.test_default_apps --skip-before-tests
+          cd apps/verto/investigations
+          yarn test:ui
+
       - name: Verify Daily Timesheet reminders and hour-limit alerts
         working-directory: /home/runner/frappe-bench
         env:

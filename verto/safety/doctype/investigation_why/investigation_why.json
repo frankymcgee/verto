@@ -1,0 +1,58 @@
+{
+ "doctype": "DocType",
+ "name": "Investigation Why",
+ "module": "Safety",
+ "engine": "InnoDB",
+ "field_order": [
+  "entry_id",
+  "parent_id",
+  "description",
+  "finding_status",
+  "evidence_refs",
+  "is_root_cause",
+  "root_cause_reason"
+ ],
+ "fields": [
+  {
+   "fieldname": "entry_id",
+   "label": "Reference",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "parent_id",
+   "label": "Preceding why",
+   "fieldtype": "Data"
+  },
+  {
+   "fieldname": "description",
+   "label": "Why did this happen?",
+   "fieldtype": "Small Text"
+  },
+  {
+   "fieldname": "finding_status",
+   "label": "Finding status",
+   "fieldtype": "Select",
+   "options": "Hypothesis\nSupported\nNot supported",
+   "default": "Hypothesis"
+  },
+  {
+   "fieldname": "evidence_refs",
+   "label": "Supporting evidence",
+   "fieldtype": "Small Text"
+  },
+  {
+   "fieldname": "is_root_cause",
+   "label": "Root cause",
+   "fieldtype": "Check"
+  },
+  {
+   "fieldname": "root_cause_reason",
+   "label": "Reason for stopping the analysis",
+   "fieldtype": "Small Text"
+  }
+ ],
+ "permissions": [],
+ "istable": 1
+}

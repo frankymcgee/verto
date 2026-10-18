@@ -1,0 +1,157 @@
+{
+ "doctype": "DocType",
+ "name": "Investigation Action",
+ "module": "Safety",
+ "engine": "InnoDB",
+ "field_order": [
+  "entry_id",
+  "title",
+  "details",
+  "finding_refs",
+  "assigned_to_user",
+  "due_date",
+  "priority",
+  "control_type",
+  "success_criteria",
+  "verifier",
+  "verification_due_date",
+  "action_status",
+  "completion_notes",
+  "completion_file",
+  "completed_by",
+  "completed_on",
+  "verification_notes",
+  "verified_by",
+  "verified_on",
+  "cancellation_reason"
+ ],
+ "fields": [
+  {
+   "fieldname": "entry_id",
+   "label": "Reference",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "title",
+   "label": "Action",
+   "fieldtype": "Data",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "details",
+   "label": "Implementation details",
+   "fieldtype": "Small Text"
+  },
+  {
+   "fieldname": "finding_refs",
+   "label": "Linked findings",
+   "fieldtype": "Small Text"
+  },
+  {
+   "fieldname": "assigned_to_user",
+   "label": "Action owner",
+   "fieldtype": "Link",
+   "options": "User",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "due_date",
+   "label": "Due date",
+   "fieldtype": "Date",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "priority",
+   "label": "Priority",
+   "fieldtype": "Select",
+   "options": "Low\nMedium\nHigh\nCritical",
+   "default": "Medium"
+  },
+  {
+   "fieldname": "control_type",
+   "label": "Hierarchy of control",
+   "fieldtype": "Select",
+   "options": "Elimination\nSubstitution\nIsolation\nEngineering\nAdministrative\nPPE"
+  },
+  {
+   "fieldname": "success_criteria",
+   "label": "Effectiveness criteria",
+   "fieldtype": "Small Text"
+  },
+  {
+   "fieldname": "verifier",
+   "label": "Effectiveness verifier",
+   "fieldtype": "Link",
+   "options": "User"
+  },
+  {
+   "fieldname": "verification_due_date",
+   "label": "Effectiveness review due",
+   "fieldtype": "Date"
+  },
+  {
+   "fieldname": "action_status",
+   "label": "Status",
+   "fieldtype": "Select",
+   "options": "Open\nIn Progress\nCompleted\nVerified\nCancelled",
+   "default": "Open",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "completion_notes",
+   "label": "Completion evidence",
+   "fieldtype": "Small Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completion_file",
+   "label": "Completion attachment",
+   "fieldtype": "Attach",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_by",
+   "label": "Completed by",
+   "fieldtype": "Link",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_on",
+   "label": "Completed on",
+   "fieldtype": "Datetime",
+   "read_only": 1
+  },
+  {
+   "fieldname": "verification_notes",
+   "label": "Effectiveness evidence",
+   "fieldtype": "Small Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "verified_by",
+   "label": "Verified by",
+   "fieldtype": "Link",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "verified_on",
+   "label": "Verified on",
+   "fieldtype": "Datetime",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cancellation_reason",
+   "label": "Cancellation reason",
+   "fieldtype": "Small Text",
+   "read_only": 1
+  }
+ ],
+ "permissions": [],
+ "istable": 1
+}
