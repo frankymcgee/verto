@@ -1,18 +1,31 @@
 import json
 from datetime import datetime
+from io import BytesIO
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
 import frappe
 from frappe.tests import IntegrationTestCase
+from pypdf import PdfWriter
 
 from verto.api.mobile import voice_jha_email as mail, voice_jha_review as review
 from verto.api.mobile import test_voice_jha_fieldwork as fixture
 from verto.api.mobile import test_voice_jha_workpack as pack_fixture
 
 Record = fixture.Record
-PDF = b'%PDF-1.4\nSigned JHA test fixture\n%%EOF'
+
+
+def _pdf_fixture():
+    # Exercise File's real PDF validation, including its JavaScript scan.
+    writer = PdfWriter()
+    writer.add_blank_page(width=595, height=842)
+    stream = BytesIO()
+    writer.write(stream)
+    return stream.getvalue()
+
+
+PDF = _pdf_fixture()
 SIGNATURE = 'data:image/png;base64,iVBORw0KGgo='
 
 
@@ -232,8 +245,9 @@ class IntegrationTestJhaPrintEmail(IntegrationTestCase):
             jha.reload(); record = mail._record(jha)
             self.assertEqual(record.status, 'Pending'); schedule.assert_called_once()
             modified = frappe.utils.get_datetime(jha.modified)
-            with patch.object(frappe, 'get_print', return_value=PDF) as render, patch.object(frappe, 'sendmail', side_effect=self.queued_email) as send:
+            with patch.object(frappe, 'get_print', return_value=PDF) as render, patch.object(frappe, 'sendmail', side_effect=self.queued_email) as send, patch.object(frappe, 'log_error') as errors:
                 mail.prepare_print_email(record.name); mail.prepare_print_email(record.name)
+            self.assertFalse(errors.called, errors.call_args_list)
             send.assert_called_once(); render.assert_called_once()
             record.reload(); file = frappe.get_doc('File', record.pdf_file)
             self.assertTrue(file.is_private); self.assertEqual(file.get_content(), PDF)
@@ -249,8 +263,9 @@ class IntegrationTestJhaPrintEmail(IntegrationTestCase):
         jha = self.ready_jha()
         with patch.object(mail, '_schedule'):
             record = self.finish(jha)
-            with patch.object(frappe, 'get_print', return_value=PDF), patch.object(frappe, 'sendmail', side_effect=self.queued_email):
+            with patch.object(frappe, 'get_print', return_value=PDF), patch.object(frappe, 'sendmail', side_effect=self.queued_email), patch.object(frappe, 'log_error') as errors:
                 mail.prepare_print_email(record.name)
+            self.assertFalse(errors.called, errors.call_args_list)
             record.reload(); queue_name = record.email_queue
             frappe.db.set_value('Email Queue', queue_name, {'status': 'Error', 'retry': 4})
             mail.resend_jha_print_email(jha.name, 'retry', 1)
