@@ -23,7 +23,7 @@
    "fieldname": "tool_key",
    "fieldtype": "Select",
    "label": "Tool",
-   "options": "\nGantt\nMap\nFolder\nHandover\nPersonnel\nGameplan\nChat",
+   "options": "\nScan QR\nGantt\nMap\nFolder\nHandover\nPersonnel\nGameplan\nChat",
    "reqd": 1
   },
   {

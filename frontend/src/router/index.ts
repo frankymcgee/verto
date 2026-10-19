@@ -16,6 +16,7 @@ const routes = [
     path: '/',
     component: MobileShell,
     children: [
+      { path: 'scan-qr', name: 'scan-qr', component: () => import('../pages/QrScanner.vue'), meta: { title: 'Scan QR code' } },
       { path: 'jha-saved', name: 'jha-saved', component: () => import('../pages/JhaSaved.vue'), meta: { title: 'Offline JHAs' } },
       {
         path: '',
