@@ -19,7 +19,6 @@
           <Combobox
             label="Employee"
             v-model="form.employee"
-            :disabled="!!props.shiftAssignmentName"
             :options="[
               { label: `Select Employee`, value: '' },
               ...employees.map((option) => ({
@@ -67,7 +66,6 @@
           <Select
             label="Shift Type"
             v-model="form.shift_type"
-            :disabled="!!props.shiftAssignmentName"
             :options="[
               { label: `Select Shift Type`, value: '' },
               ...(shiftTypes.data || []).map((shiftType) => ({
@@ -92,7 +90,6 @@
           format="YYYY-MM-DD"
           label="Start Date"
           v-model="form.start_date"
-          :disabled="!!props.shiftAssignmentName"
         />
         <FormControl
           type="date"
@@ -105,7 +102,6 @@
           <Combobox
             label="Shift Location"
             v-model="form.shift_location"
-            :disabled="!!props.shiftAssignmentName"
             :options="[
               { label: `Select Shift Location`, value: '' },
               ...shiftLocationOptions.map((location) => ({
@@ -164,6 +160,13 @@
           </label>
         </div>
       </div>
+
+      <p v-if="props.shiftAssignmentName" class="mt-4 text-xs text-gray-600">
+        Updates apply to this entire Shift Assignment.
+        <template v-if="form.shift_schedule_assignment">
+          Other assignments in the recurring schedule keep their current settings.
+        </template>
+      </p>
 
       <div
         v-if="
@@ -356,6 +359,7 @@
             size="md"
             variant="solid"
             :disabled="dialog.actionDisabled"
+            :loading="!!props.shiftAssignmentName && (updateShift.loading || shiftAssignment?.get?.loading)"
             class="w-28"
             @click="dialog.action"
           >
@@ -476,6 +480,10 @@ const repeatOnDaysObject = {
 
 const form = reactive({ ...formObject });
 const repeatOnDays = reactive({ ...repeatOnDaysObject });
+const editableFields = [
+  "employee", "shift_type", "start_date", "end_date", "shift_location",
+  "custom_project", "custom_project_designation", "status", "note",
+] as const;
 
 const shiftAssignment = ref<any>();
 const selectedDate = ref<string>();
@@ -556,19 +564,12 @@ const runDeleteOption = (option: { onClick?: () => void }) => {
 
 const dialog = computed(() => {
   if (props.shiftAssignmentName) {
-    // compare fields to enable Update if project or end_date/status change
-    const unchanged =
-      form.status === shiftAssignment.value?.doc?.status &&
-      form.end_date === shiftAssignment.value?.doc?.end_date &&
-      form.note === shiftAssignment.value?.doc?.note &&
-      getId(form.custom_project) === (shiftAssignment.value?.doc?.custom_project || "") &&
-      getId(form.custom_project_designation) === (shiftAssignment.value?.doc?.custom_project_designation || "");
-
     return {
       title: `[${selectedDate.value}] Shift Assignment ${props.shiftAssignmentName}`,
       button: "Update",
       action: updateShiftAssigment,
-      actionDisabled: Boolean(unchanged),
+      actionDisabled: !shiftAssignment.value?.doc || shiftAssignment.value?.get?.loading || updateShift.loading || employee.loading ||
+        Object.keys(changedValues.value).length === 0,
     };
   }
   return {
@@ -634,17 +635,31 @@ const showShiftScheduleSettings = computed(() => {
   return true;
 });
 
-const employees = computed(() =>
-  props.employees.map((e) => ({
+const employees = computed(() => {
+  const options = props.employees.map((e) => ({
     label: `${e.name}: ${e.employee_name}`,
     value: e.name,
     employee_name: e.employee_name,
-  })),
-);
+  }));
+  const saved = shiftAssignment.value?.doc;
+  if (saved?.employee && !options.some((option) => option.value === saved.employee)) {
+    options.unshift({
+      label: `${saved.employee}: ${saved.employee_name || saved.employee}`,
+      value: saved.employee,
+      employee_name: saved.employee_name || saved.employee,
+    });
+  }
+  return options;
+});
 
 // --- Utils
 const getId = (val: Selectish) =>
   val && typeof val === "object" ? (val as any).value : (val as string) || "";
+const changedValues = computed(() => Object.fromEntries(
+  editableFields
+    .filter((field) => getId(form[field]) !== (shiftAssignment.value?.doc?.[field] || ""))
+    .map((field) => [field, getId(form[field])]),
+));
 
 // --- Watchers
 watch(
@@ -654,6 +669,7 @@ watch(
     showDeleteDialog.value = false;
 
     if (props.shiftAssignmentName) {
+      Object.assign(form, formObject);
       shiftAssignment.value = getShiftAssignment(props.shiftAssignmentName);
       if (props.selectedCell) selectedDate.value = props.selectedCell.date;
     } else {
@@ -695,7 +711,13 @@ watch(
 watch(
   () => form.employee,
   (val) => {
-    if (props.shiftAssignmentName) return;
+    const saved = shiftAssignment.value?.doc;
+    if (props.shiftAssignmentName && getId(val) === saved?.employee) {
+      form.employee_name = saved.employee_name || "";
+      form.company = saved.company || "";
+      form.department = saved.department || "";
+      return;
+    }
     if (val) employee.fetch();
     else {
       form.employee_name = "";
@@ -735,13 +757,8 @@ watch(
 
 // --- Actions
 const updateShiftAssigment = () => {
-  shiftAssignment.value.setValue.submit({
-    status: form.status,
-    end_date: form.end_date,
-    note: form.note,
-    custom_project: getId(form.custom_project),
-    custom_project_designation: getId(form.custom_project_designation),
-  });
+  // The resource's onError displays validation and revision errors.
+  void updateShift.submit().catch(() => {});
 };
 
 const createShiftAssigment = () => {
@@ -781,6 +798,23 @@ const createShiftAssigment = () => {
 };
 
 // --- Resources
+const updateShift = createResource({
+  url: "verto.api.planner_shift.update",
+  makeParams: () => ({
+    name: props.shiftAssignmentName,
+    expected_modified: shiftAssignment.value?.doc?.modified,
+    values: changedValues.value,
+  }),
+  onSuccess() {
+    raiseToast("success", "Shift Assignment updated successfully!");
+    emit("fetchEvents");
+    void shiftAssignment.value.reload().catch(() => {});
+  },
+  onError(error: { messages?: string[]; message?: string }) {
+    raiseToast("error", error.messages?.[0] || error.message || "Could not update Shift Assignment.");
+  },
+});
+
 const getShiftAssignment = (name: string) =>
   createDocumentResource({
     doctype: "Shift Assignment",
@@ -820,14 +854,16 @@ const employee = createResource({
     return {
       doctype: "Employee",
       name: employee,
-      fields: ["employee_name", "company", "department"],
+      fields: ["name", "employee_name", "company", "department"],
     };
   },
   onSuccess: (d: {
+    name: string;
     employee_name: string;
     company: string;
     department: string;
   }) => {
+    if (d.name !== getId(form.employee)) return;
     form.employee_name = d.employee_name;
     form.company = d.company;
     form.department = d.department;
@@ -864,7 +900,11 @@ const designationOptions = computed(() => {
 watch(() => getId(form.custom_project), (project) => {
   if (!project) form.custom_project_designation = "";
 });
-const shiftTypes = computed(() => ({ data: (bootstrap.data?.references?.shift_type || []).map((row: { name: string }) => row.name) }));
+const shiftTypes = computed(() => {
+  const names: string[] = (bootstrap.data?.references?.shift_type || []).map((row: { name: string }) => row.name);
+  const selected = getId(form.shift_type);
+  return { data: selected && !names.includes(selected) ? [selected, ...names] : names };
+});
 const shiftLocations = computed(() => ({ data: (bootstrap.data?.references?.shift_location || []).map((row: { name: string }) => row.name) }));
 
 const shiftLocationOptions = computed(() => {
@@ -882,6 +922,10 @@ const projectOptions = computed(() => {
     value: p.name, // send ID
   }));
   const defaults = props.assignmentDefaults;
+  const saved = shiftAssignment.value?.doc;
+  if (saved?.custom_project && !options.some((option: { value: string }) => option.value === saved.custom_project)) {
+    options.unshift({ value: saved.custom_project, label: saved.custom_project_name || saved.custom_project });
+  }
   // The source project can be outside the first page or no longer be Open.
   if (
     defaults?.custom_project &&
