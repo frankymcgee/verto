@@ -165,6 +165,23 @@ class TestJhaPrintEmail(TestCase):
         self.assertEqual(len(self.callbacks), before)
         self.sendmail.assert_called_once(); self.assertEqual(len(json.loads(record.request_history)), 1)
 
+    def test_source_change_preserves_an_email_already_sent_before_reconciliation(self):
+        record = self.automatic(); mail.prepare_print_email(record.name)
+        self.queue.status = 'Sent'
+        self.jha.jha_status = 'Review Required - Work Changed'
+        with patch.object(frappe, 'get_all', return_value=[record]):
+            mail.reconcile_print_deliveries()
+        self.assertEqual(record.status, 'Sent'); self.assertEqual(record.sent_at, self.queue.modified)
+        self.docs.pop(self.queue.name)
+        self.assertEqual(mail._state(self.jha)['status'], 'Sent')
+
+    def test_smtp_result_remains_authoritative_if_sending_overlapped_cancellation(self):
+        record = self.automatic(); mail.prepare_print_email(record.name)
+        record.status = 'Cancelled'; self.queue.status = 'Sending'
+        self.assertEqual(mail._status(record), 'Sending')
+        self.queue.status = 'Sent'
+        self.assertEqual(mail._status(record), 'Sent')
+
     def test_resend_requires_reviewer_or_manager_confirmation_and_blocks_pending_delivery(self):
         record = self.automatic()
         for args in [('retry', 0), ('', 1)]:

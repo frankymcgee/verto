@@ -79,11 +79,13 @@ def _queue_info(record):
 def _status(record):
     if not record:
         return "Not Requested"
+    queue = _queue_info(record)
+    if queue and queue.status in {"Sent", "Sending"}:
+        return queue.status
     if record.status == "Cancelled":
         return "Cancelled"
-    queue = _queue_info(record)
     if queue:
-        return {"Sent": "Sent", "Sending": "Sending", "Error": "Failed"}.get(queue.status, "Queued")
+        return "Failed" if queue.status == "Error" else "Queued"
     if record.status == "Sent":
         return "Sent"
     return "Failed" if record.get("email_queue") else record.status
@@ -169,6 +171,12 @@ def jha_updated(doc, method=None):
 def _cancel(record):
     queue = _queue_info(record)
     if queue and queue.status in {"Sent", "Sending"}:
+        # Preserve an SMTP result even when work changes before reconciliation.
+        # Queue retention must not later turn a successful delivery into Failed.
+        record.status = queue.status
+        if queue.status == "Sent" and not record.get("sent_at"):
+            record.sent_at = queue.modified
+        _save(record)
         return
     if queue:
         frappe.db.set_value("Email Queue", queue.name, {"status": "Error", "error": "JHA print delivery cancelled: this is no longer the current signed revision."})
