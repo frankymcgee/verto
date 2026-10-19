@@ -4,6 +4,7 @@ import { Badge, Button, Checkbox } from 'frappe-ui'
 
 import { apiRequest } from '../lib/api'
 import SignatureField from './mobile-fields/SignatureField.vue'
+import JhaPrintEmail from './JhaPrintEmail.vue'
 
 type FrappeResponse<T> = { message: T }
 
@@ -306,6 +307,7 @@ onMounted(() => {
         <p class="mt-1 text-sm text-green-800">
           Fully signed {{ formatDateTime(state.signed_at) }}. This status records acknowledgement of the JHA; it does not replace site permits, isolations or other work-authorisation requirements.
         </p>
+        <JhaPrintEmail :jha="{ ...jha, ...state }" />
       </div>
 
       <template v-else-if="state.status === 'Ready for Team Review'">

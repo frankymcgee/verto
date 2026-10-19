@@ -178,8 +178,9 @@ jobs:
           bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_fieldwork --skip-before-tests
           bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_workpack --skip-before-tests
           bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_steps --skip-before-tests
+          bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_email --skip-before-tests
           cd apps/verto/frontend
-          yarn test:ui tests/jha-incident-learning.test.js tests/jha-voice-protocol.test.js tests/jha-voice-engines.test.js tests/jha-voice-panel.test.js tests/jha-fieldwork.test.js tests/jha-workpack-ui.test.js tests/jha-active-step.test.js tests/jha-offline.test.js tests/offline-payload.test.js
+          yarn test:ui tests/jha-incident-learning.test.js tests/jha-voice-protocol.test.js tests/jha-voice-engines.test.js tests/jha-voice-panel.test.js tests/jha-fieldwork.test.js tests/jha-workpack-ui.test.js tests/jha-active-step.test.js tests/jha-print-email.test.js tests/jha-offline.test.js tests/offline-payload.test.js
 
       - name: Verify Investigations app, approvals and evidence privacy
         working-directory: /home/runner/frappe-bench

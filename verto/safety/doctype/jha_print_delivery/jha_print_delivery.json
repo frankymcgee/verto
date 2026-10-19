@@ -1,0 +1,125 @@
+{
+ "doctype": "DocType",
+ "name": "JHA Print Delivery",
+ "module": "Safety",
+ "autoname": "hash",
+ "engine": "InnoDB",
+ "field_order": [
+  "jha",
+  "revision",
+  "work_summary",
+  "project",
+  "delivery_key",
+  "status",
+  "recipient",
+  "sent_at",
+  "requested_by",
+  "email_queue",
+  "pdf_file",
+  "request_history"
+ ],
+ "fields": [
+  {
+   "fieldname": "jha",
+   "fieldtype": "Link",
+   "label": "JHA",
+   "read_only": 1,
+   "reqd": 1,
+   "in_list_view": 1,
+   "options": "Digital Job Hazard Analysis"
+  },
+  {
+   "fieldname": "revision",
+   "fieldtype": "Int",
+   "label": "Revision",
+   "read_only": 1,
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "work_summary",
+   "fieldtype": "Link",
+   "label": "Work Summary",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "Task"
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "Project"
+  },
+  {
+   "fieldname": "delivery_key",
+   "fieldtype": "Data",
+   "label": "Delivery Key",
+   "read_only": 1,
+   "unique": 1,
+   "reqd": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "read_only": 1,
+   "reqd": 1,
+   "in_list_view": 1,
+   "options": "Not Configured\nPending\nQueued\nSending\nSent\nFailed\nCancelled"
+  },
+  {
+   "fieldname": "recipient",
+   "fieldtype": "Data",
+   "label": "Printing Email",
+   "read_only": 1,
+   "in_list_view": 1,
+   "options": "Email"
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Requested By",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "email_queue",
+   "fieldtype": "Link",
+   "label": "Email Queue",
+   "read_only": 1,
+   "options": "Email Queue"
+  },
+  {
+   "fieldname": "pdf_file",
+   "fieldtype": "Link",
+   "label": "Signed PDF File",
+   "read_only": 1,
+   "options": "File"
+  },
+  {
+   "fieldname": "request_history",
+   "fieldtype": "Long Text",
+   "label": "Resend History",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sent_at",
+   "fieldtype": "Datetime",
+   "label": "Sent At",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "All",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
