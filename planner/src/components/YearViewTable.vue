@@ -249,7 +249,7 @@
                     <span class="year-project-span-name truncate">
                       {{ segment.label }}
                     </span>
-                    <span v-if="isCancelledProject(segment.status)" class="text-[9px] font-medium">Cancelled</span>
+                    <span v-if="isCancelledProject(segment.status)" class="ml-1 text-[9px] font-medium">Cancelled</span>
                   </div>
 
                   <div class="year-project-span-meta-row">
