@@ -64,7 +64,15 @@
                       @click.stop
                     >
                       <input v-model="hideCompletedProjects" type="checkbox" class="year-project-birds-eye-checkbox" @click.stop />
-                      <span>Hide completed jobs</span>
+                      <span>Hide completed</span>
+                    </label>
+                    <label
+                      class="year-project-birds-eye-toggle"
+                      :class="hideCancelledProjects && 'year-project-birds-eye-toggle-active'"
+                      @click.stop
+                    >
+                      <input v-model="hideCancelledProjects" type="checkbox" class="year-project-birds-eye-checkbox" @click.stop />
+                      <span>Hide cancelled</span>
                     </label>
                     <label
                       class="year-project-birds-eye-toggle"
@@ -777,6 +785,7 @@ const employeeSearch = ref<string[]>([])
 const projectCollapsed = ref(false)
 const projectBirdsEye = ref(false)
 const hideCompletedProjects = ref(false)
+const hideCancelledProjects = ref(false)
 const employeeCollapsed = ref(false)
 const projectTypeFilter = ref<'all' | 'roster' | 'shutdown'>('all')
 const shiftAssignment = ref<string>('')
@@ -1078,13 +1087,14 @@ const allProjectRows = computed(() => {
 const projectRows = computed(() => {
   return allProjectRows.value.filter((project) => {
     return (!hideCompletedProjects.value || !projectIsCompleted(project.status))
+      && (!hideCancelledProjects.value || !isCancelledProject(project.status))
       && (projectTypeFilter.value === 'all' || normaliseProjectType(project.roster_or_shutdown) === projectTypeFilter.value)
   })
 })
 
 const projectEmptyStateMessage = computed(() => {
   if (!allProjectRows.value.length) return 'No projects found for this year'
-  if (hideCompletedProjects.value) return 'No uncompleted jobs match the current annual filters'
+  if (hideCompletedProjects.value || hideCancelledProjects.value) return 'No projects match the current annual filters'
   if (projectTypeFilter.value === 'roster') return 'No roster projects found for this year'
   if (projectTypeFilter.value === 'shutdown') return 'No shutdown projects found for this year'
   return 'No projects match the current annual filters'
@@ -3372,7 +3382,7 @@ defineExpose({ events, scrollToToday, liveBusy, refreshLiveProjectDetails })
 .year-project-header-actions {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: max-content;
 }
 
@@ -3384,7 +3394,7 @@ defineExpose({ events, scrollToToday, liveBusy, refreshLiveProjectDetails })
   border-radius: 6px;
   border: 1px solid rgb(209 213 219);
   background: rgb(255 255 255);
-  padding: 3px 7px;
+  padding: 3px 5px;
   color: rgb(55 65 81);
   font-size: 10px;
   font-weight: 700;

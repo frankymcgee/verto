@@ -747,10 +747,10 @@ describe("Cancelled project visibility", () => {
     expect(cancelled.element.style.backgroundImage).toContain("8px");
     expect(["#f9fafb", "rgb(249, 250, 251)"]).toContain(cancelled.element.style.color);
     const toggles = wrapper.findAll(".year-project-header-actions label");
-    await toggles[0].find("input").setValue(true);
+    await toggles.find(toggle => toggle.text() === "Hide completed").find("input").setValue(true);
     expect(wrapper.find(".year-project-span-completed").exists()).toBe(false);
     expect(wrapper.find(".year-project-span-cancelled").exists()).toBe(true);
-    await toggles[1].find("input").setValue(true);
+    await toggles.find(toggle => toggle.text() === "Birds eye").find("input").setValue(true);
     expect(wrapper.find(".year-project-span-cancelled").element.style.backgroundImage).toContain("135deg");
     yearEvents = { ...yearEvents, project_rows: yearEvents.project_rows.map(row => row.project === "CANCELLED-JOB" ? { ...row, status: "Open" } : row) };
     await wrapper.vm.events.fetch(); await settle();
@@ -788,29 +788,46 @@ describe("Cancelled project visibility", () => {
 });
 
 describe("Annual Planner integration", () => {
-  it("combines completed-job and type filters and restores rows from an empty Birds eye view", async () => {
+  it("filters completed and cancelled projects independently and restores rows from an empty Birds eye view", async () => {
     yearEvents = { contract_version: 2, employee_event_days: {}, project_rows: [
       { ...project, project: "DONE", project_name: "Finished shutdown", status: " Completed ", roster_or_shutdown: "Shutdown" },
+      { ...project, project: "CANCELLED", project_name: "Cancelled shutdown", status: " cAnCeLeD ", roster_or_shutdown: "Shutdown" },
       { ...project, project: "ACTIVE", project_name: "Current roster", roster_or_shutdown: "Roster" },
     ] };
     await mountComponent(YearViewTable, {
       firstOfMonth: dayjs("2026-09-01"), employees, employeeFilters: {}, shiftFilters: {},
     });
     const toggles = wrapper.findAll(".year-project-header-actions label");
-    expect(toggles.map(toggle => toggle.text())).toEqual(["Hide completed jobs", "Birds eye"]);
-    expect(toggles[0].find("input").element.checked).toBe(false);
+    expect(toggles.map(toggle => toggle.text())).toEqual(["Hide completed", "Hide cancelled", "Birds eye"]);
+    const toggle = label => toggles.find(toggle => toggle.text() === label).find("input");
+    expect(toggle("Hide completed").element.checked).toBe(false);
+    expect(toggle("Hide cancelled").element.checked).toBe(false);
     const projects = () => wrapper.findAll(".year-project-span-name").map(span => span.text());
     expect(projects()).toContain("Finished shutdown");
+    expect(projects()).toContain("Cancelled shutdown");
     expect(projects()).toContain("Current roster");
-    await toggles[0].find("input").setValue(true);
+    await toggle("Hide completed").setValue(true);
     expect(projects()).not.toContain("Finished shutdown");
+    expect(projects()).toContain("Cancelled shutdown");
+    expect(projects()).toContain("Current roster");
+    await toggle("Hide cancelled").setValue(true);
+    expect(projects()).toEqual(["Current roster"]);
+    await toggle("Hide completed").setValue(false);
+    expect(projects()).toContain("Finished shutdown");
+    expect(projects()).not.toContain("Cancelled shutdown");
     expect(projects()).toContain("Current roster");
     await button("Shutdown").trigger("click");
-    await toggles[1].find("input").setValue(true);
+    await toggle("Birds eye").setValue(true);
+    await toggle("Hide completed").setValue(true);
     expect(projects()).toEqual([]);
-    expect(wrapper.text()).toContain("No uncompleted jobs match the current annual filters");
-    await toggles[0].find("input").setValue(false);
+    expect(wrapper.text()).toContain("No projects match the current annual filters");
+    expect(wrapper.findAll(".year-project-header-actions label")).toHaveLength(3);
+    await toggle("Hide completed").setValue(false);
     expect(projects()).toContain("Finished shutdown");
+    expect(projects()).not.toContain("Cancelled shutdown");
+    expect(projects()).not.toContain("Current roster");
+    await toggle("Hide cancelled").setValue(false);
+    expect(projects()).toContain("Cancelled shutdown");
     expect(projects()).not.toContain("Current roster");
     expect(wrapper.find(".year-project-table").classes()).toContain("year-project-birds-eye-table");
   });
