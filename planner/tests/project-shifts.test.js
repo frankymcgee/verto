@@ -122,8 +122,8 @@ async function fieldValue(label, value) {
   const control = wrapper
     .findAllComponents(FormControl)
     .find((control) => control.props("label") === label);
-  await control.find("input").setValue(value);
-  await control.find("input").trigger("blur");
+  await control.find("input, textarea").setValue(value);
+  await control.find("input, textarea").trigger("blur");
 }
 async function mountComponent(component, props) {
   const router = createRouter({
@@ -181,6 +181,7 @@ beforeEach(() => {
   };
   shiftDoc = {
     name: "SHIFT-1",
+    modified: "2026-10-01 09:00:00",
     employee: "EMP-1",
     employee_name: "Alex",
     company: "Test company",
@@ -206,6 +207,7 @@ beforeEach(() => {
     if (url === "frappe.client.get") return shiftDoc;
     if (url.endsWith("get_values"))
       return {
+        name: params.name,
         employee_name: "Alex",
         company: "Test company",
         department: "Maintenance",
@@ -223,6 +225,11 @@ beforeEach(() => {
         employee_details: {},
         timesheet_days: {},
       };
+    if (url === "verto.api.planner_shift.update") {
+      saved.push({ url, params });
+      shiftDoc = { ...shiftDoc, ...params.values, modified: "2026-10-01 10:00:00" };
+      return { name: shiftDoc.name };
+    }
     if (url.endsWith("insert_shift") || url.includes("create_")) {
       saved.push({ url, params });
       project = {
@@ -376,7 +383,86 @@ describe("Project shift defaults", () => {
     expect(picker("Project").props("modelValue")).toBe("OTHER-PROJECT");
     expect(picker("Shift Type").props("modelValue")).toBe("NS");
     expect(picker("Shift Location").props("modelValue")).toBe("OTHER-LOCATION");
-    expect(Boolean(picker("Shift Type").props("disabled"))).toBe(true);
+    for (const label of ["Employee", "Shift Type", "Shift Location"]) {
+      expect(Boolean(picker(label).props("disabled"))).toBe(false);
+    }
+    expect(wrapper.findAllComponents(FormControl).find((c) => c.props("label") === "Start Date").find("input").element.disabled).toBe(false);
+    expect(button("Update", shiftModal()).element.disabled).toBe(true);
+  });
+});
+
+describe("Editing allocated shifts", () => {
+  it.each([
+    ["Employee", "employee", "EMP-2"],
+    ["Shift Type", "shift_type", { value: "DS", label: "Day shift" }],
+    ["Shift Location", "shift_location", "LOC-1"],
+    ["Project", "custom_project", "PROJ-1"],
+    ["Project Designation", "custom_project_designation", "Advisor"],
+    ["Status", "status", { value: "Inactive", label: "Inactive" }],
+    ["Start Date", "start_date", "2026-10-02"],
+    ["End Date", "end_date", ""],
+    ["Note", "note", "Updated allocation note"],
+  ])("saves a change to %s with the allocation revision", async (label, field, value) => {
+    shiftDoc.name = `SHIFT-EDIT-${field}`;
+    await openShift({ shiftAssignmentName: shiftDoc.name });
+    expect(button("Update", shiftModal()).element.disabled).toBe(true);
+    if (["Start Date", "End Date", "Note"].includes(label)) {
+      await fieldValue(label, value);
+    } else {
+      await selectValue(label, value);
+    }
+    await settle();
+    expect(button("Update", shiftModal()).element.disabled).toBe(false);
+    await button("Update", shiftModal()).trigger("click");
+    await settle();
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toEqual({
+      url: "verto.api.planner_shift.update",
+      params: {
+        name: shiftDoc.name,
+        expected_modified: "2026-10-01 09:00:00",
+        values: { [field]: typeof value === "object" ? value.value : value },
+      },
+    });
+    expect(wrapper.emitted("fetchEvents")).toHaveLength(1);
+    expect(button("Update", shiftModal()).element.disabled).toBe(true);
+  });
+
+  it("refreshes employee details when changing or restoring the allocated employee", async () => {
+    shiftDoc.name = "SHIFT-CHANGE-EMPLOYEE";
+    setConfig("resourceFetcher", async ({ url, params }) => {
+      if (url.endsWith("get_bootstrap")) return structuredClone(bootstrapData);
+      if (url === "frappe.client.get") return structuredClone(shiftDoc);
+      if (url.endsWith("get_values")) return { name: params.name, employee_name: "Second employee", company: "Other company", department: "Other department" };
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await openShift({ shiftAssignmentName: shiftDoc.name, employees: [] });
+    expect(picker("Employee").props("options")).toContainEqual({ label: "EMP-1: Alex", value: "EMP-1" });
+    await selectValue("Employee", "EMP-2");
+    const company = () => wrapper.findAllComponents(FormControl).find((c) => c.props("label") === "Company").find("input").element.value;
+    expect(company()).toBe("Other company");
+    await selectValue("Employee", "EMP-1");
+    expect(company()).toBe("Test company");
+    expect(button("Update", shiftModal()).element.disabled).toBe(true);
+  });
+
+  it("retains unsaved edits and shows a server rejection without reporting success", async () => {
+    shiftDoc.name = "SHIFT-STALE-EDIT";
+    setConfig("resourceFetcher", async ({ url }) => {
+      if (url.endsWith("get_bootstrap")) return structuredClone(bootstrapData);
+      if (url === "frappe.client.get") return structuredClone(shiftDoc);
+      if (url === "verto.api.planner_shift.update") throw Object.assign(new Error("Shift changed elsewhere"), { messages: ["Shift changed elsewhere"] });
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await openShift({ shiftAssignmentName: shiftDoc.name });
+    await selectValue("Shift Location", "LOC-1");
+    await button("Update", shiftModal()).trigger("click");
+    await settle();
+    const { raiseToast } = await import("../src/utils");
+    expect(raiseToast).toHaveBeenCalledWith("error", "Shift changed elsewhere");
+    expect(wrapper.emitted("fetchEvents")).toBeUndefined();
+    expect(picker("Shift Location").props("modelValue")).toBe("LOC-1");
+    expect(button("Update", shiftModal()).element.disabled).toBe(false);
   });
 });
 
@@ -526,7 +612,7 @@ describe("Project personnel designations", () => {
     setConfig("resourceFetcher", async ({ url, params }) => {
       if (url.endsWith("get_bootstrap")) return structuredClone(bootstrapData);
       if (url === "frappe.client.get") return structuredClone(shiftDoc);
-      if (url === "frappe.client.set_value") { submitted = params; return { ...shiftDoc, ...params.fieldname }; }
+      if (url === "verto.api.planner_shift.update") { submitted = params; shiftDoc = { ...shiftDoc, ...params.values }; return { name: shiftDoc.name }; }
       throw new Error(`Unexpected request: ${url}`);
     });
     await openShift({ shiftAssignmentName: "SHIFT-ROLE-1", selectedCell: { employee: "EMP-1", date: "2026-10-01" } });
@@ -535,7 +621,7 @@ describe("Project personnel designations", () => {
     expect(button("Update", shiftModal()).attributes("disabled")).toBeUndefined();
     await button("Update", shiftModal()).trigger("click");
     await settle();
-    expect(submitted.fieldname.custom_project_designation).toBe("Labour");
+    expect(submitted.values.custom_project_designation).toBe("Labour");
     await selectValue("Project", "");
     expect(picker("Project Designation").props("modelValue")).toBe("");
     expect(picker("Project Designation").props("disabled")).toBe(true);

@@ -22,12 +22,12 @@ beforeEach(() => {
     { name: 'SHIFT-DIALOG', shift_type: 'DS', status: 'Active', start_date: '2026-01-01', end_date: '2026-01-01', color: 'blue' },
     { leave: 'LEAVE-DIALOG', leave_type: 'Annual Leave', from_date: '2026-01-02', to_date: '2026-01-02', status: 'Approved' },
   ] }
-  setConfig('resourceFetcher', async ({ url }) => {
+  setConfig('resourceFetcher', async ({ url, params }) => {
     if (url.endsWith('get_year_events')) return structuredClone({ events, project_rows: [project] })
     if (url.endsWith('get_events')) return structuredClone(events)
     if (url.endsWith('get_project_planner_details')) return structuredClone({ ...project, execution_tasks: [] })
     if (url.endsWith('planner_leave.get_details')) return { name: 'LEAVE-DIALOG', fields: [], values: {}, docstatus: 1, status: 'Approved' }
-    if (url.endsWith('get_values')) return { employee_name: 'Alex', company: 'MSS', department: 'Operations' }
+    if (url.endsWith('get_values')) return { name: params.name, employee_name: 'Alex', company: 'MSS', department: 'Operations' }
     if (url === 'frappe.client.get') return { name: 'SHIFT-DIALOG', employee: 'EMP-DIALOG', employee_name: 'Alex',
       start_date: '2026-01-01', end_date: '2026-01-01', shift_type: 'DS', status: 'Active' }
     if (url === 'frappe.client.get_list') return []
