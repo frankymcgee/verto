@@ -359,6 +359,9 @@ a:hover {
   color: var(--ink-gray-6);
   border-radius: 7px;
 }
+.entry-card > button {
+  max-width: 100%;
+}
 .entry-card {
   padding: 20px;
   margin-top: 18px;

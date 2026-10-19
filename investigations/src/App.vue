@@ -719,7 +719,7 @@
                     :items="doc.evidence"
                     :disabled="!editable || busy"
                   /><Button v-if="editable" @click="addWhy(row.entry_id)" :disabled="busy"
-                    >Ask why / add another contributing cause</Button
+                    >Add next why</Button
                   >
                 </article>
               </section>
@@ -1349,7 +1349,9 @@ function statusTheme(value) {
 }
 function dateLabel(value, time = false) {
   if (!value) return 'Not recorded'
-  const date = new Date(String(value).replace(' ', 'T'))
+  const raw = String(value)
+  // A date-only deadline is a calendar day, not UTC midnight.
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T12:00:00` : raw.replace(' ', 'T'))
   return Number.isNaN(date.getTime())
     ? value
     : new Intl.DateTimeFormat(undefined, {
