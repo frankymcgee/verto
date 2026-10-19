@@ -31,6 +31,8 @@
   "peri_bot_name",
   "peri_bot_user",
   "peri_bot_image",
+  "jha_printing_section",
+  "default_jha_print_email",
   "section_break_rtpg",
   "core_mobile_forms",
   "column_break_ufwo",
@@ -591,6 +593,18 @@
    "fieldtype": "Password",
    "hidden": 1,
    "label": "Legacy OpenAI API Key"
+  },
+  {
+   "fieldname": "jha_printing_section",
+   "fieldtype": "Section Break",
+   "label": "Automatic JHA Printing"
+  },
+  {
+   "fieldname": "default_jha_print_email",
+   "fieldtype": "Data",
+   "label": "Default JHA Printing Email",
+   "options": "Email",
+   "description": "Signed JHA PDFs are emailed here after the final required sign-on. A Project JHA Printing Email overrides this address. Leave both blank to disable automatic delivery."
   }
  ],
  "grid_page_length": 50,

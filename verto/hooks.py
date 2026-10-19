@@ -79,12 +79,14 @@ after_install = [
     "verto.install.after_install",
     "verto.api.mobile.peri_voice_settings.after_install",
     "verto.api.mobile.voice_jha_print.after_install",
+    "verto.api.mobile.voice_jha_email.ensure_print_email_fields",
     "verto.api.mobile.global_notifications.after_install",
 ]
 after_migrate = [
     "verto.install.after_migrate",
     "verto.api.mobile.peri_voice_settings.after_migrate",
     "verto.api.mobile.voice_jha_print.after_migrate",
+    "verto.api.mobile.voice_jha_email.ensure_print_email_fields",
     "verto.api.mobile.global_notifications.after_migrate",
     "verto.api.mobile.home_child_tasks.sync_active_jha_planned_steps",
 ]
@@ -111,6 +113,7 @@ extend_doctype_class = {
 # Permissions
 # -----------
 permission_query_conditions = {
+    "JHA Print Delivery": "verto.api.mobile.voice_jha_email.delivery_query_conditions",
     "Verto Investigation": "verto.api.investigations.query_conditions",
     "JHA Step Briefing": "verto.api.mobile.voice_jha_steps.briefing_query_conditions",
     "JHA Step Resource": "verto.api.mobile.voice_jha_workpack.resource_query_conditions",
@@ -124,6 +127,7 @@ permission_query_conditions = {
 }
 
 has_permission = {
+    "JHA Print Delivery": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
     "Verto Investigation": "verto.api.investigations.has_permission",
     "JHA Step Briefing": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
     "JHA Step Resource": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
@@ -141,6 +145,9 @@ jinja = {"methods": ["verto.api.mobile.voice_jha_print.jha_workpack_qr", "verto.
 # Document events
 # ---------------
 doc_events = {
+    "Digital Job Hazard Analysis": {
+        "on_update": "verto.api.mobile.voice_jha_email.jha_updated",
+    },
     "File": {
         "before_validate": "verto.api.investigations.validate_attachment",
     },
@@ -152,6 +159,7 @@ doc_events = {
         "on_update": "verto.api.mobile.timesheet_hour_limits.notify_daily_timesheet_hours_exceeded",
     },
     "Verto Mobile Settings": {
+        "validate": "verto.api.mobile.voice_jha_email.validate_destination",
         "on_update": "verto.install.refresh_mobile_settings_configuration",
     },
     "Task": {
@@ -162,6 +170,7 @@ doc_events = {
         "before_validate": "verto.api.qualifications.validate_employee_qualifications",
     },
     "Project": {
+        "validate": "verto.api.mobile.voice_jha_email.validate_destination",
         "before_validate": "verto.api.planner_staffing.validate_project_staffing",
         "after_insert": "verto.api.hooks.create_project_handover_records",
         "on_update": "verto.api.hooks.create_project_handover_records",
@@ -209,6 +218,7 @@ scheduler_events = {
     ],
     "cron": {
         "*/5 * * * *": [
+            "verto.api.mobile.voice_jha_email.reconcile_print_deliveries",
             "verto.api.mobile.timesheet_reminders.send_shift_missing_hours_reminders",
         ],
         "0 08 * * *": [
