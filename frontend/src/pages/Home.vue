@@ -753,6 +753,7 @@ type ScopeGroup = {
 }
 
 type ProjectToolKey =
+  | 'scan qr'
   | 'gantt'
   | 'map'
   | 'folder'
@@ -865,6 +866,7 @@ const projectToolsOpen = ref(false)
 const projectToolsScope = ref<ScopeGroup | null>(null)
 
 const defaultProjectToolDefinitions: ProjectToolDefinition[] = [
+  { key: 'scan qr', label: 'Scan QR code', description: 'Open a document or form using its QR code.' },
   { key: 'gantt', label: 'Gantt', description: 'View the project schedule.' },
   { key: 'map', label: 'Map', description: 'View Work Summary locations.' },
   { key: 'folder', label: 'Folder', description: 'Open shared project files.' },
@@ -954,6 +956,11 @@ async function openProjectTool(tool: ProjectToolKey) {
   }
 
   closeProjectTools()
+
+  if (tool === 'scan qr') {
+    await router.push('/scan-qr')
+    return
+  }
 
   if (tool === 'gantt') {
     openInternalUrl(getProjectGanttUrl(scope), 'Gantt')

@@ -74,6 +74,7 @@ PROJECT_TOOLS_FIELD_CANDIDATES = [
 ]
 
 DEFAULT_PROJECT_TOOLS = [
+    {"key": "scan qr", "label": "Scan QR code", "description": "Open a document or form using its QR code."},
     {"key": "gantt", "label": "Gantt", "description": "View the project schedule."},
     {"key": "map", "label": "Map", "description": "View Work Summary locations."},
     {"key": "folder", "label": "Folder", "description": "Open shared project files."},
@@ -263,6 +264,10 @@ def get_project_tools_from_settings(settings):
         })
         seen_keys.add(key)
 
+    # Existing customised menus gain the scanner unless an administrator has
+    # explicitly configured (including disabled) its row.
+    if not any(get_project_tool_key(row) == "scan qr" for row in rows):
+        configured_tools.append(dict(PROJECT_TOOL_DEFAULTS["scan qr"]))
     return configured_tools
 
 
