@@ -142,17 +142,19 @@ class TestPlannerShiftIntegration(IntegrationTestCase):
 			doc = frappe.get_doc(dict(doctype=doctype, name=f"SHIFT-EDIT-{prefix}-{self.suffix}", **values))
 			doc.db_insert()
 			return doc
-		self.company = record("Company", "CO", company_name="Planner shift edit", abbr=self.suffix, default_currency="AUD")
+		# Integration tests share a transaction. Unique document IDs do not make
+		# other unique fields, such as Company.company_name, unique between tests.
+		self.company = record("Company", "CO", company_name=f"Planner shift edit {self.suffix}", abbr=self.suffix, default_currency="AUD")
 		self.employee = record("Employee", "EMP", employee_name="First employee", first_name="First", company=self.company.name, status="Active")
-		self.other_company = record("Company", "CO2", company_name="Other shift company", abbr="X" + self.suffix, default_currency="AUD")
+		self.other_company = record("Company", "CO2", company_name=f"Other shift company {self.suffix}", abbr="X" + self.suffix, default_currency="AUD")
 		self.other_employee = record("Employee", "EMP2", employee_name="Second employee", first_name="Second", company=self.other_company.name, status="Active")
 		self.shift_type = record("Shift Type", "DS", start_time="06:00:00", end_time="18:00:00")
 		self.other_shift_type = record("Shift Type", "NS", start_time="18:00:00", end_time="06:00:00")
 		self.location = record("Shift Location", "LOC")
 		self.other_location = record("Shift Location", "LOC2")
-		self.project = record("Project", "PROJ", project_name="First project", color="#112233")
-		self.other_project = record("Project", "PROJ2", project_name="Second project", color="#445566")
-		self.designation = record("Designation", "ROLE", designation_name="Shift advisor")
+		self.project = record("Project", "PROJ", project_name=f"First project {self.suffix}", color="#112233")
+		self.other_project = record("Project", "PROJ2", project_name=f"Second project {self.suffix}", color="#445566")
+		self.designation = record("Designation", "ROLE", designation_name=f"Shift advisor {self.suffix}")
 		self.assignment = frappe.get_doc(dict(doctype="Shift Assignment", employee=self.employee.name,
 			company=self.company.name, shift_type=self.shift_type.name, shift_location=self.location.name,
 			start_date="2026-11-01", end_date="2026-11-02", custom_project=self.project.name, status="Active"))
@@ -187,7 +189,7 @@ class TestPlannerShiftIntegration(IntegrationTestCase):
 		self.assertEqual(self.assignment.end_date, getdate("2026-11-04"))
 		self.assertEqual(self.assignment.shift_location, self.other_location.name)
 		self.assertEqual(self.assignment.custom_project, self.other_project.name)
-		self.assertEqual(self.assignment.custom_project_name, "Second project")
+		self.assertEqual(self.assignment.custom_project_name, self.other_project.project_name)
 		self.assertEqual(self.assignment.custom_color, "#445566")
 		self.assertEqual(self.assignment.custom_project_designation, self.designation.name)
 		self.assertEqual(self.assignment.status, "Inactive")
