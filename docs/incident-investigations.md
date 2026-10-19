@@ -88,6 +88,13 @@ Method references:
 
 ## Record handling and reports
 
+The workspace uses Frappe UI 1.0.2, pinned in the Investigations package and
+lockfile. Desktop navigation uses its DesktopShell and collapsible Sidebar;
+narrow screens use MobileShell, MobileNav and a section selector. Form controls,
+permission-filtered Combobox lookups, badges, alerts and decision/discard dialogs
+use the same component library. The print report is rendered outside the screen
+shell so its fixed header, sidebar, mobile navigation and overlays do not print.
+
 The server applies record permissions to lists and individual reads. Mutations
 lock the record and require the caller's last-seen modification timestamp.
 Stale saves fail while the browser retains the user's unsaved changes.

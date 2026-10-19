@@ -1,17 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent } from 'vue'
-import { flushPromises, mount } from '@vue/test-utils'
+import { FormControl, Select, SidebarItem } from 'frappe-ui'
+import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import App from '../src/App.vue'
 import { call } from '../src/api'
 import { draft } from '../src/model'
 
 vi.mock('../src/api', () => ({ call: vi.fn(), uploadFile: vi.fn() }))
-const Button = defineComponent({
-  props: ['disabled'],
-  emits: ['click'],
-  template:
-    '<button type="button" :disabled="disabled" @click="$emit(\'click\', $event)"><slot /></button>',
-})
 let wrapper
 const clone = (value) => JSON.parse(JSON.stringify(value))
 function record(extra = {}) {
@@ -25,13 +19,21 @@ function record(extra = {}) {
   }
 }
 function button(text) {
-  return wrapper.findAll('button').find((item) => item.text() === text)
+  return new DOMWrapper(document.body).findAll('button').find((item) => item.text() === text)
+}
+function control(text) {
+  return wrapper
+    .findAllComponents(FormControl)
+    .find((item) => item.props('label') === text.replace(' *', ''))
 }
 function field(text) {
+  return control(text).find('input,textarea')
+}
+function section(text) {
   return wrapper
-    .findAll('label.field')
-    .find((item) => item.find('span').text() === text)
-    .find('input,textarea,select')
+    .findAllComponents(SidebarItem)
+    .find((item) => item.props('label') === text)
+    .find('button')
 }
 async function open(hash = '', value = record()) {
   window.history.replaceState(null, '', '/#/' + hash)
@@ -55,18 +57,19 @@ async function open(hash = '', value = record()) {
       }
     return clone(value)
   })
-  wrapper = mount(App, { global: { components: { Button } } })
+  wrapper = mount(App, { attachTo: document.body })
   await flushPromises()
 }
 beforeEach(() => {
   call.mockReset()
-  vi.spyOn(window, 'confirm').mockReturnValue(false)
+  window.innerWidth = 1280
   vi.spyOn(window, 'print').mockImplementation(() => {})
   Element.prototype.scrollIntoView = vi.fn()
 })
 afterEach(() => {
   wrapper?.unmount()
   vi.restoreAllMocks()
+  document.body.innerHTML = ''
 })
 
 describe('investigations workspace', () => {
@@ -96,11 +99,25 @@ describe('investigations workspace', () => {
   it('retains unsaved changes when navigation is declined', async () => {
     await open('INV-00001')
     await field('Investigation title *').setValue('Unsaved finding')
-    await button('← Investigations').trigger('click')
+    await button('Investigations').trigger('click')
     await flushPromises()
-    expect(window.confirm).toHaveBeenCalledOnce()
+    expect(document.body.textContent).toContain('Discard unsaved changes?')
+    await button('Keep editing').trigger('click')
+    await flushPromises()
     expect(field('Investigation title *').element.value).toBe('Unsaved finding')
     expect(window.location.hash).toContain('INV-00001')
+  })
+  it('discards unsaved changes only after confirmation and returns to the dashboard', async () => {
+    await open('INV-00001')
+    await field('Investigation title *').setValue('Unsaved finding')
+    await button('Investigations').trigger('click')
+    await flushPromises()
+    expect(window.location.hash).toContain('INV-00001')
+    await button('Discard changes').trigger('click')
+    await flushPromises()
+    expect(window.location.hash).toBe('#/')
+    expect(wrapper.text()).toContain('Start with the facts')
+    expect(wrapper.find('.record-content').exists()).toBe(false)
   })
   it('preserves date-only precision when copying a shutdown incident', async () => {
     await open(
@@ -118,8 +135,8 @@ describe('investigations workspace', () => {
     )
     await button('Use incident details in empty fields').trigger('click')
     await flushPromises()
-    expect(field('Time precision').element.value).toBe('Date only')
-    expect(field('Incident date and time *').element.value).toBe('2026-10-17T00:00')
+    expect(control('Time precision').vm.$attrs.modelValue).toBe('Date only')
+    expect(field('Incident date and time *').element.value).toBe('2026-10-17 00:00')
   })
   it('does not offer editing or self-review on a submitted investigation', async () => {
     await open(
@@ -128,31 +145,26 @@ describe('investigations workspace', () => {
     )
     expect(button('Save investigation')).toBeUndefined()
     expect(field('Investigation title *').element.closest('fieldset').disabled).toBe(true)
+    expect(control('Analysis method').getComponent(Select).props('disabled')).toBe(true)
     expect(wrapper.text()).toContain('Submitted for independent review')
-    await wrapper
-      .findAll('nav button')
-      .find((item) => item.text().includes('Review & close-out'))
-      .trigger('click')
+    await section('Review & close-out').trigger('click')
     expect(button('Approve findings and actions')).toBeUndefined()
   })
   it('shows 5 Whys and ICAM together when both methods are selected', async () => {
     await open('INV-00001', record({ method: '5 Whys + ICAM' }))
     expect(
       wrapper
-        .findAll('nav button')
+        .findAllComponents(SidebarItem)
         .map((item) => item.text())
         .join(' '),
     ).toContain('5 Whys')
     expect(
       wrapper
-        .findAll('nav button')
+        .findAllComponents(SidebarItem)
         .map((item) => item.text())
         .join(' '),
     ).toContain('ICAM analysis')
-    await wrapper
-      .findAll('nav button')
-      .find((item) => item.text().includes('5 Whys'))
-      .trigger('click')
+    await section('5 Whys').trigger('click')
     await button('Add causal branch').trigger('click')
     expect(wrapper.text()).toContain('Why 1')
     expect(wrapper.text()).toContain('Supporting evidence')
@@ -188,12 +200,10 @@ describe('investigations workspace', () => {
       'INV-00001',
       record({ status: 'In Review', capabilities: { can_edit: false, can_withdraw: true } }),
     )
-    await wrapper
-      .findAll('nav button')
-      .find((item) => item.text().includes('Review & close-out'))
-      .trigger('click')
+    await section('Review & close-out').trigger('click')
     await button('Withdraw for revision').trigger('click')
-    await wrapper
+    await flushPromises()
+    await new DOMWrapper(document.body)
       .get('.decision-panel textarea')
       .setValue('The appointed reviewer has left the business.')
     await button('Record decision').trigger('click')
@@ -225,15 +235,18 @@ describe('investigations workspace', () => {
       ],
     })
     await open('INV-00001', value)
-    await wrapper
-      .findAll('nav button')
-      .find((item) => item.text().includes('Corrective actions'))
-      .trigger('click')
+    await section('Corrective actions').trigger('click')
     await button('Reassign responsibilities').trigger('click')
-    const selects = wrapper.findAll('.decision-panel select')
-    expect(selects[0].element.disabled).toBe(true)
-    await selects[1].setValue('replacement@example.test')
-    await wrapper.get('.decision-panel textarea').setValue('Replacement verifier appointed.')
+    await flushPromises()
+    const selects = wrapper
+      .findAllComponents(Select)
+      .filter((item) => item.element.closest('.decision-panel'))
+    expect(selects[0].props('disabled')).toBe(true)
+    selects[1].vm.$emit('update:modelValue', 'replacement@example.test')
+    await flushPromises()
+    await new DOMWrapper(document.body)
+      .get('.decision-panel textarea')
+      .setValue('Replacement verifier appointed.')
     await button('Record decision').trigger('click')
     await flushPromises()
     expect(call).toHaveBeenCalledWith(
