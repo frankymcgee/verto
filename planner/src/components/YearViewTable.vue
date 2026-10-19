@@ -139,6 +139,10 @@
                       <Icon name="lucide-moon" class="year-legend-icon year-legend-ns-requested" />
                       <span># NS Requested</span>
                     </div>
+                    <div class="year-project-legend-item">
+                      <span class="inline-block h-3 w-3 rounded-sm border" :style="cancelledProjectStyle()" aria-hidden="true"></span>
+                      <span>Cancelled</span>
+                    </div>
                   </div>
                 </div>
               </th>
@@ -245,6 +249,7 @@
                     <span class="year-project-span-name truncate">
                       {{ segment.label }}
                     </span>
+                    <span v-if="isCancelledProject(segment.status)" class="text-[9px] font-medium">Cancelled</span>
                   </div>
 
                   <div class="year-project-span-meta-row">
@@ -548,6 +553,7 @@
 import { coalesceResource } from "../utils/coalesceResource";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import colors from 'tailwindcss/colors'
+import { cancelledProjectStyle, diagonalShading, isCancelledProject } from '../utils/projectAppearance'
 import { MultiSelect, createResource, Icon } from 'frappe-ui'
 import type { Dayjs } from 'dayjs'
 
@@ -1890,7 +1896,7 @@ function isApprovedLeave(leave: LeaveApplication) {
 function leaveStatusStyle(status: (typeof leaveStatuses)[keyof typeof leaveStatuses]) {
   return {
     backgroundColor: status.colors[50],
-    backgroundImage: `repeating-linear-gradient(135deg, ${status.colors[50]} 0px, ${status.colors[50]} 4px, ${status.colors[100]} 4px, ${status.colors[100]} 8px)`,
+    backgroundImage: diagonalShading(status.colors[50], status.colors[100]),
     color: status.colors[700],
   }
 }
@@ -2571,8 +2577,9 @@ function projectSegmentClass(segment: ProjectSegment) {
   return {
     'year-project-span': segment.active,
     'cursor-pointer': segment.active,
-    'year-project-span-inactive': segment.active && segment.isActive === false && !projectIsCompleted(segment.status),
+    'year-project-span-inactive': segment.active && segment.isActive === false && !projectIsCompleted(segment.status) && !isCancelledProject(segment.status),
     'year-project-span-completed': segment.active && projectIsCompleted(segment.status),
+    'year-project-span-cancelled': segment.active && isCancelledProject(segment.status),
     'year-project-span-date-dragging': isDragTarget,
     'year-project-span-date-resizing': isDragTarget && projectSpanDrag.value?.mode !== 'move',
     'year-month-start': segment.isMonthStart,
@@ -2582,6 +2589,14 @@ function projectSegmentClass(segment: ProjectSegment) {
 
 function projectSegmentStyle(segment: ProjectSegment) {
   if (!segment.active) return {}
+
+  if (isCancelledProject(segment.status)) {
+    return {
+      ...cancelledProjectStyle(),
+      '--year-project-span-text': colors.gray[50],
+      '--year-project-span-muted': colors.gray[200],
+    }
+  }
 
   if (projectIsCompleted(segment.status)) {
     const backgroundColor = (colors as any).gray[100]
@@ -2976,11 +2991,14 @@ function showProjectHover(project: ProjectRow, segment: ProjectSegment, event: M
 
   const customerColor = normaliseHexColor(segment.customerColor)
   const fallbackColor = palette(segment.poEntered === false ? 'red' : 'green')
-  const accent = projectIsCompleted(project.status)
-    ? (colors as any).gray[500]
-    : customerColor
-      ? darkenHexColor(customerColor, 0.3)
-      : fallbackColor[500]
+  const cancelled = isCancelledProject(project.status)
+  const accent = cancelled
+    ? colors.gray[700]
+    : projectIsCompleted(project.status)
+      ? (colors as any).gray[500]
+      : customerColor
+        ? darkenHexColor(customerColor, 0.3)
+        : fallbackColor[500]
 
   setHoverCard(
     `project:${projectKey(project)}:${segment.date || ''}:${segment.days}`,
@@ -2989,8 +3007,8 @@ function showProjectHover(project: ProjectRow, segment: ProjectSegment, event: M
       kicker: 'Project',
       title: segment.label || project.project_name,
       subtitle: [projectGroupLabel(project), segment.subline].filter(Boolean).join(' · '),
-      badge: segment.poEntered ? 'PO Entered' : 'PO Missing',
-      badgeTone: segment.poEntered ? 'green' : 'red',
+      badge: cancelled ? 'Cancelled' : segment.poEntered ? 'PO Entered' : 'PO Missing',
+      badgeTone: cancelled ? 'gray' : segment.poEntered ? 'green' : 'red',
       secondaryBadge: projectGanttStatus(project),
       secondaryBadgeTone: projectGanttStatusTone(project),
       accent,
@@ -3873,7 +3891,8 @@ defineExpose({ events, scrollToToday, liveBusy, refreshLiveProjectDetails })
   font-weight: 500;
 }
 
-.year-project-span-completed {
+.year-project-span-completed,
+.year-project-span-cancelled {
   border-style: solid !important;
   font-weight: 500;
 }

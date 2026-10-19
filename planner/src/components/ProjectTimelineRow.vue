@@ -101,6 +101,12 @@
                     # NS Requested
                   </span>
                 </div>
+                <div class="flex items-center gap-3 text-xs text-gray-600">
+                  <span class="inline-flex items-center gap-1.5">
+                    <span class="inline-block h-3.5 w-3.5 rounded-sm border" :style="cancelledProjectStyle()" aria-hidden="true"></span>
+                    Cancelled
+                  </span>
+                </div>
               </div>
             </td>
 
@@ -122,11 +128,15 @@
                   v-for="bar in bars"
                   :key="bar.key"
                   class="bar tooltip rounded-4 border text-xs px-2 py-1 whitespace-nowrap"
+                  :class="{ 'project-bar-cancelled': bar.cancelled }"
                   :data-tooltip="bar.tooltip"
+                  :aria-label="bar.cancelled ? `${bar.projectLabel} · Cancelled` : bar.projectLabel"
                   :style="{
                     gridColumn: `${bar.startCol} / ${bar.endCol + 1}`,
-                    borderColor: hexToRgba(bar.color || '', 0.5),
-                    backgroundColor: hexToRgba(bar.color || '', 0.12),
+                    ...(bar.cancelled ? cancelledProjectStyle() : {
+                      borderColor: hexToRgba(bar.color || '', 0.5),
+                      backgroundColor: hexToRgba(bar.color || '', 0.12),
+                    }),
                   }"
                 >
                   <div class="bar-content overflow-hidden">
@@ -142,7 +152,8 @@
                       <span class="font-medium truncate">
                         {{ bar.projectLabel }}
                       </span>
-                      <span class="text-gray-500">
+                      <span v-if="bar.cancelled" class="text-xs font-medium">Cancelled</span>
+                      <span :class="bar.cancelled ? 'text-gray-200' : 'text-gray-500'">
                         {{ dayjs(bar.projectStart).format("D MMM") }} –
                         {{ dayjs(bar.projectEnd).format("D MMM") }}
                       </span>
@@ -187,6 +198,7 @@ import { Icon, FormControl, Popover, createListResource } from "frappe-ui";
 import { Dayjs } from "dayjs";
 import { dayjs, raiseToast } from "../utils";
 import PlannerTableSurface from "./PlannerTableSurface.vue";
+import { cancelledProjectStyle, isCancelledProject } from "../utils/projectAppearance";
 
 const showAllProjects = ref(false);
 /**
@@ -458,6 +470,7 @@ const bars = computed(() => {
     endCol: number;
     tooltip: string;
     color: string | null;
+    cancelled: boolean;
     poNumber?: string | null;
     hasPO: boolean;
     shiftLabel: string;
@@ -492,8 +505,9 @@ const bars = computed(() => {
       end: clamped.end,
       startCol,
       endCol,
-      tooltip: [`Location: ${location}`].filter(Boolean).join("\n"),
+      tooltip: [`Location: ${location}`, isCancelledProject(r.status) ? 'Status: Cancelled' : ''].filter(Boolean).join("\n"),
       color: r.color ?? null,
+      cancelled: isCancelledProject(r.status),
       poNumber,
       hasPO,
       shiftLabel,

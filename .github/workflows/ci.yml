@@ -142,6 +142,10 @@ jobs:
             --app verto \
             --module verto.api.test_planner_shift \
             --skip-before-tests
+          bench --site test_site run-tests \
+            --app verto \
+            --module verto.api.test_planner_projects \
+            --skip-before-tests
 
       - name: Verify whiteboard pages and access controls
         working-directory: /home/runner/frappe-bench

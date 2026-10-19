@@ -3935,10 +3935,10 @@ def get_project_meta(
 ) -> dict[str, dict]:
 	"""Return Project metadata for every project that should appear in annual planning rows.
 
-	When a year range is supplied, this intentionally looks up Open and Completed
-	Projects by Project date range as well as projects referenced by Shift Assignment
-	rows. Cancelled projects are always excluded, while completed and inactive
-	projects remain visible when they overlap the selected year.
+	When a year range is supplied, this intentionally looks up Projects of all
+	statuses by Project date range as well as projects referenced by Shift Assignment
+	rows. Cancelled, completed and inactive projects remain visible when they
+	overlap the selected year so the Planner can distinguish them visually.
 
 	ANNUAL_ROSTER_RESULT_LIMIT is deliberately explicit because some Frappe list
 	queries otherwise fall back to the default page length of about 20 rows.
@@ -4007,10 +4007,9 @@ def get_project_meta(
 		if field
 	]
 
-	# Keep Open and Completed projects visible, but never return Cancelled projects.
-	# The backend filter also excludes cancelled projects referenced by old Shift
-	# Assignment rows, so they cannot reappear through the roster fallback.
-	project_filters = {"status": ["!=", "Cancelled"]}
+	# Keep cancelled jobs in the same year/date and shift-reference scope as other
+	# projects; the Planner renders them with a distinct cancelled appearance.
+	project_filters = {}
 	if project_names and not (year_start_date and year_end_date):
 		project_filters["name"] = ["in", project_names]
 

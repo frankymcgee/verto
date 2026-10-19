@@ -5,6 +5,7 @@ import { createRouter, createMemoryHistory } from "vue-router";
 import { FormControl, Combobox, Select, dialog, setConfig } from "frappe-ui";
 import ShiftAssignmentDialog from "../src/components/ShiftAssignmentDialog.vue";
 import ProjectSpanDialog from "../src/components/ProjectSpanDialog.vue";
+import ProjectTimelineRow from "../src/components/ProjectTimelineRow.vue";
 import YearViewTable from "../src/components/YearViewTable.vue";
 import LeaveApplicationDialog from "../src/components/LeaveApplicationDialog.vue";
 import { dayjs } from "../src/utils";
@@ -721,6 +722,68 @@ describe("Annual leave status visibility and scheduling", () => {
     await settle();
     expect(wrapper.findComponent(ShiftAssignmentDialog).props("shiftAssignmentName")).toBe("SHIFT-1");
     expect(openWindow).not.toHaveBeenCalled();
+  });
+});
+
+describe("Cancelled project visibility", () => {
+  it("shows cancelled annual projects with dark stripes across filters and live status changes", async () => {
+    yearEvents = {
+      contract_version: 2, events: {}, employee_event_days: {},
+      project_rows: [
+        { ...project, project: "CANCELLED-JOB", project_name: "Cancelled shutdown", status: "Cancelled", is_active: false, customer_color: "#ff0000", po_entered: false },
+        { ...project, project: "COMPLETED-JOB", project_name: "Completed shutdown", status: "Completed" },
+      ],
+    };
+    await mountComponent(YearViewTable, {
+      firstOfMonth: dayjs("2026-09-01"), employees, employeeFilters: {}, shiftFilters: {},
+    });
+    const cancelled = wrapper.find(".year-project-span-cancelled");
+    expect(cancelled.text()).toContain("Cancelled shutdown");
+    expect(cancelled.attributes("aria-label")).toContain("Cancelled");
+    expect(cancelled.classes()).not.toContain("year-project-span-inactive");
+    expect(["#374151", "rgb(55, 65, 81)"]).toContain(cancelled.element.style.backgroundColor);
+    expect(cancelled.element.style.backgroundImage).toMatch(/repeating-linear-gradient\(135deg/);
+    expect(cancelled.element.style.backgroundImage).toContain("4px");
+    expect(cancelled.element.style.backgroundImage).toContain("8px");
+    expect(["#f9fafb", "rgb(249, 250, 251)"]).toContain(cancelled.element.style.color);
+    const toggles = wrapper.findAll(".year-project-header-actions label");
+    await toggles[0].find("input").setValue(true);
+    expect(wrapper.find(".year-project-span-completed").exists()).toBe(false);
+    expect(wrapper.find(".year-project-span-cancelled").exists()).toBe(true);
+    await toggles[1].find("input").setValue(true);
+    expect(wrapper.find(".year-project-span-cancelled").element.style.backgroundImage).toContain("135deg");
+    yearEvents = { ...yearEvents, project_rows: yearEvents.project_rows.map(row => row.project === "CANCELLED-JOB" ? { ...row, status: "Open" } : row) };
+    await wrapper.vm.events.fetch(); await settle();
+    expect(wrapper.find(".year-project-span-cancelled").exists()).toBe(false);
+    expect(wrapper.find(".year-project-span").element.style.backgroundImage).toBe("");
+    yearEvents = { ...yearEvents, project_rows: yearEvents.project_rows.map(row => row.project === "CANCELLED-JOB" ? { ...row, status: " Cancelled " } : row) };
+    await wrapper.vm.events.fetch(); await settle();
+    expect(wrapper.find(".year-project-span-cancelled").element.style.backgroundImage).toContain("135deg");
+    await wrapper.find(".year-project-span-cancelled").trigger("mouseenter", { clientX: 200, clientY: 200 });
+    expect(document.querySelector('[role="tooltip"]').textContent).toContain("Cancelled");
+    await wrapper.find(".year-project-span-cancelled").trigger("click");
+    await settle();
+    expect(wrapper.findComponent(ProjectSpanDialog).props("project").project).toBe("CANCELLED-JOB");
+  });
+
+  it("uses the same dark cancellation shading on monthly project bars", async () => {
+    setConfig("resourceFetcher", async ({ url }) => {
+      if (url === "frappe.client.get_list") return [
+        { name: "MONTH-CANCELLED", project_name: "Cancelled monthly job", status: "Cancelled", color: "#ff0000", expected_start_date: "2026-09-01", expected_end_date: "2026-09-30" },
+        { name: "MONTH-OPEN", project_name: "Open monthly job", status: "Open", color: "#ff0000", expected_start_date: "2026-09-01", expected_end_date: "2026-09-30" },
+      ];
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await mountComponent(ProjectTimelineRow, {
+      firstOfMonth: dayjs("2026-09-01"), projectFilters: { company: "CANCELLED-PROJECT-TEST" },
+    });
+    const cancelled = wrapper.find(".project-bar-cancelled");
+    expect(cancelled.text()).toContain("Cancelled monthly job");
+    expect(cancelled.attributes("data-tooltip")).toContain("Status: Cancelled");
+    expect(["#374151", "rgb(55, 65, 81)"]).toContain(cancelled.element.style.backgroundColor);
+    expect(cancelled.element.style.backgroundImage).toContain("135deg");
+    expect(wrapper.findAll(".bar")).toHaveLength(2);
+    expect(wrapper.find('.bar[aria-label^="Open monthly job"]').element.style.backgroundImage).toBe("");
   });
 });
 
