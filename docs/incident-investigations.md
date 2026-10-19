@@ -81,6 +81,17 @@ Where a category has no supported finding, investigators record the reason
 rather than invent a factor. A completed ICAM analysis must identify at least
 one supported absent/failed defence.
 
+Each ICAM factor has a searchable Frappe UI dropdown with the supplied coded
+classification: DF1–DF16, IT1–IT14, TE1–TE26, HF1–HF26 and the 16 organisational
+codes. Options are filtered by category; Task or Environmental Conditions has
+separate TE and Human Factors groups. Add a row for each contributing factor,
+select its code, then record its contribution and supporting evidence. The
+classification is shown in the causal map, action/factor references and printed
+PDF report alongside the investigator's narrative. Selecting a classification
+does not mark the finding as supported. Existing narrative-only factors retain
+their text and may remain unclassified. The shared child DocType's Select
+options are the single catalogue used by Desk, API validation and the app.
+
 Method references:
 
 - [Safety Wise: direction and causal relationships in ICAM](https://www.safetywise.com/post/why-good-investigators-work-backwards)

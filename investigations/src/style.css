@@ -410,11 +410,20 @@ a:hover {
 }
 .reference-option {
   display: flex;
+  height: auto;
+  min-height: 28px;
+  padding-top: 6px;
+  padding-bottom: 6px;
   margin-bottom: 4px;
   overflow-wrap: anywhere;
 }
+.reference-option > div:first-child {
+  align-items: flex-start;
+}
 .reference-option label {
+  min-width: 0;
   white-space: normal;
+  line-height: 1.5;
 }
 .reference-option code {
   font-size: 10px;
@@ -505,6 +514,16 @@ a:hover {
   border-top: 1px solid var(--outline-gray-2);
   padding-top: 24px;
   margin-top: 28px;
+}
+.icam-factor-select [data-slot='trigger'] {
+  height: auto;
+  min-height: 2rem;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.icam-factor-select [data-slot='trigger'] > span {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .icam-category > .section-heading {
   margin-bottom: 10px;

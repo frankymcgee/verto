@@ -6,13 +6,11 @@ be checked without a running site. Analysis remains the investigator's work.
 
 import re
 
+from verto.safety.icam import ICAM_CATEGORIES, ICAM_FACTOR_CATEGORIES
+
 METHODS = ("5 Whys", "ICAM", "5 Whys + ICAM")
 STATUSES = ("Draft", "Evidence Gathering", "Analysis", "In Review", "Actions in Progress", "Closed", "Reopened")
 EDITABLE_STATUSES = frozenset(("Draft", "Evidence Gathering", "Analysis", "Reopened"))
-ICAM_CATEGORIES = (
-    "Absent or Failed Defences", "Individual or Team Actions",
-    "Task or Environmental Conditions", "Organisational Factors",
-)
 CONTROL_TYPES = ("Elimination", "Substitution", "Isolation", "Engineering", "Administrative", "PPE")
 FINDING_STATUSES = ("Hypothesis", "Supported", "Not supported")
 ACTION_STATUSES = ("Open", "In Progress", "Completed", "Verified", "Cancelled")
@@ -86,6 +84,9 @@ def validate_structure(data):
     for row in factors.values():
         if row.get("category") not in ICAM_CATEGORIES or row.get("finding_status") not in FINDING_STATUSES:
             errors.append("Choose an ICAM category and finding status for each factor.")
+        factor_type = row.get("factor_type")
+        if factor_type and (not isinstance(factor_type, str) or ICAM_FACTOR_CATEGORIES.get(factor_type) != row.get("category")):
+            errors.append(f"{row.get('entry_id')}: select an ICAM factor from this category's list.")
         if any(key not in factors for key in refs(row.get("contributes_to"))):
             errors.append(f"{row.get('entry_id')}: a linked ICAM factor no longer exists.")
     if _cycle(factors, lambda row: refs(row.get("contributes_to"))):

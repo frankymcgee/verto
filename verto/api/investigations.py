@@ -6,6 +6,7 @@ import frappe
 from frappe import _
 from frappe.utils import get_datetime, getdate, now_datetime, today
 
+from verto.safety.icam import ICAM_FACTOR_GROUPS
 from verto.safety.investigation_rules import (
     CONTROL_TYPES, EDITABLE_STATUSES, ICAM_CATEGORIES, METHODS,
     ROW_TABLES, STATUSES, closure_readiness, review_readiness, text, validate_structure,
@@ -27,7 +28,7 @@ CHILD_FIELDS = {
     "evidence": ("entry_id", "title", "evidence_type", "observed_at", "notes", "file", "verification_status", "verification_notes"),
     "timeline": ("entry_id", "event_datetime", "description", "evidence_refs"),
     "five_whys": ("entry_id", "parent_id", "description", "finding_status", "evidence_refs", "is_root_cause", "root_cause_reason"),
-    "icam_factors": ("entry_id", "category", "description", "finding_status", "evidence_refs", "contributes_to"),
+    "icam_factors": ("entry_id", "category", "factor_type", "description", "finding_status", "evidence_refs", "contributes_to"),
     "category_reviews": ("category", "no_finding_reason"),
     "actions": ("entry_id", "title", "details", "finding_refs", "assigned_to_user", "due_date", "priority", "control_type", "success_criteria", "verifier", "verification_due_date"),
 }
@@ -302,7 +303,8 @@ def get_bootstrap():
     from verto.default_apps import get_apps
     return {"user": frappe.session.user, "full_name": frappe.db.get_value("User", frappe.session.user, "full_name"),
         "is_manager": is_manager(), "methods": METHODS, "statuses": STATUSES,
-        "icam_categories": ICAM_CATEGORIES, "control_types": CONTROL_TYPES, "apps": get_apps()}
+        "icam_categories": ICAM_CATEGORIES, "icam_factor_groups": ICAM_FACTOR_GROUPS,
+        "control_types": CONTROL_TYPES, "apps": get_apps()}
 
 
 @frappe.whitelist()

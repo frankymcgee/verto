@@ -6,6 +6,7 @@
  "field_order": [
   "entry_id",
   "category",
+  "factor_type",
   "description",
   "finding_status",
   "evidence_refs",
@@ -25,6 +26,13 @@
    "fieldtype": "Select",
    "options": "Absent or Failed Defences\nIndividual or Team Actions\nTask or Environmental Conditions\nOrganisational Factors",
    "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "factor_type",
+   "label": "ICAM factor",
+   "fieldtype": "Select",
+   "options": "\nDF1 - Detection Systems\nDF2 - Protection systems\nDF3 - Warning systems\nDF4 - Guards or Barriers\nDF5 - Control systems\nDF6 - Recovery/backup systems\nDF7 - Escape\nDF8 - Rescue\nDF9 - Safety device operation\nDF10 - PPE suitability / availability\nDF11 - Safe work instructions\nDF12 - Hazard awareness\nDF13 - Hazard Identification\nDF14 - Risk controls\nDF15 - Supervision\nDF16 - Other\nIT1 - Supervisory error or violation\nIT2 - Operating authority error or violation\nIT3 - Operating speed\nIT4 - Equipment use error or violation\nIT5 - PPE use error or violation\nIT6 - Procedural compliance\nIT7 - Change Management error\nIT8 - Equipment / materials handling error\nIT9 - Horseplay / thrill seeking error or violation\nIT10 - Hazard recognition / perception\nIT11 - Hazard management error or violation\nIT12 - Work method error or violation\nIT13 - Occupational hygiene practices\nIT14 - Other\nTE1 - Task Planning / Preparation / Manning\nTE2 - Hazard analysis / job safety analysis / Take 5\nTE3 - Work procedures availability and suitability\nTE4 - Permit to work availability and suitability\nTE5 - Abnormal operational situation / condition\nTE6 - Tools / equipment condition / availability\nTE7 - Materials availability and suitability\nTE8 - Equipment integrity\nTE9 - Housekeeping\nTE10 - Weather conditions\nTE11 - Congestion / restriction / access\nTE12 - Routine / non routine task\nTE13 - Fire and / or explosion hazard\nTE14 - Lighting\nTE15 - Equipment / material temperature / conditions\nTE16 - Noise\nTE17 - Ventilation\nTE18 - Gas, Dust or Fumes\nTE19 - Radiation\nTE20 - Chemical\nTE21 - Wildlife\nTE22 - Surface Gradient / Conditions\nTE23 - Other\nTE24 - Pressure\nTE25 - Training\nTE26 - Purchasing\nHF1 - Complacency / motivation\nHF2 - Drugs / alcohol influence\nHF3 - Familiarity with task\nHF4 - Fatigue\nHF5 - Situational awareness\nHF6 - Time / productivity pressures\nHF7 - Peer pressure / supervisory example\nHF8 - Physical capabilities\nHF9 - Mental capabilities\nHF10 - Physical stress\nHF11 - Mental stress\nHF12 - Confidence level\nHF13 - Secondary level\nHF14 - Personal issues\nHF15 - Distraction / pre-occupation\nHF16 - Experience / knowledge / skill for task\nHF17 - Competency\nHF18 - Behavioural beliefs (gains > risks)\nHF19 - Personality / attitude\nHF20 - Poor communications\nHF21 - Poor shift patterns and overtime working\nHF22 - Passive tolerance of violations\nHF23 - Perceived licence to bend rules\nHF24 - Change of routine\nHF25 - Reliance on undocumented knowledge\nHF26 - Other human factor\nCM - Contractor Management\nCO - Communication\nDE - Design\nHW - Hardware\nIG - Incompatible Goals\nMC - Management of Change\nMM - Maintenance Management\nMS - Management Systems\nOC - Organisational Culture\nOL - Organisational Learning\nOR - Organisation\nPR - Procedures\nRM - Risk Management\nRI - Regulatory Influence\nTR - Training\nVM - Vehicle Management",
    "in_list_view": 1
   },
   {
