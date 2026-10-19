@@ -1,9 +1,37 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { FormControl, Select, SidebarItem } from 'frappe-ui'
+import { Combobox, FormControl, Select, SidebarItem } from 'frappe-ui'
 import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import App from '../src/App.vue'
 import { call } from '../src/api'
-import { draft } from '../src/model'
+import { categories, draft } from '../src/model'
+
+const factorGroups = [
+  {
+    category: categories[0],
+    group: categories[0],
+    options: ['DF1 - Detection Systems', 'DF4 - Guards or Barriers', 'DF16 - Other'],
+  },
+  {
+    category: categories[1],
+    group: categories[1],
+    options: ['IT1 - Supervisory error or violation', 'IT14 - Other'],
+  },
+  {
+    category: categories[2],
+    group: 'Task / Environmental Conditions (TE)',
+    options: ['TE1 - Task Planning / Preparation / Manning', 'TE26 - Purchasing'],
+  },
+  {
+    category: categories[2],
+    group: 'Human Factors (HF)',
+    options: ['HF4 - Fatigue', 'HF26 - Other human factor'],
+  },
+  {
+    category: categories[3],
+    group: categories[3],
+    options: ['MC - Management of Change', 'VM - Vehicle Management'],
+  },
+]
 
 vi.mock('../src/api', () => ({ call: vi.fn(), uploadFile: vi.fn() }))
 let wrapper
@@ -44,6 +72,7 @@ async function open(hash = '', value = record()) {
         full_name: 'Lead Investigator',
         apps: [],
         statuses: ['Draft', 'In Review', 'Closed'],
+        icam_factor_groups: factorGroups,
       }
     if (method === 'list_investigations') return { items: [], counts: {}, today: '2026-10-18' }
     if (method === 'get_investigation') return clone(value)
@@ -182,6 +211,80 @@ describe('investigations workspace', () => {
     expect(wrapper.get('[role="alert"]').text()).toContain('Reload it')
     expect(field('Investigation title *').element.value).toBe('My local draft')
     expect(wrapper.text()).toContain('Unsaved changes')
+  })
+  it('filters ICAM dropdowns by category and saves a selected code without inventing a finding', async () => {
+    await open('INV-00001', record({ method: 'ICAM' }))
+    await section('ICAM analysis').trigger('click')
+    const sections = wrapper.findAll('.icam-category')
+    await sections[0].get('button').trigger('click')
+    await sections[2].get('button').trigger('click')
+    const defence = sections[0].getComponent(Combobox)
+    expect(defence.props('placeholder')).toBe('Select factor from list')
+    expect(defence.props('options').flatMap((group) => group.options)).toEqual(
+      factorGroups[0].options,
+    )
+    await defence.get('[data-slot="trigger"]').trigger('click')
+    await flushPromises()
+    const body = new DOMWrapper(document.body)
+    await body
+      .findAll('[role="option"]')
+      .find((option) => option.text() === 'DF1 - Detection Systems')
+      .trigger('click')
+    await flushPromises()
+    const conditions = sections[2].getComponent(Combobox)
+    await conditions.get('[data-slot="trigger"]').trigger('click')
+    await flushPromises()
+    expect(body.text()).toContain('Task / Environmental Conditions (TE)')
+    expect(body.text()).toContain('Human Factors (HF)')
+    await body.get('[data-slot="search"] input').setValue('fatigue')
+    await flushPromises()
+    expect(body.findAll('[role="option"]').map((option) => option.text())).toEqual([
+      'HF4 - Fatigue',
+    ])
+    await body.get('[role="option"]').trigger('click')
+    await button('Save investigation').trigger('click')
+    await flushPromises()
+    const saved = call.mock.calls.find(([method]) => method === 'save_investigation')[1].data
+      .icam_factors
+    expect(saved.map((row) => row.factor_type)).toEqual([
+      'DF1 - Detection Systems',
+      'HF4 - Fatigue',
+    ])
+    expect(
+      saved.every((row) => row.description === '' && row.finding_status === 'Hypothesis'),
+    ).toBe(true)
+    expect(wrapper.get('.investigation-report').text()).toContain('DF1 - Detection Systems')
+    expect(wrapper.get('.investigation-report').text()).toContain('HF4 - Fatigue')
+  })
+  it('retains coded factors in the locked form, causal map and print report', async () => {
+    const factor = {
+      entry_id: 'F-000000000001',
+      category: categories[0],
+      factor_type: 'DF4 - Guards or Barriers',
+      description: 'No movement barrier was specified.',
+      finding_status: 'Supported',
+    }
+    await open(
+      'INV-00001',
+      record({
+        method: 'ICAM',
+        status: 'Closed',
+        capabilities: { can_edit: false },
+        icam_factors: [factor],
+      }),
+    )
+    await section('ICAM analysis').trigger('click')
+    const box = wrapper
+      .findAllComponents(Combobox)
+      .find((item) => item.props('label') === 'ICAM factor')
+    expect(box.props('disabled')).toBe(true)
+    expect(box.props('modelValue')).toBe(factor.factor_type)
+    expect(wrapper.get('.icam-map').text()).toContain(factor.factor_type)
+    expect(wrapper.get('.icam-map').text()).toContain(factor.description)
+    expect(wrapper.get('.investigation-report').text()).toContain(factor.factor_type)
+    await button('Print / PDF').trigger('click')
+    await flushPromises()
+    expect(window.print).toHaveBeenCalledOnce()
   })
   it('prints the saved investigation and renders narratives as text', async () => {
     await open(

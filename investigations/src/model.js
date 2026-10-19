@@ -19,6 +19,8 @@ export const refs = (value) =>
     .map((part) => part.trim())
     .filter(Boolean)
 export const id = (prefix) => `${prefix}-${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`
+export const findingTitle = (row) =>
+  [row.factor_type, row.description].filter(Boolean).join(' · ') || row.entry_id
 export function localDatetime(value = new Date()) {
   if (typeof value === 'string') return value.replace(' ', 'T').slice(0, 16)
   const adjusted = new Date(value.getTime() - value.getTimezoneOffset() * 60000)
@@ -93,6 +95,6 @@ export function supportedFindings(doc) {
       : []
   return [...whys, ...factors].map((row) => ({
     entry_id: row.entry_id,
-    title: row.description || row.entry_id,
+    title: findingTitle(row),
   }))
 }

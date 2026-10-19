@@ -2,6 +2,7 @@ import copy
 import unittest
 
 from verto.safety.investigation_rules import ICAM_CATEGORIES, closure_readiness, review_readiness, validate_structure
+from verto.safety.icam import ICAM_FACTOR_CATEGORIES, ICAM_FACTOR_GROUPS
 
 
 def ready_investigation():
@@ -85,6 +86,35 @@ class TestInvestigationRules(unittest.TestCase):
         self.data["icam_factors"] = [{"entry_id": "F-000000000001", "category": ICAM_CATEGORIES[0], "description": "A defence failed", "finding_status": "Supported", "evidence_refs": "E-000000000001", "contributes_to": "F-000000000002"}, {"entry_id": "F-000000000002", "category": ICAM_CATEGORIES[3], "description": "Unconfirmed system issue", "finding_status": "Hypothesis", "contributes_to": "F-000000000001"}]
         self.assertTrue(any("circular" in error for error in validate_structure(self.data)))
         self.assertTrue(any("supported factors" in error for error in review_readiness(self.data)))
+
+    def test_icam_catalogue_has_all_supplied_codes_in_order(self):
+        codes = [[option.split(" - ")[0] for option in group["options"]] for group in ICAM_FACTOR_GROUPS]
+        self.assertEqual(codes, [
+            [f"DF{number}" for number in range(1, 17)],
+            [f"IT{number}" for number in range(1, 15)],
+            [f"TE{number}" for number in range(1, 27)],
+            [f"HF{number}" for number in range(1, 27)],
+            ["CM", "CO", "DE", "HW", "IG", "MC", "MM", "MS", "OC", "OL", "OR", "PR", "RM", "RI", "TR", "VM"],
+        ])
+        self.assertEqual(len(ICAM_FACTOR_CATEGORIES), 98)
+        self.assertIn("HF13 - Secondary level", ICAM_FACTOR_CATEGORIES)
+        self.assertIn("TE25 - Training", ICAM_FACTOR_CATEGORIES)
+        self.assertIn("TE26 - Purchasing", ICAM_FACTOR_CATEGORIES)
+
+    def test_every_icam_classification_is_accepted_only_in_its_category(self):
+        for option, category in ICAM_FACTOR_CATEGORIES.items():
+            for candidate in ICAM_CATEGORIES:
+                with self.subTest(option=option, category=candidate):
+                    self.data["icam_factors"] = [{"entry_id": "F-000000000001", "category": candidate,
+                        "factor_type": option, "finding_status": "Hypothesis"}]
+                    errors = validate_structure(self.data)
+                    self.assertEqual(bool(errors), candidate != category)
+
+    def test_unknown_icam_classifications_and_placeholder_are_rejected(self):
+        for option in ("DF99 - Invented factor", "Select factor from list"):
+            self.data["icam_factors"] = [{"entry_id": "F-000000000001", "category": ICAM_CATEGORIES[0],
+                "factor_type": option, "finding_status": "Hypothesis"}]
+            self.assertTrue(any("category's list" in error for error in validate_structure(self.data)))
 
     def test_completed_actions_do_not_count_as_effectiveness_verified(self):
         self.data["approved_by"] = "reviewer@example.test"

@@ -10,6 +10,9 @@
         class="map-factor"
       >
         <code>{{ factor.entry_id }}</code>
+        <p v-if="factor.factor_type">
+          <strong>{{ factor.factor_type }}</strong>
+        </p>
         <p>{{ factor.description }}</p>
         <small v-if="refs(factor.contributes_to).length"
           >Contributes to {{ refs(factor.contributes_to).join(', ') }}</small

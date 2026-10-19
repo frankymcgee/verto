@@ -767,6 +767,25 @@
                       >
                     </div>
                     <fieldset :disabled="!editable || busy" class="form-grid">
+                      <Combobox
+                        size="md"
+                        class="field span-2 icam-factor-select"
+                        trigger="button"
+                        :model-value="row.factor_type || null"
+                        label="ICAM factor"
+                        placeholder="Select factor from list"
+                        :options="
+                          (meta.icam_factor_groups || []).filter(
+                            (group) => group.category === category,
+                          )
+                        "
+                        :disabled="!editable || busy"
+                        @update:model-value="row.factor_type = $event || ''"
+                      >
+                        <template #item-label="{ item }">
+                          <span class="whitespace-normal break-words">{{ item.label }}</span>
+                        </template>
+                      </Combobox>
                       <FormControl
                         size="md"
                         class="field span-2"
@@ -795,7 +814,7 @@
                       :items="
                         doc.icam_factors
                           .filter((item) => item.entry_id !== row.entry_id)
-                          .map((item) => ({ ...item, title: item.description }))
+                          .map((item) => ({ ...item, title: findingTitle(item) }))
                       "
                       :disabled="!editable || busy"
                       empty-text="Add another factor to connect the causal pathway."
@@ -1213,6 +1232,7 @@ import {
   Badge,
   Button,
   Checkbox,
+  Combobox,
   Dialog,
   FormControl,
   FrappeUIProvider,
@@ -1228,6 +1248,7 @@ import {
   clearReferences,
   controls,
   draft,
+  findingTitle,
   id,
   methods,
   removeWhy,
@@ -1525,6 +1546,7 @@ function addFactor(category) {
   doc.value.icam_factors.push({
     entry_id: id('F'),
     category,
+    factor_type: '',
     description: '',
     finding_status: 'Hypothesis',
     evidence_refs: '',

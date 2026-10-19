@@ -59,8 +59,12 @@
           class="report-item"
         >
           <p>
-            <strong>{{ row.entry_id }} · {{ row.finding_status }}</strong> {{ row.description }}
+            <strong>{{ row.entry_id }} · {{ row.finding_status }}</strong>
           </p>
+          <p v-if="row.factor_type">
+            <strong>{{ row.factor_type }}</strong>
+          </p>
+          <p>{{ row.description }}</p>
           <p>Evidence: {{ row.evidence_refs }} · Contributes to: {{ row.contributes_to }}</p>
         </div>
         <p

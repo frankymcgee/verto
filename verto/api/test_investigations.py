@@ -62,6 +62,43 @@ class IntegrationTestInvestigations(IntegrationTestCase):
         self.assertEqual(len([card for card in cards if card.get("name") == default_apps.INVESTIGATIONS_APP]), 1)
         self.assertEqual(frappe.get_meta(api.DOCTYPE).track_changes, 1)
 
+    def test_icam_classifications_round_trip_and_reject_category_mismatches(self):
+        doc = self._draft()
+        groups = api.get_bootstrap()["icam_factor_groups"]
+        options = [option for group in groups for option in group["options"]]
+        self.assertEqual(len(options), 98)
+        self.assertEqual(options, [option for option in frappe.get_meta("EHS ICAM Factors").get_field("factor_type").options.splitlines() if option])
+        factors = [{"entry_id": f"F-{number:012}", "category": group["category"], "factor_type": group["options"][-1],
+            "description": "Investigator's explanation retained separately.", "finding_status": "Hypothesis"}
+            for number, group in enumerate(groups, 1)]
+        doc = api.save_investigation(dict(doc, method="ICAM", icam_factors=factors), doc["modified"])
+        stored = api.get_investigation(doc["name"])
+        self.assertEqual([row["factor_type"] for row in stored["icam_factors"]], [row["factor_type"] for row in factors])
+        self.assertTrue(all(row["description"] == factors[0]["description"] for row in stored["icam_factors"]))
+        invalid = [dict(row) for row in stored["icam_factors"]]
+        invalid[0]["factor_type"] = groups[3]["options"][0]
+        with self.assertRaises(frappe.ValidationError):
+            api.save_investigation(dict(stored, icam_factors=invalid), stored["modified"])
+        self.assertEqual(api.get_investigation(doc["name"])["icam_factors"][0]["factor_type"], factors[0]["factor_type"])
+
+    def test_legacy_narrative_only_icam_factors_can_still_be_reviewed(self):
+        doc = self._draft(complete=True)
+        factors = [{"entry_id": "F-000000000001", "category": api.ICAM_CATEGORIES[0],
+            "description": "The changed task had no specified movement barrier.",
+            "finding_status": "Supported", "evidence_refs": "E-000000000001"}]
+        reviews = [{"category": category, "no_finding_reason": "No supporting evidence of a contributing factor."}
+            for category in api.ICAM_CATEGORIES[1:]]
+        actions = [dict(doc["actions"][0], finding_refs=factors[0]["entry_id"])]
+        doc = api.save_investigation(dict(doc, method="ICAM", icam_factors=factors,
+            category_reviews=reviews, actions=actions), doc["modified"])
+        self.assertEqual(doc["readiness"], [])
+        doc = api.transition(doc["name"], "submit_review", doc["modified"])
+        frappe.set_user(self.reviewer)
+        doc = api.transition(doc["name"], "approve", doc["modified"], "Reviewed the existing narrative and evidence.")
+        self.assertEqual(doc["status"], "Actions in Progress")
+        self.assertFalse(doc["icam_factors"][0].get("factor_type"))
+        self.assertEqual(doc["icam_factors"][0]["description"], factors[0]["description"])
+
     def test_unassigned_investigator_cannot_list_or_fetch_another_investigation(self):
         doc = self._draft()
         frappe.set_user(self.outsider)
