@@ -1,5 +1,7 @@
 import json
 from datetime import datetime
+from email import policy
+from email.parser import Parser
 from io import BytesIO
 from types import SimpleNamespace
 from unittest import TestCase
@@ -59,7 +61,10 @@ class TestJhaPrintEmail(TestCase):
 
     def get_doc(self, doctype, name=None):
         if isinstance(doctype, dict):
-            return Record(doctype, flags=frappe._dict(), creation=datetime.now(), modified=datetime.now())
+            row = Record(doctype, flags=frappe._dict(), creation=datetime.now(), modified=datetime.now())
+            if row.doctype == 'File':
+                row.get_content = lambda **kwargs: row.content
+            return row
         return self.docs.get(name) or next(row for row in Record.records if row.name == name)
 
     def get_value(self, doctype, filters, fields='name', **kwargs):
@@ -143,7 +148,7 @@ class TestJhaPrintEmail(TestCase):
         self.sendmail.assert_called_once()
         kwargs = self.sendmail.call_args.kwargs
         self.assertEqual(kwargs['recipients'], ['site@example.test'])
-        self.assertEqual(kwargs['attachments'], [{'fid': file.name}])
+        self.assertEqual(kwargs['attachments'], [{'fname': file.file_name, 'fcontent': PDF, 'content_type': 'application/pdf'}])
         self.assertIn('Rev 1', kwargs['subject']); self.assertTrue(kwargs['delayed'])
         self.assertEqual(mail._state(self.jha)['status'], 'Queued')
         self.queue.status = 'Sent'
@@ -212,6 +217,10 @@ class TestJhaPrintEmail(TestCase):
         self.assertEqual(result['status'], 'Pending'); self.assertIsNone(record.email_queue)
         self.assertEqual(record.pdf_file, file)
         self.assertEqual(json.loads(record.request_history)[0]['previous_queue'], 'QUEUE-1')
+        mail.prepare_print_email(record.name)
+        self.render.assert_called_once()
+        self.assertEqual(self.sendmail.call_count, 2)
+        self.assertEqual(self.sendmail.call_args.kwargs['attachments'][0]['fcontent'], PDF)
 
 
 class IntegrationTestJhaPrintEmail(IntegrationTestCase):
@@ -230,9 +239,13 @@ class IntegrationTestJhaPrintEmail(IntegrationTestCase):
         return mail._record(jha)
 
     def queued_email(self, **kwargs):
+        from frappe.email.email_body import get_email
+        message = get_email(recipients=kwargs['recipients'], sender='printing@example.test',
+            subject=kwargs['subject'], formatted=kwargs['message'], attachments=kwargs['attachments'],
+            email_account=frappe._dict(name='JHA Printing', email_id='printing@example.test')).as_string()
         return frappe.get_doc({'doctype': 'Email Queue', 'sender': 'printing@example.test', 'status': 'Not Sent',
-            'message': 'Subject: Signed JHA\n\nPrint fixture', 'reference_doctype': kwargs['reference_doctype'],
-            'reference_name': kwargs['reference_name'], 'attachments': json.dumps(kwargs['attachments']),
+            'message': message, 'reference_doctype': kwargs['reference_doctype'],
+            'reference_name': kwargs['reference_name'], 'attachments': '[]',
             'recipients': [{'recipient': email, 'status': 'Not Sent'} for email in kwargs['recipients']]}).insert(ignore_permissions=True)
 
     def test_real_final_sign_on_creates_one_delivery_and_private_pdf_with_all_signatures_retained(self):
@@ -250,7 +263,12 @@ class IntegrationTestJhaPrintEmail(IntegrationTestCase):
             self.assertFalse(errors.called, errors.call_args_list)
             send.assert_called_once(); render.assert_called_once()
             record.reload(); file = frappe.get_doc('File', record.pdf_file)
-            self.assertTrue(file.is_private); self.assertEqual(file.get_content(), PDF)
+            self.assertTrue(file.is_private); self.assertEqual(file.get_content(encodings=[]), PDF)
+            email = Parser(policy=policy.default).parsestr(frappe.get_doc('Email Queue', record.email_queue).message)
+            attached = list(email.iter_attachments())
+            self.assertEqual(len(attached), 1)
+            self.assertEqual(attached[0].get_payload(decode=True), PDF)
+            self.assertEqual(attached[0].get_content_type(), 'application/pdf')
             self.assertEqual(file.attached_to_name, record.name)
             jha.reload(); self.assertEqual(frappe.utils.get_datetime(jha.modified), modified)
             self.assertEqual(jha.jha_status, 'Signed'); self.assertTrue(jha.review_signature)

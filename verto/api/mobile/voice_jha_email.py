@@ -242,7 +242,10 @@ def prepare_print_email(delivery_name):
                         f"<p>Project: {escape(jha.project)}</p>"
                         f"<p>Attached: signed JHA {escape(jha.name)}, revision {cint(jha.revision)}, ready to print.</p>"
                         "<p>Use the QR code on the workpack to check its current revision before use.</p>",
-                delayed=True, attachments=[{"fid": file.name}], add_unsubscribe_link=0,
+                # Embed raw bytes now: File's default text decoding can corrupt
+                # an otherwise valid PDF when a deferred attachment is read.
+                delayed=True, attachments=[{"fname": file.file_name, "fcontent": file.get_content(encodings=[]),
+                    "content_type": "application/pdf"}], add_unsubscribe_link=0,
                 reference_doctype=DOCTYPE, reference_name=record.name)
             if not queue or not queue.name:
                 frappe.throw(_("The printing email could not be added to Email Queue."), frappe.ValidationError)
