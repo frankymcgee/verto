@@ -68,7 +68,7 @@ onBeforeUnmount(() => { generation += 1; stopPolling() })
       <Button v-if="state?.can_resend && !confirming" variant="subtle" size="sm" :disabled="loading || sending" @click="confirming = true">{{ state.status === 'Sent' ? 'Resend print copy' : 'Send print copy' }}</Button>
     </div>
     <form v-if="confirming && state?.can_resend" class="mt-3 space-y-3" @submit.prevent="sendCopy">
-      <label class="flex items-start gap-2 text-sm text-ink-gray-7"><input v-model="confirmation" type="checkbox" :disabled="sending" class="mt-1" />Send a signed copy to {{ state.configured_recipient }}.</label>
+      <label class="flex items-start gap-2 text-sm text-ink-gray-7"><input v-model="confirmation" type="checkbox" :disabled="sending" class="mt-1" />Generate a fresh signed PDF and send it to {{ state.configured_recipient }}.</label>
       <div class="flex gap-2"><Button type="submit" variant="solid" size="sm" :loading="sending" :disabled="!confirmation || sending">Email signed PDF</Button>
         <Button type="button" variant="subtle" size="sm" :disabled="sending" @click="confirming = false; confirmation = false">Cancel</Button></div>
     </form>
