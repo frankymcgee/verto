@@ -149,7 +149,7 @@ def _send_after_commit(record):
     from functools import partial
     # Frappe's SMTP sender commits internally. Persist the PDF and queue link
     # first, then send in this job without waiting for the email scheduler.
-    frappe.db.after_commit.add(partial(send_print_email, record.name))
+    frappe.db.after_commit.add(partial(send_print_email, record.name, record.email_queue))
 
 
 def jha_updated(doc, method=None):
@@ -268,10 +268,15 @@ def prepare_print_email(delivery_name):
             frappe.log_error(title="JHA print PDF/email preparation failed", message=frappe.get_traceback())
 
 
-def send_print_email(delivery_name):
+def send_print_email(delivery_name, email_queue=None):
     """Attempt SMTP immediately after preparation/retry has committed."""
     with _system_user():
         record, jha = _locked_delivery(delivery_name)
+        if email_queue and email_queue != record.get("email_queue"):
+            # A later manual request replaced this attempt with a fresh PDF.
+            # A delayed callback must not act on the replacement delivery.
+            frappe.db.commit()
+            return
         if not _signed(jha) or record.status == "Cancelled":
             _cancel(record)
             frappe.db.commit()
@@ -348,22 +353,25 @@ def resend_jha_print_email(jha_name: str, request_id: str, confirmation=0):
     old_queue = _queue_info(record)
     history.append({"request_key": key, "requested_by": frappe.session.user, "requested_at": str(now_datetime()),
                     "recipient": destination, "previous_queue": record.get("email_queue"),
+                    "previous_pdf_file": record.get("pdf_file"),
                     "previous_recipient": record.get("recipient"), "previous_status": status,
                     "previous_sent_at": str(record.get("sent_at") or old_queue.modified) if status == "Sent" and (record.get("sent_at") or old_queue) else None})
     record.request_history = json.dumps(history)
     record.requested_by = frappe.session.user
     record.recipient = destination
     record.sent_at = None
-    if old_queue and old_queue.status in {"Error", "Not Sent", "Partially Sent"} and destination == frappe.db.get_value("Email Queue Recipient", {"parent": old_queue.name}, "recipient"):
-        frappe.db.set_value("Email Queue", old_queue.name, {"status": "Not Sent", "retry": 0, "error": ""})
-        record.status = "Queued"
-        _save(record)
-        _send_after_commit(record)
-    else:
-        record.email_queue = None
-        record.status = "Pending"
-        _save(record)
-        _schedule(record)
+    if old_queue and old_queue.status in {"Not Sent", "Partially Sent"}:
+        frappe.db.set_value("Email Queue", old_queue.name, {
+            "status": "Error", "error": "Replaced by a manually requested fresh JHA print copy."
+        })
+    # Each new explicit request uses the currently installed print format and
+    # branding. Retain the old private File and email attachments as history;
+    # repeated request IDs return above and reuse this request's prepared copy.
+    record.pdf_file = None
+    record.email_queue = None
+    record.status = "Pending"
+    _save(record)
+    _schedule(record)
     return _state(jha, record)
 
 

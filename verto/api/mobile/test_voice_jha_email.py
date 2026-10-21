@@ -18,16 +18,19 @@ from verto.api.mobile import test_voice_jha_workpack as pack_fixture
 Record = fixture.Record
 
 
-def _pdf_fixture():
+def _pdf_fixture(title=None):
     # Exercise File's real PDF validation, including its JavaScript scan.
     writer = PdfWriter()
     writer.add_blank_page(width=595, height=842)
+    if title:
+        writer.add_metadata({'/Title': title})
     stream = BytesIO()
     writer.write(stream)
     return stream.getvalue()
 
 
 PDF = _pdf_fixture()
+UPDATED_PDF = _pdf_fixture('Updated JHA print format and company branding')
 SIGNATURE = 'data:image/png;base64,iVBORw0KGgo='
 
 
@@ -83,6 +86,14 @@ class TestJhaPrintEmail(TestCase):
     def automatic(self):
         mail.jha_updated(self.jha)
         return mail._record(self.jha)
+
+    def fresh_email(self):
+        queue = Record(name='QUEUE-2', status='Not Sent', recipient='site@example.test', modified=datetime.now(), send=Mock())
+        queue.can_send_now = Mock(return_value=True)
+        self.docs[queue.name] = queue
+        self.sendmail.return_value = queue
+        self.render.return_value = UPDATED_PDF
+        return queue
 
     def test_project_destination_overrides_default_and_only_accepts_one_plain_email(self):
         self.assertEqual(mail._destination(self.jha), 'site@example.test')
@@ -176,17 +187,29 @@ class TestJhaPrintEmail(TestCase):
         mail.jha_updated(self.jha)
         self.assertEqual(self.queue.status, 'Error'); self.queue.send.assert_not_called()
 
-    def test_live_email_queue_result_is_authoritative_and_retries_reuse_the_failed_email(self):
+    def test_failed_email_retry_prepares_a_fresh_copy_once_per_request_id(self):
         record = self.automatic(); mail.prepare_print_email(record.name)
+        original_file = record.pdf_file
         self.queue.status = 'Error'
         result = mail.resend_jha_print_email('JHA-1', 'retry-1', 1)
-        self.assertEqual(result['status'], 'Queued'); self.assertEqual(record.email_queue, self.queue.name)
-        self.assertEqual(self.queue.status, 'Not Sent'); self.assertEqual(self.queue.retry, 0)
+        self.assertEqual(result['status'], 'Pending')
+        self.assertIsNone(record.email_queue); self.assertIsNone(record.pdf_file)
+        self.assertEqual(self.queue.status, 'Error')
         before = len(self.callbacks)
         mail.resend_jha_print_email('JHA-1', 'retry-1', 1)
         self.assertEqual(len(self.callbacks), before)
         self.sendmail.assert_called_once(); self.assertEqual(len(json.loads(record.request_history)), 1)
-        self.assertEqual(self.callbacks[-1].func, mail.send_print_email)
+        self.assertEqual(json.loads(record.request_history)[0]['previous_pdf_file'], original_file)
+        self.assertEqual(self.callbacks[-1].func, mail._enqueue)
+        queue = self.fresh_email()
+        mail.prepare_print_email(record.name)
+        before = len(self.callbacks)
+        mail.resend_jha_print_email('JHA-1', 'retry-1', 1)
+        mail.prepare_print_email(record.name)
+        self.assertEqual(len(self.callbacks), before)
+        self.assertEqual(record.email_queue, queue.name)
+        self.assertEqual(self.render.call_count, 2); self.assertEqual(self.sendmail.call_count, 2)
+        self.assertEqual(self.sendmail.call_args.kwargs['attachments'][0]['fcontent'], UPDATED_PDF)
 
     def test_prepared_email_is_sent_after_commit_without_waiting_for_the_email_scheduler(self):
         record = self.automatic(); mail.prepare_print_email(record.name)
@@ -201,7 +224,7 @@ class TestJhaPrintEmail(TestCase):
         mail.send_print_email(record.name)
         self.queue.send.assert_called_once()
 
-    def test_immediate_smtp_failure_keeps_the_queue_link_and_retries_the_same_email(self):
+    def test_manual_retry_after_smtp_failure_sends_fresh_pdf_immediately(self):
         record = self.automatic(); mail.prepare_print_email(record.name)
         self.queue.send.side_effect = RuntimeError('SMTP temporarily unavailable')
         self.callbacks[-1]()
@@ -210,12 +233,18 @@ class TestJhaPrintEmail(TestCase):
         self.assertEqual(mail._state(self.jha)['status'], 'Failed')
         self.assertTrue(mail._state(self.jha)['can_resend'])
         result = mail.resend_jha_print_email('JHA-1', 'smtp-retry', 1)
-        self.assertEqual(result['status'], 'Queued')
-        self.queue.send.side_effect = lambda: self.queue.update(status='Sent')
+        self.assertEqual(result['status'], 'Pending')
+        self.assertEqual(self.queue.status, 'Error')
+        queue = self.fresh_email()
+        queue.send.side_effect = lambda: queue.update(status='Sent')
+        mail.prepare_print_email(record.name)
         self.callbacks[-1]()
         self.assertEqual(record.status, 'Sent')
-        self.sendmail.assert_called_once()
-        self.render.assert_called_once()
+        queue.send.assert_called_once()
+        self.queue.send.assert_called_once()
+        self.assertEqual(self.sendmail.call_count, 2)
+        self.assertEqual(self.render.call_count, 2)
+        self.assertEqual(self.sendmail.call_args.kwargs['attachments'][0]['fcontent'], UPDATED_PDF)
 
     def test_suspended_email_and_changed_work_do_not_send_or_lose_signed_history(self):
         record = self.automatic(); mail.prepare_print_email(record.name)
@@ -264,17 +293,59 @@ class TestJhaPrintEmail(TestCase):
         frappe.session.user = 'Guest'
         with self.assertRaises(frappe.PermissionError): mail.get_jha_print_delivery('JHA-1')
 
-    def test_intentional_resend_after_sent_uses_the_same_pdf_and_keeps_the_old_queue_in_audit(self):
+    def test_intentional_resend_after_sent_renders_current_format_and_keeps_original_in_audit(self):
         record = self.automatic(); mail.prepare_print_email(record.name)
         file = record.pdf_file; self.queue.status = 'Sent'
+        queue = self.fresh_email()
         result = mail.resend_jha_print_email('JHA-1', 'another-copy', 1)
         self.assertEqual(result['status'], 'Pending'); self.assertIsNone(record.email_queue)
-        self.assertEqual(record.pdf_file, file)
-        self.assertEqual(json.loads(record.request_history)[0]['previous_queue'], 'QUEUE-1')
+        self.assertIsNone(record.pdf_file)
+        history = json.loads(record.request_history)[0]
+        self.assertEqual(history['previous_queue'], 'QUEUE-1')
+        self.assertEqual(history['previous_pdf_file'], file)
+        self.assertEqual(history['previous_status'], 'Sent')
         mail.prepare_print_email(record.name)
-        self.render.assert_called_once()
+        self.assertEqual(self.render.call_count, 2)
         self.assertEqual(self.sendmail.call_count, 2)
-        self.assertEqual(self.sendmail.call_args.kwargs['attachments'][0]['fcontent'], PDF)
+        self.assertEqual(self.sendmail.call_args.kwargs['attachments'][0]['fcontent'], UPDATED_PDF)
+        self.assertEqual(self.get_doc('File', record.pdf_file).get_content(), UPDATED_PDF)
+        self.assertNotEqual(record.pdf_file, file)
+        self.assertEqual(record.email_queue, queue.name)
+        self.assertEqual(self.get_doc('File', file).get_content(), PDF)
+        self.assertEqual(self.queue.status, 'Sent')
+
+    def test_delayed_send_callback_cannot_act_on_a_replacement_manual_request(self):
+        record = self.automatic(); mail.prepare_print_email(record.name)
+        stale_callback = self.callbacks[-1]
+        record.status = 'Failed'
+        mail.resend_jha_print_email('JHA-1', 'fresh-request', 1)
+        stale_callback()
+        self.assertEqual(record.status, 'Pending')
+        self.queue.send.assert_not_called()
+        queue = self.fresh_email()
+        mail.prepare_print_email(record.name)
+        stale_callback()
+        self.assertEqual(record.status, 'Queued')
+        queue.send.assert_not_called()
+        queue.send.side_effect = lambda: queue.update(status='Sent')
+        self.callbacks[-1]()
+        queue.send.assert_called_once()
+        self.assertEqual(record.status, 'Sent')
+
+    def test_fresh_pdf_failure_preserves_history_and_stops_the_old_unsent_copy(self):
+        record = self.automatic(); mail.prepare_print_email(record.name)
+        file = record.pdf_file; record.status = 'Failed'
+        mail.resend_jha_print_email('JHA-1', 'updated-print', 1)
+        self.assertEqual(self.queue.status, 'Error')
+        self.render.side_effect = RuntimeError('Updated PDF could not be rendered')
+        mail.prepare_print_email(record.name)
+        self.assertEqual(record.status, 'Failed')
+        self.assertIsNone(record.email_queue)
+        self.sendmail.assert_called_once(); self.queue.send.assert_not_called()
+        self.assertEqual(json.loads(record.request_history)[0]['previous_pdf_file'], file)
+        self.assertEqual(self.get_doc('File', file).get_content(), PDF)
+        self.assertEqual(self.jha.jha_status, 'Signed')
+        self.assertEqual(self.jha.review_signature, 'original signature')
 
 
 class IntegrationTestJhaPrintEmail(IntegrationTestCase):
@@ -359,24 +430,48 @@ class IntegrationTestJhaPrintEmail(IntegrationTestCase):
             record.status = 'Sent'
             with self.assertRaises(frappe.PermissionError): record.save(ignore_permissions=True)
 
-    def test_real_failed_email_reuses_its_queue_and_source_changes_cancel_future_delivery(self):
-        jha = self.ready_jha()
-        with patch.object(mail, '_schedule'):
-            record = self.finish(jha)
-            with patch.object(frappe, 'get_print', return_value=PDF), patch.object(frappe, 'sendmail', side_effect=self.queued_email), patch.object(frappe, 'log_error') as errors:
+    def test_real_manual_retry_and_resend_render_new_pdf_and_retain_old_deliveries(self):
+        for status in ['Error', 'Sent']:
+            with self.subTest(previous_status=status), patch.object(mail, '_schedule') as schedule, \
+                 patch.object(mail, '_send_after_commit'), \
+                 patch.object(frappe, 'get_print', side_effect=[PDF, UPDATED_PDF]) as render, \
+                 patch.object(frappe, 'sendmail', side_effect=self.queued_email) as send, \
+                 patch.object(frappe, 'log_error') as errors:
+                jha = self.ready_jha()
+                record = self.finish(jha)
                 mail.prepare_print_email(record.name)
-            self.assertFalse(errors.called, errors.call_args_list)
-            record.reload(); queue_name = record.email_queue
-            frappe.db.set_value('Email Queue', queue_name, {'status': 'Error', 'retry': 4})
-            mail.resend_jha_print_email(jha.name, 'retry', 1)
-            mail.resend_jha_print_email(jha.name, 'retry', 1)
-            record.reload(); self.assertEqual(record.email_queue, queue_name)
-            self.assertEqual(frappe.db.get_value('Email Queue', queue_name, 'status'), 'Not Sent')
-            self.assertEqual(len(json.loads(record.request_history)), 1)
-            jha.reload(); jha.jha_status = 'Review Required - Work Changed'; jha.flags.allow_jha_review_mutation = True; jha.save()
-            record.reload(); self.assertEqual(record.status, 'Cancelled')
-            self.assertEqual(frappe.db.get_value('Email Queue', queue_name, 'status'), 'Error')
-            with self.assertRaises(frappe.ValidationError): mail.resend_jha_print_email(jha.name, 'old', 1)
+                record.reload(); original_queue = record.email_queue; original_file = record.pdf_file
+                frappe.db.set_value('Email Queue', original_queue, {'status': status, 'retry': 4})
+                schedule.reset_mock()
+                mail.resend_jha_print_email(jha.name, 'fresh-copy', 1)
+                mail.resend_jha_print_email(jha.name, 'fresh-copy', 1)
+                schedule.assert_called_once()
+                record.reload(); self.assertEqual(record.status, 'Pending')
+                self.assertFalse(record.email_queue); self.assertFalse(record.pdf_file)
+                history = json.loads(record.request_history)
+                self.assertEqual(len(history), 1)
+                self.assertEqual(history[0]['previous_queue'], original_queue)
+                self.assertEqual(history[0]['previous_pdf_file'], original_file)
+                self.assertEqual(history[0]['previous_status'], 'Failed' if status == 'Error' else 'Sent')
+                mail.prepare_print_email(record.name)
+                record.reload(); new_queue = record.email_queue; new_file = record.pdf_file
+                self.assertNotEqual(new_queue, original_queue); self.assertNotEqual(new_file, original_file)
+                self.assertEqual(frappe.get_doc('File', new_file).get_content(encodings=[]), UPDATED_PDF)
+                self.assertEqual(frappe.get_doc('File', original_file).get_content(encodings=[]), PDF)
+                for queue, content in [(original_queue, PDF), (new_queue, UPDATED_PDF)]:
+                    email = Parser(policy=policy.default).parsestr(frappe.get_doc('Email Queue', queue).message)
+                    self.assertEqual(list(email.iter_attachments())[0].get_payload(decode=True), content)
+                self.assertEqual(frappe.db.get_value('Email Queue', original_queue, 'status'), status)
+                mail.resend_jha_print_email(jha.name, 'fresh-copy', 1)
+                mail.prepare_print_email(record.name)
+                self.assertEqual(render.call_count, 2); self.assertEqual(send.call_count, 2)
+                self.assertFalse(errors.called, errors.call_args_list)
+                jha.reload(); self.assertEqual(jha.jha_status, 'Signed')
+                self.assertTrue(all(row.acknowledgement_signature for row in jha.participants))
+                jha.jha_status = 'Review Required - Work Changed'; jha.flags.allow_jha_review_mutation = True; jha.save()
+                record.reload(); self.assertEqual(record.status, 'Cancelled')
+                self.assertEqual(frappe.db.get_value('Email Queue', new_queue, 'status'), 'Error')
+                with self.assertRaises(frappe.ValidationError): mail.resend_jha_print_email(jha.name, 'old', 1)
 
     def test_real_pdf_failure_does_not_roll_back_review_or_signatures(self):
         jha = self.ready_jha()

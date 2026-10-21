@@ -41,6 +41,7 @@ describe('signed JHA printing email', () => {
     expect(button('Send print copy')).toBeUndefined()
     apiRequest.mockResolvedValue({ message: delivery('Sent') }); await button('Check email status').trigger('click'); await flushPromises()
     await button('Resend print copy').trigger('click')
+    expect(wrapper.text()).toContain('Generate a fresh signed PDF and send it to site@example.test.')
     expect(button('Email signed PDF').attributes('disabled')).toBeDefined()
     await wrapper.find('input[type=checkbox]').setValue(true)
     apiRequest.mockResolvedValue({ message: delivery('Pending', { can_resend: false }) })
