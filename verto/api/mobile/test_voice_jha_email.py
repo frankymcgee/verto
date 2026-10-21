@@ -49,6 +49,7 @@ class TestJhaPrintEmail(TestCase):
         self.enterContext(patch.object(frappe.db, 'exists', return_value=True))
         self.enterContext(patch.object(frappe.db, 'savepoint'))
         self.enterContext(patch.object(frappe.db, 'rollback'))
+        self.commit = self.enterContext(patch.object(frappe.db, 'commit'))
         self.enterContext(patch.object(frappe.db, 'set_value', side_effect=self.set_value))
         self.enterContext(patch.object(frappe, 'log_error'))
         self.enqueue = self.enterContext(patch.object(frappe, 'enqueue'))
@@ -56,6 +57,7 @@ class TestJhaPrintEmail(TestCase):
         self.enterContext(patch.object(frappe.db, 'after_commit', SimpleNamespace(add=self.callbacks.append)))
         self.render = self.enterContext(patch.object(frappe, 'get_print', return_value=PDF))
         self.queue = Record(name='QUEUE-1', status='Not Sent', recipient='site@example.test', modified=datetime.now(), send=Mock())
+        self.queue.can_send_now = Mock(return_value=True)
         self.docs[self.queue.name] = self.queue
         self.sendmail = self.enterContext(patch.object(frappe, 'sendmail', return_value=self.queue))
 
@@ -150,6 +152,8 @@ class TestJhaPrintEmail(TestCase):
         self.assertEqual(kwargs['recipients'], ['site@example.test'])
         self.assertEqual(kwargs['attachments'], [{'fname': file.file_name, 'fcontent': PDF, 'content_type': 'application/pdf'}])
         self.assertIn('Rev 1', kwargs['subject']); self.assertTrue(kwargs['delayed'])
+        self.queue.send.assert_not_called()
+        self.assertEqual(self.callbacks[-1].func, mail.send_print_email)
         self.assertEqual(mail._state(self.jha)['status'], 'Queued')
         self.queue.status = 'Sent'
         self.assertEqual(mail._state(self.jha)['status'], 'Sent')
@@ -182,6 +186,56 @@ class TestJhaPrintEmail(TestCase):
         mail.resend_jha_print_email('JHA-1', 'retry-1', 1)
         self.assertEqual(len(self.callbacks), before)
         self.sendmail.assert_called_once(); self.assertEqual(len(json.loads(record.request_history)), 1)
+        self.assertEqual(self.callbacks[-1].func, mail.send_print_email)
+
+    def test_prepared_email_is_sent_after_commit_without_waiting_for_the_email_scheduler(self):
+        record = self.automatic(); mail.prepare_print_email(record.name)
+        self.queue.send.side_effect = lambda: self.queue.update(status='Sent')
+        self.assertEqual(self.callbacks[-1].func, mail.send_print_email)
+        self.callbacks[-1]()
+        self.queue.send.assert_called_once_with()
+        self.assertEqual(record.status, 'Sent')
+        self.assertEqual(record.sent_at, self.queue.modified)
+        self.assertEqual(mail._state(self.jha)['status'], 'Sent')
+        self.commit.assert_called_once()
+        mail.send_print_email(record.name)
+        self.queue.send.assert_called_once()
+
+    def test_immediate_smtp_failure_keeps_the_queue_link_and_retries_the_same_email(self):
+        record = self.automatic(); mail.prepare_print_email(record.name)
+        self.queue.send.side_effect = RuntimeError('SMTP temporarily unavailable')
+        self.callbacks[-1]()
+        self.assertEqual(record.email_queue, 'QUEUE-1')
+        self.assertEqual(record.status, 'Failed')
+        self.assertEqual(mail._state(self.jha)['status'], 'Failed')
+        self.assertTrue(mail._state(self.jha)['can_resend'])
+        result = mail.resend_jha_print_email('JHA-1', 'smtp-retry', 1)
+        self.assertEqual(result['status'], 'Queued')
+        self.queue.send.side_effect = lambda: self.queue.update(status='Sent')
+        self.callbacks[-1]()
+        self.assertEqual(record.status, 'Sent')
+        self.sendmail.assert_called_once()
+        self.render.assert_called_once()
+
+    def test_suspended_email_and_changed_work_do_not_send_or_lose_signed_history(self):
+        record = self.automatic(); mail.prepare_print_email(record.name)
+        self.queue.can_send_now.return_value = False
+        mail.send_print_email(record.name)
+        self.queue.send.assert_not_called()
+        self.assertEqual(mail._state(self.jha)['status'], 'Failed')
+        self.assertEqual(self.jha.jha_status, 'Signed')
+        self.jha.replacement_jha = 'JHA-2'
+        mail.send_print_email(record.name)
+        self.assertEqual(record.status, 'Cancelled')
+        self.queue.send.assert_not_called()
+
+    def test_reconciliation_recovers_older_queued_deliveries_for_immediate_sending(self):
+        record = self.automatic(); mail.prepare_print_email(record.name)
+        self.callbacks.clear()
+        with patch.object(frappe, 'get_all', return_value=[record]):
+            mail.reconcile_print_deliveries()
+        self.assertEqual(len(self.callbacks), 1)
+        self.assertEqual(self.callbacks[0].func, mail.send_print_email)
 
     def test_source_change_preserves_an_email_already_sent_before_reconciliation(self):
         record = self.automatic(); mail.prepare_print_email(record.name)
@@ -224,6 +278,34 @@ class TestJhaPrintEmail(TestCase):
 
 
 class IntegrationTestJhaPrintEmail(IntegrationTestCase):
+    def test_real_immediate_send_has_a_persisted_pdf_and_email_link_before_smtp(self):
+        from frappe.email.doctype.email_queue.email_queue import EmailQueue
+
+        jha = self.ready_jha()
+        with patch.object(mail, '_schedule'), patch.object(mail, '_send_after_commit') as dispatch, \
+             patch.object(frappe, 'get_print', return_value=PDF), \
+             patch.object(frappe, 'sendmail', side_effect=self.queued_email):
+            record = self.finish(jha)
+            mail.prepare_print_email(record.name)
+        record.reload()
+        dispatch.assert_called_once()
+
+        def smtp(queue):
+            saved = frappe.db.get_value(mail.DOCTYPE, record.name, ['email_queue', 'pdf_file'], as_dict=True)
+            self.assertEqual(saved.email_queue, queue.name)
+            self.assertTrue(saved.pdf_file)
+            frappe.db.set_value('Email Queue', queue.name, 'status', 'Sent')
+
+        with patch.object(EmailQueue, 'can_send_now', return_value=True), \
+             patch.object(EmailQueue, 'send', autospec=True, side_effect=smtp) as send, \
+             patch.object(frappe.db, 'commit'):
+            mail.send_print_email(record.name)
+        send.assert_called_once()
+        record.reload(); jha.reload()
+        self.assertEqual(record.status, 'Sent')
+        self.assertTrue(record.sent_at)
+        self.assertEqual(jha.jha_status, 'Signed')
+
     def ready_jha(self):
         jha, project = pack_fixture.IntegrationTestJhaWorkpack.make_jha(self, status='Draft')
         frappe.db.set_value('Project', project.name, mail.PROJECT_FIELD, 'site@example.test')

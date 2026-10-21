@@ -579,7 +579,7 @@ def _completeness(doc) -> dict:
         "hazard_count": len(hazards),
         "participant_count": len(participants),
         "message": (
-            "Draft completeness checks passed; human review is still required."
+            "Draft completeness checks passed; team leader review (Supervisor or above) is still required."
             if not issues
             else f"Draft has {len(issues)} outstanding completeness item(s)."
         ),
@@ -601,7 +601,7 @@ def _mark_ready(doc, args: dict) -> dict:
         **check,
         "changed": True,
         "status": doc.jha_status,
-        "message": "Draft marked Ready for Team Review. Human review, acknowledgement and sign-on remain required.",
+        "message": "Draft marked Ready for Team Review. Team leader review (Supervisor or above), acknowledgement and sign-on remain required.",
     }
 
 
@@ -694,7 +694,7 @@ def execute_voice_jha_tool(jha_name: str, tool_name: str, arguments="{}", call_i
             frappe.throw(_("A Realtime tool call ID is required for draft writes."), frappe.ValidationError)
         if doc.jha_status not in WRITEABLE_STATUSES:
             frappe.throw(
-                _("PERI cannot modify this JHA after it has been marked ready for human review."),
+                _("PERI cannot modify this JHA after it has been marked ready for team leader review (Supervisor or above)."),
                 frappe.PermissionError,
             )
         if not doc.has_permission("write"):

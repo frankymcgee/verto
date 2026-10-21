@@ -858,7 +858,7 @@ onBeforeUnmount(() => {
           <h1 class="mt-3 text-xl-semibold text-ink-gray-9">{{ context.title }}</h1>
           <p class="mt-1 text-sm text-ink-gray-5">{{ context.project }}<span v-if="context.work_area"> · {{ context.work_area }}</span></p>
           <div class="mt-4 rounded-7 border border-amber-200 bg-amber-50 p-3">
-            <p class="text-sm-medium text-amber-900">Human review remains mandatory.</p>
+            <p class="text-sm-medium text-amber-900">Team leader review (Supervisor or above) remains mandatory.</p>
             <p v-if="jha?.status === 'Signed'" class="mt-1 text-sm leading-5 text-amber-800">Use PERI to discuss incident lessons and check this step’s controls with the crew. Changes need a new JHA revision and human sign-on.</p>
             <p v-else class="mt-1 text-sm leading-5 text-amber-800">PERI can record confirmed discussion points into this draft JHA. It cannot approve, submit, sign, authorise work or declare the job safe.</p>
           </div>
@@ -898,7 +898,7 @@ onBeforeUnmount(() => {
           <section v-if="jha.previous_jha" class="rounded-7 border border-blue-200 bg-blue-50 p-3">
             <p class="text-sm-medium text-blue-900">Change review · Revision {{ jha.revision }}</p>
             <p class="mt-1 text-sm text-blue-800">Based on {{ jha.previous_jha }}. {{ jha.change_summary || 'Tell PERI what has changed or needs adding.' }}</p>
-            <p class="mt-1 text-xs text-blue-700">The revised JHA needs fresh human review and sign-on.</p>
+            <p class="mt-1 text-xs text-blue-700">The revised JHA needs fresh team leader review (Supervisor or above) and sign-on.</p>
           </section>
           <details class="rounded-7 border border-outline-gray-1 bg-surface-base">
             <summary class="cursor-pointer p-3 text-sm-medium text-ink-gray-8">Recorded JHA · {{ workStepCount }} steps · {{ hazardCount }} hazards · {{ participantCount }} people</summary>

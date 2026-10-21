@@ -9,7 +9,7 @@ const loading = ref(false), sending = ref(false), confirming = ref(false), confi
 const error = ref('')
 let generation = 0, timer: ReturnType<typeof setTimeout> | undefined, polls = 0, requestId = ''
 const pending = computed(() => ['Pending', 'Queued', 'Sending'].includes(state.value?.status))
-const labels: Record<string, string> = { Pending: 'Sending print copy…', Queued: 'Print email queued', Sending: 'Sending print copy…',
+const labels: Record<string, string> = { Pending: 'Sending print copy…', Queued: 'Sending print copy…', Sending: 'Sending print copy…',
   Sent: 'Print copy sent', Failed: 'Print email needs attention', Cancelled: 'Print email cancelled',
   'Not Configured': 'Printing email not configured', 'Not Requested': 'Print copy not emailed' }
 const label = computed(() => labels[String(state.value?.status)] || 'Checking printing email…')
@@ -59,7 +59,7 @@ onBeforeUnmount(() => { generation += 1; stopPolling() })
     <p class="text-sm-medium text-ink-gray-9" role="status" aria-live="polite">{{ label }}</p>
     <p v-if="state?.recipient" class="mt-1 break-words text-sm text-ink-gray-6">{{ state.recipient }} · Revision {{ state.revision }}</p>
     <p v-if="state?.status === 'Sent'" class="mt-1 text-xs text-ink-gray-5">The signed PDF has been sent to the printing inbox.</p>
-    <p v-else-if="pending" class="mt-1 text-xs text-ink-gray-5">Your signed JHA is saved. The print copy will be emailed automatically.</p>
+    <p v-else-if="pending" class="mt-1 text-xs text-ink-gray-5">Your signed JHA is saved. The print copy is sent as soon as the PDF is ready.</p>
     <p v-else-if="state?.status === 'Not Configured'" class="mt-1 text-xs text-ink-gray-5">A supervisor can set the JHA Printing Email on the Project or the default in Verto Mobile Settings.</p>
     <p v-else-if="state?.status === 'Failed'" class="mt-1 text-xs text-amber-800">{{ state.message || 'Ask the supervisor to check the email settings and retry.' }}</p>
     <p v-if="error" role="alert" class="mt-2 text-sm text-red-700">{{ error }}</p>

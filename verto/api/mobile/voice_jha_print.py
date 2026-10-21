@@ -136,6 +136,8 @@ PRINT_HTML = r"""
 <style>
 .jha-pack, .jha-pack h1, .jha-pack h2 { font-family: {{ branding.font_family | safe }}; }
 .jha-pack { color: {{ branding.text_colour }}; }
+.jha-pack .page-title h1, .jha-pack .page-title .subtitle,
+.jha-pack .page-title .brand { color: {{ branding.text_colour }}; }
 .jha-pack .form-grid th, .jha-pack .matrix-table thead th,
 .jha-pack .change-table thead th, .jha-pack .ack-table thead th,
 .jha-pack .ccv-table thead th, .jha-pack .support-table th,
@@ -160,33 +162,39 @@ PRINT_HTML = r"""
 {% set ccv_pages = [1, ((field_checks|length + 12) // 13)] | max %}
 {% set supporting_records = jha_print_resources(doc) %}
 {% set resource_pages = (supporting_records|length + 3) // 4 %}
-{% set total_pages = matrix_pages + 3 + ccv_pages + resource_pages %}
+{% set critical_extra_pages = (([critical_rows|length - 2, 0] | max) + 3) // 4 %}
+{% set total_pages = matrix_pages + 3 + ccv_pages + resource_pages + critical_extra_pages %}
+{% set qr = jha_workpack_qr(doc) %}
 
-{% macro print_branding() -%}
-<div class="print-branding">
-  {% if branding.logo %}<img class="brand-logo" src="{{ branding.logo | e }}" alt="{{ branding.company_name | e }} logo" />{% endif %}
-  <div class="brand">{{ branding.header_text | e }}</div>
+{% macro page_header(title='Job Hazard Analysis - Form', subtitle='Health and Safety') -%}
+<div class="page-title">
+    <div class="header-branding">
+      {% if branding.logo %}<img class="brand-logo" src="{{ branding.logo | e }}" alt="{{ branding.company_name | e }} logo" />
+      {% else %}<div class="brand">{{ branding.header_text | e }}</div>{% endif %}
+      <a class="workpack-qr" href="{{ qr.url | e }}"><img src="{{ qr.image }}" alt="Check this JHA revision" /><span>Check current revision<br />Login required</span></a>
+    </div>
+    <div class="header-title"><h1>{{ title }}</h1><div class="subtitle">{{ subtitle }}</div></div>
+    <div class="header-clear"></div>
+</div>
+{%- endmacro %}
+
+{% macro critical_risk(row) -%}
+<div class="risk-chip">
+  <strong>{{ (row.hazard_or_energy_source or 'Critical Risk') | e }}</strong>
+  {% if row.critical_control %}<span><strong>Critical control:</strong> {{ row.critical_control | e }}</span>{% endif %}
 </div>
 {%- endmacro %}
 
 {% macro page_footer(page_no) -%}
-<div class="page-footer">
-  <span>THIS DOCUMENT IS UNCONTROLLED IN HARD COPY FORMAT</span>
-  <span>{{ doc.name }} &nbsp; | &nbsp; Rev {{ doc.revision or 1 }} &nbsp; | &nbsp; {{ doc.jha_status }} &nbsp; | &nbsp; Page {{ page_no }} of {{ total_pages }}</span>
-</div>
+<table class="page-footer"><tbody><tr>
+  <td>THIS DOCUMENT IS UNCONTROLLED IN HARD COPY FORMAT</td>
+  <td>{{ doc.name }} &nbsp; | &nbsp; Rev {{ doc.revision or 1 }} &nbsp; | &nbsp; {{ doc.jha_status }} &nbsp; | &nbsp; Page {{ page_no }} of {{ total_pages }}&nbsp;</td>
+</tr></tbody></table>
 {%- endmacro %}
 
 <div class="jha-pack">
-  <section class="pack-page cover-page">
-    <div class="page-title">
-      <div>
-        <h1>Job Hazard Analysis - Form</h1>
-        <div class="subtitle">Health and Safety</div>
-      </div>
-      {{ print_branding() }}
-      {% set qr = jha_workpack_qr(doc) %}
-      <a class="workpack-qr" href="{{ qr.url | e }}"><img src="{{ qr.image }}" alt="Check this JHA revision" /><span>Check current revision<br />Login required</span></a>
-    </div>
+  <div class="pack-page cover-page">
+    {{ page_header() }}
 
     <table class="form-grid context-grid">
       <tr>
@@ -223,17 +231,8 @@ PRINT_HTML = r"""
 
     <div class="risk-strip">
       {% if critical_rows|length %}
-        {% for row in critical_rows[:8] %}
-          <div class="risk-chip">
-            <strong>{{ (row.hazard_or_energy_source or 'Critical Risk') | truncate(48, True, '...') }}</strong>
-            {% if row.critical_control %}
-              <span>{{ row.critical_control | truncate(65, True, '...') }}</span>
-            {% endif %}
-          </div>
-        {% endfor %}
-        {% if critical_rows|length > 8 %}
-          <div class="risk-chip"><strong>+ {{ critical_rows|length - 8 }} additional critical risk(s)</strong></div>
-        {% endif %}
+        {% for row in critical_rows[:2] %}{{ critical_risk(row) }}{% endfor %}
+        {% if critical_extra_pages %}<p class="field-note">All remaining critical risks and controls are written out on the following critical risk pages.</p>{% endif %}
       {% else %}
         <div class="empty-strip">No critical risks have been marked in the digital JHA.</div>
       {% endif %}
@@ -276,7 +275,7 @@ PRINT_HTML = r"""
     <table class="form-grid approval-table">
       <thead>
         <tr>
-          <th colspan="3">JHA Approval</th>
+          <th colspan="3">Team Leader Review (Supervisor or above)</th>
           <th colspan="3">Supervisor Handover (if applicable)</th>
         </tr>
         <tr>
@@ -297,15 +296,21 @@ PRINT_HTML = r"""
     </table>
 
     {{ page_footer(1) }}
-  </section>
+  </div>
+
+  {% for risk_batch in critical_rows[2:] | batch(4) %}
+  <div class="pack-page page-break-before">
+    {{ page_header('JHA - Critical Risks and Controls') }}
+    <div class="section-bar">Additional Critical Risks and Controls</div>
+    <div class="risk-strip">{% for row in risk_batch %}{{ critical_risk(row) }}{% endfor %}</div>
+    {{ page_footer(loop.index + 1) }}
+  </div>
+  {% endfor %}
 
   {% if doc.work_steps %}
     {% for step_batch in doc.work_steps | batch(2) %}
-    <section class="pack-page matrix-page page-break-before">
-      <div class="page-title compact-title">
-        <div><h1>Job Hazard Analysis - Form</h1><div class="subtitle">Health and Safety</div></div>
-        {{ print_branding() }}
-      </div>
+    <div class="pack-page matrix-page page-break-before">
+      {{ page_header() }}
 
       <table class="matrix-table">
         <thead>
@@ -371,15 +376,12 @@ PRINT_HTML = r"""
         </tbody>
       </table>
 
-      {{ page_footer(loop.index + 1) }}
-    </section>
+      {{ page_footer(loop.index + critical_extra_pages + 1) }}
+    </div>
     {% endfor %}
   {% else %}
-    <section class="pack-page matrix-page page-break-before">
-      <div class="page-title compact-title">
-        <div><h1>Job Hazard Analysis - Form</h1><div class="subtitle">Health and Safety</div></div>
-        {{ print_branding() }}
-      </div>
+    <div class="pack-page matrix-page page-break-before">
+      {{ page_header() }}
       <table class="matrix-table">
         <thead>
           <tr>
@@ -396,15 +398,12 @@ PRINT_HTML = r"""
           <tr class="step-row blank-step-row"><td></td><td></td><td></td><td></td><td></td><td></td></tr>
         </tbody>
       </table>
-      {{ page_footer(2) }}
-    </section>
+      {{ page_footer(critical_extra_pages + 2) }}
+    </div>
   {% endif %}
 
-  <section class="pack-page page-break-before">
-    <div class="page-title compact-title">
-      <div><h1>Job Hazard Analysis - Form</h1><div class="subtitle">Health and Safety</div></div>
-      {{ print_branding() }}
-    </div>
+  <div class="pack-page page-break-before">
+    {{ page_header() }}
     <div class="section-bar centered">CHANGE MANAGEMENT AND APPROVAL</div>
     <table class="change-table">
       <thead>
@@ -415,14 +414,11 @@ PRINT_HTML = r"""
       </tbody>
     </table>
     <p class="field-note">Use this page whenever the job, method, environment, plant, personnel, hazards or controls change after the JHA has been reviewed. Significant changes must also be reflected in the digital JHA revision.</p>
-    {{ page_footer(matrix_pages + 2) }}
-  </section>
+    {{ page_footer(matrix_pages + critical_extra_pages + 2) }}
+  </div>
 
-  <section class="pack-page page-break-before sign-page">
-    <div class="page-title compact-title">
-      <div><h1>Job Hazard Analysis - Form</h1><div class="subtitle">Health and Safety</div></div>
-      {{ print_branding() }}
-    </div>
+  <div class="pack-page page-break-before sign-page">
+    {{ page_header() }}
     <div class="section-bar">I have read and understood this JHA and agree with the details and risk control measures</div>
     <table class="ack-table">
       <thead><tr><th>Name</th><th>Date</th><th>Time</th><th>Signature</th><th>Name</th><th>Date</th><th>Time</th><th>Signature</th></tr></thead>
@@ -439,16 +435,13 @@ PRINT_HTML = r"""
         {% for i in range(13 - ([present_people|length, 13] | min)) %}<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>{% endfor %}
       </tbody>
     </table>
-    {{ page_footer(matrix_pages + 3) }}
-  </section>
+    {{ page_footer(matrix_pages + critical_extra_pages + 3) }}
+  </div>
 
   {% for ccv_page in range(ccv_pages) %}
   {% set page_checks = field_checks[ccv_page * 13:(ccv_page + 1) * 13] %}
-  <section class="pack-page page-break-before ccv-page {% if loop.last and not resource_pages %}last-page{% endif %}">
-    <div class="page-title compact-title">
-      <div><h1>Job Hazard Analysis - Form</h1><div class="subtitle">Health and Safety</div></div>
-      {{ print_branding() }}
-    </div>
+  <div class="pack-page page-break-before ccv-page {% if loop.last and not resource_pages %}last-page{% endif %}">
+    {{ page_header() }}
     <h2>CCV - Field Leadership Log</h2>
     <p class="ccv-intent"><strong>JHA Task:</strong> {{ doc.work_summary_title or doc.work_summary or '' }}</p>
     <p class="ccv-intent">Digital checks below are historical records for this revision at print time. Scan the cover QR code for live revision status. Use blank rows for field notes; manual entries are not automatically recorded digitally.</p>
@@ -459,12 +452,12 @@ PRINT_HTML = r"""
         {% for i in range(13 - page_checks|length) %}<tr><td></td><td></td><td></td><td></td><td></td></tr>{% endfor %}
       </tbody>
     </table>
-    {{ page_footer(matrix_pages + 4 + ccv_page) }}
-  </section>
+    {{ page_footer(matrix_pages + critical_extra_pages + 4 + ccv_page) }}
+  </div>
   {% endfor %}
   {% for resource_page in range(resource_pages) %}
-  <section class="pack-page page-break-before supporting-page {% if loop.last %}last-page{% endif %}">
-    <div class="page-title compact-title"><div><h1>JHA - Supporting Records</h1><div class="subtitle">Permits, isolations, documents and step photos</div></div>{{ print_branding() }}</div>
+  <div class="pack-page page-break-before supporting-page {% if loop.last %}last-page{% endif %}">
+    {{ page_header('JHA - Supporting Records', 'Permits, isolations, documents and step photos') }}
     <p class="field-note">Records and confirmations at print time for this revision. Descriptions and marker notes below are excerpts. Scan the cover QR for complete records, full-size photos and current status. A confirmed reference does not authorise work.</p>
     <table class="support-table"><thead><tr><th>Step / Reference</th><th>Record / Confirmation</th><th>Photo / Evidence</th></tr></thead><tbody>
     {% for item in supporting_records[resource_page * 4:(resource_page + 1) * 4] %}
@@ -476,8 +469,8 @@ PRINT_HTML = r"""
       <td>{% if item.thumbnail %}<div class="support-photo"><img src="{{ item.thumbnail }}" alt="Step supporting photo" />{% for point in item.annotations %}<span style="left:{{ point.x * 100 }}%;top:{{ point.y * 100 }}%;">{{ loop.index }}</span>{% endfor %}</div>{% elif item.evidence %}Supporting file attached. Open through the digital JHA.{% else %}No readable supporting file attached.{% endif %}</td></tr>
     {% endfor %}
     </tbody></table>
-    {{ page_footer(matrix_pages + 4 + ccv_pages + resource_page) }}
-  </section>
+    {{ page_footer(matrix_pages + critical_extra_pages + 4 + ccv_pages + resource_page) }}
+  </div>
   {% endfor %}
 </div>
 """.strip()
@@ -493,18 +486,18 @@ PRINT_CSS = r"""
 }
 
 .jha-pack { color: #111; font-family: Arial, Helvetica, sans-serif; font-size: 7.8pt; line-height: 1.18; }
-.workpack-qr { display: block; width: 25mm; color: #111; text-align: center; font-size: 6pt; text-decoration: none; }
-.workpack-qr img { display: block; width: 25mm; height: 25mm; }
-.pack-page { position: relative; box-sizing: border-box; min-height: 186mm; padding: 0 0 8mm; page-break-after: always; }
+.workpack-qr { display: block; width: 19mm; margin: 1mm 0 0 auto; color: #111; text-align: center; font-size: 4.5pt; line-height: 1.05; text-decoration: none; }
+.print-format .workpack-qr img { display: block; width: 16mm !important; height: 16mm; margin: 0 auto; }
+.pack-page { display: block; box-sizing: border-box; page-break-after: always; }
 .last-page { page-break-after: auto; }
-.page-break-before { page-break-before: always; }
-.page-title { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 4px solid #111; padding: 0 7mm 2.5mm; margin: 0 7mm 2.5mm; }
+.page-title { width: 100%; border-bottom: 4px solid #111; padding-bottom: 2mm; margin: 0 0 2mm; page-break-inside: avoid; }
+.header-branding { float: right; width: 60mm; text-align: right; }
+.header-title { margin-right: 62mm; }
+.header-clear { clear: both; }
 .page-title h1 { margin: 0; font-size: 16pt; line-height: 1; font-weight: 700; }
 .page-title .subtitle { margin-top: 1px; font-size: 9pt; font-weight: 700; }
-.compact-title h1 { font-size: 14pt; }
-.print-branding { flex: 0 1 60mm; max-width: 60mm; text-align: right; margin-left: 3mm; }
 .brand { font-size: 14pt; font-weight: 800; letter-spacing: .06em; overflow-wrap: break-word; }
-.brand-logo { display: block; max-width: 55mm; max-height: 13mm; margin: 0 0 1mm auto; }
+.print-format .brand-logo { display: block; width: auto !important; max-width: 50mm; max-height: 8mm; margin: 0 0 1mm auto; }
 
 .form-grid, .matrix-table, .change-table, .ack-table, .ccv-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .form-grid th, .form-grid td, .matrix-table th, .matrix-table td, .change-table th, .change-table td, .ack-table th, .ack-table td, .ccv-table th, .ccv-table td { box-sizing: border-box; border: 1px solid #222; padding: 3px 5px; vertical-align: top; }
@@ -519,26 +512,27 @@ PRINT_CSS = r"""
 .critical-summary { border: 1px solid #222; padding: 3px 6px; margin-top: 1.5mm; font-size: 7.2pt; }
 .check-box { display: inline-block; width: 10px; height: 10px; line-height: 9px; margin: 0 2px 0 4px; border: 1px solid #222; text-align: center; font-size: 7pt; font-weight: 700; }
 .prompt-note { float: right; font-size: 6.5pt; }
-.risk-strip { display: flex; flex-wrap: nowrap; gap: 2px; border: 1px solid #222; border-top: 0; min-height: 17mm; padding: 3px; }
-.risk-chip { flex: 1 1 0; min-width: 0; border: 1px solid #b88700; background: #ffd34d; padding: 2px 3px; text-align: center; font-size: 5.7pt; overflow-wrap: anywhere; }
-.risk-chip span { display: block; margin-top: 1px; font-size: 5.3pt; font-weight: 400; }
+.risk-strip { border: 1px solid #222; border-top: 0; padding: 1mm; }
+.risk-chip { border: 1px solid #b88700; background: #ffd34d; padding: 1mm 1.5mm; margin-bottom: 1mm; text-align: left; font-size: 7pt; overflow-wrap: break-word; word-wrap: break-word; page-break-inside: avoid; }
+.risk-chip:last-child { margin-bottom: 0; }
+.risk-chip span { display: block; margin-top: 1mm; font-size: 6.8pt; font-weight: 400; white-space: pre-line; }
 .empty-strip { width: 100%; text-align: center; color: #555; padding-top: 4mm; }
 
 .section-bar { background: #f47a20; color: white; font-weight: 700; padding: 3px 6px; margin-top: 1.5mm; border: 1px solid #222; }
 .centered { text-align: center; font-size: 9pt; }
-.permit-grid { display: grid; grid-template-columns: repeat(4, 1fr); border-left: 1px solid #222; font-size: 6.2pt; }
-.permit-item { border-right: 1px solid #222; border-bottom: 1px solid #222; min-height: 4.2mm; padding: 2px 4px; }
+.permit-grid { border-left: 1px solid #222; font-size: 0; }
+.permit-item { display: inline-block; box-sizing: border-box; width: 25%; vertical-align: top; font-size: 6.2pt; border-right: 1px solid #222; border-bottom: 1px solid #222; min-height: 4.2mm; padding: 2px 4px; }
 .team-table th { text-align: left; }
 .team-table td { height: 4.5mm; }
 .approval-table { margin-top: 1.5mm; }
 .approval-table td { height: 5.5mm; }
 .cover-page .signature-image { max-height: 5mm; }
 
-.matrix-page { min-height: 186mm; }
+.matrix-page { min-height: 0; }
 .matrix-table { font-size: 7pt; }
 .matrix-table thead th { text-align: center; height: 17mm; vertical-align: middle; font-size: 7.7pt; }
 .matrix-table thead th span { display: block; margin-top: 2px; font-size: 6.3pt; font-weight: 400; }
-.matrix-table .step-row { height: 68mm; page-break-inside: avoid; }
+.matrix-table .step-row { height: 64mm; page-break-inside: avoid; }
 .matrix-table .step-row td { padding: 5px; }
 .step-col { width: 7%; text-align: center; }
 .task-col { width: 17%; }
@@ -552,20 +546,20 @@ PRINT_CSS = r"""
 .control-extra { margin-top: 2px; }
 .critical-control { margin-top: 3px; font-weight: 600; }
 .manual-sign-line { height: 8mm; margin-top: 3mm; border-bottom: 1px solid #333; }
-.blank-step-row td { height: 68mm; }
+.blank-step-row td { height: 64mm; }
 
 .change-table th:nth-child(1) { width: 10%; }
 .change-table th:nth-child(2) { width: 6%; }
 .change-table th:nth-child(3) { width: 40%; }
 .change-table th:nth-child(4) { width: 32%; }
 .change-table th:nth-child(5) { width: 12%; }
-.change-table tbody td { height: 13.5mm; }
+.change-table tbody td { height: 12mm; }
 .field-note { margin-top: 2mm; font-size: 6.8pt; color: #444; }
 
 .ack-table th:nth-child(1), .ack-table th:nth-child(5) { width: 20%; }
 .ack-table th:nth-child(2), .ack-table th:nth-child(3), .ack-table th:nth-child(6), .ack-table th:nth-child(7) { width: 7%; }
 .ack-table th:nth-child(4), .ack-table th:nth-child(8) { width: 16%; }
-.ack-table td { height: 8.2mm; vertical-align: middle; }
+.ack-table td { height: 7mm; vertical-align: middle; }
 .signature-cell { vertical-align: middle !important; }
 .signature-image { max-height: 7mm; max-width: 34mm; object-fit: contain; }
 
@@ -576,7 +570,7 @@ PRINT_CSS = r"""
 .ccv-table th:nth-child(2), .ccv-table th:nth-child(3) { width: 10%; }
 .ccv-table th:nth-child(4) { width: 14%; }
 .ccv-table th:nth-child(5) { width: 50%; }
-.ccv-table tbody td { height: 8.4mm; }
+.ccv-table tbody td { height: 7mm; }
 .ccv-table td { overflow-wrap: anywhere; }
 .support-table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 3mm; font-size: 7pt; }
 .support-table th, .support-table td { box-sizing: border-box; border: 1px solid #222; padding: 2mm; vertical-align: top; overflow-wrap: anywhere; }
@@ -589,9 +583,13 @@ PRINT_CSS = r"""
 .support-photo img { display: block; max-height: 27mm; max-width: 55mm; }
 .support-photo span { position: absolute; transform: translate(-50%, -50%); border: 1px solid white; border-radius: 50%; background: #c00; color: white; width: 3.5mm; height: 3.5mm; text-align: center; line-height: 3.5mm; font-size: 6pt; }
 
-.page-footer { position: absolute; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; border-top: 1px solid #999; padding-top: 1.5mm; font-size: 5.8pt; color: #666; }
+.page-footer { width: 100%; table-layout: fixed; border-collapse: collapse; border-top: 1px solid #999; margin-top: 3mm; font-size: 5.8pt; color: #666; }
+.print-format .page-footer td { border: 0; padding: 1.5mm 0 0; color: #666; }
+.page-footer td:first-child { width: 45%; }
+.page-footer td:last-child { text-align: right; padding-right: 1.5mm; }
 
 @media print {
+  .print-format { margin: 0 !important; padding: 0 !important; max-width: none; min-height: 0; }
   .step-row, .change-table tr, .ack-table tr, .ccv-table tr, .form-grid tr { page-break-inside: avoid; }
 }
 """.strip()

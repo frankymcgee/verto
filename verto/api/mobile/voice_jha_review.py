@@ -147,7 +147,7 @@ def complete_human_review(
     doc = _get_jha(jha_name, require_write=True)
     if doc.jha_status != "Ready for Team Review":
         frappe.throw(
-            _("Human review can only be completed when the JHA is Ready for Team Review."),
+            _("Team leader review (Supervisor or above) can only be completed when the JHA is Ready for Team Review."),
             frappe.ValidationError,
         )
     if cint(doc.get("review_completed")):
@@ -195,7 +195,7 @@ def acknowledge_jha_participant(
             frappe.ValidationError,
         )
     if not cint(doc.get("review_completed")):
-        frappe.throw(_("Complete the human review before participant sign-on."), frappe.ValidationError)
+        frappe.throw(_("Complete the team leader review (Supervisor or above) before participant sign-on."), frappe.ValidationError)
 
     row = next((item for item in (doc.participants or []) if item.name == participant_row), None)
     if not row:

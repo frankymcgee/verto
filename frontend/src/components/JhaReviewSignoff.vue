@@ -165,7 +165,7 @@ async function completeReview() {
     reviewSignature.value = ''
     reviewConfirmation.value = false
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Could not complete the human review.'
+    error.value = err instanceof Error ? err.message : 'Could not complete the team leader review.'
   } finally {
     submittingReview.value = false
   }
@@ -228,9 +228,9 @@ onMounted(() => {
   >
     <div class="flex items-start justify-between gap-3">
       <div>
-        <p class="text-base-semibold text-ink-gray-9">Human review & sign-on</p>
+        <p class="text-base-semibold text-ink-gray-9">Team leader review & sign-on</p>
         <p class="mt-1 text-sm text-ink-gray-5">
-          Human verification and individual crew acknowledgement
+          Team leader review (Supervisor or above) and individual crew acknowledgement
         </p>
       </div>
       <Badge variant="subtle">{{ state?.status || jha.status }}</Badge>
@@ -249,7 +249,7 @@ onMounted(() => {
         <div class="min-w-0">
           <p class="text-sm-medium text-ink-gray-9">Paper workpack copy</p>
           <p class="mt-1 text-sm leading-5 text-ink-gray-6">
-            Print the JHA for physical human review and manual crew signatures, or download the same controlled workpack format as a PDF.
+            Print the JHA for team leader review (Supervisor or above) and manual crew signatures, or download the same controlled workpack format as a PDF.
           </p>
         </div>
         <Badge variant="subtle">Rev {{ state?.revision || jha.revision || 1 }}</Badge>
@@ -303,7 +303,7 @@ onMounted(() => {
         v-else-if="state.status === 'Signed'"
         class="mt-4 rounded-7 border border-green-200 bg-green-50 p-3"
       >
-        <p class="text-sm-medium text-green-900">Human review and participant sign-on complete.</p>
+        <p class="text-sm-medium text-green-900">Team leader review and participant sign-on complete.</p>
         <p class="mt-1 text-sm text-green-800">
           Fully signed {{ formatDateTime(state.signed_at) }}. This status records acknowledgement of the JHA; it does not replace site permits, isolations or other work-authorisation requirements.
         </p>
@@ -313,7 +313,7 @@ onMounted(() => {
       <template v-else-if="state.status === 'Ready for Team Review'">
         <div v-if="!reviewComplete" class="mt-4 space-y-4">
           <div class="rounded-7 border border-blue-200 bg-blue-50 p-3">
-            <p class="text-sm-medium text-blue-900">Reviewer verification required.</p>
+            <p class="text-sm-medium text-blue-900">Team leader review required (Supervisor or above).</p>
             <p class="mt-1 text-sm leading-5 text-blue-800">
               Review the work steps, hazards and controls above. Correct the JHA before signing if anything is inaccurate, incomplete or no longer reflects the planned work.
             </p>
@@ -331,8 +331,8 @@ onMounted(() => {
 
           <SignatureField
             v-model="reviewSignature"
-            label="Reviewer signature"
-            description="The reviewer must personally sign after checking the complete JHA."
+            label="Team leader signature"
+            description="The team leader, who must be a Supervisor or above, must personally sign after checking the complete JHA."
             required
           />
 
@@ -344,7 +344,7 @@ onMounted(() => {
               @update:model-value="(checked) => reviewConfirmation = Boolean(checked)"
             />
             <span class="text-sm leading-5 text-ink-gray-7">
-              I have reviewed this JHA against the planned work and the crew discussion. I understand that signing the review does not itself authorise work to proceed.
+              I am the team leader (Supervisor or above). I have reviewed this JHA against the planned work and the crew discussion. I understand that signing the review does not itself authorise work to proceed.
             </span>
           </label>
 
@@ -357,13 +357,13 @@ onMounted(() => {
             :disabled="submittingReview || !reviewSignature || !reviewConfirmation"
             @click="completeReview"
           >
-            Complete Human Review
+            Complete Team Leader Review
           </Button>
         </div>
 
         <div v-else class="mt-4 space-y-4">
           <div class="rounded-7 border border-green-200 bg-green-50 p-3">
-            <p class="text-sm-medium text-green-900">Human review completed.</p>
+            <p class="text-sm-medium text-green-900">Team leader review completed.</p>
             <p class="mt-1 text-sm text-green-800">
               {{ state.reviewer_name || state.reviewed_by }} · {{ formatDateTime(state.reviewed_at) }}
             </p>

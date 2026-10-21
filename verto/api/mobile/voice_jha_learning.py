@@ -191,7 +191,7 @@ differences. Ask about meaningful differences during the normal step discussion,
 readiness question after each answer. Only write a step/hazard/control once the crew confirms it applies.
 Never transfer people, signatures, permits, owners, field verification or previous risk acceptance.
 Cite a closeout lesson's record when relevant and ask whether its improvement suits this job before recording it.
-Continue the normal persisted interview and human review/sign-on. No voice tool can approve a template or lesson.
+Continue the normal persisted interview and team leader review (Supervisor or above)/sign-on. No voice tool can approve a template or lesson.
 """ + json.dumps(learning_context(jha), default=str)
 
 

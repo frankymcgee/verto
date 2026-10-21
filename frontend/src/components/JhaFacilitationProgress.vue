@@ -37,12 +37,12 @@ const stageHelp = computed(() => {
   const stage = props.progress?.stage || ''
   if (stage === 'Job Steps') return 'Confirm the complete ordered job-step list before hazard analysis begins.'
   if (stage === 'Change Request') return 'Tell PERI what changed and confirm which steps or participants are affected.'
-  if (stage === 'Change Confirmation') return 'Check PERI’s change read-back before the revised JHA returns for human review.'
+  if (stage === 'Change Confirmation') return 'Check PERI’s change read-back before the revised JHA returns for team leader review (Supervisor or above).'
   if (stage === 'Step Analysis') return `PERI is working through Step ${props.progress?.current_step_sequence || ''} only.`
   if (stage === 'Development Team') return 'All job steps are complete. Record the people who participated in the JHA discussion.'
   if (stage === 'Completeness Check') return 'The field discussion is complete. PERI is checking for any remaining JHA gaps.'
-  if (stage === 'Ready for Team Review') return 'PERI facilitation is complete. Human review and sign-on are now required.'
-  if (stage === 'Signed') return 'The JHA has completed human review and sign-on.'
+  if (stage === 'Ready for Team Review') return 'PERI facilitation is complete. Team leader review (Supervisor or above) and sign-on are now required.'
+  if (stage === 'Signed') return 'The JHA has completed team leader review (Supervisor or above) and sign-on.'
   if (stage === 'Review Required - Work Changed') return 'The planned work changed after review. The JHA must be reassessed.'
   return ''
 })

@@ -654,7 +654,7 @@
    "fieldname": "jha_print_logo",
    "fieldtype": "Attach Image",
    "label": "Company Logo",
-   "description": "Upload a PNG, JPEG, WebP or GIF logo. It appears above the header branding text and is embedded in PDFs, including private uploads."
+   "description": "Upload a PNG, JPEG, WebP or GIF logo. It replaces the header branding text in the top right corner on every page, with the revision QR below. The image is embedded in PDFs, including private uploads."
   },
   {
    "fieldname": "jha_print_typography_section",

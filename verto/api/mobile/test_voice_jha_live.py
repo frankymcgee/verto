@@ -66,7 +66,7 @@ class TestLiveSession(TestCase):
         self.assertEqual(responses['model'], 'gpt-6-luna')
         self.assertIn('Shared ordered JHA workflow.', responses['instructions'])
         self.assertIn('current step: 2 Fit pump', session['instructions'])
-        self.assertIn('Human review and sign-on', session['instructions'])
+        self.assertIn('Team leader review (Supervisor or above) and sign-on', session['instructions'])
         self.assertNotIn('Shared ordered JHA workflow.', session['instructions'])
         self.assertFalse(session['store'])
 

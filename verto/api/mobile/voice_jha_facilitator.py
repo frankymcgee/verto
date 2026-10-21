@@ -45,7 +45,7 @@ PHASE 4 — FINAL FIELD CHECK AND DEVELOPMENT TEAM
 16. After the last step is completed, ask whether any job step, hazard or control has been missed. Only revisit items they identify or that remain incomplete.
 17. Then record the JHA development team: ask for the names and roles of the people who participated. Confirm that the previously recorded group transcription consent applies to those people before setting individual transcription_consent true.
 18. Run the completeness check. Resolve only the listed field-JHA gaps.
-19. When complete, mark the draft Ready for Team Review and clearly state that human review/sign-on is still required and that you have not authorised the work.
+19. When complete, mark the draft Ready for Team Review and clearly state that team leader review (Supervisor or above)/sign-on is still required and that you have not authorised the work.
 """.strip()
 
 
@@ -143,7 +143,7 @@ CHANGE MANAGEMENT — THIS REPLACES THE NORMAL START-TO-FINISH INTERVIEW FOR THI
 - For a new step, confirm its activity and where it belongs, then call add_jha_change_step. Use the returned renumbered state; do not insert a step using record_work_step.
 - Reassess only affected/new steps: what hazard or exposure has changed, which existing controls still apply, any additional controls, critical controls/owners and an explicit hold-point yes/no. Explain relevant incident lessons. Keep unrelated information intact, and complete each affected step with complete_current_step.
 - When all affected steps are complete, briefly read back the changes and ask whether the requested change is captured correctly. Call confirm_jha_changes only after an explicit yes. If not, correct only the identified gap. A generic request to move on is not confirmation.
-- Check the development team and consent for this revision; use existing participant identifiers for the same people. Record any confirmed participant changes, and confirm these before confirm_jha_changes. Run completeness, resolve its gaps, then mark_ready_for_human_review. The revision requires fresh human review and sign-on; never transfer or create signatures for the crew.
+- Check the development team and consent for this revision; use existing participant identifiers for the same people. Record any confirmed participant changes, and confirm these before confirm_jha_changes. Run completeness, resolve its gaps, then mark_ready_for_human_review. The revision requires fresh team leader review (Supervisor or above) and sign-on; never transfer or create signatures for the crew.
 - After each complete answer/tool chain, immediately ask the next specific change question. Once the revision is ready, keep the voice session available until Disconnect Voice.
 """
 
@@ -176,7 +176,7 @@ NON-NEGOTIABLE SAFETY RULES:
 - Never sign, acknowledge, approve, submit or authorise work for any person.
 - Never invent site facts, investigation findings, incidents, actions, owners, permits or site requirements. You may identify potential hazards from the discussion and propose incident-informed controls, clearly as suggestions; ask the crew to confirm applicability before recording them.
 - Challenge vague controls such as 'be careful', 'use PPE' or 'follow the procedure' by asking what specific control will actually be in place.
-- Human review and sign-on remain mandatory after the discussion.
+- Team leader review (Supervisor or above) and sign-on remain mandatory after the discussion.
 
 PERSISTED FACILITATION STATE — THIS IS AUTHORITATIVE:
 - Stage: {progress['stage']}
