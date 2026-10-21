@@ -118,7 +118,7 @@ def get_change_tools() -> list[dict]:
              ["activity", "after_step_sequence"]),
         tool("confirm_jha_changes",
              "After all affected steps have been reassessed, briefly read back the requested changes and "
-             "call only after the crew explicitly confirms they are captured correctly. Human review and "
+             "call only after the crew explicitly confirms they are captured correctly. Team leader review (Supervisor or above) and "
              "sign-on are still required; this never signs, approves or authorises work.", {}, []),
     ]
 
@@ -218,7 +218,7 @@ def execute_change_tool(jha_name: str, name: str, arguments, call_id: str):
         if cint(doc.get("change_participants")) and not any(entry.get("tool_name") == "record_participant" for entry in tools._audit_entries(doc)):
             frappe.throw(_("Record the requested participant changes before confirming them."), frappe.ValidationError)
         doc.change_management_stage = "Confirmed"
-        result = {"changed": True, "message": "Crew confirmed the changes. Check the development team and completeness, then return the revision for human review."}
+        result = {"changed": True, "message": "Crew confirmed the changes. Check the development team and completeness, then return the revision for team leader review (Supervisor or above)."}
     else:
         frappe.throw(_("Unknown JHA change tool."), frappe.PermissionError)
     doc.flags.allow_jha_change_mutation = True

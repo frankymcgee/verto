@@ -15,11 +15,11 @@ from verto.api.mobile.voice_jha_progress import (
 
 
 REVIEW_VOICE_GUIDANCE = (
-    "The JHA is now Ready for Team Review. Explain that human review and sign-on are still required, "
+    "The JHA is now Ready for Team Review. Explain that team leader review (Supervisor or above) and sign-on are still required, "
     "then remain available for the crew's review or print/download questions until they select Disconnect Voice. "
     "Print JHA and Download PDF do not end the call. The ready JHA is read-only to PERI: "
     "use get_current_jha_state for questions about saved information, and do not call draft-writing "
-    "or mark-ready tools again. If changes are requested, explain the human review/change workflow."
+    "or mark-ready tools again. If changes are requested, explain the team leader review (Supervisor or above)/change workflow."
 )
 
 
@@ -79,7 +79,7 @@ def _streamlined_completeness(doc) -> dict:
         "participant_count": len(participants),
         "facilitation": progress,
         "message": (
-            "Field JHA completeness checks passed; human review is still required."
+            "Field JHA completeness checks passed; team leader review (Supervisor or above) is still required."
             if not issues
             else f"Field JHA has {len(issues)} outstanding completeness item(s)."
         ),
@@ -91,7 +91,7 @@ def _mutation_context(jha_name: str, call_id: str, tool_name: str):
     doc = base._get_jha(jha_name)
     if doc.jha_status not in base.WRITEABLE_STATUSES:
         frappe.throw(
-            _("PERI cannot modify this JHA after it has been marked ready for human review."),
+            _("PERI cannot modify this JHA after it has been marked ready for team leader review (Supervisor or above)."),
             frappe.PermissionError,
         )
     if not doc.has_permission("write"):
@@ -308,7 +308,7 @@ def _execute_mark_ready(jha_name: str, arguments, call_id: str):
             "changed": True,
             "status": doc.jha_status,
             "facilitation": progress,
-            "message": "Draft marked Ready for Team Review. Human review and sign-on remain required.",
+            "message": "Draft marked Ready for Team Review. Team leader review (Supervisor or above) and sign-on remain required.",
             "review_voice_guidance": REVIEW_VOICE_GUIDANCE,
         }
     else:

@@ -1,4 +1,4 @@
-"""Automatic, revision-bound print emails after human review and crew sign-on."""
+"""Immediate, revision-bound print emails after team leader review and crew sign-on."""
 from __future__ import annotations
 
 import hashlib
@@ -73,7 +73,7 @@ def _save(record):
 
 def _queue_info(record):
     return frappe.db.get_value("Email Queue", record.email_queue,
-        ["name", "status", "modified"], as_dict=True) if record and record.get("email_queue") else None
+        ["name", "status", "modified", "error"], as_dict=True) if record and record.get("email_queue") else None
 
 
 def _status(record):
@@ -85,7 +85,7 @@ def _status(record):
     if record.status == "Cancelled":
         return "Cancelled"
     if queue:
-        return "Failed" if queue.status == "Error" else "Queued"
+        return "Failed" if queue.status == "Error" or queue.get("error") or record.status == "Failed" else "Queued"
     if record.status == "Sent":
         return "Sent"
     return "Failed" if record.get("email_queue") else record.status
@@ -143,6 +143,13 @@ def _enqueue(delivery_name):
 def _schedule(record):
     from functools import partial
     frappe.db.after_commit.add(partial(_enqueue, record.name))
+
+
+def _send_after_commit(record):
+    from functools import partial
+    # Frappe's SMTP sender commits internally. Persist the PDF and queue link
+    # first, then send in this job without waiting for the email scheduler.
+    frappe.db.after_commit.add(partial(send_print_email, record.name))
 
 
 def jha_updated(doc, method=None):
@@ -238,7 +245,7 @@ def prepare_print_email(delivery_name):
             title = " ".join(str(jha.get("work_summary_title") or jha.work_summary).split())
             queue = frappe.sendmail(recipients=[printing_address(record.recipient)],
                 subject=f"Signed JHA for printing: {jha.project} | {title} | {jha.name} | Rev {cint(jha.revision)}",
-                message=f"<p>Human review and crew sign-on are complete for <strong>{escape(title)}</strong>.</p>"
+                message=f"<p>Team leader review (Supervisor or above) and crew sign-on are complete for <strong>{escape(title)}</strong>.</p>"
                         f"<p>Project: {escape(jha.project)}</p>"
                         f"<p>Attached: signed JHA {escape(jha.name)}, revision {cint(jha.revision)}, ready to print.</p>"
                         "<p>Use the QR code on the workpack to check its current revision before use.</p>",
@@ -252,12 +259,61 @@ def prepare_print_email(delivery_name):
             record.email_queue = queue.name
             record.status = "Queued"
             _save(record)
+            _send_after_commit(record)
         except Exception:
             frappe.db.rollback(save_point="jha_print_prepare")
             record.reload()
             record.status = "Failed"
             _save(record)
             frappe.log_error(title="JHA print PDF/email preparation failed", message=frappe.get_traceback())
+
+
+def send_print_email(delivery_name):
+    """Attempt SMTP immediately after preparation/retry has committed."""
+    with _system_user():
+        record, jha = _locked_delivery(delivery_name)
+        if not _signed(jha) or record.status == "Cancelled":
+            _cancel(record)
+            frappe.db.commit()
+            return
+        info = _queue_info(record)
+        if not info:
+            record.status = "Failed"
+            _save(record)
+            frappe.db.commit()
+            return
+        if info.status in {"Sent", "Sending"}:
+            record.status = info.status
+            if info.status == "Sent":
+                record.sent_at = record.get("sent_at") or info.modified
+            _save(record)
+            frappe.db.commit()
+            return
+        try:
+            queue = frappe.get_doc("Email Queue", info.name)
+            if not queue.can_send_now():
+                frappe.throw(_("Email sending is suspended, muted or unavailable for this JHA."), frappe.ValidationError)
+            record.status = "Sending"
+            _save(record)
+            # The sender commits Sending before SMTP, releasing our locks.
+            # Repeated callbacks then observe Sending/Sent and do not resend.
+            queue.send()
+            info = _queue_info(record)
+            record.status = info.status if info and info.status in {"Sent", "Sending"} else "Failed"
+            if record.status == "Sent":
+                record.sent_at = info.modified
+            _save(record)
+            frappe.db.commit()
+        except Exception:
+            # Do not roll back to a preparation savepoint: SMTP may already
+            # have committed its result. Keep the same queue for a safe retry.
+            info = _queue_info(record)
+            record.status = "Sent" if info and info.status == "Sent" else "Failed"
+            if record.status == "Sent":
+                record.sent_at = info.modified
+            _save(record)
+            frappe.db.commit()
+            frappe.log_error(title="JHA print immediate email delivery failed", message=frappe.get_traceback())
 
 
 @frappe.whitelist(methods=["GET"])
@@ -298,10 +354,11 @@ def resend_jha_print_email(jha_name: str, request_id: str, confirmation=0):
     record.requested_by = frappe.session.user
     record.recipient = destination
     record.sent_at = None
-    if old_queue and old_queue.status == "Error" and destination == frappe.db.get_value("Email Queue Recipient", {"parent": old_queue.name}, "recipient"):
+    if old_queue and old_queue.status in {"Error", "Not Sent", "Partially Sent"} and destination == frappe.db.get_value("Email Queue Recipient", {"parent": old_queue.name}, "recipient"):
         frappe.db.set_value("Email Queue", old_queue.name, {"status": "Not Sent", "retry": 0, "error": ""})
         record.status = "Queued"
         _save(record)
+        _send_after_commit(record)
     else:
         record.email_queue = None
         record.status = "Pending"
@@ -313,7 +370,7 @@ def resend_jha_print_email(jha_name: str, request_id: str, confirmation=0):
 def reconcile_print_deliveries():
     """Recover unscheduled preparation and keep Desk status in sync with SMTP."""
     with _system_user():
-        rows = frappe.get_all(DOCTYPE, filters={"status": ["in", ["Pending", "Queued", "Sending"]]},
+        rows = frappe.get_all(DOCTYPE, filters={"status": ["in", ["Pending", "Queued", "Sending", "Failed"]]},
             fields=["name", "status", "modified"], order_by="modified asc", limit_page_length=200)
         for row in rows:
             record, jha = _locked_delivery(row.name)
@@ -328,6 +385,8 @@ def reconcile_print_deliveries():
                     if status == "Sent":
                         record.sent_at = _queue_info(record).modified
                     _save(record)
+                if status == "Queued":
+                    _send_after_commit(record)
 
 
 def delivery_query_conditions(user=None):

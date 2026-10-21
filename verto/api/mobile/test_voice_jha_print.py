@@ -6,6 +6,7 @@ from unittest import TestCase
 from unittest.mock import Mock, patch
 
 import frappe
+from bs4 import BeautifulSoup
 from frappe.tests import IntegrationTestCase
 from PIL import Image
 
@@ -17,10 +18,10 @@ class TestJhaPrintBranding(TestCase):
         self.settings = frappe._dict()
         self.enterContext(patch.object(frappe, "get_cached_doc", return_value=self.settings))
 
-    def render(self, steps=3, resources=True):
+    def render(self, steps=3, resources=True, hazards=None):
         doc = frappe._dict(
             name="JHA-PRINT-TEST", revision=1, jha_status="Signed", creation=None,
-            participants=[], hazards_and_controls=[],
+            participants=[], hazards_and_controls=hazards or [],
             work_steps=[frappe._dict(sequence=i + 1, activity="Service pump") for i in range(steps)],
         )
         supporting_records = [frappe._dict(
@@ -110,11 +111,41 @@ class TestJhaPrintBranding(TestCase):
             html = self.render()
             logo = printing.jha_print_branding()["logo"]
         self.assertEqual(html.count('class="brand-logo"'), 7)
+        self.assertNotIn('class="brand"', html)
+        for header in BeautifulSoup(html, "html.parser").select(".page-title"):
+            column = header.select_one(".header-branding")
+            self.assertTrue(column.select_one(".brand-logo"))
+            self.assertTrue(column.select_one(".brand-logo").find_next_sibling("a", class_="workpack-qr"))
         self.assertNotIn("/private/files/", html)
         with Image.open(BytesIO(base64.b64decode(logo.split(",", 1)[1]))) as decoded:
             self.assertEqual(decoded.size, (40, 20))
             self.assertEqual(decoded.mode, "RGBA")
         lookup.assert_called_with("File", {"file_url": self.settings.jha_print_logo}, "name")
+
+    def test_text_fallback_and_revision_qr_share_the_right_column_on_every_page(self):
+        self.settings.jha_print_header_text = "MSS"
+        for header in BeautifulSoup(self.render(), "html.parser").select(".page-title"):
+            column = header.select_one(".header-branding")
+            self.assertTrue(header.select_one(".header-title"))
+            self.assertEqual(column.select_one(".brand").text, "MSS")
+            self.assertTrue(column.select_one(".brand").find_next_sibling("a", class_="workpack-qr"))
+            self.assertIsNone(column.select_one(".brand-logo"))
+
+    def test_all_critical_risks_and_controls_are_complete_including_more_than_eight(self):
+        risks = [frappe._dict(critical_risk=1, work_step_sequence=1,
+            hazard_or_energy_source=f"Risk {i}: unexpected brake movement and stored energy while removing guarding for inspection.",
+            critical_control=f"Control {i}: isolate the winch and brake, lock onto the isolation permit and verify zero energy before removing guarding.") for i in range(10)]
+        soup = BeautifulSoup(self.render(hazards=risks), "html.parser")
+        summaries = soup.select(".risk-chip")
+        self.assertEqual(len(summaries), len(risks))
+        for summary, risk in zip(summaries, risks):
+            self.assertIn(risk.hazard_or_energy_source, summary.text)
+            self.assertIn(risk.critical_control, summary.text)
+            self.assertNotIn("...", summary.text)
+        pages = soup.select(".pack-page")
+        self.assertEqual(len(pages), 9)
+        for i, page in enumerate(pages):
+            self.assertIn(f"Page {i + 1} of 9", page.select_one(".page-footer").text)
 
     def test_missing_or_invalid_logo_keeps_the_print_readable(self):
         self.settings.jha_print_logo = "/files/missing.png"
