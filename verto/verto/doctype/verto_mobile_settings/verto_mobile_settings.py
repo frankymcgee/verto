@@ -8,7 +8,10 @@ from frappe.utils import cint
 
 class VertoMobileSettings(Document):
     def validate(self):
+        from verto.api.mobile.voice_jha_print import validate_jha_print_settings
+
         self._validate_global_notification_list()
+        validate_jha_print_settings(self)
 
     def _validate_global_notification_list(self):
         if not self.meta.has_field("global_notification_list"):

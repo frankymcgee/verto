@@ -31,8 +31,6 @@
   "peri_bot_name",
   "peri_bot_user",
   "peri_bot_image",
-  "jha_printing_section",
-  "default_jha_print_email",
   "section_break_rtpg",
   "core_mobile_forms",
   "column_break_ufwo",
@@ -43,6 +41,25 @@
   "project_ccvs",
   "section_break_kvpd",
   "project_tools",
+  "jha_print_tab",
+  "jha_print_branding_section",
+  "jha_print_company_name",
+  "jha_print_header_text",
+  "jha_print_branding_column",
+  "jha_print_logo",
+  "jha_print_typography_section",
+  "jha_print_font",
+  "jha_print_colours_section",
+  "jha_print_primary_colour",
+  "jha_print_heading_text_colour",
+  "jha_print_text_colour",
+  "jha_print_border_colour",
+  "jha_print_colours_column",
+  "jha_print_critical_risk_colour",
+  "jha_print_critical_risk_text_colour",
+  "jha_print_critical_risk_border_colour",
+  "jha_printing_section",
+  "default_jha_print_email",
   "planner_tab",
   "planner_app_name",
   "desk_icon",
@@ -605,6 +622,104 @@
    "label": "Default JHA Printing Email",
    "options": "Email",
    "description": "Signed JHA PDFs are emailed here after the final required sign-on. A Project JHA Printing Email overrides this address. Leave both blank to disable automatic delivery."
+  },
+  {
+   "fieldname": "jha_print_tab",
+   "fieldtype": "Tab Break",
+   "label": "JHA Print"
+  },
+  {
+   "fieldname": "jha_print_branding_section",
+   "fieldtype": "Section Break",
+   "label": "Company Branding",
+   "description": "Branding used on newly generated Digital JHA Workpack prints and PDFs."
+  },
+  {
+   "fieldname": "jha_print_company_name",
+   "fieldtype": "Data",
+   "label": "Company Name",
+   "default": "Mine Site Support"
+  },
+  {
+   "fieldname": "jha_print_header_text",
+   "fieldtype": "Data",
+   "label": "Header Branding Text",
+   "description": "Leave blank to use the company name in uppercase on every page."
+  },
+  {
+   "fieldname": "jha_print_branding_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "jha_print_logo",
+   "fieldtype": "Attach Image",
+   "label": "Company Logo",
+   "description": "Upload a PNG, JPEG, WebP or GIF logo. It appears above the header branding text and is embedded in PDFs, including private uploads."
+  },
+  {
+   "fieldname": "jha_print_typography_section",
+   "fieldtype": "Section Break",
+   "label": "Font"
+  },
+  {
+   "fieldname": "jha_print_font",
+   "fieldtype": "Select",
+   "label": "JHA Print Font",
+   "default": "Arial",
+   "options": "Arial\nHelvetica\nVerdana\nTahoma\nTrebuchet MS\nGeorgia\nTimes New Roman\nCourier New",
+   "description": "The PDF server must have the selected font installed; otherwise the print uses a standard fallback font."
+  },
+  {
+   "fieldname": "jha_print_colours_section",
+   "fieldtype": "Section Break",
+   "label": "Colours"
+  },
+  {
+   "fieldname": "jha_print_primary_colour",
+   "fieldtype": "Color",
+   "label": "Heading Colour",
+   "default": "#f47a20",
+   "description": "Background of table headings and section bars, and the CCV heading text."
+  },
+  {
+   "fieldname": "jha_print_heading_text_colour",
+   "fieldtype": "Color",
+   "label": "Heading Text Colour",
+   "default": "#ffffff"
+  },
+  {
+   "fieldname": "jha_print_text_colour",
+   "fieldtype": "Color",
+   "label": "Body Text Colour",
+   "default": "#111111"
+  },
+  {
+   "fieldname": "jha_print_border_colour",
+   "fieldtype": "Color",
+   "label": "Table Border Colour",
+   "default": "#222222"
+  },
+  {
+   "fieldname": "jha_print_colours_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "jha_print_critical_risk_colour",
+   "fieldtype": "Color",
+   "label": "Critical Risk Background Colour",
+   "default": "#ffd34d"
+  },
+  {
+   "fieldname": "jha_print_critical_risk_text_colour",
+   "fieldtype": "Color",
+   "label": "Critical Risk Text Colour",
+   "default": "#111111"
+  },
+  {
+   "fieldname": "jha_print_critical_risk_border_colour",
+   "fieldtype": "Color",
+   "label": "Critical Risk Border Colour",
+   "default": "#b88700"
   }
  ],
  "grid_page_length": 50,

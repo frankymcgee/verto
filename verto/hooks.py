@@ -140,7 +140,7 @@ has_permission = {
     "JHA Incident Learning": "verto.api.mobile.voice_jha_incidents.incident_has_permission",
 }
 
-jinja = {"methods": ["verto.api.mobile.voice_jha_print.jha_workpack_qr", "verto.api.mobile.voice_jha_print.jha_print_field_checks", "verto.api.mobile.voice_jha_print.jha_print_resources"]}
+jinja = {"methods": ["verto.api.mobile.voice_jha_print.jha_workpack_qr", "verto.api.mobile.voice_jha_print.jha_print_field_checks", "verto.api.mobile.voice_jha_print.jha_print_resources", "verto.api.mobile.voice_jha_print.jha_print_branding"]}
 
 # Document events
 # ---------------
