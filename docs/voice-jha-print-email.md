@@ -1,5 +1,28 @@
 # Signed JHA printing emails
 
+## JHA print appearance
+
+Open **Verto Mobile Settings > JHA Print** to set the company name, header
+branding text, company logo, font and colours for the **Digital JHA Workpack**.
+Leave header branding text blank to use the company name in uppercase on every
+page. Upload a PNG, JPEG, WebP or GIF logo; it is embedded in the print so private
+uploads also work in background PDFs. The selected font must be installed on
+the PDF server, or the browser/PDF renderer uses its standard fallback font.
+
+Heading backgrounds/text, body text, table borders and critical risk colours
+have separate colour pickers. Existing sites keep the Mine Site Support,
+Arial, orange and yellow defaults until configured. The workpack keeps its A4
+landscape page layout and existing content/sign-off fields.
+
+Saving these settings applies to newly generated print previews and PDFs
+without another migration. Settings survive app updates. Already downloaded or
+emailed PDFs stay as generated. **JHA Print Delivery** also reuses its original
+saved PDF when retrying or resending that revision; it does not replace that
+historical copy when branding changes. Open a fresh workpack print to see the
+current appearance.
+
+## Automatic delivery
+
 Set **JHA Printing Email** on the Project to the office/printing inbox. If it is blank, Verto uses **Default JHA Printing Email** under Automatic JHA Printing in Verto Mobile Settings. Leave both blank to disable automatic delivery for that project. Each setting accepts one plain email address. Delivery uses the site's existing outgoing Email Account, background workers and scheduler.
 
 After human review and the last required participant signature, Verto records a print delivery for that exact JHA revision. It prepares the existing Digital JHA Workpack as a private PDF, including signatures and the revision-check QR, then sends it through Email Queue. The finish screen shows preparation, queued/sending, sent or failed status. “Sent” means the email was sent to the configured inbox; it does not confirm that paper was printed.

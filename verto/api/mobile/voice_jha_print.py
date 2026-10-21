@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import re
 from io import BytesIO
 
 import frappe
@@ -8,6 +9,86 @@ import frappe
 
 PRINT_FORMAT_NAME = "Digital JHA Workpack"
 JHA_DOCTYPE = "Digital Job Hazard Analysis"
+
+PRINT_FONTS = {
+    "Arial": "Arial, Helvetica, sans-serif",
+    "Helvetica": "Helvetica, Arial, sans-serif",
+    "Verdana": "Verdana, Geneva, sans-serif",
+    "Tahoma": "Tahoma, Verdana, sans-serif",
+    "Trebuchet MS": "'Trebuchet MS', Arial, sans-serif",
+    "Georgia": "Georgia, 'Times New Roman', serif",
+    "Times New Roman": "'Times New Roman', Times, serif",
+    "Courier New": "'Courier New', Courier, monospace",
+}
+PRINT_COLOURS = {
+    "primary_colour": ("Heading Colour", "#f47a20"),
+    "heading_text_colour": ("Heading Text Colour", "#ffffff"),
+    "text_colour": ("Body Text Colour", "#111111"),
+    "border_colour": ("Table Border Colour", "#222222"),
+    "critical_risk_colour": ("Critical Risk Background Colour", "#ffd34d"),
+    "critical_risk_text_colour": ("Critical Risk Text Colour", "#111111"),
+    "critical_risk_border_colour": ("Critical Risk Border Colour", "#b88700"),
+}
+HEX_COLOUR = re.compile(r"#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\Z")
+LOGO_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".gif")
+
+
+def validate_jha_print_settings(doc):
+    """Keep user-editable branding safe to interpolate into print HTML/CSS."""
+    font = doc.get("jha_print_font")
+    if font and font not in PRINT_FONTS:
+        frappe.throw(frappe._("Choose a font from the JHA Print Font list."))
+    for key, (label, default) in PRINT_COLOURS.items():
+        value = str(doc.get("jha_print_" + key) or "").strip()
+        if value and not HEX_COLOUR.fullmatch(value):
+            frappe.throw(frappe._("JHA Print: {0} must be a hexadecimal colour, for example #F47A20.").format(frappe._(label)))
+    logo = str(doc.get("jha_print_logo") or "").strip()
+    if logo and not _uploaded_logo_url(logo):
+        frappe.throw(frappe._("Upload a PNG, JPEG, WebP or GIF image for the JHA Print Logo."))
+
+
+def _uploaded_logo_url(value):
+    return value.startswith(("/files/", "/private/files/")) and value.lower().endswith(LOGO_EXTENSIONS)
+
+
+def _print_logo(value):
+    """Embed an uploaded logo so private images also work in background PDFs."""
+    if not _uploaded_logo_url(value):
+        return ""
+    from PIL import Image, ImageOps
+
+    name = frappe.db.get_value("File", {"file_url": value}, "name")
+    if not name:
+        return ""
+    try:
+        file = frappe.get_doc("File", name)
+        with Image.open(BytesIO(file.get_content())) as original:
+            if original.width * original.height > 20_000_000:
+                return ""
+            image = ImageOps.exif_transpose(original).convert("RGBA")
+            image.thumbnail((900, 300))
+            output = BytesIO()
+            image.save(output, format="PNG")
+            return "data:image/png;base64," + base64.b64encode(output.getvalue()).decode()
+    except (frappe.DoesNotExistError, OSError, Image.DecompressionBombError):
+        # A removed or unreadable optional logo must not prevent a crew's print.
+        return ""
+
+
+def jha_print_branding():
+    """Expose only print branding, including for users who cannot read settings."""
+    settings = frappe.get_cached_doc("Verto Mobile Settings")
+    company_name = str(settings.get("jha_print_company_name") or "").strip() or "Mine Site Support"
+    branding = {
+        "company_name": company_name,
+        "header_text": str(settings.get("jha_print_header_text") or "").strip() or company_name.upper(),
+        "font_family": PRINT_FONTS.get(settings.get("jha_print_font"), PRINT_FONTS["Arial"]),
+        "logo": _print_logo(str(settings.get("jha_print_logo") or "").strip()),
+    }
+    for key, (label, default) in PRINT_COLOURS.items():
+        value = str(settings.get("jha_print_" + key) or "").strip()
+        branding[key] = value if HEX_COLOUR.fullmatch(value) else default
+    return branding
 
 
 def jha_workpack_qr(doc):
@@ -51,6 +132,26 @@ def jha_print_resources(doc):
     return rows
 
 PRINT_HTML = r"""
+{% set branding = jha_print_branding() %}
+<style>
+.jha-pack, .jha-pack h1, .jha-pack h2 { font-family: {{ branding.font_family | safe }}; }
+.jha-pack { color: {{ branding.text_colour }}; }
+.jha-pack .form-grid th, .jha-pack .matrix-table thead th,
+.jha-pack .change-table thead th, .jha-pack .ack-table thead th,
+.jha-pack .ccv-table thead th, .jha-pack .support-table th,
+.jha-pack .section-bar { background: {{ branding.primary_colour }}; color: {{ branding.heading_text_colour }}; }
+.jha-pack .ccv-page h2 { color: {{ branding.primary_colour }}; }
+.jha-pack .form-grid th, .jha-pack .form-grid td,
+.jha-pack .matrix-table th, .jha-pack .matrix-table td,
+.jha-pack .change-table th, .jha-pack .change-table td,
+.jha-pack .ack-table th, .jha-pack .ack-table td,
+.jha-pack .ccv-table th, .jha-pack .ccv-table td,
+.jha-pack .support-table th, .jha-pack .support-table td,
+.jha-pack .critical-summary, .jha-pack .check-box,
+.jha-pack .risk-strip, .jha-pack .section-bar,
+.jha-pack .permit-grid, .jha-pack .permit-item { border-color: {{ branding.border_colour }}; }
+.jha-pack .risk-chip { background: {{ branding.critical_risk_colour }}; color: {{ branding.critical_risk_text_colour }}; border-color: {{ branding.critical_risk_border_colour }}; }
+</style>
 {% set present_people = doc.participants | selectattr('present_for_discussion') | list %}
 {% set critical_rows = doc.hazards_and_controls | selectattr('critical_risk') | list %}
 {% set permit_rows = doc.hazards_and_controls | selectattr('permit_or_ccv_required') | list %}
@@ -60,6 +161,13 @@ PRINT_HTML = r"""
 {% set supporting_records = jha_print_resources(doc) %}
 {% set resource_pages = (supporting_records|length + 3) // 4 %}
 {% set total_pages = matrix_pages + 3 + ccv_pages + resource_pages %}
+
+{% macro print_branding() -%}
+<div class="print-branding">
+  {% if branding.logo %}<img class="brand-logo" src="{{ branding.logo | e }}" alt="{{ branding.company_name | e }} logo" />{% endif %}
+  <div class="brand">{{ branding.header_text | e }}</div>
+</div>
+{%- endmacro %}
 
 {% macro page_footer(page_no) -%}
 <div class="page-footer">
@@ -75,7 +183,7 @@ PRINT_HTML = r"""
         <h1>Job Hazard Analysis - Form</h1>
         <div class="subtitle">Health and Safety</div>
       </div>
-      <div class="brand">MINE SITE SUPPORT</div>
+      {{ print_branding() }}
       {% set qr = jha_workpack_qr(doc) %}
       <a class="workpack-qr" href="{{ qr.url | e }}"><img src="{{ qr.image }}" alt="Check this JHA revision" /><span>Check current revision<br />Login required</span></a>
     </div>
@@ -83,7 +191,7 @@ PRINT_HTML = r"""
     <table class="form-grid context-grid">
       <tr>
         <th>Company:</th>
-        <td>Mine Site Support</td>
+        <td>{{ branding.company_name | e }}</td>
         <th>Work Order #:</th>
         <td>{{ doc.work_order_number or '' }}</td>
         <th>Date:</th>
@@ -196,7 +304,7 @@ PRINT_HTML = r"""
     <section class="pack-page matrix-page page-break-before">
       <div class="page-title compact-title">
         <div><h1>Job Hazard Analysis - Form</h1><div class="subtitle">Health and Safety</div></div>
-        <div class="brand">MINE SITE SUPPORT</div>
+        {{ print_branding() }}
       </div>
 
       <table class="matrix-table">
@@ -270,7 +378,7 @@ PRINT_HTML = r"""
     <section class="pack-page matrix-page page-break-before">
       <div class="page-title compact-title">
         <div><h1>Job Hazard Analysis - Form</h1><div class="subtitle">Health and Safety</div></div>
-        <div class="brand">MINE SITE SUPPORT</div>
+        {{ print_branding() }}
       </div>
       <table class="matrix-table">
         <thead>
@@ -295,7 +403,7 @@ PRINT_HTML = r"""
   <section class="pack-page page-break-before">
     <div class="page-title compact-title">
       <div><h1>Job Hazard Analysis - Form</h1><div class="subtitle">Health and Safety</div></div>
-      <div class="brand">MINE SITE SUPPORT</div>
+      {{ print_branding() }}
     </div>
     <div class="section-bar centered">CHANGE MANAGEMENT AND APPROVAL</div>
     <table class="change-table">
@@ -313,7 +421,7 @@ PRINT_HTML = r"""
   <section class="pack-page page-break-before sign-page">
     <div class="page-title compact-title">
       <div><h1>Job Hazard Analysis - Form</h1><div class="subtitle">Health and Safety</div></div>
-      <div class="brand">MINE SITE SUPPORT</div>
+      {{ print_branding() }}
     </div>
     <div class="section-bar">I have read and understood this JHA and agree with the details and risk control measures</div>
     <table class="ack-table">
@@ -339,7 +447,7 @@ PRINT_HTML = r"""
   <section class="pack-page page-break-before ccv-page {% if loop.last and not resource_pages %}last-page{% endif %}">
     <div class="page-title compact-title">
       <div><h1>Job Hazard Analysis - Form</h1><div class="subtitle">Health and Safety</div></div>
-      <div class="brand">MINE SITE SUPPORT</div>
+      {{ print_branding() }}
     </div>
     <h2>CCV - Field Leadership Log</h2>
     <p class="ccv-intent"><strong>JHA Task:</strong> {{ doc.work_summary_title or doc.work_summary or '' }}</p>
@@ -356,7 +464,7 @@ PRINT_HTML = r"""
   {% endfor %}
   {% for resource_page in range(resource_pages) %}
   <section class="pack-page page-break-before supporting-page {% if loop.last %}last-page{% endif %}">
-    <div class="page-title compact-title"><div><h1>JHA - Supporting Records</h1><div class="subtitle">Permits, isolations, documents and step photos</div></div><div class="brand">MINE SITE SUPPORT</div></div>
+    <div class="page-title compact-title"><div><h1>JHA - Supporting Records</h1><div class="subtitle">Permits, isolations, documents and step photos</div></div>{{ print_branding() }}</div>
     <p class="field-note">Records and confirmations at print time for this revision. Descriptions and marker notes below are excerpts. Scan the cover QR for complete records, full-size photos and current status. A confirmed reference does not authorise work.</p>
     <table class="support-table"><thead><tr><th>Step / Reference</th><th>Record / Confirmation</th><th>Photo / Evidence</th></tr></thead><tbody>
     {% for item in supporting_records[resource_page * 4:(resource_page + 1) * 4] %}
@@ -394,7 +502,9 @@ PRINT_CSS = r"""
 .page-title h1 { margin: 0; font-size: 16pt; line-height: 1; font-weight: 700; }
 .page-title .subtitle { margin-top: 1px; font-size: 9pt; font-weight: 700; }
 .compact-title h1 { font-size: 14pt; }
-.brand { font-size: 14pt; font-weight: 800; letter-spacing: .06em; white-space: nowrap; }
+.print-branding { flex: 0 1 60mm; max-width: 60mm; text-align: right; margin-left: 3mm; }
+.brand { font-size: 14pt; font-weight: 800; letter-spacing: .06em; overflow-wrap: break-word; }
+.brand-logo { display: block; max-width: 55mm; max-height: 13mm; margin: 0 0 1mm auto; }
 
 .form-grid, .matrix-table, .change-table, .ack-table, .ccv-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .form-grid th, .form-grid td, .matrix-table th, .matrix-table td, .change-table th, .change-table td, .ack-table th, .ack-table td, .ccv-table th, .ccv-table td { box-sizing: border-box; border: 1px solid #222; padding: 3px 5px; vertical-align: top; }
