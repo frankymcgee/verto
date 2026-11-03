@@ -246,6 +246,7 @@ default_log_clearing_doctypes = {
 }
 
 override_whitelisted_methods = {
+    "frappe.website.doctype.web_form.web_form.accept": "verto.api.web_form_attachments.accept",
     "frappe.desk.form.load.getdoc": "verto.api.inx_incident_sanitisation.get_learning_document",
     "frappe.desk.form.load.get_docinfo": "verto.api.inx_incident_sanitisation.get_learning_docinfo",
     "frappe.apps.get_apps": "verto.default_apps.get_apps",

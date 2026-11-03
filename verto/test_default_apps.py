@@ -33,7 +33,7 @@ class CoreUserValidation:
             "ensure_unique_role_profiles", "sync_role_profile_name",
             "remove_all_roles_for_guest", "validate_username", "remove_disabled_roles",
             "validate_user_email_inbox", "validate_allowed_modules", "validate_user_image",
-            "set_time_zone",
+            "set_time_zone", "set_frappe_social_login_userid",
         ):
             setattr(self, method, Mock())
 
