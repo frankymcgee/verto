@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 
-const source = readFileSync(new URL('../verto/public/js/field_interaction_attachments.js', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../verto/public/js/web_form_attachments.js', import.meta.url), 'utf8');
+const clientScript = readFileSync(new URL('../docs/snippets/web-form-attachments-client.js', import.meta.url), 'utf8');
 const flush = () => new Promise(resolve => setImmediate(resolve));
 
 class Element {
@@ -15,8 +16,8 @@ class Element {
     click() { return this.events.click?.(); }
 }
 
-function screen({ doctype = 'Field Interaction', isNew = true, doc = {}, options = {} } = {}) {
-    const state = { requests: [], saves: [], messages: [], events: {}, ready: [], timers: [], reads: [], dirty: 0 };
+function screen({ doctype = 'Field Interaction', isNew = true, doc = {}, options = {}, activate = true } = {}) {
+    const state = { requests: [], assetRequests: [], saves: [], messages: [], events: {}, reads: [], dirty: 0 };
     const parent = new Element('div');
     const form = {
         doc_type: doctype, is_new: isNew, doc, name: 'public-field-interaction',
@@ -31,7 +32,11 @@ function screen({ doctype = 'Field Interaction', isNew = true, doc = {}, options
     };
     const frappe = {
         web_form: form,
-        ready(callback) { state.ready.push(callback); },
+        require(asset) {
+            state.assetRequests.push(asset);
+            vm.runInContext(source, context);
+            return Promise.resolve();
+        },
         call(request) {
             state.requests.push(request);
             return Promise.resolve({ message: {
@@ -52,40 +57,51 @@ function screen({ doctype = 'Field Interaction', isNew = true, doc = {}, options
             else complete();
         }
     }
-    const context = vm.createContext({ frappe, document: {
+    const sandbox = { frappe, document: {
         createElement: tag => new Element(tag), querySelector: () => parent,
-    }, FileReader: Reader, window: {}, setTimeout: fn => state.timers.push(fn) });
-    vm.runInContext(source, context);
-    state.ready.forEach(fn => fn());
-    state.timers.splice(0).forEach(fn => fn());
+    }, FileReader: Reader };
+    sandbox.window = sandbox;
+    const context = vm.createContext(sandbox);
     state.form = form;
     state.parent = parent;
-    state.picker = form._vertoAttachments;
-    state.reloadScript = () => {
-        const readyCount = state.ready.length;
-        vm.runInContext(source, context);
-        state.ready.slice(readyCount).forEach(fn => fn());
-        state.timers.splice(0).forEach(fn => fn());
-    };
+    Object.defineProperty(state, 'picker', { get: () => form._vertoAttachments });
+    state.reloadScript = () => vm.runInContext(clientScript, context);
+    state.loadHelperOnly = () => vm.runInContext(source, context);
+    if (activate) state.reloadScript();
     return state;
 }
 
 const file = (name, size = 4, extra = {}) => ({ name, size, type: 'text/plain', ...extra });
 
-test('only new Field Interaction responses get the picker, including existing custom form scripts', async () => {
-    for (const config of [{ doctype: 'User' }, { isNew: false }, { doc: { name: 'FI-EXISTING' } }]) {
+test('the copied Client Script opts in each new Web Form without replacing custom handlers', async () => {
+    const inactive = screen({ activate: false });
+    inactive.loadHelperOnly();
+    await flush();
+    assert.equal(inactive.picker, undefined, 'loading the asset alone never adds an uploader');
+    assert.equal(inactive.requests.length, 0);
+    for (const config of [{ isNew: false }, { doc: { name: 'FI-EXISTING' } }]) {
         const state = screen(config);
+        await flush();
         assert.equal(state.picker, undefined);
         assert.equal(state.requests.length, 0);
     }
-    const state = screen();
+    const state = screen({ activate: false });
+    const existingHandler = () => {};
+    state.form.after_load = existingHandler;
+    state.reloadScript();
     await flush();
+    assert.equal(state.form.after_load, existingHandler);
     assert.equal(state.requests.length, 1);
+    assert.deepEqual(state.assetRequests, ['/assets/verto/js/web_form_attachments.js']);
     assert.equal(state.requests[0].args.web_form_request_key, 'request-key');
     assert.equal(state.picker.input.multiple, true);
     state.reloadScript();
+    await flush();
     assert.equal(state.parent.children.length, 1);
     assert.equal(state.requests.length, 1);
+    const otherForm = screen({ doctype: 'Workplace Inspection' });
+    await flush();
+    assert.ok(otherForm.picker, 'the same client script works for other DocTypes');
 });
 
 test('selecting files keeps them local and normal save sends every file in one request', async () => {

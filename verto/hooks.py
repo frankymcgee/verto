@@ -56,7 +56,6 @@ app_include_js = [
 
 web_include_js = [
     "/assets/verto/js/raven_peri_auto_command.js",
-    "/assets/verto/js/field_interaction_attachments.js",
 ]
 web_include_css = []
 

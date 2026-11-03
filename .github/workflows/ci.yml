@@ -164,7 +164,7 @@ jobs:
         run: |
           bench build --app verto
 
-      - name: Verify public Field Interaction attachments
+      - name: Verify reusable public Web Form attachments
         working-directory: /home/runner/frappe-bench
         env:
           CI: 'Yes'

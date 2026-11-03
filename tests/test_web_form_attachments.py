@@ -96,6 +96,21 @@ class TestPublicWebFormAttachments(unittest.TestCase):
         self.api._accept_web_form.assert_not_called()
         self.file.insert.assert_not_called()
 
+    def test_the_same_api_uses_the_selected_web_forms_doctype(self):
+        self.form.doc_type = "Workplace Inspection"
+        self.doc.doctype = "Workplace Inspection"
+        self.settings["allowed_doctypes_for_guest_uploads"] += "\nWorkplace Inspection"
+        self.submit()
+        self.frappe.get_meta.assert_called_with("Workplace Inspection")
+        payload = self.frappe.get_doc.call_args.args[0]
+        self.assertEqual(payload["attached_to_doctype"], "Workplace Inspection")
+
+    def test_a_concurrent_doctype_change_cannot_retarget_the_files(self):
+        self.doc.doctype = "User"
+        with self.assertRaises(PermissionError):
+            self.submit()
+        self.file.insert.assert_not_called()
+
     def test_guest_setting_and_doctype_allowlist_are_enforced_for_direct_api_calls(self):
         for settings in ({"allow_guests_to_upload_files": 0},
                          {"allowed_doctypes_for_guest_uploads": "Job Applicant"}):

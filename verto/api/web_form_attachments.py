@@ -1,4 +1,4 @@
-"""Save public Field Interaction evidence in the Web Form's transaction."""
+"""Save opt-in browser Web Form attachments in the submission transaction."""
 
 import base64
 import binascii
@@ -12,7 +12,6 @@ from frappe.rate_limiter import rate_limit
 from frappe.utils import cint
 
 
-DOCTYPE = "Field Interaction"
 PAYLOAD_KEY = "_verto_attachments"
 MAX_FILES = 10
 MAX_FILE_BYTES = 10 * 1024 * 1024
@@ -23,8 +22,6 @@ EXTENSIONS = frozenset(("jpg", "jpeg", "png", "gif", "pdf", "txt", "csv", "doc",
 def _get_form(web_form, web_form_request_key=None):
     form = frappe.get_doc("Web Form", web_form)
     form.raise_if_unpublished()
-    if form.doc_type != DOCTYPE:
-        frappe.throw(_("Multiple attachments are only supported for Field Interaction."), frappe.PermissionError)
     if form.login_required and frappe.session.user == "Guest":
         frappe.throw(_("You must login to use this form"), frappe.PermissionError)
     form.get_web_form_request(web_form_request_key, allow_used=True)
@@ -33,8 +30,8 @@ def _get_form(web_form, web_form_request_key=None):
             frappe.throw(_("Guest file uploads are disabled."), frappe.PermissionError)
         allowed = frappe.get_system_settings("allowed_doctypes_for_guest_uploads") or ""
         allowed = {line.strip() for line in allowed.splitlines() if line.strip()}
-        if allowed and DOCTYPE not in allowed:
-            frappe.throw(_("Guest uploads are not allowed for Field Interaction."), frappe.PermissionError)
+        if allowed and form.doc_type not in allowed:
+            frappe.throw(_("Guest uploads are not allowed for this Web Form's DocType."), frappe.PermissionError)
     return form
 
 
@@ -43,7 +40,7 @@ def _options(form):
     if cint(form.max_attachment_size) > 0:
         max_size = min(max_size, cint(form.max_attachment_size) * 1024 * 1024)
     max_files = MAX_FILES
-    doctype_limit = cint(frappe.get_meta(DOCTYPE).max_attachments)
+    doctype_limit = cint(frappe.get_meta(form.doc_type).max_attachments)
     if doctype_limit > 0:
         max_files = min(max_files, doctype_limit)
     extensions = EXTENSIONS
@@ -128,7 +125,7 @@ def accept(web_form: str, data: str | dict, web_form_request_key: str | None = N
         frappe.throw(_("Attachments can only be added with a new submission."), frappe.PermissionError)
     files = _decode_attachments(attachments, _options(form))
     doc = _accept_web_form(web_form, json.dumps(values), web_form_request_key)
-    if doc.doctype != DOCTYPE:
+    if doc.doctype != form.doc_type:
         frappe.throw(_("The Web Form's DocType has changed. Please reload the form."), frappe.PermissionError)
 
     for filename, content in files:
@@ -137,7 +134,7 @@ def accept(web_form: str, data: str | dict, web_form_request_key: str | None = N
             "file_name": filename,
             "content": content,
             "is_private": 1,
-            "attached_to_doctype": DOCTYPE,
+            "attached_to_doctype": doc.doctype,
             "attached_to_name": doc.name,
         })
         file.insert(ignore_permissions=True)

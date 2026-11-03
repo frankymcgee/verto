@@ -1,4 +1,4 @@
-/* Multiple private attachments for new Field Interaction Web Form responses. */
+/* Opt-in private attachments for browser Web Forms. Load from a Client Script. */
 (() => {
     const PAYLOAD_KEY = '_verto_attachments';
     const translate = message => typeof __ === 'function' ? __(message) : message;
@@ -172,12 +172,13 @@
     function setup() {
         const form = frappe.web_form;
         const parent = document.querySelector('.web-form-body');
-        if (!parent || !form || form.doc_type !== 'Field Interaction' || !form.is_new ||
+        if (!parent || !form || !form.is_new ||
             form.is_list || form.doc?.name || form._vertoAttachments) return;
         form._vertoAttachments = new AttachmentPicker(form, parent);
     }
 
-    // Website scripts can load before the Web Form ready callback. Run after
-    // all synchronous ready callbacks without replacing the site's client script.
-    frappe.ready(() => setTimeout(setup, 0));
+    // Loading this helper has no effect until a Web Form's Client Script calls
+    // setup(). Keep the same snippet reusable across different DocTypes.
+    window.verto = window.verto || {};
+    window.verto.web_form_attachments = { setup };
 })();
