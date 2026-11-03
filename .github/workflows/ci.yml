@@ -33,6 +33,9 @@ jobs:
       - name: Verify Desk geolocation loading
         run: node --test tests/geolocation-loading.test.mjs
 
+      - name: Verify public Web Form attachment picker
+        run: node --test tests/web-form-attachments.test.mjs
+
   validation:
     runs-on: ubuntu-latest
     name: Frappe v16 fresh install validation
@@ -160,6 +163,14 @@ jobs:
         working-directory: /home/runner/frappe-bench
         run: |
           bench build --app verto
+
+      - name: Verify public Field Interaction attachments
+        working-directory: /home/runner/frappe-bench
+        env:
+          CI: 'Yes'
+        run: |
+          ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_web_form_attachments.py'
+          bench --site test_site run-tests --app verto --module verto.api.test_web_form_attachments --skip-before-tests
 
       - name: Verify Voice JHA engines and incident learning
         working-directory: /home/runner/frappe-bench
