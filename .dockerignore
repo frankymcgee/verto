@@ -1,0 +1,5 @@
+.git
+**/node_modules
+**/__pycache__
+**/.env
+services/local_voice/voices

@@ -1,0 +1,4 @@
+.env
+voices/*
+!voices/.gitkeep
+__pycache__/

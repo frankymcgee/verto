@@ -52,6 +52,20 @@ class TestVoiceEngineSettings(TestCase):
         self.assertNotIn('engines', config)
         self.assertNotIn('api_key', config)
 
+    def test_optional_local_engine_preserves_both_cloud_choices_and_hides_service_details(self):
+        config = self.config(peri_voice_engine='Local Speech + OpenAI Reasoning',
+                             peri_voice_local_service_url='http://127.0.0.1:8090',
+                             peri_voice_local_backend_model='configured-text-model')
+        self.assertEqual(config['engine'], 'local')
+        self.assertEqual(set(settings.VOICE_ENGINES), {'local', 'live', 'realtime'})
+        self.assertEqual(settings.DEFAULTS['engine'], 'realtime')
+        with patch('verto.api.mobile.voice_jha_local.local_ice_servers', return_value=[]):
+            public = base._public_voice_configuration(config)
+        self.assertEqual(public['model'], 'configured-text-model')
+        self.assertNotIn('local_service_url', public)
+        self.assertNotIn('peri_voice_local_service_token', public)
+        self.assertNotIn('engines', public)
+
 
 class TestLiveSession(TestCase):
     def test_shared_tool_parity_and_saved_stage_with_separate_prompts(self):
@@ -138,6 +152,18 @@ class TestVoiceCallRouting(TestCase):
         self.assertEqual(result['jha']['name'], 'JHA-1')
         self.doc.save.assert_called_once()
         create.assert_called_once()
+        self.client.realtime.calls.create.assert_not_called()
+
+    def test_local_uses_shared_instructions_and_tools_without_calling_cloud_audio(self):
+        self.config.return_value = {**settings.DEFAULTS, 'engine': 'local', 'local_service_url': 'http://127.0.0.1:8090'}
+        with patch.object(facilitator, '_build_facilitation_instructions', return_value='Shared instructions'), \
+             patch.object(facilitator, '_session_tools', return_value=[{'name': 'get_current_jha_state'}]), \
+             patch('verto.api.mobile.voice_jha_local.local_ice_servers', return_value=[]), \
+             patch('verto.api.mobile.voice_jha_local.create_local_call', return_value={'sdp': 'v=0\nlocal', 'model': 'gpt-6-luna', 'session_reference': 'local_1'}) as create:
+            result = facilitator._create_voice_call(sdp='v=0', task=self.task, jha=self.doc, bot=None)
+        self.assertEqual(result['engine'], 'local')
+        self.assertEqual(create.call_args.kwargs['instructions'], 'Shared instructions')
+        self.assertEqual(create.call_args.kwargs['tools'], [{'name': 'get_current_jha_state'}])
         self.client.realtime.calls.create.assert_not_called()
 
     def test_client_live_override_cannot_change_configured_realtime(self):

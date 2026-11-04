@@ -1,0 +1,44 @@
+# Linux/Pilot CPU pilot. The APIs bind only to loopback; WebRTC uses the host's
+# network interfaces. Configure STUN/TURN for callers on other networks.
+services:
+  tts:
+    build:
+      context: ../..
+      dockerfile: services/local_voice/Dockerfile.tts
+    network_mode: host
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      VERTO_VOICE_REFERENCE: /voices/peri.wav
+    volumes:
+      - tts-models:/models
+      - ./voices:/voices:ro
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8091/health', timeout=3)"]
+      start_period: 600s
+      interval: 15s
+      timeout: 5s
+      retries: 5
+  gateway:
+    build:
+      context: ../..
+      dockerfile: services/local_voice/Dockerfile
+    network_mode: host
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      tts:
+        condition: service_healthy
+    environment:
+      VERTO_TTS_URL: http://127.0.0.1:8091
+    volumes:
+      - stt-models:/models
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=3)"]
+      start_period: 600s
+      interval: 15s
+      timeout: 5s
+      retries: 5
+volumes:
+  tts-models:
+  stt-models:

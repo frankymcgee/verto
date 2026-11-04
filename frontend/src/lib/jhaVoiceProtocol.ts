@@ -1,4 +1,4 @@
-export type VoiceEngine = 'realtime' | 'live'
+export type VoiceEngine = 'realtime' | 'live' | 'local'
 export type VoiceToolCall = { call_id: string; name: string; arguments: string }
 type VoiceEvent = Record<string, any>
 

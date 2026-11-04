@@ -6,7 +6,11 @@ from frappe.utils import cint, flt
 
 
 SETTINGS_DOCTYPE = "Verto Mobile Settings"
-VOICE_ENGINES = {"realtime": "GPT Realtime", "live": "GPT Live"}
+VOICE_ENGINES = {
+    "realtime": "GPT Realtime",
+    "live": "GPT Live",
+    "local": "Local Speech + OpenAI Reasoning",
+}
 
 REALTIME_MODELS = (
     "gpt-realtime-2.1",
@@ -63,6 +67,9 @@ DEFAULTS = {
     "live_reasoning_effort": "low",
     "live_voice": "quartz",
     "live_custom_voice_id": "",
+    "local_service_url": "",
+    "local_backend_model": "gpt-6-luna",
+    "local_reasoning_effort": "low",
     "realtime_model": "gpt-realtime-2.1",
     "custom_realtime_model": "",
     "reasoning_effort": "low",
@@ -92,6 +99,8 @@ FIELD_DEFAULTS = {
     "peri_voice_live_backend_model": DEFAULTS["live_backend_model"],
     "peri_voice_live_reasoning_effort": DEFAULTS["live_reasoning_effort"],
     "peri_voice_live_voice": DEFAULTS["live_voice"],
+    "peri_voice_local_backend_model": DEFAULTS["local_backend_model"],
+    "peri_voice_local_reasoning_effort": DEFAULTS["local_reasoning_effort"],
     "peri_voice_realtime_model": DEFAULTS["realtime_model"],
     "peri_voice_reasoning_effort": DEFAULTS["reasoning_effort"],
     "peri_voice_voice": DEFAULTS["voice"],
@@ -122,7 +131,7 @@ PERI_VOICE_FIELDS = [
         "label": "PERI Voice JHA",
         "fieldtype": "Tab Break",
         "insert_after": "project_tools",
-        "description": "Configure GPT Realtime and GPT Live for Develop JHA with PERI. Both use the same JHA tools and review workflow. OpenAI credentials remain managed by Raven Settings.",
+        "description": "Choose GPT Realtime, GPT Live, or a self-hosted speech service with OpenAI text reasoning. All use the same JHA tools and review workflow. OpenAI credentials remain managed by Raven Settings.",
     },
     {
         "fieldname": "peri_voice_enabled",
@@ -260,7 +269,7 @@ PERI_VOICE_FIELDS = [
         "fieldname": "peri_voice_conversation_section",
         "label": "Conversation Behaviour",
         "fieldtype": "Section Break",
-        "insert_after": "peri_voice_live_custom_voice_id",
+        "insert_after": "peri_voice_local_reasoning_effort",
         "depends_on": "eval:doc.peri_voice_enabled",
     },
     {
@@ -403,6 +412,33 @@ PERI_VOICE_FIELDS = [
     },
 ]
 
+# The optional service has its own Python environment; do not install speech or
+# WebRTC dependencies into the Frappe bench's Python 3.14 environment.
+_local_after = next(i for i, field in enumerate(PERI_VOICE_FIELDS)
+                    if field["fieldname"] == "peri_voice_conversation_section")
+PERI_VOICE_FIELDS[_local_after:_local_after] = [
+    {"fieldname": "peri_voice_local_section", "label": "Local Speech Service",
+     "fieldtype": "Section Break", "insert_after": "peri_voice_live_custom_voice_id",
+     "depends_on": "eval:doc.peri_voice_enabled",
+     "description": "Optional Pilot service for live transcription and speech. OpenAI still performs text reasoning. See docs/voice-jha-local-speech.md before enabling."},
+    {"fieldname": "peri_voice_local_service_url", "label": "Local Speech Service URL",
+     "fieldtype": "Data", "insert_after": "peri_voice_local_section",
+     "description": "Private server-to-server URL, e.g. http://127.0.0.1:8090. Never exposed to crews. Use HTTPS when the service is on another host."},
+    {"fieldname": "peri_voice_local_service_token", "label": "Local Speech Service Token",
+     "fieldtype": "Password", "insert_after": "peri_voice_local_service_url",
+     "description": "Must match VERTO_VOICE_SERVICE_TOKEN on this tenant's speech service. Not returned to the browser."},
+    {"fieldname": "peri_voice_local_ice_servers", "label": "Local Speech ICE Servers",
+     "fieldtype": "Code", "options": "JSON", "insert_after": "peri_voice_local_service_token",
+     "description": "Optional JSON array of WebRTC STUN/TURN server objects. These connection credentials are sent to the browser. Do not put OpenAI or service API keys here."},
+    {"fieldname": "peri_voice_local_backend_model", "label": "Local Speech Reasoning Model",
+     "fieldtype": "Data", "insert_after": "peri_voice_local_ice_servers",
+     "default": DEFAULTS["local_backend_model"],
+     "description": "OpenAI Responses model for JHA reasoning and tools; speech stays on Pilot."},
+    {"fieldname": "peri_voice_local_reasoning_effort", "label": "Local Speech Reasoning Effort",
+     "fieldtype": "Select", "insert_after": "peri_voice_local_backend_model",
+     "options": _select_options(LIVE_REASONING_EFFORTS), "default": DEFAULTS["local_reasoning_effort"]},
+]
+
 
 def after_install():
     ensure_peri_voice_settings()
@@ -537,6 +573,9 @@ def get_peri_voice_settings() -> dict:
         "live_reasoning_effort": _validated_choice(settings, "peri_voice_live_reasoning_effort", DEFAULTS["live_reasoning_effort"], LIVE_REASONING_EFFORTS),
         "live_voice": _validated_choice(settings, "peri_voice_live_voice", DEFAULTS["live_voice"], LIVE_VOICES),
         "live_custom_voice_id": str(_get_value(settings, "peri_voice_live_custom_voice_id", "") or "").strip(),
+        "local_service_url": str(_get_value(settings, "peri_voice_local_service_url", "") or "").strip(),
+        "local_backend_model": str(_get_value(settings, "peri_voice_local_backend_model", DEFAULTS["local_backend_model"]) or "").strip() or DEFAULTS["local_backend_model"],
+        "local_reasoning_effort": _validated_choice(settings, "peri_voice_local_reasoning_effort", DEFAULTS["local_reasoning_effort"], LIVE_REASONING_EFFORTS),
         "realtime_model": realtime_model or DEFAULTS["realtime_model"],
         "reasoning_effort": reasoning_effort,
         "voice": voice,
@@ -586,4 +625,7 @@ def voice_engine_options(config: dict) -> list[dict]:
         {"id": "live", "label": VOICE_ENGINES["live"],
          "model": config.get("live_model") or DEFAULTS["live_model"],
          "voice": config.get("live_custom_voice_id") or config.get("live_voice") or DEFAULTS["live_voice"]},
+        {"id": "local", "label": VOICE_ENGINES["local"],
+         "model": config.get("local_backend_model") or DEFAULTS["local_backend_model"],
+         "voice": "Local speech service"},
     ]
