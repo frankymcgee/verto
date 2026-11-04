@@ -687,8 +687,8 @@
                     <p class="eyebrow">FOLLOW THE CAUSAL PATH</p>
                     <h2>5 Whys</h2>
                     <p>
-                      Branch when several causes contributed. Continue until the stopping point
-                      is supported by evidence.
+                      Start causal branches side by side, then follow each why downward.
+                      Continue until the stopping point is supported by evidence.
                     </p>
                   </div>
                   <Button v-if="editable" @click="addWhy('')" :disabled="busy"

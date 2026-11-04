@@ -4,6 +4,7 @@ import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import App from '../src/App.vue'
 import { call, downloadReport } from '../src/api'
 import { categories, draft } from '../src/model'
+import whyBranches from './fixtures/why-branches.json'
 
 const factorGroups = [
   {
@@ -198,6 +199,21 @@ describe('investigations workspace', () => {
     await button('Add causal branch').trigger('click')
     expect(wrapper.text()).toContain('Why 1')
     expect(wrapper.text()).toContain('Supporting evidence')
+  })
+  it('auto arranges existing why positions by branch and saves without changing findings', async () => {
+    const five_whys = whyBranches.map((row, index) => ({ ...row, graph_x: 1000 - index * 10, graph_y: 50 + index * 10 }))
+    await open('INV-00001', record({ five_whys }))
+    await section('5 Whys').trigger('click')
+    const bubble = (id) => wrapper.get(`[data-node-id="${id}"]`).element.style
+    expect(bubble(five_whys[0].entry_id).left).toBe('1000px')
+    await button('Auto arrange').trigger('click')
+    expect(bubble(five_whys[0].entry_id).left).toBe(bubble(five_whys[4].entry_id).left)
+    expect(parseFloat(bubble(five_whys[4].entry_id).top)).toBeGreaterThan(parseFloat(bubble(five_whys[0].entry_id).top))
+    expect(bubble(five_whys[0].entry_id).top).toBe(bubble(five_whys[1].entry_id).top)
+    await button('Save investigation').trigger('click')
+    await flushPromises()
+    const saved = call.mock.calls.find(([method]) => method === 'save_investigation')[1].data.five_whys
+    expect(saved).toEqual(five_whys.map((row) => ({ ...row, graph_x: 0, graph_y: 0 })))
   })
   it('retains the local draft and explains a stale save failure', async () => {
     await open('INV-00001')

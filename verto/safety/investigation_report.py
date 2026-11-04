@@ -186,12 +186,35 @@ def _details(doc, styles, overview=False):
     return story
 
 
-def _diagram_pdf(doc, mode, styles):
-    graph = diagram(doc, mode)
+def _diagram_sheets(graph, mode):
+    page_width, page_height = landscape(A4)
+    sheets = []
+    if mode == "whys":
+        # Tile the same tree columns and depths as the editor, without shrinking
+        # a large investigation to illegible text. Half columns centre forks.
+        groups = {}
+        for node in graph["nodes"]:
+            groups.setdefault(int(node["column"] // 3), []).append(node)
+        col_width = (page_width - 72) / 3.5
+        w, h = col_width - 22, 128
+        for group in sorted(groups):
+            branch_nodes = groups[group]
+            first = min(node["column"] for node in branch_nodes)
+            last = max(node["column"] for node in branch_nodes)
+            left = (page_width - ((last - first) * col_width + w)) / 2
+            first_depth = min(node["depth"] for node in branch_nodes)
+            for offset in range(first_depth, max(node["depth"] for node in branch_nodes) + 1, 3):
+                nodes = [node for node in branch_nodes if offset <= node["depth"] < offset + 3]
+                if nodes:
+                    sheets.append({"nodes": nodes, "w": w, "h": h, "col_width": col_width,
+                        "headers": [(36, "Causal branches run across; follow each why downward to its root cause.")],
+                        "points": {node["id"]: (left + (node["column"] - first) * col_width,
+                            page_height - 238 - (node["depth"] - offset) * 151) for node in nodes}})
+        return sheets
+
     grouped = {index: [node for node in graph["nodes"] if node["lane"] == index] for index in range(len(graph["lanes"]))}
     # Fixed-size landscape sheets preserve readable text for deep/large graphs.
     # A link spanning sheets is printed with its destination's map number.
-    sheets, locations = [], {}
     columns = 5 if mode == "icam" else 4
     for start in range(0, len(graph["lanes"]), columns):
         lane_ids = list(range(start, min(start + columns, len(graph["lanes"]))))
@@ -200,9 +223,22 @@ def _diagram_pdf(doc, mode, styles):
             nodes = [node for lane in lane_ids for node in grouped[lane][offset:offset + 3]]
             if not nodes:
                 continue
-            sheets.append((lane_ids, offset, nodes))
-            for node in nodes:
-                locations[node["id"]] = len(sheets)
+            col_width = (page_width - 72) / len(lane_ids)
+            points, headers = {}, []
+            for index, lane in enumerate(lane_ids):
+                x = 36 + index * col_width
+                headers.append((x, graph["lanes"][lane]))
+                for row_index, node in enumerate(grouped[lane][offset:offset + 3]):
+                    points[node["id"]] = (x, page_height - 252 - row_index * 143)
+            sheets.append({"nodes": nodes, "points": points, "headers": headers,
+                "w": col_width - 22, "h": 128, "col_width": col_width})
+    return sheets
+
+
+def _diagram_pdf(doc, mode, styles):
+    graph = diagram(doc, mode)
+    sheets = _diagram_sheets(graph, mode)
+    locations = {node["id"]: number for number, sheet in enumerate(sheets, 1) for node in sheet["nodes"]}
     output = BytesIO()
     c = canvas.Canvas(output, pagesize=landscape(A4))
     page_width, page_height = landscape(A4)
@@ -225,52 +261,58 @@ def _diagram_pdf(doc, mode, styles):
         p.drawOn(c, x, y - h)
         return h
 
-    for number, (lane_ids, offset, nodes) in enumerate(sheets, 1):
+    for number, sheet in enumerate(sheets, 1):
         c.setFillColor(colors.HexColor("#18354a"))
         c.setFont(font, 17)
         c.drawString(36, page_height - 36, f"{title} - map {number} / {len(sheets)}")
         draw_text(f"{doc.get('name')} | {doc.get('title')}", 36, page_height - 47, page_width - 72, 8, 1)
         draw_text("Map summaries; complete narratives follow. Dashed lines: " + ("time sequence." if mode == "timeline" else "unconfirmed findings. Arrows follow the recorded analysis."), 36, page_height - 63, page_width - 72, 8, 1)
-        col_width = (page_width - 72) / len(lane_ids)
-        w, h = col_width - 22, 128
-        points = {}
-        for lane in lane_ids:
-            x = 36 + lane_ids.index(lane) * col_width
-            draw_text(graph["lanes"][lane], x, page_height - 86, w, 8, 3)
-            for index, node in enumerate(grouped[lane][offset:offset + 3]):
-                points[node["id"]] = (x, page_height - 252 - index * 143)
+        nodes, points = sheet["nodes"], sheet["points"]
+        w, h, col_width = sheet["w"], sheet["h"], sheet["col_width"]
+        for x, label in sheet["headers"]:
+            draw_text(label, x, page_height - 86, page_width - 72 if mode == "whys" else w, 8, 3)
         # Connectors are behind the bubbles, just as in the interactive canvas.
         for edge_index, edge in enumerate(graph["edges"]):
             if edge["from"] not in points or edge["to"] not in points:
                 continue
             ax, ay = points[edge["from"]]
             bx, by = points[edge["to"]]
-            skip_lane = abs(bx - ax) > col_width * 1.5
-            track = min(ay, by) - 5 - (edge_index % 3) * 3
-            ay += h / 2; by += h / 2
-            if bx > ax:
-                ax += w
-            elif bx < ax:
-                bx += w
-            else:
-                ax += w; bx += w
             c.setStrokeColor(colors.HexColor("#64748b")); c.setLineWidth(1)
             c.setDash(4, 3) if edge["dashed"] else c.setDash()
-            path = c.beginPath(); path.moveTo(ax, ay)
-            mid = (ax + bx) / 2 if ax != bx else ax + 12
-            if skip_lane:
-                direction = 1 if bx > ax else -1
-                exit_x, entry_x = ax + direction * 7, bx - direction * 7
-                path.lineTo(exit_x, ay); path.lineTo(exit_x, track)
-                path.lineTo(entry_x, track); path.lineTo(entry_x, by); path.lineTo(bx, by)
+            path = c.beginPath()
+            if mode == "whys":
+                ax += w / 2; bx += w / 2; by += h
+                mid = (ay + by) / 2
+                path.moveTo(ax, ay); path.curveTo(ax, mid, bx, mid, bx, by)
             else:
-                path.curveTo(mid, ay, mid, by, bx, by)
+                skip_lane = abs(bx - ax) > col_width * 1.5
+                track = min(ay, by) - 5 - (edge_index % 3) * 3
+                ay += h / 2; by += h / 2
+                if bx > ax:
+                    ax += w
+                elif bx < ax:
+                    bx += w
+                else:
+                    ax += w; bx += w
+                path.moveTo(ax, ay)
+                mid = (ax + bx) / 2 if ax != bx else ax + 12
+                if skip_lane:
+                    direction = 1 if bx > ax else -1
+                    exit_x, entry_x = ax + direction * 7, bx - direction * 7
+                    path.lineTo(exit_x, ay); path.lineTo(exit_x, track)
+                    path.lineTo(entry_x, track); path.lineTo(entry_x, by); path.lineTo(bx, by)
+                else:
+                    path.curveTo(mid, ay, mid, by, bx, by)
             c.drawPath(path)
             c.setDash()
             c.setFillColor(colors.HexColor("#64748b"))
             arrow = c.beginPath(); arrow.moveTo(bx, by)
-            direction = 1 if bx >= ax else -1
-            arrow.lineTo(bx - direction * 5, by + 3); arrow.lineTo(bx - direction * 5, by - 3); arrow.close()
+            if mode == "whys":
+                arrow.lineTo(bx - 3, by + 5); arrow.lineTo(bx + 3, by + 5)
+            else:
+                direction = 1 if bx >= ax else -1
+                arrow.lineTo(bx - direction * 5, by + 3); arrow.lineTo(bx - direction * 5, by - 3)
+            arrow.close()
             c.drawPath(arrow, fill=1, stroke=0)
         for node in nodes:
             x, y = points[node["id"]]
@@ -282,9 +324,12 @@ def _diagram_pdf(doc, mode, styles):
             draw_text(node["title"], x + 9, y + h - 10, w - 18, 8, 2)
             draw_text(node["description"], x + 9, y + h - 36, w - 18, 8, 4)
             draw_text(f"{node['id']} | {node['status'] or node['time']}", x + 9, y + 37, w - 18, 6.5, 1)
-            targets = [edge["to"] for edge in graph["edges"] if edge["from"] == node["id"]]
-            if targets:
-                draw_text("To: " + ", ".join(f"{target} (map {locations[target]})" for target in targets), x + 9, y + 25, w - 18, 6.5, 2)
+            targets = [edge["to"] for edge in graph["edges"] if edge["from"] == node["id"] and (mode != "whys" or edge["to"] not in points)]
+            sources = [edge["from"] for edge in graph["edges"] if mode == "whys" and edge["to"] == node["id"] and edge["from"] not in points]
+            links = [label + ", ".join(f"{entry} (map {locations[entry]})" for entry in entries)
+                for label, entries in (("From: ", sources), ("To: ", targets)) if entries]
+            if links:
+                draw_text("\n".join(links), x + 9, y + 25, w - 18, 6.5, 2)
         c.setFont(font, 7); c.setFillColor(colors.HexColor("#526478"))
         c.drawString(36, 20, "VERTO | CONFIDENTIAL | Cross-sheet connections are identified by reference and map number.")
         c.showPage()
