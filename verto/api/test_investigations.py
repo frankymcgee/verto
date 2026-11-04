@@ -22,8 +22,11 @@ class IntegrationTestInvestigations(IntegrationTestCase):
 
     def _user(self, role):
         name = f"investigation-{frappe.generate_hash(length=10)}@example.test"
-        frappe.get_doc({"doctype": "User", "email": name, "first_name": "Investigation Test", "enabled": 1,
-            "send_welcome_email": 0, "user_type": "System User", "roles": [{"role": role}]}).insert(ignore_permissions=True)
+        # Each test creates four users. Skip the site's creation-rate throttle
+        # only for these fixtures; all User validation still runs.
+        with patch("frappe.core.doctype.user.user.throttle_user_creation"):
+            frappe.get_doc({"doctype": "User", "email": name, "first_name": "Investigation Test", "enabled": 1,
+                "send_welcome_email": 0, "user_type": "System User", "roles": [{"role": role}]}).insert(ignore_permissions=True)
         return name
 
     def _draft(self, complete=False):
