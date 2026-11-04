@@ -21,7 +21,9 @@
     <p>{{ doc.regulator }} {{ doc.regulator_reference }}</p>
     <h2>Investigation team</h2>
     <p>Lead: {{ doc.lead_investigator }} · Reviewer: {{ doc.reviewer }}</p>
-    <p v-for="member in doc.team" :key="member.user">{{ member.user }} — {{ member.team_role }}</p>
+    <p v-for="member in doc.team" :key="member.user">
+      {{ member.user }} — {{ member.team_role }}
+    </p>
     <h2>Evidence register</h2>
     <section v-for="row in doc.evidence" :key="row.entry_id" class="report-item">
       <h3>{{ row.entry_id }} · {{ row.title }} · {{ row.verification_status }}</h3>
@@ -33,7 +35,7 @@
       </p>
     </section>
     <h2>Timeline</h2>
-    <p v-for="row in doc.timeline" :key="row.entry_id">
+    <p v-for="row in orderedTimeline(doc.timeline)" :key="row.entry_id">
       {{ row.event_datetime }} — {{ row.description }} · Evidence: {{ row.evidence_refs }}
     </p>
     <template v-if="doc.method !== 'ICAM'"
@@ -88,14 +90,17 @@
       <p>{{ row.details }}</p>
       <p>Findings: {{ row.finding_refs }} · Control: {{ row.control_type }}</p>
       <p>
-        Owner: {{ row.assigned_to_user }} · Due: {{ row.due_date }} · Verifier: {{ row.verifier }} ·
-        Verification due: {{ row.verification_due_date }}
+        Owner: {{ row.assigned_to_user }} · Due: {{ row.due_date }} · Verifier:
+        {{ row.verifier }} · Verification due: {{ row.verification_due_date }}
       </p>
       <p>Effectiveness criteria: {{ row.success_criteria }}</p>
-      <p>Completion: {{ row.completion_notes }} · {{ row.completed_by }} {{ row.completed_on }}</p>
+      <p>
+        Completion: {{ row.completion_notes }} · {{ row.completed_by }} {{ row.completed_on }}
+      </p>
       <p v-if="row.completion_file">Completion attachment: {{ row.completion_file }}</p>
       <p>
-        Effectiveness: {{ row.verification_notes }} · {{ row.verified_by }} {{ row.verified_on }}
+        Effectiveness: {{ row.verification_notes }} · {{ row.verified_by }}
+        {{ row.verified_on }}
       </p>
       <p v-if="row.cancellation_reason">Cancellation: {{ row.cancellation_reason }}</p>
     </section>
@@ -113,6 +118,7 @@
 <script setup>
 import { computed } from 'vue'
 import { categories } from '../model'
+import { orderedTimeline } from '../workflow'
 const props = defineProps({ doc: { type: Object, required: true } })
 const facts = computed(() => ({
   'Incident date/time': props.doc.incident_datetime,
@@ -121,7 +127,9 @@ const facts = computed(() => ({
   'Site / area': props.doc.site_location,
   'Actual consequence': props.doc.actual_severity,
   'Potential consequence': props.doc.potential_severity,
-  'Source incident': [props.doc.source_doctype, props.doc.source_name].filter(Boolean).join(' / '),
+  'Source incident': [props.doc.source_doctype, props.doc.source_name]
+    .filter(Boolean)
+    .join(' / '),
   'External reference': props.doc.external_reference,
   'Investigation due': props.doc.due_date,
 }))

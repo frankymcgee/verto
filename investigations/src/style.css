@@ -274,6 +274,11 @@ a:hover {
   padding: 26px;
   background: var(--surface-base);
 }
+.workspace-panel.timeline-panel {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
 .section-heading {
   margin-bottom: 24px;
 }

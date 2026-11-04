@@ -10,6 +10,47 @@ export const eventTypes = [
 export const nodeWidth = 248
 export const nodeHeight = 164
 
+// Frappe datetimes are site-local values. Compare their components without
+// converting them through the browser's timezone or depending on T/space style.
+export function eventTimeKey(value) {
+  const parts = String(value || '')
+    .trim()
+    .match(/^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,6}))?)?)?$/)
+  if (!parts) return ''
+  const [, date, hours = '00', minutes = '00', seconds = '00', fraction = ''] = parts
+  const base = `${date}T${hours}:${minutes}:${seconds}`
+  const parsed = new Date(`${base}Z`)
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 19) !== base)
+    return ''
+  return `${date} ${hours}:${minutes}:${seconds}.${fraction.padEnd(6, '0')}`
+}
+
+export function compareEvents(a, b) {
+  const first = eventTimeKey(a.event_datetime),
+    second = eventTimeKey(b.event_datetime)
+  if (!first || !second) return first ? -1 : second ? 1 : 0
+  return first.localeCompare(second)
+}
+
+export const orderedTimeline = (rows = []) => [...rows].sort(compareEvents)
+
+export function eventTimeLabel(value, dateOnly = false) {
+  const key = eventTimeKey(value)
+  if (!key) return 'Time not set'
+  const day = new Intl.DateTimeFormat('en-AU', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${key.slice(0, 10)}T00:00:00Z`))
+  const fraction = key.slice(20).replace(/0+$/, '')
+  const clock =
+    key.slice(17, 19) !== '00' || fraction
+      ? key.slice(11, 19) + (fraction ? `.${fraction}` : '')
+      : key.slice(11, 16)
+  return `${day} · ${dateOnly ? 'Date only' : clock}`
+}
+
 export function eventType(row, doc) {
   if (eventTypes.includes(row.event_type)) return row.event_type
   if (doc.incident_time_precision === 'Date only') return eventTypes[0]
@@ -60,7 +101,6 @@ export function investigationGraph(doc, mode) {
     )
   let lanes
   if (mode === 'timeline') {
-    lanes = eventTypes
     incident(3)
     for (const row of doc.timeline || []) {
       const type = eventType(row, doc)
@@ -70,20 +110,22 @@ export function investigationGraph(doc, mode) {
       for (const source of refs(row.previous_events))
         edges.push({ from: source, to: row.entry_id, label: 'Linked event' })
     }
-    // Chronology is distinct from a causal relationship. Explicit links replace
-    // the suggested sequence for that source node.
-    const sequence = nodes
-      .filter(
-        (node) =>
-          node.row.event_datetime &&
-          !['Contributing factor', 'Direct factor'].includes(node.kind) &&
-          !(node.id === 'incident' && doc.incident_time_precision === 'Date only'),
-      )
-      .sort((a, b) =>
-        String(a.row.event_datetime)
-          .replace('T', ' ')
-          .localeCompare(String(b.row.event_datetime).replace('T', ' ')),
-      )
+    // Timeline position always follows chronology, including when old saved
+    // coordinates or explicit causal links exist. Analysis maps remain movable.
+    nodes.sort((a, b) => compareEvents(a.row, b.row))
+    nodes.forEach((node, index) => {
+      node.lane = index
+      node.x = 20 + index * (nodeWidth + 80)
+      node.y = 32
+      node.dateOnly = node.id === 'incident' && doc.incident_time_precision === 'Date only'
+      node.timeLabel = eventTimeLabel(node.row.event_datetime, node.dateOnly)
+    })
+    lanes = nodes.map((node) => node.timeLabel)
+    // Dashed chronological connectors do not assert a causal relationship.
+    // Explicit links replace suggestions, but never change the date order.
+    const sequence = nodes.filter(
+      (node) => eventTimeKey(node.row.event_datetime) && !node.dateOnly,
+    )
     sequence.slice(0, -1).forEach((node, index) => {
       if (
         !(doc.timeline || []).some(

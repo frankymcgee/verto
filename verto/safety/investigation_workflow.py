@@ -1,6 +1,35 @@
 """Deterministic diagram content for the saved investigation report."""
 
+from datetime import datetime
+import re
+
 from verto.safety.investigation_rules import EVENT_TYPES, ICAM_CATEGORIES, checked, refs, text
+
+
+def event_time_key(value):
+    value = text(value)
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?)?", value):
+        return ""
+    try:
+        return datetime.fromisoformat(value).isoformat(sep=" ", timespec="microseconds")
+    except ValueError:
+        return ""
+
+
+def ordered_timeline(rows):
+    # Stable sorting retains entry order for equal timestamps and undated rows.
+    return sorted(rows or [], key=lambda row: (not bool(event_time_key(row.get("event_datetime"))), event_time_key(row.get("event_datetime"))))
+
+
+def event_time_label(value, date_only=False):
+    key = event_time_key(value)
+    if not key:
+        return "Time not set"
+    months = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    day = f"{key[8:10]} {months[int(key[5:7]) - 1]} {key[:4]}"
+    fraction = key[20:].rstrip("0")
+    clock = key[11:19] + (f".{fraction}" if fraction else "") if key[17:19] != "00" or fraction else key[11:16]
+    return f"{day} - {'Date only' if date_only else clock}"
 
 
 def event_type(row, doc):
@@ -24,16 +53,18 @@ def diagram(doc, mode):
     incident = {"entry_id": "incident", "description": doc.get("description") or doc.get("title"),
         "event_datetime": doc.get("incident_datetime")}
     if mode == "timeline":
-        lanes = list(EVENT_TYPES)
         add(incident, 3, "Actual event", "Actual event")
         for row in doc.get("timeline") or []:
             kind = event_type(row, doc)
-            add(row, lanes.index(kind), kind, kind)
+            add(row, 0, kind, kind)
             edges.extend({"from": row["entry_id"], "to": target, "dashed": False} for target in refs(row.get("next_events")))
             edges.extend({"from": source, "to": row["entry_id"], "dashed": False} for source in refs(row.get("previous_events")))
-        sequence = sorted((node for node in nodes if node["time"] and node["kind"] not in ("Contributing factor", "Direct factor")
-            and not (node["id"] == "incident" and doc.get("incident_time_precision") == "Date only")),
-            key=lambda node: node["time"].replace("T", " "))
+        nodes.sort(key=lambda node: (not bool(event_time_key(node["time"])), event_time_key(node["time"])))
+        for index, node in enumerate(nodes):
+            node["lane"] = index
+            node["date_only"] = node["id"] == "incident" and doc.get("incident_time_precision") == "Date only"
+        lanes = [event_time_label(node["time"], node["date_only"]) for node in nodes]
+        sequence = [node for node in nodes if event_time_key(node["time"]) and not node["date_only"]]
         by_id = {row["entry_id"]: row for row in doc.get("timeline") or []}
         for current, following in zip(sequence, sequence[1:]):
             if not any(refs(row.get("next_events")) or refs(row.get("previous_events")) for row in by_id.values()):
