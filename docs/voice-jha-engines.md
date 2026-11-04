@@ -1,9 +1,10 @@
 # PERI Voice JHA engines
 
-Administrators choose **GPT Realtime** or **GPT Live** in **Verto Mobile Settings
+Administrators choose **GPT Realtime**, **GPT Live**, or **Local Speech + OpenAI
+Reasoning** in **Verto Mobile Settings
 → PERI Voice JHA → Voice Engine**. Develop JHA with PERI has no engine selector;
 the server always uses the saved setting, including for cached clients that
-send an old engine preference. Both engines use the same Digital JHA, restricted server tools,
+send an old engine preference. All engines use the same Digital JHA, restricted server tools,
 ordered step facilitation, critical-risk/mechanism detection, incident lessons,
 completeness checks, human review, sign-on and print workflow. A settings change
 applies on the next connection and resumes the saved draft.
@@ -99,3 +100,11 @@ Official references:
 - [Delegation and tools](https://developers.openai.com/api/docs/guides/live-delegation)
 - [Live voices and session lifecycle](https://developers.openai.com/api/docs/guides/live-conversations)
 - [Migration from Realtime](https://developers.openai.com/api/docs/guides/live-migration)
+## Optional local speech engine
+
+**Local Speech + OpenAI Reasoning** is available alongside the cloud engines.
+It uses a tenant-local Pipecat WebRTC worker, local streaming transcription and
+local speech synthesis while retaining OpenAI text reasoning and the same JHA
+tools. It requires separate Pilot services; installing Verto alone does not
+start them or change the current engine selection. See
+[Local speech setup and validation](voice-jha-local-speech.md).
