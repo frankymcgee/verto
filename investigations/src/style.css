@@ -639,6 +639,28 @@ a:hover {
 .investigation-report {
   display: none;
 }
+.factor-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.factor-toolbar > :first-child {
+  flex: 1;
+  min-width: 220px;
+}
+.workflow-editor {
+  border-left: 3px solid #3b82f6;
+}
+.category-reviews {
+  margin-top: 24px;
+}
+.category-reviews > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
 
 @media (max-width: 1100px) {
   .card-meta {

@@ -10,7 +10,9 @@
   "description",
   "finding_status",
   "evidence_refs",
-  "contributes_to"
+  "contributes_to",
+  "graph_x",
+  "graph_y"
  ],
  "fields": [
   {
@@ -57,6 +59,20 @@
    "fieldname": "contributes_to",
    "label": "Contributes to factor references",
    "fieldtype": "Small Text"
+  },
+  {
+   "fieldname": "graph_x",
+   "label": "Diagram X",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "graph_y",
+   "label": "Diagram Y",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "no_copy": 1
   }
  ],
  "permissions": [],

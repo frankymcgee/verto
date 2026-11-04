@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Combobox, FormControl, Select, SidebarItem } from 'frappe-ui'
 import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import App from '../src/App.vue'
-import { call } from '../src/api'
+import { call, downloadReport } from '../src/api'
 import { categories, draft } from '../src/model'
 
 const factorGroups = [
@@ -33,7 +33,7 @@ const factorGroups = [
   },
 ]
 
-vi.mock('../src/api', () => ({ call: vi.fn(), uploadFile: vi.fn() }))
+vi.mock('../src/api', () => ({ call: vi.fn(), uploadFile: vi.fn(), downloadReport: vi.fn() }))
 let wrapper
 const clone = (value) => JSON.parse(JSON.stringify(value))
 function record(extra = {}) {
@@ -91,6 +91,7 @@ async function open(hash = '', value = record()) {
 }
 beforeEach(() => {
   call.mockReset()
+  downloadReport.mockReset().mockResolvedValue(undefined)
   window.innerWidth = 1280
   vi.spyOn(window, 'print').mockImplementation(() => {})
   Element.prototype.scrollIntoView = vi.fn()
@@ -215,10 +216,8 @@ describe('investigations workspace', () => {
   it('filters ICAM dropdowns by category and saves a selected code without inventing a finding', async () => {
     await open('INV-00001', record({ method: 'ICAM' }))
     await section('ICAM analysis').trigger('click')
-    const sections = wrapper.findAll('.icam-category')
-    await sections[0].get('button').trigger('click')
-    await sections[2].get('button').trigger('click')
-    const defence = sections[0].getComponent(Combobox)
+    await button('Add factor').trigger('click')
+    const defence = wrapper.getComponent(Combobox)
     expect(defence.props('placeholder')).toBe('Select factor from list')
     expect(defence.props('options').flatMap((group) => group.options)).toEqual(
       factorGroups[0].options,
@@ -231,7 +230,12 @@ describe('investigations workspace', () => {
       .find((option) => option.text() === 'DF1 - Detection Systems')
       .trigger('click')
     await flushPromises()
-    const conditions = sections[2].getComponent(Combobox)
+    control('New factor category')
+      .getComponent(Select)
+      .vm.$emit('update:modelValue', categories[2])
+    await flushPromises()
+    await button('Add factor').trigger('click')
+    const conditions = wrapper.getComponent(Combobox)
     await conditions.get('[data-slot="trigger"]').trigger('click')
     await flushPromises()
     expect(body.text()).toContain('Task / Environmental Conditions (TE)')
@@ -279,24 +283,91 @@ describe('investigations workspace', () => {
       .find((item) => item.props('label') === 'ICAM factor')
     expect(box.props('disabled')).toBe(true)
     expect(box.props('modelValue')).toBe(factor.factor_type)
-    expect(wrapper.get('.icam-map').text()).toContain(factor.factor_type)
-    expect(wrapper.get('.icam-map').text()).toContain(factor.description)
+    expect(wrapper.get('.icam-workflow-map').text()).toContain(factor.factor_type)
+    expect(wrapper.get('.icam-workflow-map').text()).toContain(factor.description)
     expect(wrapper.get('.investigation-report').text()).toContain(factor.factor_type)
     await button('Print / PDF').trigger('click')
     await flushPromises()
-    expect(window.print).toHaveBeenCalledOnce()
+    expect(downloadReport).toHaveBeenCalledWith('INV-00001', '2026-10-18 09:00:00.000001')
   })
-  it('prints the saved investigation and renders narratives as text', async () => {
+  it('downloads the saved report and renders narratives as text', async () => {
     await open(
       'INV-00001',
-      record({ description: '<img src=x onerror="alert(1)">', capabilities: { can_edit: false } }),
+      record({
+        description: '<img src=x onerror="alert(1)">',
+        capabilities: { can_edit: false },
+      }),
     )
     expect(wrapper.find('.investigation-report').text()).toContain('<img src=x')
     expect(wrapper.find('.investigation-report img').exists()).toBe(false)
     await button('Print / PDF').trigger('click')
     await flushPromises()
-    expect(window.print).toHaveBeenCalledOnce()
-    expect(call.mock.calls.filter(([method]) => method === 'save_investigation')).toHaveLength(0)
+    expect(downloadReport).toHaveBeenCalledWith('INV-00001', '2026-10-18 09:00:00.000001')
+    expect(call.mock.calls.filter(([method]) => method === 'save_investigation')).toHaveLength(
+      0,
+    )
+  })
+  it('saves dirty diagrams before requesting the report and stops if the save fails', async () => {
+    await open('INV-00001')
+    await field('Investigation title *').setValue('Saved diagram revision')
+    await button('Print / PDF').trigger('click')
+    await flushPromises()
+    const saveCall = call.mock.calls.findIndex(([method]) => method === 'save_investigation')
+    expect(saveCall).toBeGreaterThan(-1)
+    expect(downloadReport).toHaveBeenCalledWith('INV-00001', '2026-10-18 09:01:00.000001')
+    expect(call.mock.invocationCallOrder[saveCall]).toBeLessThan(
+      downloadReport.mock.invocationCallOrder[0],
+    )
+    downloadReport.mockClear()
+    await field('Investigation title *').setValue('Unsaved diagram revision')
+    call.mockImplementation(async (method) => {
+      if (method === 'save_investigation')
+        throw new Error('This investigation changed. Reload it.')
+      return {}
+    })
+    await button('Print / PDF').trigger('click')
+    await flushPromises()
+    expect(downloadReport).not.toHaveBeenCalled()
+    expect(field('Investigation title *').element.value).toBe('Unsaved diagram revision')
+  })
+  it('edits one timeline bubble at a time and saves its type and actual-event link', async () => {
+    await open(
+      'INV-00001',
+      record({
+        timeline: [
+          {
+            entry_id: 'T-000000000001',
+            event_datetime: '2026-10-18 07:00:00',
+            description: 'Before work',
+          },
+          {
+            entry_id: 'T-000000000002',
+            event_datetime: '2026-10-18 09:00:00',
+            description: 'Stopped work',
+          },
+        ],
+      }),
+    )
+    await section('Event timeline').trigger('click')
+    expect(wrapper.findAll('.record-content .entry-card')).toHaveLength(1)
+    await wrapper
+      .findAll('.workflow-node')
+      .find((node) => node.text().includes('Stopped work'))
+      .trigger('click')
+    expect(field('Event or condition').element.value).toBe('Stopped work')
+    control('Bubble type').getComponent(Select).vm.$emit('update:modelValue', 'Post event')
+    await flushPromises()
+    const preceding = wrapper
+      .findAll('fieldset.reference-picker')
+      .find((item) => item.text().includes('Connect from events'))
+    await preceding.find('input[type="checkbox"]').setValue(true)
+    await button('Save investigation').trigger('click')
+    await flushPromises()
+    const rows = call.mock.calls.find(([method]) => method === 'save_investigation')[1].data
+      .timeline
+    expect(rows[1].event_type).toBe('Post event')
+    expect(rows[1].previous_events).toBe('incident')
+    expect(rows[0].description).toBe('Before work')
   })
   it('records a reason when withdrawing a submitted investigation for revision', async () => {
     await open(

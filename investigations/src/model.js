@@ -18,7 +18,8 @@ export const refs = (value) =>
     .split(/[,\n]/)
     .map((part) => part.trim())
     .filter(Boolean)
-export const id = (prefix) => `${prefix}-${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`
+export const id = (prefix) =>
+  `${prefix}-${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`
 export const findingTitle = (row) =>
   [row.factor_type, row.description].filter(Boolean).join(' · ') || row.entry_id
 export function localDatetime(value = new Date()) {
@@ -76,7 +77,13 @@ export function removeWhy(rows, entryId) {
 export function clearReferences(doc, entryId) {
   for (const table of ['timeline', 'five_whys', 'icam_factors', 'actions']) {
     for (const row of doc[table] || [])
-      for (const field of ['evidence_refs', 'finding_refs', 'contributes_to']) {
+      for (const field of [
+        'evidence_refs',
+        'finding_refs',
+        'contributes_to',
+        'next_events',
+        'previous_events',
+      ]) {
         if (field in row)
           row[field] = refs(row[field])
             .filter((value) => value !== entryId)

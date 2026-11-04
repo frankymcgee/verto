@@ -26,9 +26,9 @@ PARENT_FIELDS = (
 CHILD_FIELDS = {
     "team": ("user", "team_role"),
     "evidence": ("entry_id", "title", "evidence_type", "observed_at", "notes", "file", "verification_status", "verification_notes"),
-    "timeline": ("entry_id", "event_datetime", "description", "evidence_refs"),
-    "five_whys": ("entry_id", "parent_id", "description", "finding_status", "evidence_refs", "is_root_cause", "root_cause_reason"),
-    "icam_factors": ("entry_id", "category", "factor_type", "description", "finding_status", "evidence_refs", "contributes_to"),
+    "timeline": ("entry_id", "event_datetime", "event_type", "description", "evidence_refs", "previous_events", "next_events", "graph_x", "graph_y"),
+    "five_whys": ("entry_id", "parent_id", "description", "finding_status", "evidence_refs", "is_root_cause", "root_cause_reason", "graph_x", "graph_y"),
+    "icam_factors": ("entry_id", "category", "factor_type", "description", "finding_status", "evidence_refs", "contributes_to", "graph_x", "graph_y"),
     "category_reviews": ("category", "no_finding_reason"),
     "actions": ("entry_id", "title", "details", "finding_refs", "assigned_to_user", "due_date", "priority", "control_type", "success_criteria", "verifier", "verification_due_date"),
 }
@@ -328,6 +328,62 @@ def list_investigations(search="", status="", method="", start=0, page_length=25
 @frappe.whitelist()
 def get_investigation(name):
     return _payload(_get(name))
+
+
+@frappe.whitelist(methods=["POST"])
+def download_report(name, expected_modified=None):
+    """Generate from the saved record and its private, permission-checked files."""
+    from pathlib import Path
+    from werkzeug.wrappers import Response
+
+    from verto.safety.investigation_report import MAX_BYTES, ReportLimitError, build_report
+
+    doc = _get(name)
+    if expected_modified and get_datetime(doc.modified) != get_datetime(expected_modified):
+        frappe.throw(_("This investigation changed. Reload it before downloading the report."), frappe.TimestampMismatchError)
+    data = doc.as_dict()
+    references = {}
+    for table, field in (("evidence", "file"), ("actions", "completion_file")):
+        for row in data.get(table) or []:
+            if row.get(field):
+                references.setdefault(row[field], []).append(row["entry_id"])
+    files = frappe.get_all("File", filters={"attached_to_doctype": DOCTYPE, "attached_to_name": doc.name},
+        fields=["name", "file_url"], order_by="creation asc, name asc", limit_page_length=0)
+    attachments, included, total = [], set(), 0
+    for entry in files:
+        if entry.file_url in included:
+            continue
+        file = frappe.get_doc("File", entry.name)
+        file.check_permission("read")
+        if (not file.is_private or not text(file.file_url).startswith("/private/files/")
+            or file.attached_to_doctype != DOCTYPE or file.attached_to_name != doc.name):
+            frappe.throw(_("Report evidence must be private files attached to this investigation."), frappe.PermissionError)
+        if len(attachments) >= 400 or int(file.file_size or 0) > MAX_BYTES - total:
+            frappe.throw(_("The full report supports up to 400 files and 100 MB of evidence."))
+        # External URLs are rejected above. get_content uses Frappe's storage
+        # integration instead of reading an arbitrary client-supplied path.
+        try:
+            content = file.get_content()
+        except Exception:
+            frappe.throw(_("An investigation attachment could not be read: {0}. Restore it before generating the full report.").format(file.file_name))
+        if isinstance(content, str):
+            content = content.encode("utf-8")
+        total += len(content)
+        if total > MAX_BYTES or len(attachments) >= 400:
+            frappe.throw(_("The full report supports up to 400 files and 100 MB of evidence."))
+        attachments.append({"file_name": Path(file.file_name or file.file_url).name,
+            "content": content, "references": references.get(file.file_url, [])})
+        included.add(file.file_url)
+    if set(references) - included:
+        frappe.throw(_("A referenced evidence or action file is missing. Restore it before generating the full report."))
+    try:
+        content = build_report(data, attachments)
+    except ReportLimitError as error:
+        frappe.throw(_("The full report could not be generated: {0}").format(str(error)))
+    response = Response(content, mimetype="application/pdf")
+    response.headers.add("Content-Disposition", "attachment", filename=f"{frappe.scrub(doc.name)}-report.pdf")
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 @frappe.whitelist(methods=["POST"])

@@ -10,7 +10,9 @@
   "finding_status",
   "evidence_refs",
   "is_root_cause",
-  "root_cause_reason"
+  "root_cause_reason",
+  "graph_x",
+  "graph_y"
  ],
  "fields": [
   {
@@ -51,6 +53,20 @@
    "fieldname": "root_cause_reason",
    "label": "Reason for stopping the analysis",
    "fieldtype": "Small Text"
+  },
+  {
+   "fieldname": "graph_x",
+   "label": "Diagram X",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "graph_y",
+   "label": "Diagram Y",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "no_copy": 1
   }
  ],
  "permissions": [],

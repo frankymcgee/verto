@@ -5,9 +5,14 @@
  "engine": "InnoDB",
  "field_order": [
   "entry_id",
+  "event_type",
   "event_datetime",
   "description",
-  "evidence_refs"
+  "evidence_refs",
+  "previous_events",
+  "next_events",
+  "graph_x",
+  "graph_y"
  ],
  "fields": [
   {
@@ -32,6 +37,36 @@
   {
    "fieldname": "evidence_refs",
    "label": "Evidence references",
+   "fieldtype": "Small Text"
+  },
+  {
+   "fieldname": "event_type",
+   "label": "Bubble type",
+   "fieldtype": "Select",
+   "options": "\nEvent information\nContributing factor\nDirect factor\nActual event\nPost event"
+  },
+  {
+   "fieldname": "next_events",
+   "label": "Connected events",
+   "fieldtype": "Small Text"
+  },
+  {
+   "fieldname": "graph_x",
+   "label": "Diagram X",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "graph_y",
+   "label": "Diagram Y",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "previous_events",
+   "label": "Connected preceding events",
    "fieldtype": "Small Text"
   }
  ],
