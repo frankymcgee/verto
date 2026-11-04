@@ -201,6 +201,7 @@ jobs:
           CI: 'Yes'
         run: |
           ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_investigation_rules.py'
+          ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_investigation_report.py'
           bench --site test_site run-tests --app verto --module verto.api.test_investigations --skip-before-tests
           bench --site test_site run-tests --app verto --module verto.test_default_apps --skip-before-tests
           cd apps/verto/investigations

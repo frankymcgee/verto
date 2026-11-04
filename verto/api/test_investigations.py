@@ -62,6 +62,47 @@ class IntegrationTestInvestigations(IntegrationTestCase):
         self.assertEqual(len([card for card in cards if card.get("name") == default_apps.INVESTIGATIONS_APP]), 1)
         self.assertEqual(frappe.get_meta(api.DOCTYPE).track_changes, 1)
 
+    def test_diagram_fields_and_connections_round_trip_with_the_saved_record(self):
+        doc = self._draft()
+        timeline = [{"entry_id": "T-000000000001", "event_type": "Direct factor", "description": "The drive was not restrained.",
+            "next_events": "incident", "graph_x": 470, "graph_y": 220}]
+        saved = api.save_investigation(dict(doc, timeline=timeline), doc["modified"])
+        self.assertEqual(saved["timeline"][0]["next_events"], "incident")
+        self.assertEqual(saved["timeline"][0]["event_type"], "Direct factor")
+        self.assertEqual(saved["timeline"][0]["graph_x"], 470)
+        self.assertEqual(saved["timeline"][0]["graph_y"], 220)
+        invalid = [dict(timeline[0], next_events=timeline[0]["entry_id"])]
+        with self.assertRaises(frappe.ValidationError):
+            api.save_investigation(dict(saved, timeline=invalid), saved["modified"])
+
+    def test_report_includes_private_files_and_enforces_record_access_and_revision(self):
+        from io import BytesIO
+        from pypdf import PdfReader
+        from frappe.utils.file_manager import save_file
+
+        doc = self._draft()
+        content = "Source observation " + frappe.generate_hash()
+        uploaded = save_file("investigation-report-evidence.txt", content, api.DOCTYPE, doc["name"], is_private=1)
+        data = dict(doc, evidence=[{"entry_id": "E-000000000001", "title": "Observation", "file": uploaded.file_url,
+            "verification_status": "Unverified"}])
+        saved = api.save_investigation(data, doc["modified"])
+        response = api.download_report(saved["name"], saved["modified"])
+        self.assertEqual(response.mimetype, "application/pdf")
+        self.assertEqual(response.headers["Cache-Control"], "private, no-store")
+        pdf = PdfReader(BytesIO(response.data))
+        self.assertEqual(pdf.attachments[f"APP-001-{uploaded.file_name}"][0], content.encode())
+        self.assertIn(content, "\n".join(page.extract_text() for page in pdf.pages))
+        with self.assertRaises(frappe.TimestampMismatchError):
+            api.download_report(saved["name"], "2000-01-01 00:00:00")
+        frappe.set_user(self.outsider)
+        with self.assertRaises(frappe.PermissionError):
+            api.download_report(saved["name"])
+        frappe.set_user(self.observer)
+        self.assertEqual(api.download_report(saved["name"]).mimetype, "application/pdf")
+        frappe.set_user("Guest")
+        with self.assertRaises(frappe.PermissionError):
+            api.download_report(saved["name"])
+
     def test_icam_classifications_round_trip_and_reject_category_mismatches(self):
         doc = self._draft()
         groups = api.get_bootstrap()["icam_factor_groups"]

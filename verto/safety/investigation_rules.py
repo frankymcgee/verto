@@ -4,6 +4,7 @@ This module is independent of Frappe so the causal-graph and approval rules can
 be checked without a running site. Analysis remains the investigator's work.
 """
 
+import math
 import re
 
 from verto.safety.icam import ICAM_CATEGORIES, ICAM_FACTOR_CATEGORIES
@@ -16,6 +17,7 @@ FINDING_STATUSES = ("Hypothesis", "Supported", "Not supported")
 ACTION_STATUSES = ("Open", "In Progress", "Completed", "Verified", "Cancelled")
 ROW_TABLES = {"evidence": "E", "timeline": "T", "five_whys": "W", "icam_factors": "F", "actions": "A"}
 ID_PATTERN = re.compile(r"^[EWTFA]-[a-zA-Z0-9]{8,24}$")
+EVENT_TYPES = ("Event information", "Contributing factor", "Direct factor", "Actual event", "Post event")
 
 
 def refs(value):
@@ -70,6 +72,29 @@ def validate_structure(data):
     evidence = {row.get("entry_id"): row for row in data.get("evidence") or []}
     whys = {row.get("entry_id"): row for row in data.get("five_whys") or []}
     factors = {row.get("entry_id"): row for row in data.get("icam_factors") or []}
+    timeline = {row.get("entry_id"): row for row in data.get("timeline") or []}
+    event_links = {key: set() for key in ["incident", *timeline]}
+    for row in timeline.values():
+        if row.get("event_type") and row["event_type"] not in EVENT_TYPES:
+            errors.append("Choose a valid timeline bubble type.")
+        if any(key not in event_links for key in refs(row.get("next_events")) + refs(row.get("previous_events"))):
+            errors.append(f"{row.get('entry_id')}: a connected event no longer exists.")
+        event_links[row["entry_id"]].update(refs(row.get("next_events")))
+        for source in refs(row.get("previous_events")):
+            if source in event_links:
+                event_links[source].add(row["entry_id"])
+    if _cycle(event_links, lambda targets: targets):
+        errors.append("The event workflow must not contain a circular link.")
+    for table in ("timeline", "five_whys", "icam_factors"):
+        for row in data.get(table) or []:
+            for key in ("graph_x", "graph_y"):
+                value = row.get(key)
+                try:
+                    valid = value in (None, "") or (math.isfinite(float(value)) and 0 <= float(value) <= 20000)
+                except (TypeError, ValueError, OverflowError):
+                    valid = False
+                if not valid:
+                    errors.append("Diagram coordinates must be between 0 and 20000.")
     for table in ("timeline", "five_whys", "icam_factors"):
         for row in data.get(table) or []:
             if any(key not in evidence for key in refs(row.get("evidence_refs"))):

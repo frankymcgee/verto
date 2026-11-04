@@ -10,6 +10,8 @@ dynamic = ["version"]
 dependencies = [
     "qrcode[pil]>=8,<9",
     "python-docx>=1.1.0",
+    "pypdf>=6.10,<7",
+    "reportlab>=4.4,<5",
     "pywebpush>=2.3,<3",
 ]
 

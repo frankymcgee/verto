@@ -81,6 +81,30 @@ Where a category has no supported finding, investigators record the reason
 rather than invent a factor. A completed ICAM analysis must identify at least
 one supported absent/failed defence.
 
+### Workflow diagrams
+
+The event timeline, 5 Whys and ICAM sections now open as connected diagrams.
+Select a bubble to edit its full narrative and evidence in a single details
+panel. Drag bubbles to arrange them, scroll or drag the canvas background to
+explore, and use zoom / Fit for larger maps. Positions are saved with the
+investigation. **Auto arrange** restores the standard layout for that section.
+Locked records remain navigable, with editing and rearrangement disabled.
+
+Timeline bubbles can be Event information, Contributing factor, Direct factor,
+Actual event or Post event. Use **Connect from events** and **Connect to events**
+to create branches, including connections to and from the actual incident.
+Duplicate links are displayed once; circular and missing links are rejected.
+Existing events remain available. Until explicit links are recorded, dated
+events have dashed chronological connectors. Chronology does not assert a
+causal relationship. Date-only incident times are not used to infer an exact
+position within the day's events.
+
+5 Whys bubbles retain their existing branches, statuses, root-cause designations
+and stopping rationales. The **Preceding why** selector reconnects a branch and
+excludes the selected bubble and its descendants. ICAM connectors follow the
+recorded factor-to-factor links. Hypotheses and unsupported findings retain
+their status in both the workspace and report.
+
 Each ICAM factor has a searchable Frappe UI dropdown with the supplied coded
 classification: DF1–DF16, IT1–IT14, TE1–TE26, HF1–HF26 and the 16 organisational
 codes. Options are filtered by category; Task or Environmental Conditions has
@@ -117,10 +141,33 @@ Investigation records and their private attachments are retained. File lifecycle
 checks run before File's own insertion/deletion handlers; evidence cannot be
 made public or detached through ordinary File editing.
 
-**Print / PDF** produces a report from the saved record, including evidence
-references, analysis, action outcomes, review decisions and workflow history.
-Attachment references identify separate private files; printing does not embed
-their bytes. Use the browser's PDF destination to save the report.
+**Print / PDF** downloads a complete report generated on the server from the
+saved revision. Unsaved edits are saved first; a failed save prevents export.
+The PDF includes incident context, landscape workflow diagrams, full evidence
+and analysis narratives, action outcomes, review decisions and workflow history.
+Large diagrams use multiple readable sheets, with destination references and
+map numbers for connections crossing sheets. Reports use an automatic layout
+independent of manually positioned screen bubbles.
+
+The evidence appendix includes all private files attached to the investigation,
+including action-completion files and additional files outside the evidence
+register. Reused file URLs appear once, with all their evidence/action references.
+Photos render inline (all TIFF pages are included), PDFs append their pages,
+Word `.docx` files include a text/table preview, and UTF-8 text/CSV/Markdown/log
+files include readable text previews. Each original is also embedded in the PDF
+with a distinct appendix identifier. Word source layout, embedded images and
+formatting remain in its embedded original. Other formats, password-protected
+files, and files whose previews cannot be generated receive a printed appendix
+entry and their embedded original. A PDF reader with an Attachments panel is
+needed to open embedded files; some browser/mobile PDF viewers do not expose them.
+
+Record and individual File permissions are checked before reading any bytes.
+Missing or unreadable source files stop the full report instead of being silently
+omitted. Exports support up to 400 files, 100 MB and 1,000 pages; oversized exports
+fail with an explanation. No public report file or attachment is created, and
+the response is private and uncached. The report generator uses `reportlab` and
+`pypdf` Python dependencies, installed by the normal Verto requirements update.
+Run the normal migrate and asset build to add diagram fields and deploy the UI.
 
 Raw investigation and witness material is kept separate from the existing
 reviewed JHA Incident Learning dataset. Publication into crew-facing lessons
@@ -130,7 +177,9 @@ requires that dataset's separate curation and sanitisation workflow.
 
 Run `yarn test:ui` and `yarn build` in `investigations/`. Standalone analysis
 checks run with `python -m unittest discover -s tests -p
-'test_investigation_rules.py'`. Fresh-site CI also runs
+'test_investigation_rules.py'`. Run the standalone
+`test_investigation_report.py` suite for actual PDF assembly,
+embedded originals, diagrams and report limits. Fresh-site CI also runs
 `verto.api.test_investigations` for actual database permissions, stale edits,
 approval/action/close-out transitions, evidence invalidation and private file
 retention, plus `verto.test_default_apps` for independent app selection.

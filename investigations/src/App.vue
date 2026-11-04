@@ -145,7 +145,9 @@
             <Button :disabled="pageStart === 0 || listLoading" @click="changePage(-25)"
               >Previous</Button
             ><span>{{ pageStart + 1 }}–{{ pageStart + list.items.length }}</span
-            ><Button :disabled="!list.has_more || listLoading" @click="changePage(25)">Next</Button>
+            ><Button :disabled="!list.has_more || listLoading" @click="changePage(25)"
+              >Next</Button
+            >
           </div>
         </main>
 
@@ -284,7 +286,9 @@
                     class="field"
                     v-model="doc[field]"
                     :label="
-                      field === 'actual_severity' ? 'Actual consequence' : 'Potential consequence'
+                      field === 'actual_severity'
+                        ? 'Actual consequence'
+                        : 'Potential consequence'
                     "
                     :disabled="!editable || busy"
                     type="select"
@@ -355,9 +359,12 @@
                       :disabled="!editable || busy"
                       type="select"
                       :options="[
-                        ...['Not assessed', 'Review required', 'Not reportable', 'Reportable'].map(
-                          (status) => ({ label: `${status}`, value: `${status}` }),
-                        ),
+                        ...[
+                          'Not assessed',
+                          'Review required',
+                          'Not reportable',
+                          'Reportable',
+                        ].map((status) => ({ label: `${status}`, value: `${status}` })),
                       ]"
                     /><FormControl
                       size="md"
@@ -448,8 +455,9 @@
                   >
                 </div>
                 <p class="help">
-                  The reviewer needs Verto Investigation Manager access and must be different from
-                  the lead investigator. Action owners and verifiers must belong to this team.
+                  The reviewer needs Verto Investigation Manager access and must be different
+                  from the lead investigator. Action owners and verifiers must belong to this
+                  team.
                 </p>
               </section>
 
@@ -567,27 +575,32 @@
                   <div>
                     <p class="eyebrow">SEQUENCE & CONTEXT</p>
                     <h2>Event timeline</h2>
-                    <p>Build the sequence from evidence, including conditions before the event.</p>
+                    <p>
+                      Build the sequence from evidence, including conditions before the event.
+                    </p>
                   </div>
-                  <Button
-                    v-if="editable"
-                    @click="
-                      doc.timeline.push({
-                        entry_id: id('T'),
-                        event_datetime: '',
-                        description: '',
-                        evidence_refs: '',
-                      })
-                    "
-                    :disabled="busy"
-                    >Add event</Button
-                  >
+                  <Button v-if="editable" @click="addEvent" :disabled="busy">Add event</Button>
+                </div>
+                <WorkflowCanvas
+                  :graph="graph('timeline')"
+                  label="Event timeline"
+                  mode="timeline"
+                  :selected-id="selectedRow('timeline')?.entry_id || 'incident'"
+                  :editable="editable && !busy"
+                  @select="selected.timeline = $event"
+                  @move="moveNode('timeline', $event)"
+                  @arrange="arrange('timeline')"
+                />
+                <div v-if="!selectedRow('timeline')" class="problem-statement">
+                  <span>Actual event</span>
+                  <p>{{ doc.description || doc.title }}</p>
+                  <Button @click="selectTab('overview')">View incident overview</Button>
                 </div>
                 <div v-if="!doc.timeline.length" class="inline-empty">
                   Record what happened before, during and after the incident.
                 </div>
                 <article
-                  v-for="(row, index) in doc.timeline"
+                  v-for="row in selectedRows('timeline')"
                   :key="row.entry_id"
                   class="entry-card"
                 >
@@ -596,12 +609,22 @@
                     ><Button
                       v-if="editable"
                       theme="red"
-                      @click="doc.timeline.splice(index, 1)"
+                      @click="removeEntry('timeline', doc.timeline.indexOf(row))"
                       :disabled="busy"
                       >Remove</Button
                     >
                   </div>
                   <fieldset :disabled="!editable || busy" class="form-grid">
+                    <FormControl
+                      size="md"
+                      class="field"
+                      label="Bubble type"
+                      type="select"
+                      :model-value="eventType(row, doc)"
+                      :options="eventTypes"
+                      :disabled="!editable || busy"
+                      @update:model-value="row.event_type = $event"
+                    />
                     <FormControl
                       size="md"
                       class="field"
@@ -625,6 +648,36 @@
                     :items="doc.evidence"
                     :disabled="!editable || busy"
                   />
+                  <ReferencePicker
+                    v-model="row.previous_events"
+                    label="Connect from events"
+                    :items="[
+                      { entry_id: 'incident', title: 'Actual event' },
+                      ...doc.timeline
+                        .filter((item) => item.entry_id !== row.entry_id)
+                        .map((item) => ({
+                          ...item,
+                          title: item.description || eventType(item, doc),
+                        })),
+                    ]"
+                    :disabled="!editable || busy"
+                    empty-text="Add another event to connect a branch."
+                  />
+                  <ReferencePicker
+                    v-model="row.next_events"
+                    label="Connect to events"
+                    :items="[
+                      { entry_id: 'incident', title: 'Actual event' },
+                      ...doc.timeline
+                        .filter((item) => item.entry_id !== row.entry_id)
+                        .map((item) => ({
+                          ...item,
+                          title: item.description || eventType(item, doc),
+                        })),
+                    ]"
+                    :disabled="!editable || busy"
+                    empty-text="Add another event to connect a branch."
+                  />
                 </article>
               </section>
 
@@ -634,29 +687,38 @@
                     <p class="eyebrow">FOLLOW THE CAUSAL PATH</p>
                     <h2>5 Whys</h2>
                     <p>
-                      Branch when several causes contributed. Continue until the stopping point is
-                      supported by evidence.
+                      Branch when several causes contributed. Continue until the stopping point
+                      is supported by evidence.
                     </p>
                   </div>
                   <Button v-if="editable" @click="addWhy('')" :disabled="busy"
                     >Add causal branch</Button
                   >
                 </div>
-                <div class="problem-statement">
+                <WorkflowCanvas
+                  :graph="graph('whys')"
+                  label="5 Whys"
+                  mode="whys"
+                  :selected-id="selectedRow('five_whys')?.entry_id || 'incident'"
+                  :editable="editable && !busy"
+                  @select="selected.five_whys = $event"
+                  @move="moveNode('five_whys', $event)"
+                  @arrange="arrange('five_whys')"
+                />
+                <div v-if="!selectedRow('five_whys')" class="problem-statement">
                   <span>Starting event</span>
-                  <p>
-                    {{ doc.description || 'Record what happened in the incident overview first.' }}
-                  </p>
+                  <p>{{ doc.description || 'Record the event in the incident overview.' }}</p>
                 </div>
                 <div v-if="!doc.five_whys.length" class="inline-empty">
-                  Start with why the event occurred. Each answer becomes the starting point for the
-                  next why.
+                  Start with why the event occurred. Each answer becomes the starting point for
+                  the next why.
                 </div>
                 <article
-                  v-for="({ row, depth }, index) in whyTree(doc.five_whys)"
+                  v-for="{ row, depth } in whyTree(doc.five_whys).filter(
+                    ({ row }) => row.entry_id === selectedRow('five_whys')?.entry_id,
+                  )"
                   :key="row.entry_id"
-                  class="entry-card why-card"
-                  :style="{ '--depth': Math.min(depth, 5) }"
+                  class="entry-card workflow-editor"
                 >
                   <div class="entry-heading">
                     <span class="why-number">Why {{ depth + 1 }}</span
@@ -672,11 +734,26 @@
                   <p v-if="row.parent_id" class="preceding-cause">
                     Because:
                     {{
-                      doc.five_whys.find((item) => item.entry_id === row.parent_id)?.description ||
-                      row.parent_id
+                      doc.five_whys.find((item) => item.entry_id === row.parent_id)
+                        ?.description || row.parent_id
                     }}
                   </p>
                   <fieldset :disabled="!editable || busy" class="form-grid">
+                    <FormControl
+                      size="md"
+                      class="field span-2"
+                      label="Preceding why"
+                      type="select"
+                      v-model="row.parent_id"
+                      :disabled="!editable || busy"
+                      :options="[
+                        { label: 'Starting event (new branch)', value: '' },
+                        ...whyParents(doc.five_whys, row.entry_id).map((item) => ({
+                          label: item.description || item.entry_id,
+                          value: item.entry_id,
+                        })),
+                      ]"
+                    />
                     <FormControl
                       size="md"
                       class="field span-2"
@@ -730,111 +807,142 @@
                     <p class="eyebrow">CONTROLS · ACTIONS · CONDITIONS · SYSTEMS</p>
                     <h2>ICAM analysis</h2>
                     <p>
-                      Start with the defences, then examine actions, conditions and organisational
-                      influences.
+                      Start with the defences, then examine actions, conditions and
+                      organisational influences.
                     </p>
                   </div>
                 </div>
-                <IcamMap :factors="doc.icam_factors" />
-                <section
-                  v-for="(category, categoryIndex) in categories"
-                  :key="category"
-                  class="icam-category"
-                >
-                  <div class="section-heading">
-                    <h3>
-                      <span class="category-index">{{ categoryIndex + 1 }}</span
-                      >{{ category }}
-                    </h3>
-                    <Button v-if="editable" @click="addFactor(category)" :disabled="busy"
-                      >Add factor</Button
-                    >
-                  </div>
-                  <p class="help">{{ categoryPrompts[categoryIndex] }}</p>
-                  <article
-                    v-for="row in doc.icam_factors.filter((row) => row.category === category)"
-                    :key="row.entry_id"
-                    class="entry-card"
-                  >
-                    <div class="entry-heading">
-                      <code>{{ row.entry_id }}</code
-                      ><Button
-                        v-if="editable"
-                        theme="red"
-                        @click="removeEntry('icam_factors', doc.icam_factors.indexOf(row))"
-                        :disabled="busy"
-                        >Remove</Button
-                      >
-                    </div>
-                    <fieldset :disabled="!editable || busy" class="form-grid">
-                      <Combobox
-                        size="md"
-                        class="field span-2 icam-factor-select"
-                        trigger="button"
-                        :model-value="row.factor_type || null"
-                        label="ICAM factor"
-                        placeholder="Select factor from list"
-                        :options="
-                          (meta.icam_factor_groups || []).filter(
-                            (group) => group.category === category,
-                          )
-                        "
-                        :disabled="!editable || busy"
-                        @update:model-value="row.factor_type = $event || ''"
-                      >
-                        <template #item-label="{ item }">
-                          <span class="whitespace-normal break-words">{{ item.label }}</span>
-                        </template>
-                      </Combobox>
-                      <FormControl
-                        size="md"
-                        class="field span-2"
-                        v-model="row.description"
-                        :rows="3"
-                        label="Contributing factor and relationship to the event"
-                        :disabled="!editable || busy"
-                        type="textarea"
-                      /><FormControl
-                        size="md"
-                        class="field"
-                        v-model="row.finding_status"
-                        label="Finding status"
-                        :disabled="!editable || busy"
-                        type="select"
-                        :options="['Hypothesis', 'Supported', 'Not supported']"
-                      />
-                    </fieldset>
-                    <ReferencePicker
-                      v-model="row.evidence_refs"
-                      :items="doc.evidence"
-                      :disabled="!editable || busy"
-                    /><ReferencePicker
-                      v-model="row.contributes_to"
-                      label="This factor contributes to"
-                      :items="
-                        doc.icam_factors
-                          .filter((item) => item.entry_id !== row.entry_id)
-                          .map((item) => ({ ...item, title: findingTitle(item) }))
-                      "
-                      :disabled="!editable || busy"
-                      empty-text="Add another factor to connect the causal pathway."
-                    />
-                  </article>
+                <WorkflowCanvas
+                  class="icam-workflow-map"
+                  :graph="graph('icam')"
+                  label="ICAM causal map"
+                  mode="icam"
+                  :selected-id="selectedRow('icam_factors')?.entry_id || 'incident'"
+                  :editable="editable && !busy"
+                  @select="selected.icam_factors = $event"
+                  @move="moveNode('icam_factors', $event)"
+                  @arrange="arrange('icam_factors')"
+                />
+                <div v-if="editable" class="factor-toolbar">
                   <FormControl
                     size="md"
-                    v-if="
-                      !doc.icam_factors.some(
-                        (row) => row.category === category && row.finding_status === 'Supported',
-                      )
-                    "
-                    class="field"
-                    :disabled="!editable || busy"
-                    :rows="2"
-                    label="Reason no supported factor has been identified"
-                    type="textarea"
-                    v-model="categoryReview(category).no_finding_reason"
+                    label="New factor category"
+                    type="select"
+                    v-model="newFactorCategory"
+                    :options="categories"
+                    :disabled="busy"
                   />
-                </section>
+                  <Button @click="addFactor(newFactorCategory)" :disabled="busy"
+                    >Add factor</Button
+                  >
+                </div>
+                <article
+                  v-for="row in selectedRows('icam_factors')"
+                  :key="row.entry_id"
+                  class="entry-card workflow-editor"
+                >
+                  <div class="entry-heading">
+                    <h3>{{ row.category }}</h3>
+                    <code>{{ row.entry_id }}</code>
+                    <Button
+                      v-if="editable"
+                      theme="red"
+                      @click="removeEntry('icam_factors', doc.icam_factors.indexOf(row))"
+                      :disabled="busy"
+                      >Remove</Button
+                    >
+                  </div>
+                  <p class="help">{{ categoryPrompts[categories.indexOf(row.category)] }}</p>
+                  <fieldset :disabled="!editable || busy" class="form-grid">
+                    <Combobox
+                      size="md"
+                      class="field span-2 icam-factor-select"
+                      trigger="button"
+                      :model-value="row.factor_type || null"
+                      label="ICAM factor"
+                      placeholder="Select factor from list"
+                      :options="
+                        (meta.icam_factor_groups || []).filter(
+                          (group) => group.category === row.category,
+                        )
+                      "
+                      :disabled="!editable || busy"
+                      @update:model-value="row.factor_type = $event || ''"
+                    >
+                      <template #item-label="{ item }">
+                        <span class="whitespace-normal break-words">{{ item.label }}</span>
+                      </template>
+                    </Combobox>
+                    <FormControl
+                      size="md"
+                      class="field span-2"
+                      v-model="row.description"
+                      :rows="3"
+                      label="Contributing factor and relationship to the event"
+                      :disabled="!editable || busy"
+                      type="textarea"
+                    /><FormControl
+                      size="md"
+                      class="field"
+                      v-model="row.finding_status"
+                      label="Finding status"
+                      :disabled="!editable || busy"
+                      type="select"
+                      :options="['Hypothesis', 'Supported', 'Not supported']"
+                    />
+                  </fieldset>
+                  <ReferencePicker
+                    v-model="row.evidence_refs"
+                    :items="doc.evidence"
+                    :disabled="!editable || busy"
+                  /><ReferencePicker
+                    v-model="row.contributes_to"
+                    label="This factor contributes to"
+                    :items="
+                      doc.icam_factors
+                        .filter((item) => item.entry_id !== row.entry_id)
+                        .map((item) => ({ ...item, title: findingTitle(item) }))
+                    "
+                    :disabled="!editable || busy"
+                    empty-text="Add another factor to connect the causal pathway."
+                  />
+                </article>
+                <div v-if="!selectedRow('icam_factors')" class="problem-statement">
+                  <span>Actual event</span>
+                  <p>{{ doc.description || doc.title }}</p>
+                </div>
+                <details class="category-reviews">
+                  <summary>ICAM category coverage</summary>
+                  <section
+                    v-for="(category, index) in categories"
+                    :key="category"
+                    class="icam-category"
+                  >
+                    <h3>{{ category }}</h3>
+                    <p class="help">{{ categoryPrompts[index] }}</p>
+                    <p
+                      v-if="
+                        doc.icam_factors.some(
+                          (row) =>
+                            row.category === category && row.finding_status === 'Supported',
+                        )
+                      "
+                      class="help"
+                    >
+                      Supported factors recorded.
+                    </p>
+                    <FormControl
+                      v-else
+                      size="md"
+                      class="field"
+                      type="textarea"
+                      :rows="2"
+                      label="Reason no supported factor has been identified"
+                      :disabled="!editable || busy"
+                      v-model="categoryReview(category).no_finding_reason"
+                    />
+                  </section>
+                </details>
               </section>
 
               <section v-if="tab === 'actions'" class="workspace-panel">
@@ -847,10 +955,13 @@
                       checked.
                     </p>
                   </div>
-                  <Button v-if="editable" @click="addAction" :disabled="busy">Add action</Button>
+                  <Button v-if="editable" @click="addAction" :disabled="busy"
+                    >Add action</Button
+                  >
                 </div>
                 <div v-if="!doc.actions.length" class="inline-empty">
-                  Create actions for the supported causes and factors identified in your analysis.
+                  Create actions for the supported causes and factors identified in your
+                  analysis.
                 </div>
                 <article
                   v-for="(row, index) in doc.actions"
@@ -964,7 +1075,9 @@
                       target="_blank"
                       rel="noopener"
                       >Open private attachment ↗</a
-                    ><small>{{ row.completed_by }} · {{ dateLabel(row.completed_on, true) }}</small>
+                    ><small
+                      >{{ row.completed_by }} · {{ dateLabel(row.completed_on, true) }}</small
+                    >
                   </div>
                   <div v-if="row.verification_notes" class="action-outcome">
                     <strong>Effectiveness review</strong>
@@ -1045,7 +1158,9 @@
                           : 'Review readiness'
                       }}
                     </h3>
-                    <Button v-if="editable" :disabled="busy" @click="save">Save and check</Button>
+                    <Button v-if="editable" :disabled="busy" @click="save"
+                      >Save and check</Button
+                    >
                   </div>
                   <p v-if="dirty || !doc.name" class="help">
                     Save the draft to refresh these checks.
@@ -1226,7 +1341,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   Alert,
   Badge,
@@ -1240,7 +1355,7 @@ import {
   Spinner,
   toast,
 } from 'frappe-ui'
-import { call, uploadFile } from './api'
+import { call, downloadReport, uploadFile } from './api'
 import InvestigationShell from './components/InvestigationShell.vue'
 import PrivateFileInput from './components/PrivateFileInput.vue'
 import {
@@ -1257,7 +1372,8 @@ import {
 } from './model'
 import LookupField from './components/LookupField.vue'
 import ReferencePicker from './components/ReferencePicker.vue'
-import IcamMap from './components/IcamMap.vue'
+import WorkflowCanvas from './components/WorkflowCanvas.vue'
+import { eventType, eventTypes, investigationGraph, whyParents } from './workflow'
 import InvestigationReport from './components/InvestigationReport.vue'
 
 const meta = ref({ apps: [] }),
@@ -1277,6 +1393,48 @@ const operation = ref(null),
   operationOwner = ref(''),
   operationVerifier = ref('')
 const pendingNavigation = ref(null)
+const selected = ref({ timeline: '', five_whys: '', icam_factors: '' })
+const newFactorCategory = ref(categories[0])
+const graph = (mode) => investigationGraph(doc.value, mode)
+function selectedRow(table) {
+  if (selected.value[table] === 'incident') return null
+  return (
+    doc.value[table].find((row) => row.entry_id === selected.value[table]) ||
+    doc.value[table][0]
+  )
+}
+function selectedRows(table) {
+  const row = selectedRow(table)
+  return row ? [row] : []
+}
+function moveNode(table, { id, x, y }) {
+  if (!editable.value || busy.value) return
+  const row = doc.value[table].find((row) => row.entry_id === id)
+  if (row) {
+    row.graph_x = x
+    row.graph_y = y
+  }
+}
+function arrange(table) {
+  if (!editable.value || busy.value) return
+  for (const row of doc.value[table]) {
+    row.graph_x = 0
+    row.graph_y = 0
+  }
+}
+function addEvent() {
+  const row = {
+    entry_id: id('T'),
+    event_type: 'Event information',
+    event_datetime: '',
+    description: '',
+    evidence_refs: '',
+    previous_events: '',
+    next_events: '',
+  }
+  doc.value.timeline.push(row)
+  selected.value.timeline = row.entry_id
+}
 const severities = ['Minor', 'Moderate', 'Serious', 'Major', 'Severe', 'Catastrophic']
 const categoryPrompts = [
   'Identify the barriers or safeguards that were absent or did not prevent the outcome.',
@@ -1372,7 +1530,9 @@ function dateLabel(value, time = false) {
   if (!value) return 'Not recorded'
   const raw = String(value)
   // A date-only deadline is a calendar day, not UTC midnight.
-  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T12:00:00` : raw.replace(' ', 'T'))
+  const date = new Date(
+    /^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T12:00:00` : raw.replace(' ', 'T'),
+  )
   return Number.isNaN(date.getTime())
     ? value
     : new Intl.DateTimeFormat(undefined, {
@@ -1405,7 +1565,10 @@ async function fetchList() {
   const current = ++listGeneration
   listLoading.value = true
   try {
-    const result = await call('list_investigations', { ...filters.value, start: pageStart.value })
+    const result = await call('list_investigations', {
+      ...filters.value,
+      start: pageStart.value,
+    })
     if (current === listGeneration) list.value = result
   } catch (failure) {
     if (current === listGeneration) error.value = failure.message
@@ -1431,6 +1594,7 @@ async function loadRoute() {
   const name = decodeURIComponent((location.hash || '#/').replace(/^#\/?/, ''))
   operation.value = null
   tab.value = 'overview'
+  selected.value = { timeline: '', five_whys: '', icam_factors: '' }
   if (!name) {
     setDoc(null)
     await fetchList()
@@ -1532,8 +1696,10 @@ function addEvidence() {
 function addWhy(parent_id) {
   const parent = doc.value.five_whys.find((row) => row.entry_id === parent_id)
   if (parent) parent.is_root_cause = 0
+  const entry_id = id('W')
+  selected.value.five_whys = entry_id
   doc.value.five_whys.push({
-    entry_id: id('W'),
+    entry_id,
     parent_id,
     description: '',
     finding_status: 'Hypothesis',
@@ -1543,8 +1709,10 @@ function addWhy(parent_id) {
   })
 }
 function addFactor(category) {
+  const entry_id = id('F')
+  selected.value.icam_factors = entry_id
   doc.value.icam_factors.push({
-    entry_id: id('F'),
+    entry_id,
     category,
     factor_type: '',
     description: '',
@@ -1577,7 +1745,9 @@ async function attach(row, field, event) {
   if (!file || !doc.value.name) return
   await run(async () => {
     row[field] = await uploadFile(file, doc.value.name)
-    flash('Private attachment uploaded. Save the investigation to retain its evidence reference.')
+    flash(
+      'Private attachment uploaded. Save the investigation to retain its evidence reference.',
+    )
   })
   event.target.value = ''
 }
@@ -1652,8 +1822,8 @@ async function confirmOperation() {
 async function printReport() {
   await run(async () => {
     if (dirty.value) await persist()
-    await nextTick()
-    window.print()
+    await downloadReport(doc.value.name, doc.value.modified)
+    flash('Full investigation report downloaded')
   })
 }
 onMounted(async () => {
