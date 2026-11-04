@@ -11,7 +11,7 @@ from reportlab.pdfgen.canvas import Canvas
 
 from verto.safety.investigation_report import ReportLimitError, build_report
 from verto.safety.investigation_rules import ICAM_CATEGORIES, validate_structure
-from verto.safety.investigation_workflow import diagram, event_type
+from verto.safety.investigation_workflow import diagram, event_time_key, event_type, ordered_timeline
 
 
 def sample():
@@ -105,6 +105,38 @@ class TestInvestigationReport(unittest.TestCase):
 
 
 class TestInvestigationWorkflow(unittest.TestCase):
+    def test_timeline_is_horizontal_and_chronological_independent_of_type_or_saved_coordinates(self):
+        data = sample()
+        data["timeline"] = [
+            {"entry_id": "T-late", "event_type": "Direct factor", "event_datetime": "2026-11-04 11:00", "graph_x": 1, "graph_y": 500},
+            {"entry_id": "T-equal-a", "event_datetime": "2026-11-04T09:00"},
+            {"entry_id": "T-undated", "event_datetime": ""},
+            {"entry_id": "T-first", "event_type": "Contributing factor", "event_datetime": "2026-11-03 14:00:00"},
+            {"entry_id": "T-equal-b", "event_datetime": "2026-11-04 09:00:00.000000"},
+        ]
+        original = [row["entry_id"] for row in data["timeline"]]
+        graph = diagram(data, "timeline")
+        self.assertEqual([row["id"] for row in graph["nodes"]], ["T-first", "T-equal-a", "T-equal-b", "incident", "T-late", "T-undated"])
+        self.assertEqual([row["lane"] for row in graph["nodes"]], list(range(6)))
+        self.assertEqual(graph["lanes"][-1], "Time not set")
+        self.assertEqual([row["entry_id"] for row in data["timeline"]], original)
+        self.assertEqual(event_time_key("2026-11-04T09:30"), event_time_key("2026-11-04 09:30:00.000000"))
+        self.assertEqual(event_time_key("2026-02-30 09:30"), "")
+        data["timeline"][0]["event_datetime"] = "2026-11-03 08:00"
+        self.assertEqual(ordered_timeline(data["timeline"])[0]["entry_id"], "T-late")
+
+    def test_report_timeline_narratives_follow_the_same_date_order_as_the_diagram(self):
+        data = sample()
+        data["timeline"] = [
+            {"entry_id": "T-late", "event_datetime": "2026-11-04 11:00", "description": "LAST TIMED NARRATIVE"},
+            {"entry_id": "T-undated", "description": "UNDATED NARRATIVE"},
+            {"entry_id": "T-first", "event_datetime": "2026-11-03 08:00", "description": "FIRST TIMED NARRATIVE"},
+        ]
+        reader = PdfReader(BytesIO(build_report(data)))
+        body = "\n".join(page.extract_text() for page in reader.pages).split("Event timeline - full narratives", 1)[1].split("5 Whys - full narratives", 1)[0]
+        self.assertLess(body.index("FIRST TIMED NARRATIVE"), body.index("LAST TIMED NARRATIVE"))
+        self.assertLess(body.index("LAST TIMED NARRATIVE"), body.index("UNDATED NARRATIVE"))
+
     def test_legacy_timeline_uses_chronology_without_asserting_causality(self):
         graph = diagram(sample(), "timeline")
         self.assertEqual([(edge["from"], edge["to"]) for edge in graph["edges"]], [("T-000000000001", "incident"), ("incident", "T-000000000002")])

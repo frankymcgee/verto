@@ -369,6 +369,45 @@ describe('investigations workspace', () => {
     expect(rows[1].previous_events).toBe('incident')
     expect(rows[0].description).toBe('Before work')
   })
+  it('reorders a selected event immediately when its time changes and retains its editor', async () => {
+    await open(
+      'INV-00001',
+      record({
+        timeline: [
+          {
+            entry_id: 'T-later',
+            description: 'Later event',
+            event_datetime: '2026-10-18 09:00:00',
+          },
+          {
+            entry_id: 'T-earlier',
+            description: 'Earlier event',
+            event_datetime: '2026-10-18 07:00:00',
+          },
+        ],
+      }),
+    )
+    await section('Event timeline').trigger('click')
+    expect(field('Event or condition').element.value).toBe('Earlier event')
+    expect(
+      wrapper.findAll('.workflow-node').map((node) => node.attributes('data-node-id')),
+    ).toEqual(['T-earlier', 'incident', 'T-later'])
+    await wrapper.get('[data-node-id="T-later"]').trigger('click')
+    control('Event time').vm.$emit('update:modelValue', '2026-10-17 06:00:00')
+    await flushPromises()
+    expect(
+      wrapper.findAll('.workflow-node').map((node) => node.attributes('data-node-id')),
+    ).toEqual(['T-later', 'T-earlier', 'incident'])
+    expect(wrapper.get('[data-node-id="T-later"]').attributes('aria-pressed')).toBe('true')
+    expect(field('Event or condition').element.value).toBe('Later event')
+    await button('Save investigation').trigger('click')
+    await flushPromises()
+    const rows = call.mock.calls.find(([method]) => method === 'save_investigation')[1].data
+      .timeline
+    expect(rows.find((row) => row.entry_id === 'T-later').event_datetime).toBe(
+      '2026-10-17 06:00:00',
+    )
+  })
   it('records a reason when withdrawing a submitted investigation for revision', async () => {
     await open(
       'INV-00001',

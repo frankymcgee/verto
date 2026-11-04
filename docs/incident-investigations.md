@@ -85,10 +85,19 @@ one supported absent/failed defence.
 
 The event timeline, 5 Whys and ICAM sections now open as connected diagrams.
 Select a bubble to edit its full narrative and evidence in a single details
-panel. Drag bubbles to arrange them, scroll or drag the canvas background to
-explore, and use zoom / Fit for larger maps. Positions are saved with the
-investigation. **Auto arrange** restores the standard layout for that section.
+panel. In 5 Whys and ICAM, drag bubbles to arrange them, scroll or drag the canvas
+background to explore, and use zoom / Fit for larger maps. Positions are saved
+with the investigation. **Auto arrange** restores the standard analysis layout.
 Locked records remain navigable, with editing and rearrangement disabled.
+
+The event timeline has a separate horizontal bubble for each event, ordered
+left to right by its recorded date and time. Changing an event time repositions
+that same bubble immediately, while preserving its selection and content.
+Undated events appear after dated events; equal timestamps retain their entry
+order. Date and time labels remain visible on each event. Timeline positioning
+is automatic, including for older records with saved diagram coordinates.
+5 Whys and ICAM retain their independent draggable diagrams and saved positions.
+Pointer clicks, touch taps and keyboard activation select individual bubbles.
 
 Timeline bubbles can be Event information, Contributing factor, Direct factor,
 Actual event or Post event. Use **Connect from events** and **Connect to events**

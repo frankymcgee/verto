@@ -570,13 +570,14 @@
                 </article>
               </section>
 
-              <section v-if="tab === 'timeline'" class="workspace-panel">
+              <section v-if="tab === 'timeline'" class="workspace-panel timeline-panel">
                 <div class="section-heading">
                   <div>
                     <p class="eyebrow">SEQUENCE & CONTEXT</p>
                     <h2>Event timeline</h2>
                     <p>
-                      Build the sequence from evidence, including conditions before the event.
+                      Add events and their times. The timeline automatically runs from earliest
+                      to latest, with a separate bubble for each event.
                     </p>
                   </div>
                   <Button v-if="editable" @click="addEvent" :disabled="busy">Add event</Button>
@@ -588,8 +589,6 @@
                   :selected-id="selectedRow('timeline')?.entry_id || 'incident'"
                   :editable="editable && !busy"
                   @select="selected.timeline = $event"
-                  @move="moveNode('timeline', $event)"
-                  @arrange="arrange('timeline')"
                 />
                 <div v-if="!selectedRow('timeline')" class="problem-statement">
                   <span>Actual event</span>
@@ -602,9 +601,10 @@
                 <article
                   v-for="row in selectedRows('timeline')"
                   :key="row.entry_id"
-                  class="entry-card"
+                  class="entry-card workflow-editor"
                 >
                   <div class="entry-heading">
+                    <h3>Event details</h3>
                     <code>{{ row.entry_id }}</code
                     ><Button
                       v-if="editable"
@@ -1373,7 +1373,13 @@ import {
 import LookupField from './components/LookupField.vue'
 import ReferencePicker from './components/ReferencePicker.vue'
 import WorkflowCanvas from './components/WorkflowCanvas.vue'
-import { eventType, eventTypes, investigationGraph, whyParents } from './workflow'
+import {
+  eventType,
+  eventTypes,
+  investigationGraph,
+  orderedTimeline,
+  whyParents,
+} from './workflow'
 import InvestigationReport from './components/InvestigationReport.vue'
 
 const meta = ref({ apps: [] }),
@@ -1400,7 +1406,7 @@ function selectedRow(table) {
   if (selected.value[table] === 'incident') return null
   return (
     doc.value[table].find((row) => row.entry_id === selected.value[table]) ||
-    doc.value[table][0]
+    (table === 'timeline' ? orderedTimeline(doc.value.timeline)[0] : doc.value[table][0])
   )
 }
 function selectedRows(table) {

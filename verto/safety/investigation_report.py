@@ -20,7 +20,7 @@ from reportlab.pdfgen import canvas
 from reportlab.platypus import Image, Paragraph, SimpleDocTemplate
 
 from verto.safety.investigation_rules import ICAM_CATEGORIES, checked, text
-from verto.safety.investigation_workflow import diagram, event_type
+from verto.safety.investigation_workflow import diagram, event_type, ordered_timeline
 
 MAX_BYTES = 100 * 1024 * 1024
 MAX_PAGES = 1000
@@ -127,7 +127,7 @@ def _details(doc, styles, overview=False):
             if row.get(key):
                 field(label, row[key])
     p("Event timeline - full narratives", "Heading2")
-    for row in doc.get("timeline") or []:
+    for row in ordered_timeline(doc.get("timeline")):
         p(f"{row['entry_id']} - {event_type(row, doc)}", "Heading3")
         field("Event time", row.get("event_datetime"))
         p(row.get("description"))
@@ -192,7 +192,7 @@ def _diagram_pdf(doc, mode, styles):
     # Fixed-size landscape sheets preserve readable text for deep/large graphs.
     # A link spanning sheets is printed with its destination's map number.
     sheets, locations = [], {}
-    columns = 5 if mode != "whys" else 4
+    columns = 5 if mode == "icam" else 4
     for start in range(0, len(graph["lanes"]), columns):
         lane_ids = list(range(start, min(start + columns, len(graph["lanes"]))))
         rows = max(1, max(len(grouped[lane]) for lane in lane_ids))

@@ -1,5 +1,9 @@
 <template>
-  <div class="workflow-canvas" :aria-label="`${label} workflow`">
+  <div
+    class="workflow-canvas"
+    :class="{ 'timeline-canvas': mode === 'timeline', 'read-only-canvas': !editable }"
+    :aria-label="`${label} workflow`"
+  >
     <div class="workflow-toolbar">
       <span
         >{{ label }}
@@ -16,7 +20,9 @@
           +
         </button>
         <button type="button" @click="fit">Fit</button>
-        <button v-if="editable" type="button" @click="$emit('arrange')">Auto arrange</button>
+        <button v-if="editable && mode !== 'timeline'" type="button" @click="$emit('arrange')">
+          Auto arrange
+        </button>
       </div>
     </div>
     <div
@@ -33,7 +39,7 @@
           :style="{ width: `${width}px`, height: `${height}px`, transform: `scale(${zoom})` }"
         >
           <div
-            v-for="(lane, index) in graph.lanes"
+            v-for="(lane, index) in mode === 'timeline' ? [] : graph.lanes"
             :key="index"
             class="workflow-lane"
             :style="{ left: `${28 + index * 310}px` }"
@@ -88,9 +94,16 @@
             }"
             :aria-pressed="selectedId === node.id"
             :aria-label="`${node.title}: ${node.description || 'New entry'}`"
+            :data-node-id="node.id"
             @pointerdown.stop="startNode($event, node)"
             @click="select(node)"
           >
+            <time
+              v-if="mode === 'timeline'"
+              class="workflow-node-time"
+              :datetime="node.row.event_datetime || undefined"
+              >{{ node.timeLabel }}</time
+            >
             <span class="workflow-node-kind">{{ node.title }}</span>
             <span class="workflow-node-description">{{
               node.description || 'Select to describe this finding or event'
@@ -111,7 +124,12 @@
         </div>
       </div>
     </div>
-    <p class="workflow-caption">
+    <p v-if="mode === 'timeline'" class="workflow-caption">
+      Select an event to edit it. Dates and times automatically place events from left to right.
+      Undated events appear at the end. Scroll sideways or drag the background to explore.
+      Dashed arrows show time sequence.
+    </p>
+    <p v-else class="workflow-caption">
       Select a bubble to view or edit it.
       {{ editable ? 'Drag bubbles to arrange them. ' : '' }}Scroll or drag the background to
       explore. Dashed connectors show
@@ -120,7 +138,7 @@
   </div>
 </template>
 <script setup>
-import { computed, ref, useId } from 'vue'
+import { computed, nextTick, ref, useId, watch } from 'vue'
 import { nodeHeight, nodeWidth } from '../workflow'
 const props = defineProps({
   graph: { type: Object, required: true },
@@ -137,10 +155,37 @@ const arrowId = `workflow-arrow-${useId().replaceAll(':', '')}`
 let suppressClick = false
 const position = (node) => (drag.value?.id === node.id ? drag.value : node)
 const width = computed(() =>
-  Math.max(700, ...props.graph.nodes.map((node) => position(node).x + nodeWidth + 45)),
+  Math.max(
+    props.mode === 'timeline' ? 280 : 700,
+    ...props.graph.nodes.map((node) => position(node).x + nodeWidth + 45),
+  ),
 )
 const height = computed(() =>
-  Math.max(370, ...props.graph.nodes.map((node) => position(node).y + nodeHeight + 45)),
+  Math.max(
+    props.mode === 'timeline' ? 244 : 370,
+    ...props.graph.nodes.map((node) => position(node).y + nodeHeight + 45),
+  ),
+)
+watch(
+  () => {
+    if (props.mode !== 'timeline') return ''
+    const node = props.graph.nodes.find((node) => node.id === props.selectedId)
+    return `${props.selectedId}:${node?.x}:${zoom.value}`
+  },
+  async () => {
+    await nextTick()
+    const node = props.graph.nodes.find((node) => node.id === props.selectedId)
+    const view = viewport.value
+    if (props.mode !== 'timeline' || !node || !view?.clientWidth) return
+    const left = node.x * zoom.value,
+      right = (node.x + nodeWidth) * zoom.value
+    // A time edit can move the selected event to the opposite end. Reveal it
+    // horizontally without scrolling the page or stealing focus from its editor.
+    if (left < view.scrollLeft + 12) view.scrollLeft = Math.max(0, left - 20)
+    else if (right > view.scrollLeft + view.clientWidth - 12)
+      view.scrollLeft = right - view.clientWidth + 20
+  },
+  { immediate: true },
 )
 function edgePath(edge) {
   const a = position(props.graph.nodes.find((node) => node.id === edge.from)),
@@ -168,7 +213,7 @@ function edgePath(edge) {
 }
 function startNode(event, node) {
   suppressClick = false
-  if (!props.editable || !node.table || event.button !== 0) return
+  if (!props.editable || !node.table || props.mode === 'timeline' || event.button !== 0) return
   drag.value = {
     id: node.id,
     x: node.x,
@@ -178,7 +223,9 @@ function startNode(event, node) {
     startX: event.clientX,
     startY: event.clientY,
   }
-  viewport.value.setPointerCapture(event.pointerId)
+  // Capturing on the viewport retargeted the eventual click away from the
+  // bubble. Keep capture on its button so mouse/touch clicks select it normally.
+  event.currentTarget.setPointerCapture(event.pointerId)
 }
 function startPan(event) {
   if (event.button !== 0) return
@@ -301,10 +348,50 @@ function fit() {
   border-top: 4px solid #64748b;
   border-radius: 18px;
   background: #f8fafc;
-  box-shadow: 0 3px 8px #0f172a0b;
+  box-shadow: 0 5px 14px #0f172a18;
   cursor: pointer;
   touch-action: none;
   color: #1e293b;
+}
+.workflow-node:focus-visible {
+  outline: 3px solid #3b82f6;
+  outline-offset: 3px;
+}
+.workflow-node-time {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #334155;
+}
+.timeline-canvas {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.timeline-canvas .workflow-toolbar {
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+}
+.timeline-canvas .workflow-viewport {
+  height: 256px;
+}
+.timeline-canvas .workflow-sheet {
+  background: none;
+}
+.timeline-canvas .workflow-node {
+  border-radius: 14px;
+  border-width: 2px;
+  border-top-width: 4px;
+}
+.timeline-canvas .workflow-node,
+.read-only-canvas .workflow-node {
+  touch-action: pan-x pan-y;
+}
+.timeline-canvas .workflow-caption {
+  border: 0;
+  padding: 10px 0;
 }
 .workflow-node.selected {
   outline: 3px solid #3b82f6;
