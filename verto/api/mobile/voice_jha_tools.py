@@ -480,8 +480,10 @@ def _record_participant(doc, args: dict) -> dict:
 
 
 def _state(doc) -> dict:
+    from verto.api.mobile.voice_jha_photos import photo_context
     return {
         "jha": doc.name,
+        "paper_jha": photo_context(doc),
         "status": doc.jha_status,
         "revision": doc.revision,
         "work_steps": [

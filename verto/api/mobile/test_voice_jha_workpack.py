@@ -127,7 +127,7 @@ class TestJhaWorkpack(TestCase):
         image = BytesIO(); Image.new('RGB', (32, 32)).save(image, format='PNG')
         file = Record(doctype='File', name='FILE-1', file_url='/private/files/pump.png', attached_to_doctype=review.JHA_DOCTYPE,
                       attached_to_name='JHA-1', is_private=1)
-        file.get_content = lambda: image.getvalue()
+        file.get_content = lambda **kwargs: image.getvalue()
         Record.records.append(file)
         result = self.resource(kind='Photo', status='Confirmed', evidence=file.file_url,
             annotations=json.dumps([{'x': .25, 'y': .75, 'label': 'Restraint point'}]))

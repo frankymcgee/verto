@@ -48,7 +48,7 @@
   {"fieldname":"permit_or_ccv_required","fieldtype":"Small Text","label":"Permit / CCV Required"},
   {"fieldname":"initial_risk","fieldtype":"Data","label":"Initial Risk"},
   {"fieldname":"residual_risk","fieldtype":"Data","label":"Residual Risk"},
-  {"default":"Team discussion","fieldname":"information_source","fieldtype":"Select","label":"Information Source","options":"Team discussion\nApproved Verto document\nAI suggestion\nOn-site verification"}
+  {"default":"Team discussion","fieldname":"information_source","fieldtype":"Select","label":"Information Source","options":"Team discussion\nApproved Verto document\nAI suggestion\nOn-site verification\nPhotographed JHA"}
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
