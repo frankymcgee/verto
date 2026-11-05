@@ -629,17 +629,17 @@ def normalise_grouped_timesheet_names(timesheet_names):
     return sorted(clean_names)
 
 
-def create_grouped_timesheet_token(timesheet_names):
+def create_grouped_timesheet_token(timesheet_names, request_name=None):
     """
     Create a signed token containing the exact Timesheets shown on the page.
 
-    No new DocType or custom batch record is required. Because the list is
-    signed with the site's encryption key, a recipient cannot add or replace a
-    Timesheet by editing the URL.
+    New emails bind the exact list to a persistent approval request. Version 1
+    remains supported for older links until a replacement request is sent.
     """
     names = normalise_grouped_timesheet_names(timesheet_names)
+    data = {"v": 2, "names": names, "request": request_name} if request_name else {"v": 1, "names": names}
     payload = json.dumps(
-        {"v": 1, "names": names},
+        data,
         separators=(",", ":"),
         sort_keys=True,
     ).encode("utf-8")
@@ -653,8 +653,8 @@ def create_grouped_timesheet_token(timesheet_names):
     return f"{encoded_payload}.{encode_grouped_token_part(signature)}"
 
 
-def decode_grouped_timesheet_token(token):
-    """Validate a grouped approval token and return its Timesheet names."""
+def decode_grouped_timesheet_token_payload(token):
+    """Validate both legacy and request-bound approval tokens."""
     if not token:
         frappe.throw("The grouped timesheet approval link is missing its token.")
 
@@ -689,14 +689,23 @@ def decode_grouped_timesheet_token(token):
     ):
         frappe.throw("This grouped timesheet approval link is invalid.")
 
-    if not isinstance(payload, dict) or cint(payload.get("v")) != 1:
+    if not isinstance(payload, dict) or payload.get("v") not in (1, 2):
         frappe.throw("This grouped timesheet approval link is invalid.")
 
-    return normalise_grouped_timesheet_names(payload.get("names"))
+    if payload["v"] == 2 and (not isinstance(payload.get("request"), str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,140}", payload["request"])):
+        frappe.throw("This grouped timesheet approval link is invalid.")
+    if payload["v"] == 1 and payload.get("request"):
+        frappe.throw("This grouped timesheet approval link is invalid.")
+    payload["names"] = normalise_grouped_timesheet_names(payload.get("names"))
+    return payload
 
 
-def get_grouped_timesheet_signing_url(timesheet_names):
-    token = create_grouped_timesheet_token(timesheet_names)
+def decode_grouped_timesheet_token(token):
+    return decode_grouped_timesheet_token_payload(token)["names"]
+
+
+def get_grouped_timesheet_signing_url(timesheet_names, request_name=None):
+    token = create_grouped_timesheet_token(timesheet_names, request_name=request_name)
     return frappe.utils.get_url(
         f"{GROUPED_TIMESHEET_ROUTE}?{urlencode({'token': token})}"
     )
@@ -900,6 +909,21 @@ def send_grouped_weekly_timesheets(project_id=None):
                 })
                 continue
 
+            # Draft candidates trigger a scheduled send, but an amended week
+            # must also include its unchanged, already-submitted employees.
+            if not is_manual_test:
+                timesheets = frappe.get_all(
+                    "Timesheet",
+                    filters={
+                        "parent_project": project_name,
+                        "custom_monday_date": _monday,
+                        "custom_sunday_date": _sunday,
+                        "docstatus": ["in", [0, 1]],
+                    },
+                    fields=get_grouped_timesheet_fields(),
+                    order_by="employee_name asc, employee asc",
+                )
+
             recipients = get_project_or_default_recipients(project, email_settings)
 
             if not recipients:
@@ -917,11 +941,19 @@ def send_grouped_weekly_timesheets(project_id=None):
 
             names = [ts.name for ts in timesheets]
             summary = get_grouped_week_summary(timesheets)
-            signing_url = get_grouped_timesheet_signing_url(names)
             raw_project = (
                 timesheets[0].project_name or project.project_name or project.name
             )
             display_project = html.escape(raw_project)
+
+            # Request creation and replacement belong inside the same savepoint
+            # as submission and email queueing. A failed send keeps old links valid.
+            frappe.db.savepoint(savepoint_name)
+            from verto.api.timesheet_approval import create_request, lock_project, record_approval_email
+            lock_project(project_name)
+            submit_grouped_timesheets(timesheets)
+            approval_request = create_request(names, email_settings, recipients)
+            signing_url = get_grouped_timesheet_signing_url(names, request_name=approval_request.name)
 
             content_html = f"""
                 <p>Please review the consolidated weekly timesheets for
@@ -932,32 +964,33 @@ def send_grouped_weekly_timesheets(project_id=None):
                 <p><strong>Total Hours:</strong> {summary.total_hours} Hours</p>
                 <p>The approval page shows Day Shift and Night Shift hours for
                 every employee on each day of the week.</p>
-                <p><b><a href="{signing_url}">Click Here to Review and Sign</a></b></p>
+                <p><b><a href="{signing_url}">Click Here to Review, Sign or Reject</a></b></p>
                 <p>One signature will approve all unsigned Timesheets displayed
                 on the page. Any existing signatures will remain unchanged.</p>
+                <p>If changes are required, select Reject Week and give a reason.
+                Our site team will receive your reason by email.</p>
                 <p>If you have any questions or concerns, please contact our site team.</p>
             """
 
-            # Keep the source Timesheets immutable while the client reviews them.
-            # A savepoint lets us return them to Draft if the email send fails.
-            frappe.db.savepoint(savepoint_name)
-            submit_grouped_timesheets(timesheets)
-
-            frappe.sendmail(
+            email_queue = frappe.sendmail(
                 recipients=recipients,
                 subject=(
                     f"Weekly Timesheet Approval - {raw_project} - "
                     f"{summary.start_fmt} to {summary.end_fmt}"
                 ),
                 message=build_email_body(content_html, email_settings),
-                delayed=False,
-                **sendmail_options,
+                delayed=True,
+                reference_doctype=approval_request.doctype,
+                reference_name=approval_request.name,
+                **{**sendmail_options, "reply_to": approval_request.reply_to_email},
             )
+            record_approval_email(approval_request, email_queue)
 
             frappe.db.commit()
             results.append({
                 "project": project_name,
                 "status": "Sent",
+                "approval_request": approval_request.name,
                 "timesheet_count": len(names),
                 "employee_count": summary.employee_count,
                 "total_hours": summary.total_hours,
@@ -991,9 +1024,12 @@ def send_grouped_timesheet_followup_reminders(project_id=None):
     """
     Send one reminder for each unsigned grouped project/week.
 
-    Keep this method out of scheduler hooks during the pilot. Passing a Project
-    ID finds and reminds its latest submitted, unsigned Timesheet week.
+    Passing a Project ID finds its latest submitted, unsigned Timesheet week.
+    Rejected requests remain closed until staff explicitly resend the week.
     """
+    from verto.api import timesheet_approval as approvals
+    from verto.api import timesheet_signing as signing
+
     email_settings = get_verto_mobile_email_settings()
     sendmail_options = get_sendmail_options(email_settings)
     _start_date, _end_date, allowed_days = get_timesheet_date_range()
@@ -1008,7 +1044,9 @@ def send_grouped_timesheet_followup_reminders(project_id=None):
     results = []
 
     for (project_name, _monday, _sunday), timesheets in groups.items():
+        savepoint_name = "before_grouped_timesheet_reminder"
         try:
+            frappe.db.savepoint(savepoint_name)
             project = frappe.get_doc("Project", project_name)
 
             if not is_manual_test and project.day_of_the_week not in allowed_days:
@@ -1023,9 +1061,23 @@ def send_grouped_timesheet_followup_reminders(project_id=None):
                 )
                 continue
 
-            names = [ts.name for ts in timesheets]
+            approvals.lock_project(project_name)
+            request_name = approvals.latest_request(project_name, _monday, _sunday, for_update=True)
+            approval_request = frappe.get_doc(approvals.REQUEST_DOCTYPE, request_name, for_update=True) if request_name else None
+            if approval_request and approval_request.status != "Pending":
+                results.append({"project": project_name, "status": "Skipped",
+                                "reason": f"The latest approval request is {approval_request.status}."})
+                continue
+
+            if not approval_request:
+                approval_request = approvals.create_request([ts.name for ts in timesheets], email_settings, recipients)
+            names = approvals.request_names(approval_request)
+            token = create_grouped_timesheet_token(names, request_name=approval_request.name)
+            timesheets = signing.get_grouped_timesheet_docs(token)
+            approvals.assert_snapshot_matches(approval_request, signing.build_grouped_timesheet_data(timesheets))
+            recipients = split_email_list(approval_request.recipient_emails)
             summary = get_grouped_week_summary(timesheets)
-            signing_url = get_grouped_timesheet_signing_url(names)
+            signing_url = get_grouped_timesheet_signing_url(names, request_name=approval_request.name)
             raw_project = (
                 timesheets[0].project_name or project.project_name or project.name
             )
@@ -1036,23 +1088,28 @@ def send_grouped_timesheet_followup_reminders(project_id=None):
                 weekly timesheets for <strong>{display_project}</strong>.</p>
                 <p><strong>Week Range:</strong>
                 {summary.start_fmt} &rarr; {summary.end_fmt}</p>
-                <p><strong>Employees Awaiting Approval:</strong>
+                <p><strong>Employees:</strong>
                 {summary.employee_count}</p>
-                <p><strong>Total Hours Awaiting Approval:</strong>
+                <p><strong>Total Hours:</strong>
                 {summary.total_hours} Hours</p>
-                <p><b><a href="{signing_url}">Click Here to Review and Sign</a></b></p>
+                <p><b><a href="{signing_url}">Click Here to Review, Sign or Reject</a></b></p>
             """
 
-            frappe.sendmail(
+            email_queue = frappe.sendmail(
                 recipients=recipients,
                 subject=(
                     f"[Reminder] Weekly Timesheet Approval - {raw_project} - "
                     f"{summary.start_fmt} to {summary.end_fmt}"
                 ),
                 message=build_email_body(content_html, email_settings),
-                delayed=False,
-                **sendmail_options,
+                delayed=True,
+                reference_doctype=approval_request.doctype,
+                reference_name=approval_request.name,
+                **{**sendmail_options, "reply_to": approval_request.reply_to_email},
             )
+            approvals.record_approval_email(approval_request, email_queue)
+
+            frappe.db.commit()
 
             results.append({
                 "project": project_name,
@@ -1062,6 +1119,7 @@ def send_grouped_timesheet_followup_reminders(project_id=None):
             time.sleep(1)
 
         except Exception:
+            frappe.db.rollback(save_point=savepoint_name)
             frappe.log_error(
                 title=f"Grouped Timesheet reminder failed for {project_name}",
                 message=frappe.get_traceback(),

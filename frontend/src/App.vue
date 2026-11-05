@@ -1,9 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { FrappeUIProvider } from 'frappe-ui'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { apiRequest } from './lib/api'
 import { useMobileBoot } from './lib/mobileBoot'
 
+type FrappeResponse<T> = {
+  message: T
+}
+
+type NavigationAccess = {
+  has_employee_profile?: boolean
+}
+
 const route = useRoute()
+const hasEmployeeProfile = ref(false)
 
 const {
   loadMobileBoot,
@@ -85,8 +96,6 @@ function removeExistingFavicons() {
     [
       'link[rel="icon"]',
       'link[rel="shortcut icon"]',
-      'link[rel="apple-touch-icon"]',
-      'link[rel="mask-icon"]',
     ].join(',')
   )
 
@@ -113,25 +122,46 @@ function setFavicon(href: string) {
     return
   }
 
-  const cacheBustedHref = href.includes('?')
-    ? `${href}&v=${Date.now()}`
-    : `${href}?v=${Date.now()}`
-
   const type = getFaviconType(href)
+
+  const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+  if (icon?.getAttribute('href') === href) return
 
   removeExistingFavicons()
 
-  appendIcon('icon', cacheBustedHref, type)
-  appendIcon('shortcut icon', cacheBustedHref, type)
-  appendIcon('apple-touch-icon', cacheBustedHref)
+  appendIcon('icon', href, type)
+  appendIcon('shortcut icon', href, type)
 }
 
 function setBrowserTitle() {
   document.title = browserTitle.value
 }
 
+async function loadNavigationAccess() {
+  try {
+    const boot = await loadMobileBoot()
+    const access = boot.navigation_access ?? (await apiRequest<FrappeResponse<NavigationAccess>>(
+      '/api/method/verto.api.mobile.navigation.get_navigation_access'
+    )).message
+
+    hasEmployeeProfile.value = Boolean(
+      access?.has_employee_profile
+    )
+  } catch (err) {
+    if (err instanceof Error && err.message === 'Login required') {
+      throw err
+    }
+
+    // Fail closed if the access check cannot be completed.
+    hasEmployeeProfile.value = false
+  }
+}
+
 onMounted(async () => {
-  await loadMobileBoot()
+  await Promise.all([
+    loadMobileBoot(),
+    loadNavigationAccess(),
+  ])
   setFavicon(faviconUrl.value)
   setBrowserTitle()
 })
@@ -155,7 +185,23 @@ watch(
 </script>
 
 <template>
-  <div class="min-h-screen bg-surface-gray-1 text-ink-gray-9 antialiased">
+  <FrappeUIProvider>
+  <div
+    class="min-h-screen bg-surface-gray-1 text-ink-gray-9 antialiased"
+    :class="{ 'verto-no-employee-profile': !hasEmployeeProfile }"
+  >
     <RouterView />
   </div>
+  </FrappeUIProvider>
 </template>
+
+<style>
+.verto-no-employee-profile .bottom-tabs-items {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.verto-no-employee-profile .bottom-tabs-items > [title='Shifts'],
+.verto-no-employee-profile .bottom-tabs-items > [title='Chat'] {
+  display: none;
+}
+</style>

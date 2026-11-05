@@ -6,14 +6,17 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "test:ui": "vitest run"
   },
   "dependencies": {
     "@lucide/vue": "latest",
     "frappe-ui": "file:../frappe-ui",
+    "jsqr": "1.4.0",
     "socket.io-client": "4.7.1",
     "vue": "^3.5.13",
-    "vue-router": "^4.5.0"
+    "vue-router": "^4.5.0",
+    "reka-ui": "2.10.4"
   },
   "devDependencies": {
     "@iconify/json": "^2.2.300",
@@ -29,6 +32,12 @@
     "vite-plugin-pwa": "^1.3.0",
     "vue-tsc": "^2.2.0",
     "workbox-core": "^7.4.1",
-    "workbox-precaching": "^7.4.1"
+    "workbox-precaching": "^7.4.1",
+    "@vue/test-utils": "2.4.6",
+    "vitest": "2.1.9",
+    "happy-dom": "20.8.4"
+  },
+  "engines": {
+    "node": ">=20.19.0"
   }
 }

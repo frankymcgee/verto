@@ -19,6 +19,7 @@ from verto.api.automate import (
     get_sendmail_options,
     get_verto_mobile_email_settings,
 )
+from verto.api import timesheet_approval as approvals
 
 
 MAX_SIGNATURE_BYTES = 1_500_000
@@ -28,8 +29,8 @@ DAY_SHIFT_CUTOFF = datetime.time(16, 30)
 # -----------------------------------------------------------------------------
 # Existing individual Timesheet signing workflow
 #
-# These methods are intentionally unchanged so the original sign-timesheet page
-# and individual email workflow continue to work during the grouped pilot.
+# Preserve the individual signing page while preventing old individual links
+# from bypassing a replacement grouped approval request.
 # -----------------------------------------------------------------------------
 
 
@@ -40,8 +41,15 @@ def sign_timesheet(timesheet_name, signature_base64, full_name=None, date_signed
 
     ts = frappe.get_doc("Timesheet", timesheet_name)
 
+    if ts.parent_project:
+        approvals.lock_project(ts.parent_project)
+        ts = frappe.get_doc("Timesheet", timesheet_name, for_update=True)
+
     if ts.custom_client_signed == 1:
         return "Already signed"
+
+    # An old individual link must not bypass a newer grouped decision.
+    approvals.assert_legacy_link_current([ts], for_update=True)
 
     ts.db_set("custom_client_signature", signature_base64)
     ts.db_set("custom_client_signed", 1)
@@ -114,16 +122,21 @@ def get_timesheet_public(name):
     )
 
 
-@frappe.whitelist()
-def approve_timesheet_with_signature(timesheet, signature_dataurl, approved_by):
-    doc = frappe.get_doc("Timesheet", timesheet)
-    doc.internal_approved = 1
-    doc.employee_approved = approved_by
-    doc.approved_signature = signature_dataurl
-    doc.save(ignore_permissions=True)
-    frappe.db.commit()
+@frappe.whitelist(methods=["POST"])
+def approve_timesheet_with_signature(timesheet, signature_dataurl, approved_by=None):
+    from verto.api import internal_timesheet_approval as internal
 
-    return {"status": "success", "message": f"{timesheet} updated"}
+    # Preserve the existing action for clean records while requiring flagged
+    # entries to be reviewed through the consolidated page. The session owns
+    # the approver identity, and approval remains in the request transaction.
+    review = internal.get_internal_timesheet_review(timesheets=[timesheet])
+    row = review["groups"][0]["rows"][0]
+    if row["flag_count"] and not row["internal_approved"]:
+        frappe.throw("This Timesheet has validation flags. Review it on the Internal Timesheet Approval page before signing.")
+    result = internal.approve_internal_timesheets(
+        selections=[{"name": timesheet, "review_hash": row["review_hash"]}], signature_dataurl=signature_dataurl,
+    )
+    return {**result, "status": "success", "message": f"{timesheet} internally approved"}
 
 
 # -----------------------------------------------------------------------------
@@ -131,10 +144,13 @@ def approve_timesheet_with_signature(timesheet, signature_dataurl, approved_by):
 # -----------------------------------------------------------------------------
 
 
-def get_grouped_timesheet_docs(token, require_submitted=True):
+def get_grouped_timesheet_docs(token, require_submitted=True, check_request=True, for_update=False):
     """Resolve and validate the exact Timesheets embedded in a signed token."""
+    request = approvals.resolve_request(token) if check_request else None
+    if request:
+        approvals.assert_request_open(request)
     timesheet_names = decode_grouped_timesheet_token(token)
-    docs = [frappe.get_doc("Timesheet", name) for name in timesheet_names]
+    docs = [frappe.get_doc("Timesheet", name, for_update=for_update) for name in timesheet_names]
 
     if not docs:
         frappe.throw("No Timesheets were found for this approval link.")
@@ -180,6 +196,8 @@ def get_grouped_timesheet_docs(token, require_submitted=True):
                 f"Timesheet {doc.name} is not submitted and cannot be approved."
             )
 
+    if check_request and not request:
+        approvals.assert_legacy_link_current(docs, for_update=for_update)
     return docs
 
 
@@ -371,8 +389,16 @@ def build_grouped_timesheet_data(docs):
 @frappe.whitelist(allow_guest=True)
 def get_grouped_timesheets_public(token):
     """Return only the client-facing fields needed by the grouped web page."""
+    request = approvals.resolve_request(token)
+    if request:
+        if request.status == "Pending":
+            docs = get_grouped_timesheet_docs(token, require_submitted=True)
+            approvals.assert_snapshot_matches(request, build_grouped_timesheet_data(docs))
+        return approvals.public_request_data(request)
     docs = get_grouped_timesheet_docs(token, require_submitted=True)
-    return build_grouped_timesheet_data(docs)
+    data = build_grouped_timesheet_data(docs)
+    data.update(can_sign=not data["is_already_signed"], can_reject=False)
+    return data
 
 
 def validate_signature(signature_base64):
@@ -423,9 +449,10 @@ def lock_grouped_timesheets(timesheet_names):
     placeholders = ", ".join(["%s"] * len(timesheet_names))
     return frappe.db.sql(
         f"""
-            SELECT name, custom_client_signed
+            SELECT name, custom_client_signed, docstatus
             FROM `tabTimesheet`
             WHERE name IN ({placeholders})
+            ORDER BY name
             FOR UPDATE
         """,
         tuple(timesheet_names),
@@ -526,7 +553,7 @@ def download_grouped_signed_timesheets(token):
     frappe.local.response.display_content_as = "attachment"
 
 
-def send_grouped_signed_notification(docs, grouped_data):
+def send_grouped_signed_notification(docs, grouped_data, request_name=None):
     """Send one internal confirmation with every signed Timesheet PDF."""
     email_settings = get_verto_mobile_email_settings()
     recipients = email_settings.email_recipients
@@ -542,7 +569,7 @@ def send_grouped_signed_notification(docs, grouped_data):
         )
         return
 
-    approval_url = get_grouped_timesheet_signing_url([doc.name for doc in docs])
+    approval_url = get_grouped_timesheet_signing_url([doc.name for doc in docs], request_name=request_name)
     project_name = html.escape(grouped_data["project_name"] or "")
     week_label = html.escape(grouped_data["week_label"] or "")
     attachments = generate_grouped_signed_pdf_attachments(docs)
@@ -571,7 +598,7 @@ def send_grouped_signed_notification(docs, grouped_data):
     )
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist(allow_guest=True, methods=["POST"])
 def sign_grouped_timesheets(
     token,
     signature_base64,
@@ -581,6 +608,11 @@ def sign_grouped_timesheets(
     """Apply one client signature to every Timesheet in the signed group token."""
     clean_signature = validate_signature(signature_base64)
     clean_name, clean_date = validate_signatory(full_name, date_signed)
+    request = approvals.resolve_request(token, for_update=True)
+    if request:
+        approvals.assert_request_open(request)
+        if request.status == "Approved":
+            return {"status": "Already signed", "message": "These weekly Timesheets have already been signed."}
     docs = get_grouped_timesheet_docs(token, require_submitted=True)
     timesheet_names = [doc.name for doc in docs]
 
@@ -589,11 +621,18 @@ def sign_grouped_timesheets(
     if len(locked_rows) != len(timesheet_names):
         frappe.throw("One or more Timesheets in this approval could not be found.")
 
+    docs = get_grouped_timesheet_docs(token, require_submitted=True, for_update=True)
+    if request:
+        approvals.assert_snapshot_matches(request, build_grouped_timesheet_data(docs))
+
     already_signed = {
         row.name for row in locked_rows if cint(row.custom_client_signed) == 1
     }
 
     if len(already_signed) == len(timesheet_names):
+        if request and request.status != "Approved":
+            approvals.mark_approved(request, build_grouped_timesheet_data(docs))
+            frappe.db.commit()
         return {
             "status": "Already signed",
             "message": "These weekly Timesheets have already been signed.",
@@ -607,12 +646,13 @@ def sign_grouped_timesheets(
         doc.db_set("custom_signed_full_name", clean_name)
         doc.db_set("custom_date_signed", clean_date)
 
+    grouped_data = build_grouped_timesheet_data(docs)
+    if request:
+        approvals.mark_approved(request, grouped_data)
     frappe.db.commit()
 
-    grouped_data = build_grouped_timesheet_data(docs)
-
     try:
-        send_grouped_signed_notification(docs, grouped_data)
+        send_grouped_signed_notification(docs, grouped_data, request_name=request.name if request else None)
     except Exception:
         # The signature is already committed. A notification problem must not
         # make the client think the approval failed and encourage a second sign.

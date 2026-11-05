@@ -1,21 +1,18 @@
 <template>
+  <PlannerTableSurface>
   <div
     class="year-roster-shell flex flex-col gap-0"
-    :class="[
-      loading && 'animate-pulse pointer-events-none',
-      showShiftAssignmentDialog && 'year-dialog-open',
-      showProjectSpanDialog && 'year-dialog-open',
-    ]"
+    :class="loading && 'animate-pulse pointer-events-none'"
     :style="maxHeightPx ? { height: maxHeightPx + 'px' } : {}"
   >
     <!-- Annual project / planning view. This is intentionally separate from employees. -->
-    <section v-if="showProjectsPanel" class="year-roster-panel rounded-lg border bg-white">
+    <section v-if="showProjectsPanel" class="year-roster-panel rounded-6 border bg-white">
       <div
         ref="projectScroller"
         class="year-roster-scroller overflow-auto"
         :class="projectBirdsEye && 'year-project-birds-eye-scroller'"
         :style="projectScrollerStyle"
-        @scroll="onProjectScroll"
+        @scroll.passive="onProjectScroll"
       >
         <div class="year-table-stage">
           <div
@@ -43,38 +40,54 @@
             <tr>
               <th rowspan="2" class="year-left-header year-left-col year-project-legend-header border-b border-r bg-white text-left">
                 <div class="year-project-header-content px-2 py-1.5">
-                  <div class="flex items-center justify-between gap-2 text-xs font-semibold text-gray-800">
+                  <div class="flex items-center justify-between gap-2 text-xs-semibold text-gray-800">
                     <div class="flex min-w-0 items-center gap-1.5">
-                      <FeatherIcon name="briefcase" class="year-project-header-icon" />
+                      <Icon name="lucide-briefcase" class="year-project-header-icon" />
                       <span>Projects</span>
                     </div>
 
-                    <div v-if="allProjectRows.length" class="year-project-header-actions">
-                      <label
-                        class="year-project-birds-eye-toggle"
-                        :class="projectBirdsEye && 'year-project-birds-eye-toggle-active'"
-                        title="Fit all visible project rows into the current project table height"
+                    <button
+                      v-if="allProjectRows.length"
+                      type="button"
+                      class="year-section-toggle year-section-inline-toggle"
+                      :class="projectCollapsed && 'year-section-toggle-inactive'"
+                      @click.stop="toggleProjectCollapsed"
+                    >
+                      <span class="year-section-toggle-icon">{{ projectCollapsed ? '▸' : '▾' }}</span>
+                      <span>{{ projectCollapsed ? 'Show' : 'Hide' }}</span>
+                    </button>
+                  </div>
+                  <div v-if="allProjectRows.length" class="year-project-header-actions mt-1">
+                    <label
+                      class="year-project-birds-eye-toggle"
+                      :class="hideCompletedProjects && 'year-project-birds-eye-toggle-active'"
+                      @click.stop
+                    >
+                      <input v-model="hideCompletedProjects" type="checkbox" class="year-project-birds-eye-checkbox" @click.stop />
+                      <span>Hide completed</span>
+                    </label>
+                    <label
+                      class="year-project-birds-eye-toggle"
+                      :class="hideCancelledProjects && 'year-project-birds-eye-toggle-active'"
+                      @click.stop
+                    >
+                      <input v-model="hideCancelledProjects" type="checkbox" class="year-project-birds-eye-checkbox" @click.stop />
+                      <span>Hide cancelled</span>
+                    </label>
+                    <label
+                      class="year-project-birds-eye-toggle"
+                      :class="projectBirdsEye && 'year-project-birds-eye-toggle-active'"
+                      title="Fit all visible project rows into the current project table height"
+                      @click.stop
+                    >
+                      <input
+                        v-model="projectBirdsEye"
+                        type="checkbox"
+                        class="year-project-birds-eye-checkbox"
                         @click.stop
-                      >
-                        <input
-                          v-model="projectBirdsEye"
-                          type="checkbox"
-                          class="year-project-birds-eye-checkbox"
-                          @click.stop
-                        />
-                        <span>Birds eye</span>
-                      </label>
-
-                      <button
-                        type="button"
-                        class="year-section-toggle year-section-inline-toggle"
-                        :class="projectCollapsed && 'year-section-toggle-inactive'"
-                        @click.stop="toggleProjectCollapsed"
-                      >
-                        <span class="year-section-toggle-icon">{{ projectCollapsed ? '▸' : '▾' }}</span>
-                        <span>{{ projectCollapsed ? 'Show' : 'Hide' }}</span>
-                      </button>
-                    </div>
+                      />
+                      <span>Birds eye</span>
+                    </label>
                   </div>
 
                   <div class="year-project-filter-row mt-1">
@@ -111,28 +124,32 @@
 
                   <div class="year-project-legend mt-1">
                     <div class="year-project-legend-item">
-                      <FeatherIcon name="check-circle" class="year-legend-icon year-legend-po-entered" />
+                      <Icon name="lucide-check-circle" class="year-legend-icon year-legend-po-entered" />
                       <span>PO Entered</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <FeatherIcon name="x-circle" class="year-legend-icon year-legend-po-missing" />
+                      <Icon name="lucide-x-circle" class="year-legend-icon year-legend-po-missing" />
                       <span>PO Missing</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <FeatherIcon name="bar-chart-2" class="year-legend-icon year-legend-gantt-available" />
+                      <Icon name="lucide-bar-chart-2" class="year-legend-icon year-legend-gantt-available" />
                       <span>Gantt Available</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <FeatherIcon name="alert-triangle" class="year-legend-icon year-legend-gantt-missing" />
+                      <Icon name="lucide-alert-triangle" class="year-legend-icon year-legend-gantt-missing" />
                       <span>Gantt Missing</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <FeatherIcon name="sun" class="year-legend-icon year-legend-ds-requested" />
+                      <Icon name="lucide-sun" class="year-legend-icon year-legend-ds-requested" />
                       <span># DS Requested</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <FeatherIcon name="moon" class="year-legend-icon year-legend-ns-requested" />
+                      <Icon name="lucide-moon" class="year-legend-icon year-legend-ns-requested" />
                       <span># NS Requested</span>
+                    </div>
+                    <div class="year-project-legend-item">
+                      <span class="inline-block h-3 w-3 rounded-sm border" :style="cancelledProjectStyle()" aria-hidden="true"></span>
+                      <span>Cancelled</span>
                     </div>
                   </div>
                 </div>
@@ -172,7 +189,7 @@
             <tr v-if="!projectLanes.length" class="year-project-row">
               <td class="year-left-col border-b border-r bg-white">
                 <div class="px-2 leading-tight">
-                  <div class="truncate text-xs font-semibold text-gray-800">
+                  <div class="truncate text-xs-semibold text-gray-800">
                     No projects to show
                   </div>
                   <div class="truncate text-[10px] text-gray-500">
@@ -193,7 +210,7 @@
             <tr v-for="lane in projectLanes" :key="lane.key" class="year-project-row">
               <td class="year-left-col border-b border-r bg-white">
                 <div class="px-2 leading-tight">
-                  <div class="year-project-lane-label truncate text-xs font-semibold text-gray-800" :title="lane.customerLabel">
+                  <div class="year-project-lane-label truncate text-xs-semibold text-gray-800" :title="lane.customerLabel">
                     {{ lane.customerLabel }}
                   </div>
                   <div class="year-project-lane-subline truncate text-[10px] text-gray-500" :title="lane.locationLabel">
@@ -240,6 +257,7 @@
                     <span class="year-project-span-name truncate">
                       {{ segment.label }}
                     </span>
+                    <span v-if="isCancelledProject(segment.status)" class="ml-1 text-[9px] font-medium">Cancelled</span>
                   </div>
 
                   <div class="year-project-span-meta-row">
@@ -248,7 +266,7 @@
                       :class="projectHasGantt(segment.project) ? 'year-project-gantt-available' : 'year-project-gantt-missing'"
                       :title="projectGanttStatusLabel(segment.project)"
                     >
-                      <FeatherIcon :name="projectHasGantt(segment.project) ? 'bar-chart-2' : 'alert-triangle'" class="year-project-inline-icon" />
+                      <Icon :name="projectHasGantt(segment.project) ? 'lucide-bar-chart-2' : 'lucide-alert-triangle'" class="year-project-inline-icon" />
                     </span>
 
                     <span
@@ -256,12 +274,12 @@
                       :class="segment.poEntered ? 'year-project-po-entered' : 'year-project-po-missing'"
                       :title="segment.poEntered ? 'PO Entered' : 'PO Missing'"
                     >
-                      <FeatherIcon :name="segment.poEntered ? 'check-circle' : 'x-circle'" class="year-project-inline-icon" />
+                      <Icon :name="segment.poEntered ? 'lucide-check-circle' : 'lucide-x-circle'" class="year-project-inline-icon" />
                     </span>
 
                     <span class="year-project-request-group" :title="projectPersonnelCountTitle(segment, 'ds')">
                       <span class="year-project-request year-project-request-ds">
-                        <FeatherIcon name="sun" class="year-project-request-icon" />
+                        <Icon name="lucide-sun" class="year-project-request-icon" />
                       </span>
                       <span
                         class="year-project-request-count"
@@ -273,7 +291,7 @@
 
                     <span class="year-project-request-group" :title="projectPersonnelCountTitle(segment, 'ns')">
                       <span class="year-project-request year-project-request-ns">
-                        <FeatherIcon name="moon" class="year-project-request-icon" />
+                        <Icon name="lucide-moon" class="year-project-request-icon" />
                       </span>
                       <span
                         class="year-project-request-count"
@@ -301,19 +319,19 @@
       >
         <span class="year-table-resizer-line"></span>
         <span class="year-table-resizer-handle" aria-hidden="true">
-          <FeatherIcon name="menu" class="year-table-resizer-icon" />
+          <Icon name="lucide-menu" class="year-table-resizer-icon" />
         </span>
         <span class="year-table-resizer-line"></span>
       </div>
     </section>
 
     <!-- Annual employee roster view. This scrolls separately from the project table. -->
-    <section v-if="showEmployeesPanel" class="year-roster-panel year-employee-panel flex min-h-0 flex-1 flex-col rounded-lg border bg-white">
+    <section v-if="showEmployeesPanel" class="year-roster-panel year-employee-panel flex min-h-0 flex-1 flex-col rounded-6 border bg-white">
       <div
         ref="employeeScroller"
         class="year-roster-scroller min-h-0 flex-1 overflow-auto"
         :style="{ maxHeight: employeeTableMaxHeight + 'px' }"
-        @scroll="onEmployeeScroll"
+        @scroll.passive="onEmployeeScroll"
       >
         <div class="year-table-stage">
           <div
@@ -333,7 +351,7 @@
               <th rowspan="2" class="year-left-header year-left-col year-employee-search-header border-b border-r bg-white text-left">
                 <div class="year-employee-header-content px-2 py-1.5">
                   <div class="flex items-center justify-between gap-2">
-                    <div class="text-xs font-semibold text-gray-700">Employee</div>
+                    <div class="text-xs-semibold text-gray-700">Employee</div>
 
                     <button
                       type="button"
@@ -347,11 +365,11 @@
                   </div>
 
                   <div class="year-employee-search">
-                    <Autocomplete
+                    <MultiSelect
                       :options="employeeSearchOptions"
                       v-model="employeeSearch"
                       placeholder="Search Employee"
-                      :multiple="true"
+                      label="Employees"
                     />
                   </div>
 
@@ -389,6 +407,15 @@
                     <div class="year-employee-legend-item">
                       <span class="year-employee-legend-triangle year-employee-legend-hours-discrepancy"></span>
                       <span>Discrepancy</span>
+                    </div>
+                    <div
+                      v-for="status in leaveStatuses"
+                      :key="status.label"
+                      class="year-employee-legend-item"
+                      :title="`${status.label} leave`"
+                    >
+                      <span class="year-employee-legend-leave" :style="leaveStatusStyle(status)"></span>
+                      <span>{{ status.label }}</span>
                     </div>
                   </div>
                 </div>
@@ -428,12 +455,13 @@
             <tr v-for="employee in visibleEmployees" :key="employee.name" class="year-employee-row">
               <td
                 class="year-left-col year-employee-name-cell border-b border-r bg-white"
+                :style="{ boxShadow: `inset 4px 0 0 ${employeeAccentColor(employee)}` }"
                 @mouseenter="showEmployeeNameHover(employee, $event)"
                 @mousemove="moveHoverCard"
                 @mouseleave="() => scheduleClearHoverCard()"
               >
                 <div class="px-2 leading-tight">
-                  <div class="truncate text-xs font-semibold text-gray-800" :title="employeeTitle(employee)">
+                  <div class="truncate text-xs-semibold text-gray-800" :title="employeeTitle(employee)">
                     {{ employeeDisplayName(employee) }}
                   </div>
                   <div class="truncate text-[10px] text-gray-500" :title="employeeSubline(employee)">
@@ -473,6 +501,17 @@
                   :title="timesheetMarkerTitle(employee.name, day.date)"
                   aria-hidden="true"
                 ></span>
+                <button
+                  v-if="isEmployeeShiftCell(employee.name, day.date) && employeeCellLeave(employee.name, day.date)"
+                  type="button"
+                  class="year-leave-status-marker"
+                  :style="employeeLeaveMarkerStyle(employee.name, day.date)"
+                  :title="`Open Leave Application: ${employeeLeaveTitle(employee.name, day.date)}`"
+                  :aria-label="`Open Leave Application: ${employeeLeaveTitle(employee.name, day.date)}`"
+                  :draggable="false"
+                  @dragstart.stop.prevent
+                  @click.stop="openLeaveApplication(employee.name, day.date)"
+                ></button>
                 {{ employeeCellLabel(employee.name, day.date) }}
               </td>
             </tr>
@@ -482,63 +521,9 @@
       </div>
     </section>
   </div>
+  </PlannerTableSurface>
 
-
-  <Teleport to="body">
-    <div
-      v-if="hoverCard"
-      ref="hoverCardElement"
-      class="year-hover-card"
-      :class="`year-hover-card-${hoverCard.type}`"
-      :style="hoverCardStyle"
-      role="tooltip"
-    >
-      <div class="year-hover-card-header">
-        <div class="min-w-0">
-          <div class="year-hover-card-kicker">{{ hoverCard.kicker }}</div>
-          <div class="year-hover-card-title truncate">{{ hoverCard.title }}</div>
-          <div v-if="hoverCard.subtitle" class="year-hover-card-subtitle truncate">
-            {{ hoverCard.subtitle }}
-          </div>
-        </div>
-
-        <div
-          v-if="hoverCard.badge || hoverCard.secondaryBadge"
-          class="year-hover-card-badge-stack"
-        >
-          <span
-            v-if="hoverCard.badge"
-            class="year-hover-card-badge"
-            :class="`year-hover-card-badge-${hoverCard.badgeTone || 'gray'}`"
-          >
-            {{ hoverCard.badge }}
-          </span>
-          <span
-            v-if="hoverCard.secondaryBadge"
-            class="year-hover-card-badge"
-            :class="`year-hover-card-badge-${hoverCard.secondaryBadgeTone || 'gray'}`"
-          >
-            {{ hoverCard.secondaryBadge }}
-          </span>
-        </div>
-      </div>
-
-      <div class="year-hover-card-grid">
-        <template v-for="row in hoverCard.rows" :key="row.label">
-          <div v-if="row.value !== undefined && row.value !== null && row.value !== ''" class="year-hover-card-label">
-            {{ row.label }}
-          </div>
-          <div v-if="row.value !== undefined && row.value !== null && row.value !== ''" class="year-hover-card-value truncate">
-            {{ row.value }}
-          </div>
-        </template>
-      </div>
-
-      <div v-if="hoverCard.note" class="year-hover-card-note">
-        {{ hoverCard.note }}
-      </div>
-    </div>
-  </Teleport>
+  <YearHoverCard ref="yearHoverCard" />
 
   <ShiftAssignmentDialog
     v-model="showShiftAssignmentDialog"
@@ -546,33 +531,49 @@
     :shiftAssignmentName="shiftAssignment"
     :selectedCell="selectedCell"
     :employees="employees"
-    @fetchEvents="
-      events.fetch();
-      showShiftAssignmentDialog = false;
-    "
+    :assignmentDefaults="projectShiftDefaults"
+    @fetchEvents="onShiftAssignmentSaved"
   />
 
   <ProjectSpanDialog
+    ref="projectSpanDialog"
     v-model="showProjectSpanDialog"
     :isDialogOpen="showProjectSpanDialog"
     :project="selectedProjectSpan"
+    :suspended="showShiftAssignmentDialog && !!projectShiftDefaults"
+    @assignShifts="openProjectShiftAssignment"
     @fetchEvents="
-      events.fetch();
+      void events.fetch().catch(() => {});
       showProjectSpanDialog = false;
     "
+  />
+  <LeaveApplicationDialog
+    ref="leaveApplicationDialog"
+    v-model="showLeaveApplicationDialog"
+    :isDialogOpen="showLeaveApplicationDialog"
+    :leaveApplicationName="selectedLeaveApplication"
+    :company="employeeFilters.company"
+    @fetchEvents="void events.fetch().catch(() => {})"
   />
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { coalesceResource } from "../utils/coalesceResource";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import colors from 'tailwindcss/colors'
-import { Autocomplete, createResource, FeatherIcon } from 'frappe-ui'
+import { cancelledProjectStyle, diagonalShading, isCancelledProject } from '../utils/projectAppearance'
+import { MultiSelect, createResource, Icon } from 'frappe-ui'
 import type { Dayjs } from 'dayjs'
 
 import { dayjs, raiseToast } from '../utils'
+import { useEmployeeAppearance } from '../utils/employeeAppearance'
 import type { EmployeeFilters, ShiftFilters } from '../views/MonthView.vue'
 import ShiftAssignmentDialog from './ShiftAssignmentDialog.vue'
 import ProjectSpanDialog from './ProjectSpanDialog.vue'
+import LeaveApplicationDialog from './LeaveApplicationDialog.vue'
+import YearHoverCard, { type HoverCard, type HoverCardRow } from './YearHoverCard.vue'
+import PlannerTableSurface from './PlannerTableSurface.vue'
+import type { ProjectShiftAssignmentDefaults } from '../types/shiftAssignment'
 
 type Color =
   | 'blue'
@@ -593,6 +594,7 @@ type Employee = {
   first_name?: string
   last_name?: string
   designation?: string
+  employment_type?: string | null
   department?: string
   branch?: string
   company?: string
@@ -643,6 +645,7 @@ interface LeaveApplication {
   reason?: string | null
   description?: string | null
   status?: string | null
+  docstatus?: number | string | null
   total_leave_days?: number | string | null
   half_day?: 0 | 1 | boolean | null
   half_day_date?: string | null
@@ -692,6 +695,7 @@ type ShiftAssignment = {
   end_time?: string
   color?: string
   custom_project?: string
+  custom_project_designation?: string | null
   custom_project_name?: string
   customer_abbreviation?: string | null
   note?: string | null
@@ -710,7 +714,7 @@ type EmployeeEventDays = Record<string, Record<string, EmployeeEventDayReference
 type YearCell =
   | { type: 'holiday'; label: string; title: string }
   | { type: 'leave'; label: string; title: string; leave: LeaveApplication }
-  | { type: 'shift'; label: string; title: string; shift: ShiftAssignment; shifts: ShiftAssignment[] }
+  | { type: 'shift'; label: string; title: string; shift: ShiftAssignment; shifts: ShiftAssignment[]; leave?: LeaveApplication }
 
 type MappedEvents = Record<string, Record<string, YearCell>>
 
@@ -725,6 +729,7 @@ type ProjectDayCell = {
 }
 
 type ProjectRow = {
+  modified?: string
   project: string
   project_name: string
   status?: string
@@ -762,7 +767,6 @@ type YearEventsResponse = {
   timesheet_days?: TimesheetDays
 }
 
-const emit = defineEmits<{ (e: 'hscroll', left: number): void }>()
 const employeeScroller = ref<HTMLDivElement | null>(null)
 const projectScroller = ref<HTMLDivElement | null>(null)
 
@@ -776,16 +780,28 @@ const props = defineProps<{
 }>()
 
 const loading = ref(true)
-const employeeSearch = ref<{ value: string; label: string }[]>([])
+const { employeeAccentColor } = useEmployeeAppearance()
+const employeeSearch = ref<string[]>([])
 const projectCollapsed = ref(false)
 const projectBirdsEye = ref(false)
+const hideCompletedProjects = ref(false)
+const hideCancelledProjects = ref(false)
 const employeeCollapsed = ref(false)
 const projectTypeFilter = ref<'all' | 'roster' | 'shutdown'>('all')
 const shiftAssignment = ref<string>('')
 const showShiftAssignmentDialog = ref(false)
+const projectShiftDefaults = ref<ProjectShiftAssignmentDefaults | null>(null)
 const showProjectSpanDialog = ref(false)
 const selectedProjectSpan = ref<ProjectRow | null>(null)
+const projectSpanDialog = ref<InstanceType<typeof ProjectSpanDialog>>()
+const leaveApplicationDialog = ref<InstanceType<typeof LeaveApplicationDialog>>()
+const showLeaveApplicationDialog = ref(false)
+const selectedLeaveApplication = ref('')
 const selectedCell = ref<{ employee: string; date: string }>({ employee: '', date: '' })
+
+watch(showShiftAssignmentDialog, (open) => {
+  if (!open) projectShiftDefaults.value = null
+})
 
 type DraggedShift = {
   employee: string
@@ -823,46 +839,14 @@ const suppressNextCellClick = ref(false)
 let suppressClickTimer: number | null = null
 let dragPreviewElement: HTMLDivElement | null = null
 
-type HoverCardRow = {
-  label: string
-  value?: string | number | null
-}
-
-type HoverCard = {
-  type: 'shift' | 'project' | 'leave' | 'day-marker' | 'employee'
-  x?: number
-  y?: number
-  kicker: string
-  title: string
-  subtitle?: string
-  badge?: string
-  badgeTone?: 'green' | 'red' | 'gray' | 'blue' | 'yellow'
-  secondaryBadge?: string
-  secondaryBadgeTone?: 'green' | 'red' | 'gray' | 'blue' | 'yellow'
-  accent?: string
-  rows: HoverCardRow[]
-  note?: string
-}
-
-const hoverCard = shallowRef<HoverCard | null>(null)
-const hoverCardElement = ref<HTMLDivElement | null>(null)
-
-type HoverPointer = {
-  clientX: number
-  clientY: number
-}
-
-let hoverPositionFrame = 0
-let pendingHoverPointer: HoverPointer | null = null
-let hoverHideTimer: number | null = null
-let activeHoverKey = ''
+const yearHoverCard = ref<InstanceType<typeof YearHoverCard>>()
 const htmlPlainTextCache = new Map<string, string>()
 
 const LEFT_COLUMN_WIDTH = 300
 const DAY_COLUMN_WIDTH = 28
 const RESIZER_HEIGHT = 18
-const PROJECT_TABLE_MIN_HEIGHT = 132
-const PROJECT_TABLE_HEADER_HEIGHT = 112
+const PROJECT_TABLE_MIN_HEIGHT = 160
+const PROJECT_TABLE_HEADER_HEIGHT = 140
 const PROJECT_TABLE_ROW_HEIGHT = 36
 const EMPLOYEE_TABLE_MIN_HEIGHT = 220
 
@@ -872,6 +856,7 @@ const isResizingTables = ref(false)
 type ProjectSpanDragMode = 'move' | 'resize-start' | 'resize-end'
 
 type ProjectSpanDateUpdateParams = {
+  expected_modified?: string
   project: string
   project_start_date: string
   project_end_date: string
@@ -894,31 +879,33 @@ const pendingProjectDateUpdate = ref<ProjectSpanDateUpdateParams | null>(null)
 
 let tableResizeStartY = 0
 let tableResizeStartProjectHeight = 0
-let syncingHorizontalScroll = false
+let horizontalScrollLeft = 0
+const lastScrollLeft = new WeakMap<HTMLElement, number>()
+
+function setHorizontalScroll(left: number) {
+  horizontalScrollLeft = left
+  for (const scroller of [projectScroller.value, employeeScroller.value]) {
+    if (!scroller) continue
+    if (scroller.scrollLeft !== left) scroller.scrollLeft = left
+    // Read back the actual position: different vertical scrollbars can clamp
+    // the two panels to slightly different positions at the end of the year.
+    lastScrollLeft.set(scroller, scroller.scrollLeft)
+  }
+}
+
+// Projects can mount after the employee table's first scroll-to-today, or after
+// a live refresh. Align newly mounted panels without resetting the visible date.
+watch([projectScroller, employeeScroller], () => setHorizontalScroll(horizontalScrollLeft), { flush: 'post' })
 
 function syncHorizontalScroll(source: 'project' | 'employee') {
   const sourceScroller = source === 'project' ? projectScroller.value : employeeScroller.value
-  const targetScroller = source === 'project' ? employeeScroller.value : projectScroller.value
-
   if (!sourceScroller) return
 
   const left = sourceScroller.scrollLeft
-
-  if (syncingHorizontalScroll) {
-    emit('hscroll', left)
-    return
-  }
-
-  if (targetScroller && Math.abs(targetScroller.scrollLeft - left) > 1) {
-    syncingHorizontalScroll = true
-    targetScroller.scrollLeft = left
-
-    window.requestAnimationFrame(() => {
-      syncingHorizontalScroll = false
-    })
-  }
-
-  emit('hscroll', left)
+  // Ignore only an unchanged position (a mirrored or vertical-only event).
+  // A frame-wide lock drops newer input and lets delayed peer events rewind it.
+  if (lastScrollLeft.get(sourceScroller) === left) return
+  setHorizontalScroll(left)
 }
 
 function clampProjectTableHeight(height: number) {
@@ -1046,9 +1033,6 @@ const todayOverlayStyle = computed(() => ({
   width: `${DAY_COLUMN_WIDTH}px`,
 }))
 
-const hoverCardStyle = computed(() => ({
-  '--year-hover-accent': hoverCard.value?.accent || 'rgb(59 130 246)',
-}))
 
 const employeeSearchOptions = computed(() => {
   return props.employees.map((employee) => ({
@@ -1074,7 +1058,7 @@ const sortedEmployees = computed(() => sortEmployeesByDepartmentAndId(props.empl
 
 const visibleEmployees = computed(() => {
   if (!employeeSearch.value?.length) return sortedEmployees.value
-  const selected = new Set(employeeSearch.value.map((item) => item.value))
+  const selected = new Set(employeeSearch.value)
   return sortedEmployees.value.filter((employee) => selected.has(employee.name))
 })
 
@@ -1101,15 +1085,16 @@ const allProjectRows = computed(() => {
 })
 
 const projectRows = computed(() => {
-  if (projectTypeFilter.value === 'all') return allProjectRows.value
-
   return allProjectRows.value.filter((project) => {
-    return normaliseProjectType(project.roster_or_shutdown) === projectTypeFilter.value
+    return (!hideCompletedProjects.value || !projectIsCompleted(project.status))
+      && (!hideCancelledProjects.value || !isCancelledProject(project.status))
+      && (projectTypeFilter.value === 'all' || normaliseProjectType(project.roster_or_shutdown) === projectTypeFilter.value)
   })
 })
 
 const projectEmptyStateMessage = computed(() => {
   if (!allProjectRows.value.length) return 'No projects found for this year'
+  if (hideCompletedProjects.value || hideCancelledProjects.value) return 'No projects match the current annual filters'
   if (projectTypeFilter.value === 'roster') return 'No roster projects found for this year'
   if (projectTypeFilter.value === 'shutdown') return 'No shutdown projects found for this year'
   return 'No projects match the current annual filters'
@@ -1577,7 +1562,7 @@ function toggleEmployeeCollapsed() {
 }
 
 const sectionGap = 0
-const PROJECT_COLLAPSED_HEIGHT = 98
+const PROJECT_COLLAPSED_HEIGHT = PROJECT_TABLE_HEADER_HEIGHT
 const EMPLOYEE_COLLAPSED_HEIGHT = 96
 
 const annualContentHeight = computed(() => {
@@ -1744,6 +1729,7 @@ function employeeExtraTooltipRows(employee: Employee): HoverCardRow[] {
 
 function showEmployeeNameHover(employee: Employee, event: MouseEvent) {
   const details = mergedEmployeeDetails(employee)
+  const currentEmployee = () => props.employees.find(row => row.name === employee.name) || employee
 
   setHoverCard(
     `employee:${employee.name}`,
@@ -1754,9 +1740,10 @@ function showEmployeeNameHover(employee: Employee, event: MouseEvent) {
       subtitle: [details.designation, details.department].filter(Boolean).join(' · '),
       badge: details.status || 'Employee',
       badgeTone: employeeStatusBadgeTone(employee),
-      accent: (colors as any).blue[500],
+      get accent() { return employeeAccentColor(currentEmployee()) },
       rows: [
         { label: 'Employee ID', value: details.name },
+        { label: 'Employment Type', get value() { return currentEmployee().employment_type } },
         { label: 'Employee Number', value: details.employee_number },
         { label: 'Company', value: details.company },
         { label: 'Branch', value: details.branch },
@@ -1890,6 +1877,51 @@ function shiftCellLabel(shift: ShiftAssignment) {
   return shift.shift_type
 }
 
+function leaveTypeAbbreviation(leaveType: string | null | undefined) {
+  const name = (leaveType || '').trim().replace(/['‘’]/g, '')
+  if (/^r\s*(?:n|&|and)\s*r$/i.test(name)) return 'RnR'
+
+  const words = name.match(/[\p{L}\p{N}]+/gu) || []
+  return words.map(([initial]) => initial.toUpperCase()).join('') || 'L'
+}
+
+const leaveStatuses = {
+  open: { label: 'Open', tone: 'yellow', colors: colors.amber, priority: 1 },
+  approved: { label: 'Approved', tone: 'green', colors: colors.green, priority: 0 },
+  rejected: { label: 'Rejected', tone: 'red', colors: colors.red, priority: 2 },
+  cancelled: { label: 'Cancelled', tone: 'gray', colors: colors.gray, priority: 3 },
+} as const
+
+function leaveAppearance(leave: LeaveApplication) {
+  if (Number(leave.docstatus) === 2) return leaveStatuses.cancelled
+  const status = normaliseStatus(leave.status || (leave.docstatus === 0 ? 'Open' : 'Approved'))
+  return leaveStatuses[status as keyof typeof leaveStatuses] || leaveStatuses.open
+}
+
+function isApprovedLeave(leave: LeaveApplication) {
+  return leaveAppearance(leave).label === 'Approved'
+    && (leave.docstatus == null || Number(leave.docstatus) === 1)
+}
+
+function leaveStatusStyle(status: (typeof leaveStatuses)[keyof typeof leaveStatuses]) {
+  return {
+    backgroundColor: status.colors[50],
+    backgroundImage: diagonalShading(status.colors[50], status.colors[100]),
+    color: status.colors[700],
+  }
+}
+
+function leaveCellTitle(leave: LeaveApplication) {
+  return `${leave.leave_type} · ${leaveAppearance(leave).label}`
+}
+
+function createEmployeeDayCell(leave: LeaveApplication | undefined, shifts: ShiftAssignment[]): YearCell | undefined {
+  if (leave && (isApprovedLeave(leave) || !shifts.length)) {
+    return { type: 'leave', label: leaveTypeAbbreviation(leave.leave_type), title: leaveCellTitle(leave), leave }
+  }
+  if (shifts.length) return createShiftCell(shifts, leave)
+}
+
 function hasNote(note: string | null | undefined) {
   return typeof note === 'string' && note.trim().length > 0
 }
@@ -1960,7 +1992,7 @@ function mapEventsToYear(data: Events): MappedEvents {
     for (const day of daysOfYear.value) {
       const date = dayjs(day.date)
       const shifts: ShiftAssignment[] = []
-      let blockedCell: YearCell | null = null
+      let dayLeave: LeaveApplication | undefined
 
       for (const event of data[employee] || []) {
         if (isHoliday(event) && date.isSame(event.holiday_date, 'day')) {
@@ -1970,13 +2002,10 @@ function mapEventsToYear(data: Events): MappedEvents {
         }
 
         if (isLeave(event) && overlaps(date, event.from_date, event.to_date)) {
-          blockedCell = {
-            type: 'leave',
-            label: 'L',
-            title: event.leave_type,
-            leave: event,
+          if (!dayLeave || leaveAppearance(event).priority < leaveAppearance(dayLeave).priority) {
+            dayLeave = event
           }
-          break
+          continue
         }
 
         if (isShift(event) && overlaps(date, event.start_date, event.end_date)) {
@@ -1989,21 +2018,15 @@ function mapEventsToYear(data: Events): MappedEvents {
         }
       }
 
-      if (blockedCell) {
-        mappedEvents[employee][day.date] = blockedCell
-        continue
-      }
-
-      if (shifts.length) {
-        mappedEvents[employee][day.date] = createShiftCell(shifts)
-      }
+      const cell = createEmployeeDayCell(dayLeave, shifts)
+      if (cell) mappedEvents[employee][day.date] = cell
     }
   }
 
   return mappedEvents
 }
 
-function createShiftCell(input: ShiftAssignment[]): Extract<YearCell, { type: 'shift' }> {
+function createShiftCell(input: ShiftAssignment[], leave?: LeaveApplication): Extract<YearCell, { type: 'shift' }> {
   const shifts = [...input].sort((a, b) =>
     (a.start_time || '').localeCompare(b.start_time || '') || a.name.localeCompare(b.name),
   )
@@ -2019,9 +2042,11 @@ function createShiftCell(input: ShiftAssignment[]): Extract<YearCell, { type: 's
       firstShift.shift_type,
       firstShift.shift_location,
       firstShift.note ? `Note: ${firstShift.note}` : '',
+      leave ? leaveCellTitle(leave) : '',
     ].filter(Boolean).join(' | '),
     shift: firstShift,
     shifts,
+    leave,
   }
 }
 
@@ -2037,23 +2062,12 @@ function mapIndexedEventsToYear(data: YearEventsResponse): MappedEvents {
 
     for (const [date, references] of Object.entries(days)) {
       const leave = references.leave ? leaveApplications[references.leave] : undefined
-      if (leave) {
-        employeeCells[date] = {
-          type: 'leave',
-          label: 'L',
-          title: leave.leave_type,
-          leave,
-        }
-        continue
-      }
-
       const shifts = (references.shifts || [])
         .map((name) => shiftAssignments.get(name))
         .filter((shift): shift is ShiftAssignment => Boolean(shift))
 
-      if (shifts.length) {
-        employeeCells[date] = createShiftCell(shifts)
-      }
+      const cell = createEmployeeDayCell(leave, shifts)
+      if (cell) employeeCells[date] = cell
     }
 
     if (Object.keys(employeeCells).length) {
@@ -2074,6 +2088,23 @@ function employeeCellLabel(employee: string, date: string) {
 
 function employeeCellTitle(employee: string, date: string) {
   return getEmployeeCell(employee, date)?.title || dayjs(date).format('dddd, DD MMMM YYYY')
+}
+
+function employeeCellLeave(employee: string, date: string) {
+  const cell = getEmployeeCell(employee, date)
+  return cell && cell.type !== 'holiday' ? cell.leave : undefined
+}
+
+function employeeLeaveTitle(employee: string, date: string) {
+  const leave = employeeCellLeave(employee, date)
+  return leave ? leaveCellTitle(leave) : ''
+}
+
+function employeeLeaveMarkerStyle(employee: string, date: string) {
+  const leave = employeeCellLeave(employee, date)
+  if (!leave) return {}
+  const status = leaveAppearance(leave)
+  return { ...leaveStatusStyle(status), borderTop: `1px solid ${status.colors[500]}` }
 }
 
 function isEmployeeShiftCell(employee: string, date: string) {
@@ -2157,7 +2188,7 @@ function employeeCellStyle(employee: string, date: string) {
   }
 
   if (cell.type === 'leave') {
-    return { backgroundColor: (colors as any).pink[50], color: (colors as any).pink[700] }
+    return leaveStatusStyle(leaveAppearance(cell.leave))
   }
 
   const color = palette(cell.shift.color)
@@ -2193,8 +2224,9 @@ function getPrimaryShift(employee: string, date: string) {
   return cell?.type === 'shift' ? cell.shift : null
 }
 
-function isLeaveCell(employee: string, date: string) {
-  return getEmployeeCell(employee, date)?.type === 'leave'
+function isApprovedLeaveCell(employee: string, date: string) {
+  const leave = employeeCellLeave(employee, date)
+  return Boolean(leave && isApprovedLeave(leave))
 }
 
 function shiftCellKey(employee: string, date: string) {
@@ -2277,6 +2309,8 @@ function sameShiftIdentity(a?: ShiftAssignment | null, b?: ShiftAssignment | nul
   return (
     a.shift_type === b.shift_type &&
     (a.shift_location || '') === (b.shift_location || '') &&
+    (a.custom_project || '') === (b.custom_project || '') &&
+    (a.custom_project_designation || '') === (b.custom_project_designation || '') &&
     a.status === b.status
   )
 }
@@ -2299,7 +2333,7 @@ function targetHasSameShiftAsDragged(employee: string, date: string) {
 }
 
 function targetRangeHasLeave(employee: string, date: string) {
-  return activeDragTargetDates(date).some((targetDate) => isLeaveCell(employee, targetDate))
+  return activeDragTargetDates(date).some((targetDate) => isApprovedLeaveCell(employee, targetDate))
 }
 
 function targetRangeIntersectsSource(employee: string, date: string) {
@@ -2511,12 +2545,27 @@ function onEmployeeCellDrop(employee: string, date: string, event: DragEvent) {
   bulkMoveOrSwapShifts.submit()
 }
 
+function openLeaveApplication(employee: string, date: string) {
+  if (suppressNextCellClick.value || isDroppingShift.value) return
+
+  const leave = employeeCellLeave(employee, date)
+  if (!leave?.leave) return
+
+  clearHoverCard()
+  selectedLeaveApplication.value = leave.leave
+  showLeaveApplicationDialog.value = true
+}
+
 function openEmployeeCell(employee: string, date: string, event?: MouseEvent) {
   if (suppressNextCellClick.value || isDroppingShift.value) return
 
   clearHoverCard()
   const cell = getEmployeeCell(employee, date)
-  if (cell?.type === 'holiday' || cell?.type === 'leave') return
+  if (cell?.type === 'leave') {
+    openLeaveApplication(employee, date)
+    return
+  }
+  if (cell?.type === 'holiday') return
 
   if (event?.shiftKey) {
     toggleSelectedShiftCell(employee, date)
@@ -2527,6 +2576,7 @@ function openEmployeeCell(employee: string, date: string, event?: MouseEvent) {
     clearSelectedShiftCells()
   }
 
+  projectShiftDefaults.value = null
   selectedCell.value = { employee, date }
   shiftAssignment.value = cell?.type === 'shift' ? cell.shift.name : ''
   showShiftAssignmentDialog.value = true
@@ -2537,8 +2587,9 @@ function projectSegmentClass(segment: ProjectSegment) {
   return {
     'year-project-span': segment.active,
     'cursor-pointer': segment.active,
-    'year-project-span-inactive': segment.active && segment.isActive === false && !projectIsCompleted(segment.status),
+    'year-project-span-inactive': segment.active && segment.isActive === false && !projectIsCompleted(segment.status) && !isCancelledProject(segment.status),
     'year-project-span-completed': segment.active && projectIsCompleted(segment.status),
+    'year-project-span-cancelled': segment.active && isCancelledProject(segment.status),
     'year-project-span-date-dragging': isDragTarget,
     'year-project-span-date-resizing': isDragTarget && projectSpanDrag.value?.mode !== 'move',
     'year-month-start': segment.isMonthStart,
@@ -2548,6 +2599,14 @@ function projectSegmentClass(segment: ProjectSegment) {
 
 function projectSegmentStyle(segment: ProjectSegment) {
   if (!segment.active) return {}
+
+  if (isCancelledProject(segment.status)) {
+    return {
+      ...cancelledProjectStyle(),
+      '--year-project-span-text': colors.gray[50],
+      '--year-project-span-muted': colors.gray[200],
+    }
+  }
 
   if (projectIsCompleted(segment.status)) {
     const backgroundColor = (colors as any).gray[100]
@@ -2673,16 +2732,6 @@ function projectSegmentContentDragStyle(segment: ProjectSegment) {
   return {}
 }
 
-function projectSpanHasAssignedTasks(project?: ProjectRow | null) {
-  return projectHasGantt(project)
-}
-
-function notifyProjectSpanDateLocked(project?: ProjectRow | null) {
-  const taskCount = project ? projectTaskCount(project) : 0
-  const suffix = taskCount ? ` (${taskCount} task${taskCount === 1 ? '' : 's'})` : ''
-  raiseToast('error', `Project has tasks assigned${suffix}, so project dates cannot be changed.`)
-}
-
 function onProjectSegmentPointerDown(segment: ProjectSegment, event: PointerEvent) {
   if (!segment.active || !segment.project) return
 
@@ -2709,12 +2758,6 @@ function onProjectSegmentClick(segment: ProjectSegment, event: MouseEvent) {
 
 function startProjectSpanDrag(segment: ProjectSegment, mode: ProjectSpanDragMode, event: PointerEvent) {
   if (event.button !== 0 || !segment.active || !segment.project) return
-
-  if (projectSpanHasAssignedTasks(segment.project)) {
-    notifyProjectSpanDateLocked(segment.project)
-    event.preventDefault()
-    return
-  }
 
   const span = projectSpan(segment.project)
   if (!span) return
@@ -2793,13 +2836,9 @@ function stopProjectSpanDrag() {
     return
   }
 
-  if (projectSpanHasAssignedTasks(project)) {
-    notifyProjectSpanDateLocked(project)
-    return
-  }
-
   pendingProjectDateUpdate.value = {
     project: project.project,
+    expected_modified: project.modified || undefined,
     project_start_date: preview.start,
     project_end_date: preview.end,
   }
@@ -2808,120 +2847,21 @@ function stopProjectSpanDrag() {
 }
 
 
-function getHoverPointer(event: MouseEvent): HoverPointer {
-  return {
-    clientX: event.clientX,
-    clientY: event.clientY,
-  }
-}
-
-function applyHoverCardPosition(pointer: HoverPointer) {
-  if (!hoverCard.value || !hoverCardElement.value) return
-
-  const padding = 12
-  const cursorOffset = 14
-  const fallbackCardWidth = 340
-  const fallbackCardHeight = hoverCard.value.type === 'project' ? 168 : hoverCard.value.type === 'leave' ? 210 : hoverCard.value.type === 'employee' ? 280 : 240
-  const cardWidth = hoverCardElement.value.offsetWidth || fallbackCardWidth
-  const cardHeight = hoverCardElement.value.offsetHeight || fallbackCardHeight
-  const maxLeft = Math.max(padding, window.innerWidth - cardWidth - padding)
-  const maxTop = Math.max(padding, window.innerHeight - cardHeight - padding)
-
-  let x = pointer.clientX + cursorOffset
-  if (x + cardWidth + padding > window.innerWidth) {
-    x = pointer.clientX - cardWidth - cursorOffset
-  }
-
-  let y = pointer.clientY + cursorOffset
-  if (y + cardHeight + padding > window.innerHeight) {
-    y = pointer.clientY - cardHeight - cursorOffset
-  }
-
-  const clampedX = Math.min(Math.max(padding, x), maxLeft)
-  const clampedY = Math.min(Math.max(padding, y), maxTop)
-
-  hoverCardElement.value.style.transform = `translate3d(${clampedX}px, ${clampedY}px, 0)`
-}
-
-function scheduleHoverCardPosition(event: MouseEvent) {
-  if (!hoverCard.value) return
-
-  pendingHoverPointer = getHoverPointer(event)
-  if (hoverPositionFrame) return
-
-  hoverPositionFrame = window.requestAnimationFrame(() => {
-    hoverPositionFrame = 0
-    if (pendingHoverPointer) applyHoverCardPosition(pendingHoverPointer)
-    pendingHoverPointer = null
-  })
-}
-
-function cancelScheduledHoverClear() {
-  if (hoverHideTimer !== null) {
-    window.clearTimeout(hoverHideTimer)
-    hoverHideTimer = null
-  }
-}
-
+// The child owns tooltip state so crossing dates never rerenders the year grid.
 function setHoverCard(key: string, card: HoverCard, event: MouseEvent) {
-  cancelScheduledHoverClear()
-
-  const pointer = getHoverPointer(event)
-  const cardAlreadyMounted = Boolean(hoverCard.value && hoverCardElement.value)
-
-  if (activeHoverKey === key && hoverCard.value) {
-    pendingHoverPointer = pointer
-    if (hoverCardElement.value) applyHoverCardPosition(pointer)
-    return
-  }
-
-  activeHoverKey = key
-
-  // Move the existing mounted card before swapping its content. This makes rapid
-  // project/shift switching feel instant instead of waiting for the next render.
-  if (cardAlreadyMounted) {
-    applyHoverCardPosition(pointer)
-  }
-
-  hoverCard.value = card
-
-  if (hoverCardElement.value) {
-    pendingHoverPointer = pointer
-    window.requestAnimationFrame(() => {
-      if (pendingHoverPointer) applyHoverCardPosition(pendingHoverPointer)
-      pendingHoverPointer = null
-    })
-  } else {
-    nextTick(() => applyHoverCardPosition(pointer))
-  }
-}
-
-function positionHoverCard(event: MouseEvent) {
-  scheduleHoverCardPosition(event)
+  yearHoverCard.value?.setHoverCard(key, card, event)
 }
 
 function moveHoverCard(event: MouseEvent) {
-  scheduleHoverCardPosition(event)
+  yearHoverCard.value?.moveHoverCard(event)
 }
 
 function scheduleClearHoverCard(delay = 90) {
-  cancelScheduledHoverClear()
-  hoverHideTimer = window.setTimeout(() => {
-    clearHoverCard()
-  }, delay)
+  yearHoverCard.value?.scheduleClearHoverCard(delay)
 }
 
 function clearHoverCard() {
-  cancelScheduledHoverClear()
-
-  if (hoverPositionFrame) {
-    window.cancelAnimationFrame(hoverPositionFrame)
-    hoverPositionFrame = 0
-  }
-
-  activeHoverKey = ''
-  pendingHoverPointer = null
-  hoverCard.value = null
+  yearHoverCard.value?.clearHoverCard()
 }
 
 function compactDateRange(startDate?: string | null, endDate?: string | null) {
@@ -2967,9 +2907,9 @@ function showEmployeeHover(employee: Employee, date: string, event: MouseEvent) 
         kicker: 'Leave Application',
         title: leave.leave_type,
         subtitle: employeeDisplayName(employee),
-        badge: leave.status || 'Approved',
-        badgeTone: 'red',
-        accent: (colors as any).pink[500],
+        badge: leaveAppearance(leave).label,
+        badgeTone: leaveAppearance(leave).tone,
+        accent: leaveAppearance(leave).colors[500],
         rows: [
           { label: 'Employee', value: employeeDisplayName(employee) },
           { label: 'Employee ID', value: employee.name },
@@ -2998,7 +2938,7 @@ function showEmployeeHover(employee: Employee, date: string, event: MouseEvent) 
   const customerLabel = shift.customer_abbreviation?.trim() || ''
 
   setHoverCard(
-    `shift:${employee.name}:${shift.name}`,
+    `shift:${employee.name}:${shift.name}:${date}`,
     {
       type: 'shift',
       kicker: 'Shift Allocation',
@@ -3006,12 +2946,15 @@ function showEmployeeHover(employee: Employee, date: string, event: MouseEvent) 
       subtitle: [shift.custom_project_name, shift.shift_location].filter(Boolean).join(' · '),
       badge: cell.shifts.length > 1 ? `${cell.shifts.length} shifts` : shift.status,
       badgeTone: hasNote(shift.note) ? 'red' : inactive ? 'gray' : 'blue',
+      secondaryBadge: cell.leave ? leaveCellTitle(cell.leave) : undefined,
+      secondaryBadgeTone: cell.leave ? leaveAppearance(cell.leave).tone : undefined,
       accent,
       rows: [
         { label: 'Employee', value: employeeDisplayName(employee) },
         { label: 'Employee ID', value: employee.name },
         { label: 'Customer', value: customerLabel },
         { label: 'Project', value: shift.custom_project_name },
+        { label: 'Project Designation', value: shift.custom_project_designation },
         { label: 'Shift Type', value: shift.shift_type },
         { label: 'Time', value: shiftTimeRange(shift) },
         { label: 'Date', value: dayjs(date).format('dddd, DD MMM YYYY') },
@@ -3033,6 +2976,23 @@ function openProjectSpanDialog(project?: ProjectRow) {
   showProjectSpanDialog.value = true
 }
 
+function openProjectShiftAssignment(defaults: ProjectShiftAssignmentDefaults) {
+  clearHoverCard()
+  projectShiftDefaults.value = defaults
+  shiftAssignment.value = ''
+  selectedCell.value = { employee: '', date: '' }
+  showShiftAssignmentDialog.value = true
+}
+
+async function onShiftAssignmentSaved() {
+  showShiftAssignmentDialog.value = false
+  try {
+    await events.fetch()
+  } catch {
+    // The resource's onError displays any roster refresh error.
+  }
+}
+
 function showProjectHover(project: ProjectRow, segment: ProjectSegment, event: MouseEvent) {
   if (!segment.active) {
     scheduleClearHoverCard()
@@ -3041,11 +3001,14 @@ function showProjectHover(project: ProjectRow, segment: ProjectSegment, event: M
 
   const customerColor = normaliseHexColor(segment.customerColor)
   const fallbackColor = palette(segment.poEntered === false ? 'red' : 'green')
-  const accent = projectIsCompleted(project.status)
-    ? (colors as any).gray[500]
-    : customerColor
-      ? darkenHexColor(customerColor, 0.3)
-      : fallbackColor[500]
+  const cancelled = isCancelledProject(project.status)
+  const accent = cancelled
+    ? colors.gray[700]
+    : projectIsCompleted(project.status)
+      ? (colors as any).gray[500]
+      : customerColor
+        ? darkenHexColor(customerColor, 0.3)
+        : fallbackColor[500]
 
   setHoverCard(
     `project:${projectKey(project)}:${segment.date || ''}:${segment.days}`,
@@ -3054,8 +3017,8 @@ function showProjectHover(project: ProjectRow, segment: ProjectSegment, event: M
       kicker: 'Project',
       title: segment.label || project.project_name,
       subtitle: [projectGroupLabel(project), segment.subline].filter(Boolean).join(' · '),
-      badge: segment.poEntered ? 'PO Entered' : 'PO Missing',
-      badgeTone: segment.poEntered ? 'green' : 'red',
+      badge: cancelled ? 'Cancelled' : segment.poEntered ? 'PO Entered' : 'PO Missing',
+      badgeTone: cancelled ? 'gray' : segment.poEntered ? 'green' : 'red',
       secondaryBadge: projectGanttStatus(project),
       secondaryBadgeTone: projectGanttStatusTone(project),
       accent,
@@ -3265,25 +3228,22 @@ function scrollToToday() {
   const leftOffset = 4 * DAY_COLUMN_WIDTH
   const targetLeft = Math.max(0, targetTodayIndex * DAY_COLUMN_WIDTH - leftOffset)
 
-  if (projectScroller.value) projectScroller.value.scrollLeft = targetLeft
-  if (employeeScroller.value) employeeScroller.value.scrollLeft = targetLeft
-
-  emit('hscroll', targetLeft)
+  setHorizontalScroll(targetLeft)
   return true
 }
 
 watch(
-  () => [props.firstOfMonth, props.employeeFilters, props.shiftFilters],
+  () => [props.firstOfMonth.year(), props.employeeFilters, props.shiftFilters],
   () => {
     loading.value = true
-    events.fetch()
+    void events.fetch().catch(() => {})
   },
   { deep: true },
 )
 
-const events = createResource({
+const events = coalesceResource(createResource({
   url: 'verto.api.planner.get_year_events',
-  auto: true,
+  auto: false,
   makeParams() {
     return {
       year: props.firstOfMonth.year(),
@@ -3305,12 +3265,20 @@ const events = createResource({
   },
   onSuccess() {
     loading.value = false
+    if (selectedProjectSpan.value) {
+      selectedProjectSpan.value = allProjectRows.value.find(
+        (project) => project.project === selectedProjectSpan.value?.project,
+      ) || selectedProjectSpan.value
+    }
   },
   onError(error: { messages?: string[]; message?: string }) {
     loading.value = false
     raiseToast('error', error?.messages?.[0] || error?.message || 'Failed to fetch annual roster')
   },
-})
+}))
+
+void events.fetch().catch(() => {}); // onError already reports a failed dataset.
+onBeforeUnmount(() => events.disposeRefresh());
 
 const bulkMoveOrSwapShifts = createResource({
   url: 'verto.api.planner.bulk_move_or_swap_shifts',
@@ -3329,7 +3297,7 @@ const bulkMoveOrSwapShifts = createResource({
     pendingBulkShiftWillSwap.value = false
     clearSelectedShiftCells()
     clearDragState()
-    events.fetch()
+    void events.fetch().catch(() => {})
   },
   onError(error: { messages?: string[]; message?: string }) {
     loading.value = false
@@ -3353,7 +3321,7 @@ const updateProjectSpanDates = createResource({
   onSuccess() {
     raiseToast('success', 'Project dates updated successfully!')
     pendingProjectDateUpdate.value = null
-    events.fetch()
+    void events.fetch().catch(() => {})
   },
   onError(error: { messages?: string[]; message?: string }) {
     loading.value = false
@@ -3362,7 +3330,13 @@ const updateProjectSpanDates = createResource({
   },
 })
 
-defineExpose({ events, scrollToToday })
+const liveBusy = computed(() => Boolean(draggedShift.value || projectSpanDrag.value || isDroppingShift.value
+  || bulkMoveOrSwapShifts.loading || updateProjectSpanDates.loading || projectSpanDialog.value?.liveBusy
+  || leaveApplicationDialog.value?.busy))
+async function refreshLiveProjectDetails() {
+  if (showProjectSpanDialog.value) await projectSpanDialog.value?.refreshLive()
+}
+defineExpose({ events, scrollToToday, liveBusy, refreshLiveProjectDetails })
 </script>
 
 <style scoped>
@@ -3408,7 +3382,7 @@ defineExpose({ events, scrollToToday })
 .year-project-header-actions {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: max-content;
 }
 
@@ -3420,7 +3394,7 @@ defineExpose({ events, scrollToToday })
   border-radius: 6px;
   border: 1px solid rgb(209 213 219);
   background: rgb(255 255 255);
-  padding: 3px 7px;
+  padding: 3px 5px;
   color: rgb(55 65 81);
   font-size: 10px;
   font-weight: 700;
@@ -3557,6 +3531,7 @@ defineExpose({ events, scrollToToday })
   position: sticky;
   left: 0;
   z-index: 10;
+  background-color: rgb(255 255 255);
 }
 
 .year-left-header {
@@ -3568,15 +3543,15 @@ defineExpose({ events, scrollToToday })
 }
 
 .year-project-table {
-  --year-left-header-height: 112px;
-  --year-month-header-height: 56px;
-  --year-day-header-height: 56px;
+  --year-left-header-height: 140px;
+  --year-month-header-height: 70px;
+  --year-day-header-height: 70px;
 }
 
 .year-employee-table {
-  --year-left-header-height: 104px;
-  --year-month-header-height: 52px;
-  --year-day-header-height: 52px;
+  --year-left-header-height: 128px;
+  --year-month-header-height: 64px;
+  --year-day-header-height: 64px;
 }
 
 .year-month-header {
@@ -3640,6 +3615,22 @@ defineExpose({ events, scrollToToday })
   position: relative;
   font-weight: 600;
   vertical-align: middle;
+}
+
+.year-leave-status-marker {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+}
+
+.year-leave-status-marker:focus-visible {
+  outline: 2px solid rgb(37 99 235);
+  outline-offset: 1px;
 }
 
 .year-timesheet-status-marker {
@@ -3910,7 +3901,8 @@ defineExpose({ events, scrollToToday })
   font-weight: 500;
 }
 
-.year-project-span-completed {
+.year-project-span-completed,
+.year-project-span-cancelled {
   border-style: solid !important;
   font-weight: 500;
 }
@@ -4068,14 +4060,6 @@ defineExpose({ events, scrollToToday })
 }
 
 
-.year-dialog-open .year-left-col,
-.year-dialog-open .year-left-header,
-.year-dialog-open .year-month-header,
-.year-dialog-open .year-day-header,
-.year-dialog-open .year-today-overlay {
-  z-index: 0 !important;
-}
-
 .year-employee-search-header {
   height: var(--year-left-header-height, 104px) !important;
   min-height: var(--year-left-header-height, 104px) !important;
@@ -4139,6 +4123,14 @@ defineExpose({ events, scrollToToday })
   height: 9px;
   border-radius: 9999px;
   border: 1px solid rgb(107 114 128 / 0.4);
+}
+
+.year-employee-legend-leave {
+  width: 10px;
+  min-width: 10px;
+  height: 10px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
 }
 
 .year-employee-legend-fifo {
@@ -4299,163 +4291,6 @@ defineExpose({ events, scrollToToday })
   color: rgb(14 165 233);
 }
 
-
-.year-hover-card {
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 9999;
-  width: 340px;
-  transform: translate3d(-9999px, -9999px, 0);
-  will-change: transform;
-  max-width: calc(100vw - 24px);
-  pointer-events: none;
-  border: 1px solid rgb(209 213 219);
-  border-left: 4px solid var(--year-hover-accent, rgb(59 130 246));
-  border-radius: 10px;
-  background: rgb(255 255 255);
-  box-shadow: 0 18px 40px rgb(15 23 42 / 0.18), 0 4px 12px rgb(15 23 42 / 0.1);
-  color: rgb(31 41 55);
-  max-height: calc(100vh - 24px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  contain: layout paint style;
-  backface-visibility: hidden;
-}
-
-.year-hover-card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  border-bottom: 1px solid rgb(229 231 235);
-  background: linear-gradient(90deg, rgb(249 250 251), rgb(255 255 255));
-  padding: 10px 12px 8px;
-}
-
-.year-hover-card-kicker {
-  color: rgb(107 114 128);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.year-hover-card-title {
-  margin-top: 4px;
-  color: rgb(17 24 39);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.year-hover-card-subtitle {
-  margin-top: 3px;
-  color: rgb(75 85 99);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.2;
-}
-
-.year-hover-card-badge-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  margin-left: 12px;
-}
-
-.year-hover-card-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: max-content;
-  border-radius: 9999px;
-  padding: 4px 8px;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.year-hover-card-badge-green {
-  background: rgb(220 252 231);
-  color: rgb(22 101 52);
-}
-
-.year-hover-card-badge-red {
-  background: rgb(254 226 226);
-  color: rgb(153 27 27);
-}
-
-.year-hover-card-badge-blue {
-  background: rgb(219 234 254);
-  color: rgb(30 64 175);
-}
-
-.year-hover-card-badge-yellow {
-  background: rgb(254 249 195);
-  color: rgb(113 63 18);
-}
-
-.year-hover-card-badge-gray {
-  background: rgb(243 244 246);
-  color: rgb(55 65 81);
-}
-
-.year-hover-card-grid {
-  display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
-  gap: 5px 10px;
-  padding: 10px 12px;
-}
-
-.year-hover-card-label {
-  color: rgb(107 114 128);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-.year-hover-card-value {
-  color: rgb(31 41 55);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.year-hover-card-project .year-hover-card-value {
-  white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-}
-
-.year-hover-card-note {
-  margin: 0 12px 12px;
-  border: 1px solid rgb(254 202 202);
-  border-radius: 8px;
-  background: rgb(254 242 242);
-  padding: 8px;
-  color: rgb(127 29 29);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.35;
-  white-space: pre-line;
-}
-
-.year-hover-card-leave .year-hover-card-note {
-  border-color: rgb(251 207 232);
-  background: rgb(253 242 248);
-  color: rgb(157 23 77);
-}
-
-.year-hover-card-day-marker .year-hover-card-note {
-  border-color: rgb(191 219 254);
-  background: rgb(239 246 255);
-  color: rgb(30 64 175);
-}
 
 .year-project-span-date-dragging {
   position: relative;

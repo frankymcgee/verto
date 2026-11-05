@@ -1,0 +1,52 @@
+{
+ "actions": [],
+ "creation": "2026-09-30 13:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "source_action_reference",
+  "action_description",
+  "action_status",
+  "effectiveness_notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "source_action_reference",
+   "fieldtype": "Data",
+   "label": "Source Action Reference",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "action_description",
+   "fieldtype": "Small Text",
+   "label": "Recorded Action",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "action_status",
+   "fieldtype": "Data",
+   "label": "Source Action Status",
+   "in_list_view": 1,
+   "description": "Preserve the exported status. Leave blank when it is not supplied."
+  },
+  {
+   "fieldname": "effectiveness_notes",
+   "fieldtype": "Small Text",
+   "label": "Effectiveness Evidence",
+   "description": "Evidence explicitly recorded in the investigation; leave blank when unknown."
+  }
+ ],
+ "links": [],
+ "modified": "2026-09-30 13:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Safety",
+ "name": "JHA Incident Learning Action",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1,
+ "istable": 1,
+ "editable_grid": 1
+}

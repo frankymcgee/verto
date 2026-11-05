@@ -3,7 +3,7 @@
   <div class="space-y-2">
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
-        <label class="block text-sm font-medium text-ink-gray-8">
+        <label class="block text-sm-medium text-ink-gray-8">
           {{ field.label || field.fieldname }}
           <span
             v-if="field.required"
@@ -40,12 +40,12 @@
         v-for="(row, index) in rows"
         :key="getRowKey(row, index)"
         type="button"
-        class="w-full rounded-xl border border-outline-gray-1 bg-surface-white px-3 py-3 text-left shadow-sm transition active:scale-[0.99]"
+        class="w-full rounded-7 border border-outline-gray-1 bg-surface-base px-3 py-3 text-left shadow-sm transition active:scale-[0.99]"
         @click="openExistingRow(index)"
       >
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <p class="truncate text-sm font-semibold text-ink-gray-9">
+            <p class="truncate text-sm-semibold text-ink-gray-9">
               {{ getRowTitle(row, index) }}
             </p>
 
@@ -57,7 +57,7 @@
             </p>
           </div>
 
-          <span class="shrink-0 text-xs font-medium text-blue-600">
+          <span class="shrink-0 text-xs-medium text-blue-600">
             {{ disabled ? 'View' : 'Edit' }}
           </span>
         </div>
@@ -66,9 +66,9 @@
 
     <div
       v-else
-      class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-5 text-center"
+      class="rounded-7 border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-5 text-center"
     >
-      <p class="text-sm font-medium text-ink-gray-7">
+      <p class="text-sm-medium text-ink-gray-7">
         No rows added.
       </p>
 
@@ -77,18 +77,13 @@
       </p>
     </div>
 
-    <Teleport to="body">
-      <Transition name="drawer-fade-slide">
-        <div
-          v-if="drawerOpen"
-          class="fixed inset-0 z-[70] flex items-end bg-black/40"
-          @click.self="closeDrawer"
-        >
-          <Card class="drawer-panel flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white shadow-xl">
-            <div class="shrink-0 border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+    <MobileSheet :open="Boolean(drawerOpen)" :title="drawerTitle" @update:open="!$event && closeDrawer()">
+<template v-if="drawerOpen">
+          <section class="rounded-7 shadow-sm drawer-panel flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-base shadow-xl">
+            <div class="shrink-0 border-b border-outline-gray-1 bg-surface-base px-4 py-3">
               <div class="flex items-center justify-between gap-3">
                 <div class="min-w-0">
-                  <h2 class="truncate text-lg font-semibold text-ink-gray-9">
+                  <h2 class="truncate text-lg-semibold text-ink-gray-9">
                     {{ drawerTitle }}
                   </h2>
 
@@ -118,7 +113,7 @@
             >
               <h3
                 v-if="childField.label"
-                class="text-base font-semibold text-ink-gray-9"
+                class="text-base-semibold text-ink-gray-9"
               >
                 {{ childField.label }}
               </h3>
@@ -147,6 +142,10 @@
                 :disabled="isFieldReadOnly(childField) || disabled"
               />
 
+              <RichTextEditorField v-else-if="childField.fieldtype === 'Text Editor'"
+                v-model="draftRow[childField.fieldname]" :label="childField.label"
+                :description="childField.description" :required="isFieldMandatory(childField)"
+                :disabled="isFieldReadOnly(childField)" />
               <Textarea
                 v-else-if="isTextArea(childField.fieldtype)"
                 v-model="draftRow[childField.fieldname]"
@@ -223,9 +222,9 @@
 
           <div
             v-if="visibleChildFields.length === 0"
-            class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center"
+            class="rounded-7 border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center"
           >
-            <p class="text-sm font-medium text-ink-gray-7">
+            <p class="text-sm-medium text-ink-gray-7">
               No fields configured for this table.
             </p>
           </div>
@@ -236,7 +235,7 @@
               />
         </div>
 
-            <div class="shrink-0 border-t border-outline-gray-1 bg-surface-white px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+            <div class="shrink-0 border-t border-outline-gray-1 bg-surface-base px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
               <div class="flex gap-2">
           <Button
             v-if="!disabled && editingIndex !== null"
@@ -269,18 +268,17 @@
                 </Button>
               </div>
             </div>
-          </Card>
-        </div>
-      </Transition>
-    </Teleport>
+          </section>
+        </template>
+</MobileSheet>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import MobileSheet from '../MobileSheet.vue'
+import { defineAsyncComponent, computed, ref, watch } from 'vue'
 import {
   Button,
-  Card,
   Checkbox,
   FormControl,
   Select,
@@ -293,6 +291,7 @@ import {
 } from '../../lib/dependencies'
 import LinkField from './LinkField.vue'
 import SignatureField from './SignatureField.vue'
+const RichTextEditorField = defineAsyncComponent(() => import('./RichTextEditorField.vue'))
 
 type MobileField = {
   fieldname: string

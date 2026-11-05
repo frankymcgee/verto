@@ -1,21 +1,39 @@
 {% set no_cache = 1 %}
 
-{% if frappe.session.user == "Guest" %}
-<script>
-  const redirectTo = window.location.pathname + window.location.search + window.location.hash
-  window.location.href = "/login?redirect-to=" + encodeURIComponent(redirectTo || "/verto-mobile")
-</script>
-{% else %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-AU">
 <head>
   <meta charset="UTF-8" />
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0, viewport-fit=cover"
   />
-  <meta name="frappe-site-name" content="{{ frappe.local.site }}" />
-  <title>Verto Mobile</title>
+  <meta name="frappe-site-name" content="{{ frappe_site_name | default('', true) | e }}" />
+  <title>{{ pwa_metadata.short_name | e }}</title>
+  <meta name="application-name" content="{{ pwa_metadata.app_name | e }}" />
+  <meta name="description" content="{{ pwa_metadata.description | e }}" />
+  <meta name="theme-color" content="{{ pwa_metadata.theme_color | e }}" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="{{ pwa_metadata.short_name | e }}" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <link
+    rel="manifest"
+    href="{{ pwa_metadata.manifest_url | e }}"
+    type="application/manifest+json"
+  />
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="192x192"
+    href="{{ pwa_metadata.icon | e }}"
+  />
+  <link
+    rel="apple-touch-icon"
+    sizes="180x180"
+    href="{{ pwa_metadata.apple_touch_icon | e }}"
+  />
 
   <link
     rel="stylesheet"
@@ -24,12 +42,22 @@
 </head>
 
 <body>
+  {% if frappe.session.user == "Guest" %}
+  <script>
+    const redirectTo = window.location.pathname + window.location.search + window.location.hash
+    window.location.replace("/login?redirect-to=" + encodeURIComponent(redirectTo || "/verto-mobile"))
+  </script>
+  {% else %}
   <div id="app"></div>
+
+  <script>
+    window.csrf_token = "{{ frappe.session.csrf_token }}"
+  </script>
 
   <script
     type="module"
     src="/assets/verto/verto-mobile/assets/index.js"
   ></script>
+  {% endif %}
 </body>
 </html>
-{% endif %}

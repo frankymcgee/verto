@@ -15,7 +15,7 @@
       </div>
 
       <!-- Calendar -->
-      <Card class=" px-1 py-1 overflow-hidden border border-outline-gray-1 bg-surface-white !py-1 !px-1 !mt-1">
+      <section class="rounded-7 shadow-sm  px-1 py-1 overflow-hidden border border-outline-gray-1 bg-surface-base !py-1 !px-1 !mt-1">
         <!-- Month Controls -->
         <div class="flex items-center justify-between border-b border-outline-gray-1 px-3 py-3">
           <Button
@@ -28,7 +28,7 @@
           </Button>
 
           <div class="text-center">
-            <h2 class="text-lg font-semibold text-ink-gray-9">
+            <h2 class="text-lg-semibold text-ink-gray-9">
               {{ currentMonthName }}
             </h2>
 
@@ -63,7 +63,7 @@
           v-if="loading"
           class="p-3"
         >
-          <div class="rounded-xl bg-surface-gray-1 p-4 text-sm text-ink-gray-5">
+          <div class="rounded-7 bg-surface-gray-1 p-4 text-sm text-ink-gray-5">
             Loading shifts...
           </div>
         </div>
@@ -73,7 +73,7 @@
           v-else-if="error"
           class="p-3"
         >
-          <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div class="rounded-7 border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {{ error }}
           </div>
         </div>
@@ -93,7 +93,7 @@
             v-for="day in daysInMonth"
             :key="day.date"
             type="button"
-            class="relative flex flex-col items-center justify-start rounded-xl px-1 py-2 text-sm font-medium transition active:scale-95"
+            class="relative flex flex-col items-center justify-start rounded-7 px-1 py-2 text-sm-medium transition active:scale-95"
             :class="getDayButtonClass(day.date)"
             @click="selectDate(day.date)"
           >
@@ -119,15 +119,15 @@
             class="min-h-12"
           />
         </div>
-      </Card>
+      </section>
 
       <!-- Selected Day Details -->
-      <Card
+      <section
         v-if="selectedDate && !loading && !error"
-        class="overflow-hidden border border-outline-gray-1 bg-surface-white !py-1 !px-1 !mt-1"
+        class="rounded-7 shadow-sm overflow-hidden border border-outline-gray-1 bg-surface-base !py-1 !px-1 !mt-1"
       >
         <div class="border-b border-outline-gray-1 px-3 py-3">
-          <h2 class="mt-1 text-lg font-semibold text-ink-gray-9">
+          <h2 class="mt-1 text-lg-semibold text-ink-gray-9">
             {{ formatFullDate(selectedDate) }}
           </h2>
         </div>
@@ -136,7 +136,7 @@
           <div class="flex items-stretch justify-between gap-3">
             <div class="min-w-0 flex-1">
               <template v-if="selectedShift">
-                <h3 class="text-base font-semibold text-ink-gray-9">
+                <h3 class="text-base-semibold text-ink-gray-9">
                   {{ getShiftDisplayName(selectedShift) }}
                 </h3>
 
@@ -157,7 +157,7 @@
               </template>
 
               <template v-else>
-                <h3 class="text-base font-semibold text-ink-gray-9">
+                <h3 class="text-base-semibold text-ink-gray-9">
                   No shift allocated
                 </h3>
 
@@ -168,9 +168,16 @@
 
               <p
                 v-if="selectedTimesheet?.duration"
-                class="mt-3 text-base font-semibold text-ink-gray-9"
+                class="mt-3 text-base-semibold text-ink-gray-9"
               >
                 {{ (selectedTimesheet.duration / 3600).toFixed(2) }} hours submitted
+              </p>
+
+              <p
+                v-if="selectedTimesheet?.offline_queued"
+                class="mt-2 text-sm-medium text-amber-700"
+              >
+                Saved offline — waiting to sync
               </p>
 
               <div
@@ -178,7 +185,17 @@
                 class="mt-4"
               >
                 <Button
-                  v-if="selectedTimesheet"
+                  v-if="selectedTimesheet?.offline_queued"
+                  variant="subtle"
+                  theme="gray"
+                  class="w-full justify-center"
+                  disabled
+                >
+                  Waiting to Sync
+                </Button>
+
+                <Button
+                  v-else-if="selectedTimesheet"
                   variant="solid"
                   theme="gray"
                   class="w-full justify-center"
@@ -199,22 +216,21 @@
               </div>
             </div>
 
-            <div class="flex w-16 shrink-0 items-center justify-center text-3xl">
+            <div class="flex w-16 shrink-0 items-center justify-center text-4xl">
               {{ selectedShift ? getShiftIconText(selectedShift.shift_type) : '—' }}
             </div>
           </div>
         </div>
-      </Card>
+      </section>
     </main>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Button,
-  Card,
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
 
@@ -244,6 +260,8 @@ type TimesheetItem = {
   project_name?: string
   custom_project?: string
   link_task?: string
+  offline_queued?: boolean
+  offline_operation_id?: string
 }
 
 type ShiftPayload = {
@@ -262,7 +280,14 @@ const router = useRouter()
 const loading = ref(true)
 const error = ref('')
 
-const today = new Date()
+function requestedDate() {
+  const value = router.currentRoute?.value.query.date
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const date = new Date(`${value}T12:00:00`)
+  return !Number.isNaN(date.getTime()) && formatDateString(date) === value ? date : null
+}
+
+const today = requestedDate() || new Date()
 
 const currentMonth = ref(today.getMonth())
 const currentYear = ref(today.getFullYear())
@@ -363,7 +388,7 @@ function getDayButtonClass(date: string) {
   }
 
   if (selectedDate.value === date) {
-    classes.push('ring-2 ring-blue-500 ring-offset-2 ring-offset-surface-white')
+    classes.push('ring-2 ring-blue-500 ring-offset-2 ring-offset-surface-base')
   }
 
   return classes
@@ -376,11 +401,15 @@ function isBlank(value?: string | null) {
 function getShiftForDate(date: string) {
   const selected = toDateKey(date)
 
+  const requestedShift = router.currentRoute?.value.query.shift
+  const linked = shifts.value.find((shift) => shift.name === requestedShift
+    && selected >= toDateKey(shift.start_date)
+    && (!shift.end_date || selected <= toDateKey(shift.end_date)))
+  if (linked) return linked
+
   return shifts.value.find((shift) => {
     const start = toDateKey(shift.start_date)
-    const end = toDateKey(shift.end_date || shift.start_date)
-
-    return selected >= start && selected <= end
+    return selected >= start && (!shift.end_date || selected <= toDateKey(shift.end_date))
   })
 }
 
@@ -490,6 +519,7 @@ function createDailyTimesheet(date: string) {
     path: '/new/daily-timesheet',
     query: {
       date,
+      ...(selectedShift.value?.name && !selectedShift.value.is_leave ? { shift_allocation: selectedShift.value.name } : {}),
     },
   })
 }
@@ -500,38 +530,77 @@ function modifyDailyTimesheet(name: string) {
   })
 }
 
-async function loadCalendar() {
+let calendarPromise: Promise<void> | null = null
+let calendarRevision = 0
+let calendarStopped = false
+
+function loadCalendar() {
+  calendarRevision += 1
   loading.value = true
   error.value = ''
+  if (calendarPromise) return calendarPromise
+  calendarPromise = refreshCalendar().finally(() => {
+    calendarPromise = null
+    if (!calendarStopped) loading.value = false
+  })
+  return calendarPromise
+}
 
-  try {
-    const range = getMonthRange()
-    const params = new URLSearchParams(range)
+async function refreshCalendar() {
+  let revision: number
+  do {
+    revision = calendarRevision
+    try {
+      const range = getMonthRange()
+      const params = new URLSearchParams(range)
 
-    const data = await apiRequest<FrappeResponse<ShiftPayload>>(
-      `/api/method/verto.api.mobile.shifts.get_shift_calendar?${params.toString()}`
-    )
+      const data = await apiRequest<FrappeResponse<ShiftPayload>>(
+        `/api/method/verto.api.mobile.shifts.get_shift_calendar?${params.toString()}`
+      )
 
-    shifts.value = data.message.shifts || []
-    timesheets.value = data.message.timesheets || []
+      // Do not display an old month while a newer month is waiting. Rapid taps
+      // retain one trailing read instead of queuing every intermediate month.
+      if (calendarStopped || revision !== calendarRevision) continue
 
-    const currentMonthPrefix = `${currentYear.value}-${String(currentMonth.value + 1).padStart(2, '0')}`
+      shifts.value = data.message.shifts || []
+      timesheets.value = data.message.timesheets || []
 
-    if (!selectedDate.value.startsWith(currentMonthPrefix)) {
-      selectedDate.value = formatDateString(new Date(currentYear.value, currentMonth.value, 1))
+      const currentMonthPrefix = `${currentYear.value}-${String(currentMonth.value + 1).padStart(2, '0')}`
+
+      if (!selectedDate.value.startsWith(currentMonthPrefix)) {
+        selectedDate.value = formatDateString(new Date(currentYear.value, currentMonth.value, 1))
+      }
+    } catch (err) {
+      if (calendarStopped || revision !== calendarRevision) continue
+      if (err instanceof Error && err.message === 'Login required') {
+        return
+      }
+
+      error.value = err instanceof Error ? err.message : 'Could not load shifts.'
     }
-  } catch (err) {
-    if (err instanceof Error && err.message === 'Login required') {
-      return
-    }
+  } while (!calendarStopped && revision !== calendarRevision)
+}
 
-    error.value = err instanceof Error ? err.message : 'Could not load shifts.'
-  } finally {
-    loading.value = false
-  }
+function handleOfflineQueueSynced() {
+  void loadCalendar()
 }
 
 onMounted(() => {
+  window.addEventListener('verto:offline-queue-synced', handleOfflineQueueSynced)
   loadCalendar()
+})
+
+onBeforeUnmount(() => {
+  calendarStopped = true
+  window.removeEventListener('verto:offline-queue-synced', handleOfflineQueueSynced)
+})
+
+watch(() => router.currentRoute?.value.query.date, () => {
+  const date = requestedDate()
+  if (!date) return
+  currentMonth.value = date.getMonth()
+  currentYear.value = date.getFullYear()
+  selectedDate.value = formatDateString(date)
+  void loadCalendar()
 })
 </script>

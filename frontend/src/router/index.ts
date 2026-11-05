@@ -8,12 +8,16 @@ const Shifts = () => import('../pages/Shifts.vue')
 const Chat = () => import('../pages/Chat.vue')
 const NewDocument = () => import('../pages/NewDocument.vue')
 const EditDocument = () => import('../pages/EditDocument.vue')
+const VoiceJha = () => import('../pages/VoiceJha.vue')
+const JhaWorkpack = () => import('../pages/JhaWorkpack.vue')
 
 const routes = [
   {
     path: '/',
     component: MobileShell,
     children: [
+      { path: 'scan-qr', name: 'scan-qr', component: () => import('../pages/QrScanner.vue'), meta: { title: 'Scan QR code' } },
+      { path: 'jha-saved', name: 'jha-saved', component: () => import('../pages/JhaSaved.vue'), meta: { title: 'Offline JHAs' } },
       {
         path: '',
         component: Home,
@@ -48,6 +52,35 @@ const routes = [
         meta: {
           title: 'Ask PERI',
           mode: 'peri',
+        },
+      },
+      {
+        path: 'voice-jha/:workSummary',
+        name: 'voice-jha',
+        component: VoiceJha,
+        meta: {
+          title: 'Develop JHA with PERI',
+        },
+      },
+      {
+        path: 'jha/:jhaName',
+        name: 'jha-workpack',
+        component: JhaWorkpack,
+        meta: { title: 'JHA revision check' },
+      },
+      {
+        path: 'new/digital-job-hazard-analysis',
+        redirect: (to) => {
+          const workSummary = String(to.query.link_task || '').trim()
+
+          if (!workSummary) {
+            return { path: '/' }
+          }
+
+          return {
+            name: 'voice-jha',
+            params: { workSummary },
+          }
         },
       },
       {

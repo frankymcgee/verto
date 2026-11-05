@@ -4,25 +4,25 @@
   <section class="h-full min-h-0 bg-surface-gray-1">
     <main class="space-y-3 px-[var(--verto-page-x,0.75rem)] py-[var(--verto-page-y,0.75rem)]">
       <!-- Loading State -->
-      <Card
+      <section
         v-if="loading"
-        class="p-3"
+        class="bg-surface-base rounded-7 shadow-sm p-3"
       >
         <div class="space-y-3">
-          <div class="h-4 w-36 rounded bg-surface-gray-3" />
-          <div class="h-24 rounded-xl bg-surface-gray-2" />
-          <div class="h-24 rounded-xl bg-surface-gray-2" />
-          <div class="h-24 rounded-xl bg-surface-gray-2" />
+          <div class="h-4 w-36 rounded-4 bg-surface-gray-3" />
+          <div class="h-24 rounded-7 bg-surface-gray-2" />
+          <div class="h-24 rounded-7 bg-surface-gray-2" />
+          <div class="h-24 rounded-7 bg-surface-gray-2" />
         </div>
-      </Card>
+      </section>
 
       <!-- Error State -->
-      <Card
+      <section
         v-else-if="error"
-        class="border border-red-200 bg-red-50 p-3"
+        class="rounded-7 shadow-sm border border-red-200 bg-red-50 p-3"
       >
         <div class="space-y-2">
-          <p class="text-sm font-medium text-red-800">
+          <p class="text-sm-medium text-red-800">
             Could not load assigned work
           </p>
 
@@ -30,7 +30,7 @@
             {{ error }}
           </p>
         </div>
-      </Card>
+      </section>
 
       <template v-else>
         <!-- Refresh Row -->
@@ -48,12 +48,12 @@
         </div>
 
         <!-- Empty State -->
-        <Card
+        <section
           v-if="groupedTasks.length === 0"
-          class="p-3"
+          class="bg-surface-base rounded-7 shadow-sm p-3"
         >
-          <div class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-3 py-6 text-center">
-            <p class="text-sm font-medium text-ink-gray-7">
+          <div class="rounded-7 border border-dashed border-outline-gray-2 bg-surface-gray-1 px-3 py-6 text-center">
+            <p class="text-sm-medium text-ink-gray-7">
               No tasks allocated.
             </p>
 
@@ -61,13 +61,13 @@
               Assigned work will appear here when it is allocated to you.
             </p>
           </div>
-        </Card>
+        </section>
 
         <!-- Scope Groups -->
-        <Card
+        <section
           v-for="scope in groupedTasks"
           :key="scope.scope_name"
-          class="overflow-hidden border border-outline-gray-1 bg-surface-white !py-1 !px-1 !mt-1"
+          class="rounded-7 shadow-sm overflow-hidden border border-outline-gray-1 bg-surface-base !py-1 !px-1 !mt-1"
         >
           <!-- Scope Header -->
           <button
@@ -76,7 +76,7 @@
             @click="toggleScope(scope.scope_name)"
           >
             <div class="min-w-0">
-              <p class="truncate text-base font-semibold text-ink-gray-9">
+              <p class="truncate text-base-semibold text-ink-gray-9">
                 {{ scope.scope_name }}
               </p>
 
@@ -99,13 +99,13 @@
 
                 <span
                   v-else
-                  class="text-sm font-semibold text-ink-gray-6"
+                  class="text-sm-semibold text-ink-gray-6"
                 >
                   {{ getCustomerInitials(scope) }}
                 </span>
               </div>
 
-              <span class="text-xl font-medium text-ink-gray-5">
+              <span class="text-2xl-medium text-ink-gray-5">
                 {{ openScopes[scope.scope_name] ? '−' : '+' }}
               </span>
             </div>
@@ -117,10 +117,10 @@
             class="space-y-3 p-2"
           >
             <!-- Parent Groups -->
-            <Card
+            <section
               v-for="parent in scope.parent_groups"
               :key="parent.parent_task_name"
-              class="overflow-hidden border border-outline-gray-1 bg-surface-gray-1 !py-1 !px-1 !mt-1"
+              class="rounded-7 shadow-sm overflow-hidden border border-outline-gray-1 bg-surface-gray-1 !py-1 !px-1 !mt-1"
             >
               <button
                 type="button"
@@ -129,7 +129,7 @@
               >
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
-                    <p class="truncate text-sm font-semibold text-ink-gray-9">
+                    <p class="truncate text-sm-semibold text-ink-gray-9">
                       {{ parent.parent_task_name }}
                     </p>
                     <p class="mt-1 text-xs text-ink-gray-5">
@@ -137,22 +137,17 @@
                     </p>
                   </div>
 
-                  <span class="shrink-0 text-lg font-medium text-ink-gray-5">
+                  <span class="shrink-0 text-lg-medium text-ink-gray-5">
                     {{ openParents[getParentKey(scope, parent)] ? '−' : '+' }}
                   </span>
                 </div>
 
-                <div class="mt-3 h-2 overflow-hidden rounded-full bg-surface-gray-3">
-                  <div
-                    class="h-full rounded-full bg-blue-600 transition-all"
-                    :style="{ width: `${clampPercent(parent.progress || 0)}%` }"
-                  />
-                </div>
+                <Progress :value="clampPercent(parent.progress || 0)" size="sm" class="mt-3" aria-label="Location progress" />
               </button>
 
               <div
                 v-if="openParents[getParentKey(scope, parent)]"
-                class="space-y-3 border-t border-outline-gray-1 bg-surface-white p-2"
+                class="space-y-3 border-t border-outline-gray-1 bg-surface-base p-2"
               >
                 <Button
                   variant="subtle"
@@ -164,15 +159,15 @@
                 </Button>
 
                 <!-- Tasks -->
-                <Card
+                <section
                   v-for="task in parent.tasks"
                   :key="task.name"
-                  class="overflow-hidden border border-outline-gray-1 bg-surface-white !py-1 !px-1 !mt-1"
+                  class="rounded-7 shadow-sm overflow-hidden border border-outline-gray-1 bg-surface-base !py-1 !px-1 !mt-1"
                 >
                   <div class="space-y-3 p-3">
                     <div class="flex items-start justify-between gap-3">
                       <div class="min-w-0 flex-1">
-                        <h3 class="text-base font-semibold text-ink-gray-9">
+                        <h3 class="text-base-semibold text-ink-gray-9">
                           {{ task.subject || task.name }}
                         </h3>
 
@@ -226,12 +221,74 @@
                       </Badge>
                     </div>
 
+                    <div
+                      v-if="task.checklist?.length"
+                      class="overflow-hidden rounded-7 border border-outline-gray-1 bg-surface-gray-1"
+                    >
+                      <div class="flex items-center justify-between gap-3 border-b border-outline-gray-1 px-3 py-2">
+                        <p class="text-xs-semibold uppercase tracking-wide text-ink-gray-6">
+                          Checklist
+                        </p>
+
+                        <p class="text-xs-medium text-ink-gray-5">
+                          {{ getCompletedChecklistCount(task) }}/{{ getChecklistItemCount(task) }} complete
+                        </p>
+                      </div>
+
+                      <div class="divide-y divide-outline-gray-1">
+                        <div
+                          v-for="item in (task.checklist || [])"
+                          :key="item.name"
+                        >
+                          <label
+                            class="flex min-h-11 cursor-pointer items-start gap-3 px-3 py-2.5 active:bg-surface-gray-2"
+                            :class="{
+                              'cursor-wait opacity-60': isChecklistItemPending(task, item),
+                              'cursor-default': isChecklistItemAwaitingEvidence(task, item),
+                            }"
+                          >
+                            <Checkbox
+                              class="mt-0.5 shrink-0"
+                              size="md"
+                              :model-value="isChecklistItemComplete(item)"
+                              :disabled="isChecklistItemBusy(task, item)"
+                              @update:model-value="(checked) => toggleChecklistItem(parent, task, item, Boolean(checked))"
+                            />
+
+                            <span
+                              class="min-w-0 flex-1 text-sm leading-5"
+                              :class="isChecklistItemComplete(item)
+                                ? 'text-ink-gray-5 line-through'
+                                : 'text-ink-gray-8'"
+                            >
+                              {{ item.description }}
+                            </span>
+
+                            <span
+                              v-if="isChecklistItemPending(task, item)"
+                              class="shrink-0 text-xs text-ink-gray-5"
+                            >
+                              Saving…
+                            </span>
+                          </label>
+
+                          <p
+                            v-if="getChecklistItemError(task, item)"
+                            class="px-3 pb-2 text-xs text-red-700"
+                          >
+                            {{ getChecklistItemError(task, item) }}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     <div class="grid grid-cols-2 gap-2 pt-1">
                       <Button
                         variant="solid"
                         theme="gray"
                         class="w-full justify-center"
                         @click="openPicker('form', task)"
+                        
                       >
                         + Form
                       </Button>
@@ -246,88 +303,35 @@
                       </Button>
                     </div>
                   </div>
-                </Card>
+                </section>
               </div>
-            </Card>
+            </section>
 
-            <!-- Project Links -->
-            <div class="grid grid-cols-3 gap-2">
-              <Button
-                variant="subtle"
-                theme="gray"
-                class="justify-center"
-                @click="openInternalUrl(getProjectGanttUrl(scope), 'Gantt')"
-              >
-                Gantt
-              </Button>
-
-              <Button
-                variant="subtle"
-                theme="gray"
-                class="justify-center"
-                @click="openInternalUrl(getProjectMapUrl(scope), 'Map')"
-              >
-                Map
-              </Button>
-
-              <Button
-                variant="subtle"
-                theme="gray"
-                class="justify-center"
-                @click="openExternalUrl(getShareFolder(scope), 'Folder')"
-              >
-                Folder
-              </Button>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-              <Button
-                variant="subtle"
-                theme="gray"
-                class="justify-center"
-                @click="openProjectHandover(scope)"
-              >
-                Handover
-              </Button>
-
-              <Button
-                variant="subtle"
-                theme="gray"
-                class="justify-center"
-                @click="openPersonnelDrawer(scope)"
-              >
-                Personnel
-              </Button>
-
-              <Button
-                variant="subtle"
-                theme="gray"
-                class="justify-center"
-                @click="openExternalUrl(getGameplanUrl(scope), 'Gameplan')"
-              >
-                Gameplan
-              </Button>
-
-              <Button
-                variant="subtle"
-                theme="gray"
-                class="justify-center"
-                @click="openProjectChat(scope)"
-              >
-                Chat
-              </Button>
-            </div>
-
-            <Button
-              variant="solid"
-              theme="gray"
-              class="w-full justify-center"
-              @click="analyseProjectWithPeri(scope)"
+            <div
+              class="grid gap-2"
+              :class="projectToolDefinitions.length ? 'grid-cols-2' : 'grid-cols-1'"
             >
-              Analyse with PERI
-            </Button>
+              <Button
+                v-if="projectToolDefinitions.length"
+                variant="subtle"
+                theme="gray"
+                class="w-full justify-center"
+                @click="openProjectTools(scope)"
+              >
+                Project Tools
+              </Button>
+
+              <Button
+                variant="solid"
+                theme="gray"
+                class="w-full justify-center"
+                @click="analyseProjectWithPeri(scope)"
+              >
+                Analyse with PERI
+              </Button>
+            </div>
           </div>
-        </Card>
+        </section>
 
         <!-- Generic Form Button -->
         <Button
@@ -337,22 +341,63 @@
           class="w-full justify-center"
           @click="openPicker('generic')"
         >
-          + Form
+          + Personal Form
         </Button>
       </template>
     </main>
 
+    <!-- Project Tools Sheet -->
+    <MobileSheet :open="Boolean(projectToolsOpen && projectToolsScope)" title="Project Tools" @update:open="!$event && closeProjectTools()">
+<template v-if="projectToolsOpen && projectToolsScope">
+          <section class="rounded-7 shadow-sm bottom-sheet-panel drawer-panel flex w-full min-w-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-base shadow-2xl">
+          <div class="z-10 flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-base px-4 py-3">
+            <div class="min-w-0">
+              <h2 class="truncate text-lg-semibold text-ink-gray-9">
+                Project Tools
+              </h2>
+
+              <p class="mt-1 truncate text-sm text-ink-gray-5">
+                {{ projectToolsProjectName }}
+              </p>
+            </div>
+
+            <Button
+              variant="subtle"
+              theme="gray"
+              @click="closeProjectTools"
+            >
+              Close
+            </Button>
+          </div>
+
+          <div class="bottom-sheet-body grid grid-cols-2 content-start gap-3 p-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            <button
+              v-for="tool in projectToolDefinitions"
+              :key="tool.key"
+              type="button"
+              class="min-h-24 rounded-7 border border-outline-gray-1 bg-surface-base p-3 text-left shadow-sm transition hover:border-outline-gray-2 hover:bg-surface-gray-1 active:scale-[0.99]"
+              @click="openProjectTool(tool.key)"
+            >
+              <p class="text-sm-semibold text-ink-gray-9">
+                {{ tool.label }}
+              </p>
+
+              <p class="mt-1 text-xs leading-4 text-ink-gray-5">
+                {{ tool.description }}
+              </p>
+            </button>
+          </div>
+          </section>
+        </template>
+</MobileSheet>
+
     <!-- Picker Sheet -->
-    <Transition name="drawer-fade-slide">
-      <div
-        v-if="pickerOpen"
-        class="fixed inset-0 z-[60] flex items-end bg-black/40 px-0"
-        @click.self="closePicker"
-      >
-        <Card class="drawer-panel max-h-[75vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
-        <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+    <MobileSheet :open="Boolean(pickerOpen)" :title="pickerTitle" @update:open="!$event && closePicker()">
+<template v-if="pickerOpen">
+          <section class="rounded-7 shadow-sm bottom-sheet-panel drawer-panel flex w-full min-w-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-base shadow-2xl">
+        <div class="z-10 flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-base px-4 py-3">
           <div class="min-w-0">
-            <h2 class="truncate text-lg font-semibold text-ink-gray-9">
+            <h2 class="truncate text-lg-semibold text-ink-gray-9">
               {{ pickerTitle }}
             </h2>
 
@@ -373,12 +418,12 @@
           </Button>
         </div>
 
-        <div class="max-h-[calc(75vh-72px)] space-y-2 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]">
+        <div class="bottom-sheet-body grid grid-cols-1 content-start gap-2 p-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <button
             v-for="button in pickerButtons"
             :key="button.mobile_doctype"
             type="button"
-            class="w-full rounded-xl border border-outline-gray-1 bg-surface-white p-3 text-left shadow-sm transition active:scale-[0.99]"
+            class="w-full rounded-7 border border-outline-gray-1 bg-surface-base p-3 text-left shadow-sm transition hover:border-outline-gray-2 hover:bg-surface-gray-1 active:scale-[0.99]"
             @click="createFromPicker(button)"
           >
             <p class="font-semibold text-ink-gray-9">
@@ -392,9 +437,9 @@
 
           <div
             v-if="pickerButtons.length === 0"
-            class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center"
+            class="rounded-7 border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center sm:col-span-2 lg:col-span-3 xl:col-span-4"
           >
-            <p class="text-sm font-medium text-ink-gray-7">
+            <p class="text-sm-medium text-ink-gray-7">
               No forms available.
             </p>
 
@@ -402,27 +447,18 @@
               Check the mobile form configuration for this action.
             </p>
           </div>
-          <div
-            data-picker-bottom-spacer="true"
-            class="h-24 shrink-0"
-            aria-hidden="true"
-          />
         </div>
-        </Card>
-      </div>
-    </Transition>
+          </section>
+        </template>
+</MobileSheet>
 
     <!-- Personnel Sheet -->
-    <Transition name="drawer-fade-slide">
-      <div
-        v-if="personnelOpen"
-        class="fixed inset-0 z-[60] flex items-end bg-black/40 px-0"
-        @click.self="closePersonnelDrawer"
-      >
-        <Card class="drawer-panel max-h-[80vh] w-full overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
-          <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+    <MobileSheet :open="Boolean(personnelOpen)" title="Project Personnel" @update:open="!$event && closePersonnelDrawer()">
+<template v-if="personnelOpen">
+          <section class="rounded-7 shadow-sm bottom-sheet-panel drawer-panel flex w-full min-w-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-base shadow-2xl">
+          <div class="z-10 flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-base px-4 py-3">
             <div class="min-w-0">
-              <h2 class="truncate text-lg font-semibold text-ink-gray-9">
+              <h2 class="truncate text-lg-semibold text-ink-gray-9">
                 Project Personnel
               </h2>
 
@@ -443,21 +479,21 @@
             </Button>
           </div>
 
-          <div class="max-h-[calc(80vh-72px)] space-y-3 overflow-auto p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]">
+          <div class="bottom-sheet-body space-y-3 p-4 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
             <div
               v-if="personnelLoading"
               class="space-y-2"
             >
-              <div class="h-20 rounded-xl bg-surface-gray-2" />
-              <div class="h-20 rounded-xl bg-surface-gray-2" />
-              <div class="h-20 rounded-xl bg-surface-gray-2" />
+              <div class="h-20 rounded-7 bg-surface-gray-2" />
+              <div class="h-20 rounded-7 bg-surface-gray-2" />
+              <div class="h-20 rounded-7 bg-surface-gray-2" />
             </div>
 
             <div
               v-else-if="personnelError"
-              class="rounded-xl border border-red-200 bg-red-50 px-4 py-3"
+              class="rounded-7 border border-red-200 bg-red-50 px-4 py-3"
             >
-              <p class="text-sm font-medium text-red-800">
+              <p class="text-sm-medium text-red-800">
                 Could not load project personnel.
               </p>
 
@@ -468,9 +504,9 @@
 
             <div
               v-else-if="personnelRows.length === 0"
-              class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center"
+              class="rounded-7 border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center"
             >
-              <p class="text-sm font-medium text-ink-gray-7">
+              <p class="text-sm-medium text-ink-gray-7">
                 No personnel found.
               </p>
 
@@ -486,7 +522,7 @@
               <div
                 v-for="person in personnelRows"
                 :key="person.employee || person.employee_name || person.user_id"
-                class="rounded-xl border border-outline-gray-1 bg-surface-white p-3 shadow-sm"
+                class="rounded-7 border border-outline-gray-1 bg-surface-base p-3 shadow-sm"
               >
                 <div class="flex items-start gap-3">
                   <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-gray-2">
@@ -500,7 +536,7 @@
 
                     <span
                       v-else
-                      class="text-sm font-semibold text-ink-gray-7"
+                      class="text-sm-semibold text-ink-gray-7"
                     >
                       {{ getPersonnelInitials(person) }}
                     </span>
@@ -509,7 +545,7 @@
                   <div class="min-w-0 flex-1">
                     <div class="flex items-start justify-between gap-2">
                       <div class="min-w-0">
-                        <p class="truncate text-sm font-semibold text-ink-gray-9">
+                        <p class="truncate text-sm-semibold text-ink-gray-9">
                           {{ person.employee_name || person.employee || 'Unknown personnel' }}
                         </p>
 
@@ -543,7 +579,7 @@
                       <a
                         v-if="person.contact_number"
                         :href="`tel:${normaliseTel(person.contact_number)}`"
-                        class="block rounded-lg border border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-sm font-medium text-ink-gray-8"
+                        class="block rounded-6 border border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-sm-medium text-ink-gray-8"
                       >
                         Call {{ person.contact_number }}
                       </a>
@@ -551,7 +587,7 @@
                       <a
                         v-if="person.email"
                         :href="`mailto:${person.email}`"
-                        class="block rounded-lg border border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-sm font-medium text-ink-gray-8"
+                        class="block rounded-6 border border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-sm-medium text-ink-gray-8"
                       >
                         {{ person.email }}
                       </a>
@@ -568,25 +604,75 @@
               </div>
             </div>
 
-            <div
-              class="h-24 shrink-0"
-              aria-hidden="true"
-            />
           </div>
-        </Card>
-      </div>
-    </Transition>
+          </section>
+        </template>
+</MobileSheet>
+
+    <input
+      ref="checklistEvidenceInput"
+      type="file"
+      class="hidden"
+      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.odt,.ods"
+      @change="handleChecklistEvidenceSelected"
+      @cancel="cancelChecklistEvidenceSelection"
+    >
+
+    <Teleport to="body">
+      <Transition name="checklist-toast">
+        <div
+          v-if="checklistToast"
+          class="bottom-toast fixed inset-x-0 bottom-0 z-[80] w-full rounded-b-none rounded-t-8 border border-b-0 bg-surface-base px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-2xl"
+          :class="getChecklistToastClass(checklistToast.tone)"
+          :role="checklistToast.tone === 'error' ? 'alert' : 'status'"
+          aria-live="polite"
+        >
+          <div class="flex items-start gap-3">
+            <div class="min-w-0 flex-1">
+              <p class="text-sm-semibold text-ink-gray-9">
+                {{ checklistToast.title }}
+              </p>
+
+              <p class="mt-1 text-sm leading-5 text-ink-gray-6">
+                {{ checklistToast.message }}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              class="shrink-0 rounded-5 px-1.5 py-1 text-xs-medium text-ink-gray-5 hover:bg-surface-gray-2 hover:text-ink-gray-8"
+              @click="dismissChecklistToast"
+            >
+              {{ checklistEvidenceRequest ? 'Not now' : 'Close' }}
+            </button>
+          </div>
+
+          <Button
+            v-if="checklistToast.actionLabel"
+            variant="solid"
+            theme="gray"
+            size="sm"
+            class="mt-3 w-full justify-center"
+            @click="chooseChecklistEvidence"
+          >
+            {{ checklistToast.actionLabel }}
+          </Button>
+        </div>
+      </Transition>
+    </Teleport>
   </section>
 </template>
 
 <script setup lang="ts">
+import MobileSheet from '../components/MobileSheet.vue'
 // VERTO_HOME_ACTION_BUTTONS_V1
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Badge,
+  Progress,
   Button,
-  Card,
+  Checkbox,
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
 import { openAppBrowser } from '../lib/appBrowser'
@@ -597,7 +683,36 @@ type HomeButton = {
   mobile_doctype: string
 }
 
-type TaskItem = Record<string, any>
+type ChecklistItem = {
+  name: string
+  description: string
+  completed: number | boolean | string
+  completed_by?: string | null
+  completed_on?: string | null
+}
+
+type ChecklistEvidenceRequest = {
+  parent: ParentGroup
+  task: TaskItem
+  item: ChecklistItem
+}
+
+type ChecklistToastTone = 'info' | 'success' | 'error'
+
+type ChecklistToastState = {
+  title: string
+  message: string
+  tone: ChecklistToastTone
+  actionLabel?: string
+  persistent?: boolean
+}
+
+type TaskItem = {
+  name: string
+  progress?: number | string
+  checklist?: ChecklistItem[]
+  [key: string]: any
+}
 
 type ProjectDetails = {
   name?: string
@@ -637,6 +752,22 @@ type ScopeGroup = {
   customer?: string
 }
 
+type ProjectToolKey =
+  | 'scan qr'
+  | 'gantt'
+  | 'map'
+  | 'folder'
+  | 'handover'
+  | 'personnel'
+  | 'gameplan'
+  | 'chat'
+
+type ProjectToolDefinition = {
+  key: ProjectToolKey
+  label: string
+  description: string
+}
+
 type HomePayload = {
   user: string
   full_name?: string
@@ -650,6 +781,7 @@ type HomePayload = {
   generic_forms: HomeButton[]
   task_forms: HomeButton[]
   ccv_forms: HomeButton[]
+  project_tools?: ProjectToolDefinition[]
 }
 
 type FrappeResponse<T> = {
@@ -697,14 +829,52 @@ type ProjectPersonnelResponse = {
   matched_shift_count?: number
 }
 
+type ChecklistUpdateResponse = {
+  task: string
+  item: ChecklistItem
+  checklist: ChecklistItem[]
+  completed_count: number
+  total_count: number
+  progress: number | string
+  parent_task?: string | null
+  parent_progress?: number | string | null
+  evidence?: {
+    name: string
+    file_name: string
+    file_url: string
+    is_private: number | boolean
+  } | null
+}
+
 const router = useRouter()
 
 const loading = ref(true)
 const error = ref('')
 const home = ref<HomePayload | null>(null)
+const checklistPending = ref<Record<string, boolean>>({})
+const checklistErrors = ref<Record<string, string>>({})
+const checklistEvidenceInput = ref<HTMLInputElement | null>(null)
+const checklistEvidenceRequest = ref<ChecklistEvidenceRequest | null>(null)
+const checklistToast = ref<ChecklistToastState | null>(null)
+
+let checklistToastTimer: number | undefined
 
 const openScopes = ref<Record<string, boolean>>({})
 const openParents = ref<Record<string, boolean>>({})
+
+const projectToolsOpen = ref(false)
+const projectToolsScope = ref<ScopeGroup | null>(null)
+
+const defaultProjectToolDefinitions: ProjectToolDefinition[] = [
+  { key: 'scan qr', label: 'Scan QR code', description: 'Open a document or form using its QR code.' },
+  { key: 'gantt', label: 'Gantt', description: 'View the project schedule.' },
+  { key: 'map', label: 'Map', description: 'View Work Summary locations.' },
+  { key: 'folder', label: 'Folder', description: 'Open shared project files.' },
+  { key: 'handover', label: 'Handover', description: 'Open the project handover.' },
+  { key: 'personnel', label: 'Personnel', description: 'View allocated personnel.' },
+  { key: 'gameplan', label: 'Gameplan', description: 'Open project collaboration.' },
+  { key: 'chat', label: 'Chat', description: 'Open the project channel.' },
+]
 
 const pickerOpen = ref(false)
 const pickerType = ref<'generic' | 'form' | 'ccv'>('generic')
@@ -718,6 +888,22 @@ const personnelRows = ref<ProjectPersonnelItem[]>([])
 
 const groupedTasks = computed(() => {
   return home.value?.grouped_tasks || []
+})
+
+const projectToolDefinitions = computed<ProjectToolDefinition[]>(() => {
+  if (!home.value || home.value.project_tools === undefined) {
+    return defaultProjectToolDefinitions
+  }
+
+  return home.value.project_tools
+})
+
+const projectToolsProjectName = computed(() => {
+  if (!projectToolsScope.value) {
+    return ''
+  }
+
+  return getProjectDisplayName(projectToolsScope.value)
 })
 
 const pickerTitle = computed(() => {
@@ -750,6 +936,349 @@ function toggleScope(name: string) {
 
 function toggleParent(key: string) {
   openParents.value[key] = !openParents.value[key]
+}
+
+function openProjectTools(scope: ScopeGroup) {
+  projectToolsScope.value = scope
+  projectToolsOpen.value = true
+}
+
+function closeProjectTools() {
+  projectToolsOpen.value = false
+  projectToolsScope.value = null
+}
+
+async function openProjectTool(tool: ProjectToolKey) {
+  const scope = projectToolsScope.value
+
+  if (!scope) {
+    return
+  }
+
+  closeProjectTools()
+
+  if (tool === 'scan qr') {
+    await router.push('/scan-qr')
+    return
+  }
+
+  if (tool === 'gantt') {
+    openInternalUrl(getProjectGanttUrl(scope), 'Gantt')
+    return
+  }
+
+  if (tool === 'map') {
+    openInternalUrl(getProjectMapUrl(scope), 'Map')
+    return
+  }
+
+  if (tool === 'folder') {
+    openExternalUrl(getShareFolder(scope), 'Folder')
+    return
+  }
+
+  if (tool === 'handover') {
+    await openProjectHandover(scope)
+    return
+  }
+
+  if (tool === 'personnel') {
+    await openPersonnelDrawer(scope)
+    return
+  }
+
+  if (tool === 'gameplan') {
+    openExternalUrl(getGameplanUrl(scope), 'Gameplan')
+    return
+  }
+
+  if (tool === 'chat') {
+    await openProjectChat(scope)
+  }
+}
+
+function getChecklistItemKey(task: TaskItem, item: ChecklistItem) {
+  return `${task.name}::${item.name}`
+}
+
+function isChecklistItemComplete(item: ChecklistItem) {
+  if (item.completed === true) {
+    return true
+  }
+
+  const normalised = String(item.completed ?? '').trim().toLowerCase()
+  return normalised === '1' || normalised === 'true' || normalised === 'yes'
+}
+
+function isChecklistItemPending(task: TaskItem, item: ChecklistItem) {
+  return Boolean(checklistPending.value[getChecklistItemKey(task, item)])
+}
+
+function isChecklistItemAwaitingEvidence(task: TaskItem, item: ChecklistItem) {
+  const request = checklistEvidenceRequest.value
+
+  return Boolean(
+    request &&
+    getChecklistItemKey(request.task, request.item) === getChecklistItemKey(task, item)
+  )
+}
+
+function isChecklistItemBusy(task: TaskItem, item: ChecklistItem) {
+  return (
+    isChecklistItemPending(task, item) ||
+    isChecklistItemAwaitingEvidence(task, item)
+  )
+}
+
+function getChecklistItemError(task: TaskItem, item: ChecklistItem) {
+  return checklistErrors.value[getChecklistItemKey(task, item)] || ''
+}
+
+function getCompletedChecklistCount(task: TaskItem) {
+  return (task.checklist || []).filter(isChecklistItemComplete).length
+}
+
+function getChecklistItemCount(task: TaskItem) {
+  return (task.checklist || []).length
+}
+
+function getChecklistToastClass(tone: ChecklistToastTone) {
+  if (tone === 'success') {
+    return 'border-green-200'
+  }
+
+  if (tone === 'error') {
+    return 'border-red-200'
+  }
+
+  return 'border-blue-200'
+}
+
+function clearChecklistToastTimer() {
+  window.clearTimeout(checklistToastTimer)
+  checklistToastTimer = undefined
+}
+
+function showChecklistToast(toast: ChecklistToastState) {
+  clearChecklistToastTimer()
+  checklistToast.value = toast
+
+  if (!toast.persistent) {
+    checklistToastTimer = window.setTimeout(() => {
+      checklistToast.value = null
+      checklistToastTimer = undefined
+    }, 5000)
+  }
+}
+
+function dismissChecklistToast() {
+  const cancelsEvidenceRequest = Boolean(checklistEvidenceRequest.value)
+
+  clearChecklistToastTimer()
+  checklistToast.value = null
+
+  if (cancelsEvidenceRequest) {
+    checklistEvidenceRequest.value = null
+
+    if (checklistEvidenceInput.value) {
+      checklistEvidenceInput.value.value = ''
+    }
+  }
+}
+
+function requestChecklistEvidence(
+  parent: ParentGroup,
+  task: TaskItem,
+  item: ChecklistItem
+) {
+  const key = getChecklistItemKey(task, item)
+
+  if (!task.name || !item.name || checklistPending.value[key]) {
+    return
+  }
+
+  checklistErrors.value[key] = ''
+  checklistEvidenceRequest.value = {
+    parent,
+    task,
+    item,
+  }
+
+  showChecklistToast({
+    title: 'Evidence required',
+    message: `Upload evidence to complete “${item.description}”.`,
+    tone: 'info',
+    actionLabel: 'Upload evidence',
+    persistent: true,
+  })
+}
+
+function chooseChecklistEvidence() {
+  if (!checklistEvidenceRequest.value || !checklistEvidenceInput.value) {
+    return
+  }
+
+  checklistEvidenceInput.value.value = ''
+
+  showChecklistToast({
+    title: 'Select evidence',
+    message: 'Choose a photo or supporting document from your device.',
+    tone: 'info',
+    persistent: true,
+  })
+
+  checklistEvidenceInput.value.click()
+}
+
+function cancelChecklistEvidenceSelection() {
+  checklistEvidenceRequest.value = null
+
+  if (checklistEvidenceInput.value) {
+    checklistEvidenceInput.value.value = ''
+  }
+
+  showChecklistToast({
+    title: 'Checklist unchanged',
+    message: 'No evidence was selected, so the checklist item remains incomplete.',
+    tone: 'info',
+  })
+}
+
+function applyChecklistUpdate(
+  parent: ParentGroup,
+  task: TaskItem,
+  update: ChecklistUpdateResponse
+) {
+  task.checklist = update.checklist || task.checklist
+  task.progress = Number(update.progress || 0)
+
+  if (update.parent_progress !== null && update.parent_progress !== undefined) {
+    parent.progress = Number(update.parent_progress || 0)
+  }
+}
+
+async function saveChecklistItemCompletion(
+  parent: ParentGroup,
+  task: TaskItem,
+  item: ChecklistItem,
+  completed: boolean,
+  evidenceFile?: File
+) {
+  const key = getChecklistItemKey(task, item)
+
+  if (!task.name || !item.name || checklistPending.value[key]) {
+    return false
+  }
+
+  checklistPending.value[key] = true
+  checklistErrors.value[key] = ''
+
+  try {
+    const payload = new FormData()
+    payload.append('task_name', task.name)
+    payload.append('item_name', item.name)
+    payload.append('completed', completed ? '1' : '0')
+
+    if (evidenceFile) {
+      payload.append('evidence_file', evidenceFile, evidenceFile.name)
+    }
+
+    const data = await apiRequest<FrappeResponse<ChecklistUpdateResponse>>(
+      '/api/method/verto.api.mobile.task_checklist.set_checklist_item_completed',
+      {
+        method: 'POST',
+        body: payload,
+      }
+    )
+
+    applyChecklistUpdate(parent, task, data.message)
+    return true
+  } catch (err) {
+    const message = err instanceof Error
+      ? err.message
+      : 'Could not update this checklist item.'
+
+    checklistErrors.value[key] = message
+
+    showChecklistToast({
+      title: 'Could not update checklist',
+      message,
+      tone: 'error',
+    })
+
+    return false
+  } finally {
+    delete checklistPending.value[key]
+  }
+}
+
+async function handleChecklistEvidenceSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const request = checklistEvidenceRequest.value
+  const evidenceFile = input.files?.[0]
+
+  if (!request || !evidenceFile) {
+    cancelChecklistEvidenceSelection()
+    return
+  }
+
+  checklistEvidenceRequest.value = null
+
+  showChecklistToast({
+    title: 'Uploading evidence',
+    message: `Attaching ${evidenceFile.name} to the Task…`,
+    tone: 'info',
+    persistent: true,
+  })
+
+  const completed = await saveChecklistItemCompletion(
+    request.parent,
+    request.task,
+    request.item,
+    true,
+    evidenceFile
+  )
+
+  input.value = ''
+
+  if (completed) {
+    showChecklistToast({
+      title: 'Checklist completed',
+      message: 'Evidence was attached to the Task and checklist progress was updated.',
+      tone: 'success',
+    })
+  }
+}
+
+async function toggleChecklistItem(
+  parent: ParentGroup,
+  task: TaskItem,
+  item: ChecklistItem,
+  nextCompleted: boolean
+) {
+  if (nextCompleted === isChecklistItemComplete(item)) {
+    return
+  }
+
+  if (nextCompleted) {
+    requestChecklistEvidence(parent, task, item)
+    return
+  }
+
+  const unchecked = await saveChecklistItemCompletion(
+    parent,
+    task,
+    item,
+    false
+  )
+
+  if (unchecked) {
+    showChecklistToast({
+      title: 'Checklist reopened',
+      message: 'Existing evidence remains attached to the Task for audit purposes.',
+      tone: 'info',
+    })
+  }
 }
 
 function openPicker(type: 'generic' | 'form' | 'ccv', task?: TaskItem) {
@@ -809,7 +1338,7 @@ function getScopeAverageProgress(scope: ScopeGroup) {
   return Math.round(totalProgress / parents.length)
 }
 
-function clampPercent(value: number) {
+function clampPercent(value: number | string | null | undefined) {
   if (!Number.isFinite(Number(value))) {
     return 0
   }
@@ -822,34 +1351,45 @@ function formatDate(value?: string) {
     return ''
   }
 
-  const date = new Date(`${value}T00:00:00`)
+  // Frappe may include a time in date fields; the task time is shown separately.
+  const datePart = value.trim().split(/[T\s]/)[0]
+  const date = new Date(`${datePart}T00:00:00`)
 
   if (Number.isNaN(date.getTime())) {
     return value
   }
 
-  return date.toLocaleDateString('en-AU', {
-    day: 'numeric',
-    month: 'short',
-  })
+  const day = date.getDate()
+  const suffix = day >= 11 && day <= 13
+    ? 'th'
+    : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[day % 10] || 'th'
+  const month = date.toLocaleDateString('en-AU', { month: 'short' })
+  const year = String(date.getFullYear()).slice(-2)
+
+  return `${day}${suffix} ${month} ${year}`
 }
 
-function formatTime(value?: string) {
-  if (!value) {
+function formatTime(value: unknown) {
+  let hours: number
+  let minutes: number
+
+  // Frappe serialises database Time/timedelta values as seconds since midnight.
+  // Cached responses and other database drivers can also supply clock strings.
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0 || value >= 86400) return ''
+    hours = Math.floor(value / 3600)
+    minutes = Math.floor(value / 60) % 60
+  } else if (typeof value === 'string') {
+    const match = /^(\d{1,2}):([0-5]\d)(?::[0-5]\d(?:\.\d+)?)?$/.exec(value.trim())
+    if (!match || Number(match[1]) > 23) return ''
+    hours = Number(match[1])
+    minutes = Number(match[2])
+  } else {
     return ''
   }
 
-  const [rawHours, rawMinutes = '00'] = value.split(':')
-  let hours = Number(rawHours)
-
-  if (!Number.isFinite(hours)) {
-    return value
-  }
-
   const ampm = hours >= 12 ? 'pm' : 'am'
-  hours = hours % 12 || 12
-
-  return `${hours}:${rawMinutes}${ampm}`
+  return `${hours % 12 || 12}:${String(minutes).padStart(2, '0')}${ampm}`
 }
 
 function getPriorityColor(priority?: string) {
@@ -1430,9 +1970,57 @@ async function loadHome() {
 onMounted(() => {
   loadHome()
 })
+
+onBeforeUnmount(() => {
+  clearChecklistToastTimer()
+})
 </script>
 
 <style scoped>
+.bottom-sheet-overlay {
+  padding-top: max(env(safe-area-inset-top, 0px), 0.75rem);
+}
+
+.bottom-sheet-panel {
+  max-height: min(
+    82dvh,
+    calc(100dvh - max(env(safe-area-inset-top, 0px), 0.75rem))
+  );
+  min-height: 0;
+}
+
+.bottom-sheet-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bottom-toast {
+  max-height: calc(
+    100dvh - max(env(safe-area-inset-top, 0px), 0.75rem)
+  );
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.checklist-toast-enter-active,
+.checklist-toast-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.checklist-toast-enter-from,
+.checklist-toast-leave-to {
+  opacity: 0;
+  transform: translateY(100%);
+}
+
 .drawer-fade-slide-enter-active,
 .drawer-fade-slide-leave-active {
   transition: opacity 0.18s ease;
@@ -1461,6 +2049,8 @@ onMounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .checklist-toast-enter-active,
+  .checklist-toast-leave-active,
   .drawer-fade-slide-enter-active,
   .drawer-fade-slide-leave-active,
   .drawer-fade-slide-enter-active :deep(.drawer-panel),

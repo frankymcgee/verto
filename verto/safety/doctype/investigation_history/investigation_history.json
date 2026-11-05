@@ -1,0 +1,44 @@
+{
+ "doctype": "DocType",
+ "name": "Investigation History",
+ "module": "Safety",
+ "engine": "InnoDB",
+ "field_order": [
+  "event",
+  "actor",
+  "recorded_at",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "event",
+   "label": "Event",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "actor",
+   "label": "Recorded by",
+   "fieldtype": "Link",
+   "options": "User",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "recorded_at",
+   "label": "Recorded at",
+   "fieldtype": "Datetime",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "notes",
+   "label": "Notes",
+   "fieldtype": "Small Text",
+   "read_only": 1
+  }
+ ],
+ "permissions": [],
+ "istable": 1
+}

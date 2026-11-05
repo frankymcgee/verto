@@ -77,16 +77,17 @@ def _site_config_value(key: str, default=""):
     return getattr(frappe.conf, key, None) or default
 
 
-def _get_vapid_config() -> dict:
-    public_key = _clean(_site_config_value(VAPID_PUBLIC_KEY_CONFIG))
-    private_key = _clean(_site_config_value(VAPID_PRIVATE_KEY_CONFIG))
-    subject = _clean(_site_config_value(VAPID_SUBJECT_CONFIG, DEFAULT_VAPID_SUBJECT))
+def _normalise_vapid_config(public_key="", private_key="", subject="") -> dict:
+    public_key = _clean(public_key)
+    private_key = _clean(private_key)
+    subject = _clean(subject) or DEFAULT_VAPID_SUBJECT
 
     if not subject.startswith(("mailto:", "https://", "http://")):
         subject = f"mailto:{subject}" if "@" in subject else DEFAULT_VAPID_SUBJECT
 
-    # site_config.json may contain an escaped PEM value. A filesystem path can also
-    # be supplied and is passed through unchanged for pywebpush to load.
+    # Legacy site_config.json values may contain an escaped PEM value. A
+    # filesystem path can also be supplied and is passed through unchanged for
+    # pywebpush to load.
     if "\\n" in private_key and "-----BEGIN" in private_key:
         private_key = private_key.replace("\\n", "\n")
 
@@ -96,6 +97,55 @@ def _get_vapid_config() -> dict:
         "subject": subject,
         "configured": bool(public_key and private_key),
     }
+
+
+def _get_vapid_config() -> dict:
+    """Read VAPID configuration from Verto Mobile Settings first.
+
+    ``site_config.json`` remains a transitional fallback only for sites that
+    have not migrated their legacy VAPID values yet. Once Verto Mobile Settings
+    contains push configuration, it is authoritative. In particular, an
+    explicit disabled setting must not be overridden by stale legacy values.
+    """
+    settings_available = False
+    try:
+        settings_available = bool(
+            frappe.db and frappe.db.exists("DocType", SETTINGS_DOCTYPE)
+        )
+    except Exception:
+        settings_available = False
+
+    if settings_available:
+        try:
+            from verto.runtime_config import get_push_settings_config
+
+            settings_config = get_push_settings_config()
+        except Exception:
+            settings_config = {}
+
+        if settings_config:
+            if not settings_config.get("enabled", True):
+                return _normalise_vapid_config(
+                    subject=settings_config.get("subject") or DEFAULT_VAPID_SUBJECT
+                )
+
+            # Prefer even a partially-entered settings keypair over legacy
+            # values. This makes configuration errors visible instead of
+            # silently falling back to stale credentials.
+            if settings_config.get("public_key") or settings_config.get("private_key"):
+                return _normalise_vapid_config(
+                    public_key=settings_config.get("public_key"),
+                    private_key=settings_config.get("private_key"),
+                    subject=settings_config.get("subject"),
+                )
+
+    # Transitional compatibility for sites whose legacy keys have not yet been
+    # migrated by verto.runtime_config.ensure_push_configuration().
+    return _normalise_vapid_config(
+        public_key=_site_config_value(VAPID_PUBLIC_KEY_CONFIG),
+        private_key=_site_config_value(VAPID_PRIVATE_KEY_CONFIG),
+        subject=_site_config_value(VAPID_SUBJECT_CONFIG, DEFAULT_VAPID_SUBJECT),
+    )
 
 
 def _validate_subscription(subscription: dict) -> dict:
@@ -124,11 +174,19 @@ def _subscription_doctype_exists() -> bool:
     return bool(frappe.db.exists("DocType", SUBSCRIPTION_DOCTYPE))
 
 
+def get_push_boot_config():
+    """Only the public configuration needed by the browser at startup."""
+    _require_login()
+    vapid = _get_vapid_config()
+    return {
+        "configured": vapid["configured"],
+        "public_key": vapid["public_key"] if vapid["configured"] else "",
+    }
+
+
 @frappe.whitelist()
 def get_push_config():
-    _require_login()
-
-    vapid = _get_vapid_config()
+    config = get_push_boot_config()
     subscription_count = 0
 
     if _subscription_doctype_exists():
@@ -141,8 +199,7 @@ def get_push_config():
         )
 
     return {
-        "configured": vapid["configured"],
-        "public_key": vapid["public_key"] if vapid["configured"] else "",
+        **config,
         "subscription_count": subscription_count,
     }
 
@@ -529,7 +586,7 @@ def _get_timesheet_reminder_exclusions(target_date) -> set[tuple[str, str]]:
     return exclusions
 
 
-def _get_allocated_users_for_date(target_date) -> tuple[dict[str, dict], list[dict]]:
+def _get_allocated_users_for_date(target_date, user=None) -> tuple[dict[str, dict], list[dict]]:
     if not frappe.db.exists("DocType", "Shift Assignment"):
         _log_missing_hours_configuration_error(
             "Shift Assignment is not available; missing-hours reminders were skipped."
@@ -554,6 +611,8 @@ def _get_allocated_users_for_date(target_date) -> tuple[dict[str, dict], list[di
     shift_fields = ["name", "employee"]
     if shift_meta.has_field("employee_name"):
         shift_fields.append("employee_name")
+    if shift_meta.has_field("shift_type"):
+        shift_fields.append("shift_type")
 
     for fieldname in SHIFT_PROJECT_FIELD_CANDIDATES:
         if shift_meta.has_field(fieldname) and fieldname not in shift_fields:
@@ -562,7 +621,6 @@ def _get_allocated_users_for_date(target_date) -> tuple[dict[str, dict], list[di
     shift_filters = {
         "docstatus": 1,
         "start_date": ["<=", target_date],
-        "end_date": [">=", target_date],
     }
     if shift_meta.has_field("status"):
         shift_filters["status"] = "Active"
@@ -570,6 +628,7 @@ def _get_allocated_users_for_date(target_date) -> tuple[dict[str, dict], list[di
     shift_rows = frappe.get_all(
         "Shift Assignment",
         filters=shift_filters,
+        or_filters=[["end_date", ">=", target_date], ["end_date", "is", "not set"]],
         fields=shift_fields,
         limit_page_length=10000,
     )
@@ -586,6 +645,8 @@ def _get_allocated_users_for_date(target_date) -> tuple[dict[str, dict], list[di
     }
     if employee_meta.has_field("status"):
         employee_filters["status"] = "Active"
+    if user:
+        employee_filters["user_id"] = user
 
     employees = frappe.get_all(
         "Employee",
@@ -663,6 +724,9 @@ def _get_allocated_users_for_date(target_date) -> tuple[dict[str, dict], list[di
             {
                 "shift_assignment": _clean(shift.name),
                 "project": project,
+                "shift_type": _clean(shift.get("shift_type")),
+                "employee": _clean(employee.name),
+                "project_name": _clean(shift.get("custom_project_name") or shift.get("project_name")) or project,
             }
         )
 
@@ -691,8 +755,8 @@ def _get_daily_timesheets_with_hours(target_date):
         )
         return None
 
-    fields = ["name", "owner", "duration"]
-    for fieldname in ("employee", "employee_name", "current_user"):
+    fields = ["name", "owner", "duration", "date"]
+    for fieldname in ("employee", "employee_name", "current_user", "shift_allocation", "shift"):
         if timesheet_meta.has_field(fieldname):
             fields.append(fieldname)
 
@@ -826,6 +890,13 @@ def send_previous_day_missing_hours_reminders(target_date=None, dry_run=False):
     site's configured timezone. ``target_date`` and ``dry_run`` are provided so
     administrators can safely verify historical data with ``bench execute``.
     """
+    # The shift-aware replacement shares this existing 09:00 scheduler entry.
+    # Explicit historical-date calls retain the original diagnostic interface.
+    from verto.api.mobile.timesheet_reminders import reminders_enabled, send_next_day_missing_hours_reminders
+
+    if target_date is None and reminders_enabled():
+        return send_next_day_missing_hours_reminders(dry_run=dry_run)
+
     result = get_missing_hours_users(target_date)
     target_date = result["date"]
     missing_users = result["missing_users"]
@@ -875,9 +946,9 @@ def notify_document_assignment(doc, method=None):
     if allocated_to == getattr(doc, "owner", None) or not _enabled_user(allocated_to):
         return
 
-    from verto.api.mobile.documents import ALLOWED_MOBILE_DOCTYPES, get_mobile_slug_for_doctype
+    from verto.api.mobile.documents import get_allowed_mobile_doctypes, get_mobile_slug_for_doctype
 
-    allowed_mobile_doctypes = set(ALLOWED_MOBILE_DOCTYPES.values())
+    allowed_mobile_doctypes = set(get_allowed_mobile_doctypes().values())
 
     if reference_type == "Task":
         title = "Task assigned"

@@ -1,6 +1,8 @@
 import frappe
 from frappe.utils import add_to_date, now_datetime
 
+from verto.api.mobile.task_checklist import attach_checklists_to_tasks
+
 
 SETTINGS_DOCTYPE = "Verto Mobile Settings"
 
@@ -65,6 +67,27 @@ PROJECT_CCVS_FIELD_CANDIDATES = [
     "mobile_project_ccvs",
     "verto_project_ccvs",
 ]
+
+PROJECT_TOOLS_FIELD_CANDIDATES = [
+    "project_tools",
+    "mobile_project_tools",
+]
+
+DEFAULT_PROJECT_TOOLS = [
+    {"key": "scan qr", "label": "Scan QR code", "description": "Open a document or form using its QR code."},
+    {"key": "gantt", "label": "Gantt", "description": "View the project schedule."},
+    {"key": "map", "label": "Map", "description": "View Work Summary locations."},
+    {"key": "folder", "label": "Folder", "description": "Open shared project files."},
+    {"key": "handover", "label": "Handover", "description": "Open the project handover."},
+    {"key": "personnel", "label": "Personnel", "description": "View allocated personnel."},
+    {"key": "gameplan", "label": "Gameplan", "description": "Open project collaboration."},
+    {"key": "chat", "label": "Chat", "description": "Open the project channel."},
+]
+
+PROJECT_TOOL_DEFAULTS = {
+    tool["key"]: tool
+    for tool in DEFAULT_PROJECT_TOOLS
+}
 
 
 def require_login():
@@ -169,14 +192,23 @@ def get_settings_child_rows(settings, field_candidates):
 
 def get_buttons_from_settings(settings, field_candidates, fallback_buttons):
     fallback_allowed_buttons = get_allowed_buttons(fallback_buttons)
-    rows = get_settings_child_rows(settings, field_candidates)
+    configured_field = next(
+        (
+            fieldname
+            for fieldname in field_candidates
+            if has_settings_field(settings, fieldname)
+        ),
+        None,
+    )
 
-    if not rows:
+    # Retain legacy defaults only until the Settings schema has been migrated.
+    # Once a child table exists, its enabled rows are authoritative.
+    if not configured_field:
         return fallback_allowed_buttons
 
     configured_buttons = []
 
-    for row in rows:
+    for row in settings.get(configured_field) or []:
         if not is_enabled(row.get("enabled")):
             continue
 
@@ -190,15 +222,53 @@ def get_buttons_from_settings(settings, field_candidates, fallback_buttons):
             "doc_type": doctype,
         })
 
-    configured_allowed_buttons = get_allowed_buttons(configured_buttons)
+    return get_allowed_buttons(configured_buttons)
 
-    # Safety fallback: if the settings table exists but no row is enabled,
-    # no row has a valid DocType, or no row passes create permission, do not
-    # blank the mobile app. Fall back to the original hardcoded list.
-    if not configured_allowed_buttons:
-        return fallback_allowed_buttons
 
-    return configured_allowed_buttons
+def get_project_tool_key(row):
+    value = (
+        row.get("tool_key")
+        or row.get("project_tool")
+        or row.get("tool")
+        or ""
+    )
+
+    return str(value).strip().lower()
+
+
+def get_project_tools_from_settings(settings):
+    rows = get_settings_child_rows(settings, PROJECT_TOOLS_FIELD_CANDIDATES)
+
+    if not rows:
+        return [dict(tool) for tool in DEFAULT_PROJECT_TOOLS]
+
+    configured_tools = []
+    seen_keys = set()
+
+    for row in rows:
+        if not is_enabled(row.get("enabled")):
+            continue
+
+        key = get_project_tool_key(row)
+
+        if key not in PROJECT_TOOL_DEFAULTS or key in seen_keys:
+            continue
+
+        defaults = PROJECT_TOOL_DEFAULTS[key]
+        configured_tools.append({
+            "key": key,
+            "label": (row.get("label") or defaults["label"]).strip(),
+            "description": (
+                row.get("description") or defaults["description"]
+            ).strip(),
+        })
+        seen_keys.add(key)
+
+    # Existing customised menus gain the scanner unless an administrator has
+    # explicitly configured (including disabled) its row.
+    if not any(get_project_tool_key(row) == "scan qr" for row in rows):
+        configured_tools.append(dict(PROJECT_TOOL_DEFAULTS["scan qr"]))
+    return configured_tools
 
 
 def get_mobile_form_buttons():
@@ -214,6 +284,7 @@ def get_mobile_form_buttons():
             "generic_forms": get_allowed_buttons(GENERIC_FORM_BUTTONS),
             "task_forms": get_allowed_buttons(TASK_FORM_BUTTONS),
             "ccv_forms": get_allowed_buttons(CCV_BUTTONS),
+            "project_tools": [dict(tool) for tool in DEFAULT_PROJECT_TOOLS],
         }
 
     return {
@@ -232,6 +303,7 @@ def get_mobile_form_buttons():
             PROJECT_CCVS_FIELD_CANDIDATES,
             CCV_BUTTONS,
         ),
+        "project_tools": get_project_tools_from_settings(settings),
     }
 
 
@@ -477,6 +549,7 @@ def get_home_summary():
     require_login()
 
     tasks = fetch_assigned_work_summary_tasks()
+    attach_checklists_to_tasks(tasks)
     project_map = fetch_projects_for_tasks(tasks)
     grouped_tasks = group_tasks(tasks, project_map)
     mobile_form_buttons = get_mobile_form_buttons()
@@ -488,5 +561,6 @@ def get_home_summary():
         "generic_forms": mobile_form_buttons["generic_forms"],
         "task_forms": mobile_form_buttons["task_forms"],
         "ccv_forms": mobile_form_buttons["ccv_forms"],
+        "project_tools": mobile_form_buttons["project_tools"],
         "raven_base": "https://dashboard.minesitesupport.com.au/raven",
     }

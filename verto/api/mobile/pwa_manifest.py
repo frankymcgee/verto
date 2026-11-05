@@ -18,6 +18,9 @@ SITE_MANIFEST_PUBLIC_URL = f"/files/{SITE_MANIFEST_FILENAME}"
 
 ASSET_MANIFEST_RELATIVE_PATH = ("public", "verto-mobile", "manifest.webmanifest")
 ASSET_MANIFEST_PUBLIC_URL = "/assets/verto/verto-mobile/manifest.webmanifest"
+# Serve live site settings through Frappe. Assets are shared by all sites on a
+# bench and are replaced by frontend builds, so cannot hold tenant branding.
+DEFAULT_MANIFEST_PUBLIC_URL = "/verto-mobile.webmanifest"
 
 DEFAULT_MANIFEST_ID = "/verto-mobile/"
 DEFAULT_START_URL = "/verto-mobile"
@@ -306,17 +309,8 @@ def _get_existing_or_generated_icon_urls(settings) -> dict[str, str]:
             for key in GENERATED_ICON_FILES
         }
 
-    app_logo = _clean_path_or_url(_get_first(settings, ["app_logo"], ""))
-
-    if app_logo:
-        return {
-            "icon_192": app_logo,
-            "icon_512": app_logo,
-            "maskable_192": app_logo,
-            "maskable_512": app_logo,
-            "apple_touch_icon": app_logo,
-        }
-
+    # Never claim an arbitrary App Logo has 180/192/512 dimensions. Browsers
+    # reject manifest icons when their real dimensions do not match `sizes`.
     return {
         "icon_192": "/assets/verto/manifest/mss-pwa-192.png",
         "icon_512": "/assets/verto/manifest/mss-pwa-512.png",
@@ -644,20 +638,18 @@ def generate_manifest_from_settings():
     manifest_json = json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
 
     site_manifest_url = _write_site_manifest(manifest_json)
-    asset_manifest_url = _write_asset_manifest(manifest_json)
-
-    _save_generated_values_to_settings(settings, site_manifest_url, generated_icon_urls)
+    canonical_manifest_url = DEFAULT_MANIFEST_PUBLIC_URL
+    _save_generated_values_to_settings(settings, canonical_manifest_url, generated_icon_urls)
 
     frappe.clear_cache(doctype=SETTINGS_DOCTYPE)
 
     return {
         "manifest": manifest,
-        "manifest_url": site_manifest_url,
-        "asset_manifest_url": asset_manifest_url,
+        "manifest_url": canonical_manifest_url,
+        "asset_manifest_url": "",
         "generated_icons": generated_icon_urls,
         "written_files": [
             site_manifest_url,
-            asset_manifest_url,
             *generated_icon_urls.values(),
         ],
     }
@@ -671,13 +663,14 @@ def get_pwa_metadata():
         settings = None
 
     if not settings:
+        icon_urls = _get_existing_or_generated_icon_urls(settings)
         return {
             "app_name": DEFAULT_APP_NAME,
             "short_name": DEFAULT_SHORT_NAME,
             "description": _build_manifest_description(DEFAULT_APP_NAME),
-            "manifest_url": SITE_MANIFEST_PUBLIC_URL,
-            "apple_touch_icon": _generated_icon_url("apple_touch_icon", cache_bust=False),
-            "icon": _generated_icon_url("icon_192", cache_bust=False),
+            "manifest_url": DEFAULT_MANIFEST_PUBLIC_URL,
+            "apple_touch_icon": icon_urls["apple_touch_icon"],
+            "icon": icon_urls["icon_192"],
             "theme_color": DEFAULT_THEME_COLOR,
             "background_color": DEFAULT_BACKGROUND_COLOR,
         }
@@ -686,17 +679,11 @@ def get_pwa_metadata():
     short_name = _get_short_name(settings, app_name)
     icon_urls = _get_existing_or_generated_icon_urls(settings)
 
-    manifest_url = _get_first(
-        settings,
-        ["pwa_manifest_url", "manifest_url"],
-        SITE_MANIFEST_PUBLIC_URL,
-    )
-
     return {
         "app_name": app_name,
         "short_name": short_name,
         "description": _build_manifest_description(app_name),
-        "manifest_url": _clean_path_or_url(manifest_url) or SITE_MANIFEST_PUBLIC_URL,
+        "manifest_url": DEFAULT_MANIFEST_PUBLIC_URL,
         "apple_touch_icon": icon_urls["apple_touch_icon"],
         "icon": icon_urls["icon_192"],
         "theme_color": _normalise_color(

@@ -1,0 +1,1078 @@
+<script setup lang="ts">
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { Badge, Button, Checkbox } from 'frappe-ui'
+
+import { apiRequest } from '../lib/api'
+import JhaFacilitationProgress from '../components/JhaFacilitationProgress.vue'
+import JhaReviewSignoff from '../components/JhaReviewSignoff.vue'
+import JhaIncidentLearning from '../components/JhaIncidentLearning.vue'
+import JhaVoicePanel from '../components/JhaVoicePanel.vue'
+import JhaFieldwork from '../components/JhaFieldwork.vue'
+import JhaStepResources from '../components/JhaStepResources.vue'
+import JhaJobLearning from '../components/JhaJobLearning.vue'
+import JhaOfflineCopy from '../components/JhaOfflineCopy.vue'
+import JhaActiveStep from '../components/JhaActiveStep.vue'
+import JhaPhotoImport from '../components/JhaPhotoImport.vue'
+import { monitorRemoteVoice } from '../lib/remoteVoiceActivity'
+import { LiveJhaToolLoop, liveTranscriptEntries, stepBriefingEvent, voiceGreeting, voiceToolResult } from '../lib/jhaVoiceProtocol'
+import type { LiveTranscriptFragment, VoiceEngine } from '../lib/jhaVoiceProtocol'
+
+type FrappeResponse<T> = { message: T }
+
+type JhaSnapshot = {
+  name: string
+  status: string
+  revision?: number
+  project?: string
+  work_summary?: string
+  work_summary_title?: string
+  work_order_number?: string
+  work_area?: string
+  ai_bot?: string
+  modified?: string
+  created?: boolean
+  voice_session_reference?: string
+  voice_model?: string
+  voice_started_at?: string
+  voice_transcription_consent_confirmed?: number | boolean
+  voice_transcription_consent_confirmed_by?: string
+  voice_transcription_consent_confirmed_at?: string
+  work_steps?: any[]
+  hazards_and_controls?: any[]
+  participants?: any[]
+  facilitation?: { stage: string; job_steps_confirmed: boolean; [key: string]: any }
+  [key: string]: any
+}
+
+type VoiceJhaBootstrap = {
+  work_summary: string
+  title: string
+  project?: string
+  work_area?: string
+  work_order_number?: string
+  description?: string
+  peri_bot?: string
+  realtime_enabled: boolean
+  prototype_stage?: string
+  notice?: string
+  existing_jha?: JhaSnapshot | null
+  voice_configuration?: Record<string, any>
+}
+
+type VoiceCallResponse = {
+  sdp: string
+  model: string
+  engine?: VoiceEngine
+  configuration?: Record<string, any>
+  session_reference?: string
+  consent_confirmed_at?: string
+  jha: JhaSnapshot
+}
+
+type VoiceToolResponse = {
+  ok: boolean
+  replayed?: boolean
+  tool_name: string
+  result: Record<string, any>
+  jha?: JhaSnapshot
+}
+
+type TranscriptEntry = {
+  role: 'Crew' | 'PERI'
+  text: string
+}
+
+const route = useRoute()
+const router = useRouter()
+
+const loading = ref(true)
+const networkOnline = ref(navigator.onLine)
+function updateNetworkState() { networkOnline.value = navigator.onLine }
+const creating = ref(false)
+const refreshing = ref(false)
+const connecting = ref(false)
+const disconnecting = ref(false)
+const activeVoiceEngine = ref<VoiceEngine>('realtime')
+const error = ref('')
+const context = ref<VoiceJhaBootstrap | null>(null)
+const jha = ref<JhaSnapshot | null>(null)
+const consentConfirmed = ref(false)
+const voiceConnected = ref(false)
+const voicePanelClearance = ref(0)
+const shiftReview = ref<Record<string, any> | null>(null)
+const stepBriefing = ref<Record<string, any> | null>(null)
+const stepVoiceMode = ref(false)
+const voicePanel = ref<InstanceType<typeof JhaVoicePanel> | null>(null)
+const pushToTalkActive = ref(false)
+const voiceStatus = ref('Not connected')
+const voiceModel = ref('')
+const transcript = ref<TranscriptEntry[]>([])
+const pendingPeriTranscript = ref('')
+const pendingCrewTranscript = ref('')
+const localResponsePending = ref(false)
+const remoteAudio = ref<HTMLAudioElement | null>(null)
+const toolActivity = ref('')
+const processingToolCalls = ref(0)
+const remoteVoiceLevel = ref(0)
+const changingJha = ref(false)
+const photoBusy = ref(false)
+const latestPeriSpeech = computed(() => pendingPeriTranscript.value || [...transcript.value].reverse().find(entry => entry.role === 'PERI')?.text || '')
+const currentStepLabel = computed(() => stepVoiceMode.value && stepBriefing.value?.active_step
+  ? `Step ${stepBriefing.value.active_step.sequence} · ${stepBriefing.value.active_step.activity}`
+  : shiftReview.value ? `${shiftReview.value.shift_date} · ${shiftReview.value.shift} · ${shiftReview.value.status}` : jha.value?.facilitation?.current_step_sequence
+  ? `Step ${jha.value.facilitation.current_step_sequence} · ${jha.value.facilitation.current_step_activity || ''}`
+  : jha.value?.facilitation?.stage || '')
+const completenessIssues = ref<string[]>([])
+const incidentPreview = ref<Record<string, any> | null>(null)
+const incidentSearches = computed(() => [
+  ...(jha.value?.incident_learning || []),
+  ...(incidentPreview.value ? [incidentPreview.value] : []),
+])
+
+let peerConnection: RTCPeerConnection | null = null
+let localStream: MediaStream | null = null
+let dataChannel: RTCDataChannel | null = null
+let manualDisconnect = false
+let liveSessionReady = false
+let liveCloseConfirmed = false
+let liveToolLoop: LiveJhaToolLoop | null = null
+let resolveLiveClose: (() => void) | null = null
+let connectionGeneration = 0
+let voiceContextGeneration = 0
+let realtimeResponseActive = false
+let voiceStartTimer: ReturnType<typeof setTimeout> | null = null
+let stopVoiceActivity: (() => void) | null = null
+let localHeartbeat: ReturnType<typeof setInterval> | null = null
+let pendingCrewGeneration: number | null = null
+let pageActive = true
+const liveFragments: LiveTranscriptFragment[] = []
+const liveTranscriptEvents = new Set<string>()
+const processedToolCalls = new Set<string>()
+
+const workSummary = computed(() => String(route.params.workSummary || ''))
+const workStepCount = computed(() => jha.value?.work_steps?.length || 0)
+const hazardCount = computed(() => jha.value?.hazards_and_controls?.length || 0)
+const participantCount = computed(() => jha.value?.participants?.length || 0)
+const reviewStage = computed(() => [
+  'Ready for Team Review',
+  'Signed',
+  'Review Required - Work Changed',
+  'Superseded',
+  'Cancelled',
+].includes(String(jha.value?.status || '')))
+// Document readiness must not unmount an ongoing call's controls or audio.
+const voiceSessionActive = computed(() => connecting.value || voiceConnected.value || disconnecting.value)
+const shiftReviewOpen = computed(() => Boolean(shiftReview.value && ['In Progress', 'Awaiting Confirmation'].includes(shiftReview.value.status) && jha.value?.status === 'Signed'))
+const stepBriefingOpen = computed(() => Boolean(stepVoiceMode.value && stepBriefing.value?.active_step && stepBriefing.value?.can_select && jha.value?.status === 'Signed' && !jha.value?.replacement_jha))
+const canConnectVoice = computed(() => Boolean(
+  networkOnline.value &&
+  jha.value?.name &&
+  context.value?.realtime_enabled &&
+  consentConfirmed.value &&
+  !connecting.value &&
+  !disconnecting.value &&
+  !voiceConnected.value &&
+  !photoBusy.value &&
+  (!reviewStage.value || shiftReviewOpen.value || stepBriefingOpen.value)
+))
+const voiceConfigSummary = computed(() => {
+  const config = context.value?.voice_configuration
+  if (!config) return ''
+  return [config.engine_label, config.model || config.realtime_model, config.voice].filter(Boolean).join(' · ')
+})
+const configuredVoiceEngine = computed<VoiceEngine>(() => {
+  const engine = context.value?.voice_configuration?.engine
+  return engine === 'live' || engine === 'local' ? engine : 'realtime'
+})
+
+function handleReviewUpdated(value: Record<string, any>) {
+  if (!jha.value) return
+  if (value.name && value.name !== jha.value.name) return
+  jha.value = { ...jha.value, ...value }
+}
+
+function handleShiftReviewUpdated(value: Record<string, any>) {
+  if (value.jha !== jha.value?.name || (shiftReview.value && shiftReview.value.name !== value.name)) return
+  shiftReview.value = value
+}
+
+function handleStepBriefing(value: Record<string, any> | null, selected: boolean) {
+  if (!pageActive || (value && value.jha !== jha.value?.name)) return
+  stepBriefing.value = value
+  if (selected && value?.active_step) void discussActiveStep()
+  else if (value?.active_step && !shiftReview.value) stepVoiceMode.value = true
+}
+
+async function discussActiveStep() {
+  if (!pageActive || changingJha.value || connecting.value || disconnecting.value || !stepBriefing.value?.can_select || !stepBriefing.value?.active_step || !networkOnline.value || jha.value?.status !== 'Signed') return
+  voiceContextGeneration += 1
+  stepVoiceMode.value = true
+  shiftReview.value = null
+  setMicrophoneEnabled(false)
+  pushToTalkActive.value = false
+  pendingPeriTranscript.value = ''
+  if (voiceConnected.value) {
+    if (activeVoiceEngine.value === 'local') {
+      try {
+        sendRealtimeEvent({ type: 'response.cancel' })
+        const payload = new FormData()
+        payload.append('jha_name', jha.value!.name)
+        payload.append('step_briefing', '1')
+        const data = await apiRequest<FrappeResponse<Record<string, any>>>(
+          '/api/method/verto.api.mobile.voice_jha_facilitator.get_local_voice_context',
+          { method: 'POST', body: payload },
+        )
+        if (!pageActive || !voiceConnected.value) return
+        sendRealtimeEvent({ type: 'local.context.update', ...data.message })
+      } catch (err) {
+        error.value = err instanceof Error ? err.message : 'Could not switch PERI to this step.'
+        return
+      }
+    }
+    if (activeVoiceEngine.value === 'realtime' && realtimeResponseActive) sendRealtimeEvent({ type: 'response.cancel' })
+    sendRealtimeEvent(stepBriefingEvent(activeVoiceEngine.value))
+    if (activeVoiceEngine.value !== 'live') sendRealtimeEvent({ type: 'response.create' })
+    voiceStatus.value = 'PERI is considering this step…'
+  } else if (consentConfirmed.value) await connectVoice()
+  else {
+    await nextTick()
+    if (pageActive) voicePanel.value?.$el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
+
+async function beginChangeManagement(fromShift?: Record<string, any>) {
+  if (!jha.value?.name || changingJha.value || connecting.value || disconnecting.value) return
+  changingJha.value = true
+  error.value = ''
+  try {
+    const originalName = jha.value.name
+    if (voiceConnected.value) await disconnectVoice()
+    if (!pageActive) return
+    const payload = new FormData()
+    payload.append('jha_name', originalName)
+    payload.append('confirmation', '1')
+    if (fromShift?.name) payload.append('shift_review', fromShift.name)
+    const data = await apiRequest<FrappeResponse<JhaSnapshot>>(
+      fromShift?.name ? '/api/method/verto.api.mobile.voice_jha_revalidation.begin_shift_change' : fromShift?.workpack
+        ? '/api/method/verto.api.mobile.voice_jha_workpack.begin_workpack_change' : '/api/method/verto.api.mobile.voice_jha_changes.begin_jha_change',
+      { method: 'POST', body: payload }
+    )
+    if (!pageActive) return
+    jha.value = data.message
+    shiftReview.value = null
+    stepBriefing.value = null
+    stepVoiceMode.value = false
+    voiceContextGeneration += 1
+    transcript.value = []
+    pendingPeriTranscript.value = ''
+    incidentPreview.value = null
+    toolActivity.value = ''
+    completenessIssues.value = []
+    if (consentConfirmed.value && !reviewStage.value) await connectVoice()
+    else {
+      await nextTick()
+      if (pageActive) voicePanel.value?.$el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Could not start JHA change management.'
+  } finally {
+    changingJha.value = false
+  }
+}
+
+async function beginShiftReview(value: { shift_date: string; shift: string; existing?: Record<string, any> }) {
+  if (!jha.value?.name || changingJha.value || connecting.value || disconnecting.value) return
+  changingJha.value = true; error.value = ''
+  try {
+    if (voiceConnected.value) await disconnectVoice()
+    if (!pageActive) return
+    const body = new FormData()
+    body.append('jha_name', jha.value.name); body.append('shift_date', value.shift_date)
+    body.append('shift', value.shift); body.append('confirmation', '1')
+    const data = await apiRequest<any>('/api/method/verto.api.mobile.voice_jha_revalidation.begin_jha_shift_review', { method: 'POST', body })
+    if (!pageActive) return
+    shiftReview.value = data.message
+    stepVoiceMode.value = false
+    voiceContextGeneration += 1
+    if (!['In Progress', 'Awaiting Confirmation'].includes(data.message.status)) {
+      toolActivity.value = `Shift review already recorded: ${data.message.status}`
+    } else if (consentConfirmed.value) await connectVoice()
+    else {
+      await nextTick()
+      if (pageActive) voicePanel.value?.$el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  } catch (err) { if (pageActive) error.value = err instanceof Error ? err.message : 'Could not start the shift review.' }
+  finally { changingJha.value = false }
+}
+
+async function load() {
+  loading.value = true
+  error.value = ''
+  try {
+    const data = await apiRequest<FrappeResponse<VoiceJhaBootstrap>>(
+      `/api/method/verto.api.mobile.voice_jha.get_voice_jha_bootstrap?work_summary=${encodeURIComponent(workSummary.value)}`
+    )
+    context.value = data.message
+    jha.value = data.message?.existing_jha || null
+    if (typeof route.query?.jha === 'string') {
+      const snapshot = await apiRequest<FrappeResponse<JhaSnapshot>>(
+        `/api/method/verto.api.mobile.voice_jha_phase2.get_voice_jha_snapshot?jha_name=${encodeURIComponent(route.query.jha)}`, { cache: 'no-store' }
+      )
+      if (snapshot.message.work_summary !== workSummary.value) throw new Error('This JHA belongs to a different Work Summary.')
+      jha.value = snapshot.message
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Could not load the Work Summary.'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function createOrResumeDraft() {
+  creating.value = true
+  error.value = ''
+  try {
+    const payload = new FormData()
+    payload.append('work_summary', workSummary.value)
+    const data = await apiRequest<FrappeResponse<JhaSnapshot>>(
+      '/api/method/verto.api.mobile.voice_jha.create_voice_jha_draft',
+      { method: 'POST', body: payload }
+    )
+    jha.value = data.message
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Could not create or resume the Digital JHA draft.'
+  } finally {
+    creating.value = false
+  }
+}
+
+async function refreshJha() {
+  if (!jha.value?.name) {
+    await load()
+    return
+  }
+
+  refreshing.value = true
+  error.value = ''
+  try {
+    const data = await apiRequest<FrappeResponse<JhaSnapshot>>(
+      `/api/method/verto.api.mobile.voice_jha_phase2.get_voice_jha_snapshot?jha_name=${encodeURIComponent(jha.value.name)}`, { cache: 'no-store' }
+    )
+    jha.value = data.message
+    if (data.message.status === 'Signed' && !data.message.replacement_jha) {
+      const step = await apiRequest<any>(`/api/method/verto.api.mobile.voice_jha_steps.get_jha_step_briefing?jha_name=${encodeURIComponent(data.message.name)}`, { cache: 'no-store' })
+      if (pageActive && jha.value?.name === step.message?.jha) handleStepBriefing(step.message, false)
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Could not refresh the Digital JHA.'
+  } finally {
+    refreshing.value = false
+  }
+}
+
+function appendTranscript(role: TranscriptEntry['role'], text: unknown) {
+  const value = String(text || '').trim()
+  if (!value) return
+  transcript.value.push({ role, text: value })
+  if (transcript.value.length > 30) {
+    transcript.value = transcript.value.slice(-30)
+  }
+}
+
+function sendRealtimeEvent(event: Record<string, any>) {
+  if (!dataChannel || dataChannel.readyState !== 'open') return false
+  try {
+    dataChannel.send(JSON.stringify(event))
+    return true
+  } catch { return false }
+}
+
+function setMicrophoneEnabled(enabled: boolean) {
+  if (!localStream) return
+  localStream.getAudioTracks().forEach((track) => {
+    track.enabled = enabled
+  })
+}
+
+function setPushToTalkIdleStatus() {
+  if (!voiceConnected.value || disconnecting.value) return
+  if (processingToolCalls.value) {
+    voiceStatus.value = 'PERI is updating the draft…'
+  } else if (pushToTalkActive.value) {
+    voiceStatus.value = 'Talking to PERI… release to send'
+  } else if (activeVoiceEngine.value === 'local' && localResponsePending.value) {
+    voiceStatus.value = 'PERI is considering…'
+  } else {
+    voiceStatus.value = 'Connected · hold to talk'
+  }
+}
+
+function startPushToTalk(event?: PointerEvent) {
+  if (!voiceConnected.value || connecting.value || disconnecting.value || pushToTalkActive.value) return
+  event?.preventDefault()
+  const target = event?.currentTarget as HTMLElement | null
+  if (target && event) {
+    try { target.setPointerCapture?.(event.pointerId) } catch { /* pointer capture is best effort */ }
+  }
+  if (activeVoiceEngine.value === 'local') {
+    if (!sendRealtimeEvent({ type: 'local.input.start' })) return
+    pendingPeriTranscript.value = ''
+    pendingCrewTranscript.value = ''
+    pendingCrewGeneration = null
+    localResponsePending.value = false
+  }
+  pushToTalkActive.value = true
+  setMicrophoneEnabled(true)
+  voiceStatus.value = 'Talking to PERI… release to send'
+}
+
+function stopPushToTalk(event?: PointerEvent) {
+  if (!pushToTalkActive.value) return
+  event?.preventDefault()
+  setMicrophoneEnabled(false)
+  pushToTalkActive.value = false
+  if (activeVoiceEngine.value === 'local') {
+    localResponsePending.value = true
+    sendRealtimeEvent({ type: 'local.input.commit' })
+  }
+  voiceStatus.value = 'PERI is considering…'
+}
+
+function toolActivityMessage(toolName: string, result: Record<string, any>) {
+  if (result?.message) return String(result.message)
+  if (toolName === 'confirm_job_steps') return 'Job-step list confirmed.'
+  if (toolName === 'complete_current_step') return 'Current job step completed.'
+  if (toolName === 'record_work_step') return 'Draft work step updated.'
+  if (toolName === 'record_hazard_and_control') return 'Draft hazard/control updated.'
+  if (toolName === 'record_participant') return 'JHA participant updated.'
+  if (toolName === 'run_jha_completeness_check') return 'Draft completeness check completed.'
+  if (toolName === 'mark_ready_for_human_review') return 'Draft review status checked.'
+  return 'PERI accessed the structured draft.'
+}
+
+async function executeRealtimeTool(event: any) {
+  const callId = String(event.call_id || '').trim()
+  const toolName = String(event.name || '').trim()
+  if (!callId || !toolName || !jha.value?.name || processedToolCalls.has(callId)) return { ok: false, error: 'Invalid or duplicate JHA tool call.' }
+  const generation = connectionGeneration
+  const contextGeneration = voiceContextGeneration
+
+  processedToolCalls.add(callId)
+  processingToolCalls.value += 1
+  voiceStatus.value = stepVoiceMode.value ? 'PERI is checking this step…' : 'PERI is updating the draft…'
+
+  let toolOutput: Record<string, any>
+  try {
+    const payload = new FormData()
+    payload.append('jha_name', jha.value.name)
+    payload.append('tool_name', toolName)
+    payload.append('arguments', String(event.arguments || '{}'))
+    payload.append('call_id', callId)
+    if (stepVoiceMode.value) payload.append('step_briefing', '1')
+    else if (shiftReview.value?.name) payload.append('shift_review', shiftReview.value.name)
+
+    const data = await apiRequest<FrappeResponse<VoiceToolResponse>>(
+      '/api/method/verto.api.mobile.voice_jha_tools.execute_voice_jha_tool',
+      { method: 'POST', body: payload }
+    )
+
+    toolOutput = data.message?.result || { ok: Boolean(data.message?.ok) }
+    if (generation !== connectionGeneration) return toolOutput
+    if (contextGeneration !== voiceContextGeneration) return { ok: false, message: 'The human selected a different conversation context. Read get_current_jha_state again before speaking.' }
+    if (data.message?.jha) jha.value = data.message.jha
+    if (toolOutput.step_briefing) stepBriefing.value = toolOutput.step_briefing
+    if (toolOutput.shift_review) shiftReview.value = toolOutput.shift_review
+    if (toolName === 'find_relevant_incidents') {
+      incidentPreview.value = { ...toolOutput, preview: true }
+    } else if (toolOutput.incident_learning?.work_step_sequence === incidentPreview.value?.work_step_sequence) {
+      incidentPreview.value = null
+    }
+    toolActivity.value = toolActivityMessage(toolName, toolOutput)
+
+    if (Array.isArray(toolOutput.issues)) {
+      completenessIssues.value = toolOutput.issues.map((item: unknown) => String(item))
+    } else if ([
+      'confirm_job_steps',
+      'complete_current_step',
+      'record_work_step',
+      'record_hazard_and_control',
+      'record_participant',
+    ].includes(toolName)) {
+      completenessIssues.value = []
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'The JHA draft tool failed.'
+    toolOutput = { ok: false, error: message }
+    if (generation === connectionGeneration) toolActivity.value = `Draft update not applied: ${message}`
+  } finally {
+    if (generation === connectionGeneration) processingToolCalls.value = Math.max(0, processingToolCalls.value - 1)
+  }
+  if (generation === connectionGeneration) setPushToTalkIdleStatus()
+  return toolOutput
+}
+
+async function handleRealtimeEvent(raw: string) {
+  let event: any
+  try {
+    event = JSON.parse(raw)
+  } catch {
+    return
+  }
+
+  if (activeVoiceEngine.value === 'local') {
+    if (event.type === 'session.closed') {
+      liveCloseConfirmed = true
+      resolveLiveClose?.()
+      cleanupVoice('Disconnected')
+      return
+    }
+    if (event.type === 'local.transcript.partial') {
+      pendingCrewTranscript.value = String(event.text || '')
+      pendingCrewGeneration = typeof event.generation === 'number' ? event.generation : null
+      return
+    }
+    if (event.type === 'local.status') {
+      localResponsePending.value = event.phase !== 'idle'
+      if (!pushToTalkActive.value && !disconnecting.value) {
+        voiceStatus.value = event.phase === 'speaking' ? 'PERI is speaking…'
+          : event.phase === 'idle' ? 'Connected · hold to talk' : 'PERI is considering…'
+      }
+      return
+    }
+  }
+
+  if (activeVoiceEngine.value === 'live') {
+    if (event.type === 'session.started') {
+      if (liveSessionReady) return
+      liveSessionReady = true
+      connecting.value = false
+      if (voiceStartTimer) clearTimeout(voiceStartTimer)
+      voiceStartTimer = null
+      voiceConnected.value = true
+      setMicrophoneEnabled(false)
+      setPushToTalkIdleStatus()
+      sendRealtimeEvent(voiceGreeting('live', Boolean(shiftReview.value), stepVoiceMode.value))
+    } else if (event.type === 'session.closed') {
+      liveCloseConfirmed = true
+      resolveLiveClose?.()
+      cleanupVoice('Disconnected')
+    } else if (event.type === 'session.input_transcript.delta' || event.type === 'session.output_transcript.delta') {
+      if (event.event_id && liveTranscriptEvents.has(event.event_id)) return
+      if (event.event_id) liveTranscriptEvents.add(event.event_id)
+      liveFragments.push({ role: event.type === 'session.input_transcript.delta' ? 'Crew' : 'PERI', text: String(event.delta || ''), start_ms: Number(event.start_ms || 0), end_ms: Number(event.end_ms || 0) })
+      if (liveFragments.length > 1000) liveFragments.splice(0, liveFragments.length - 1000)
+      transcript.value = liveTranscriptEntries(liveFragments)
+    } else if (event.type === 'response.event' || event.type === 'session.delegation.created') {
+      liveToolLoop?.handle(event)
+    } else if (event.type === 'error') {
+      error.value = String(event.error?.message || 'The GPT Live session reported an error.')
+      voiceStatus.value = 'Voice error'
+    }
+    return
+  }
+
+  if (event.type === 'response.created') { realtimeResponseActive = true; return }
+  if (event.type === 'session.created' || event.type === 'session.updated') {
+    setPushToTalkIdleStatus()
+    return
+  }
+  if (event.type === 'input_audio_buffer.speech_started') {
+    if (pushToTalkActive.value) voiceStatus.value = 'Talking to PERI… release to send'
+    return
+  }
+  if (event.type === 'input_audio_buffer.speech_stopped') {
+    voiceStatus.value = 'PERI is considering…'
+    return
+  }
+  if (event.type === 'conversation.item.input_audio_transcription.completed') {
+    if (pendingCrewGeneration === null || event.generation === pendingCrewGeneration || typeof event.generation !== 'number') {
+      pendingCrewTranscript.value = ''
+      pendingCrewGeneration = null
+    }
+    appendTranscript('Crew', event.transcript)
+    return
+  }
+  if (event.type === 'response.output_audio_transcript.delta') {
+    pendingPeriTranscript.value += String(event.delta || '')
+    voiceStatus.value = 'PERI is speaking…'
+    return
+  }
+  if (event.type === 'response.output_audio_transcript.done') {
+    appendTranscript('PERI', event.transcript || pendingPeriTranscript.value)
+    pendingPeriTranscript.value = ''
+    return
+  }
+  if (event.type === 'response.function_call_arguments.done') {
+    if (processedToolCalls.has(String(event.call_id || ''))) return
+    const generation = connectionGeneration
+    const result = await executeRealtimeTool(event)
+    if (generation === connectionGeneration) {
+      sendRealtimeEvent(voiceToolResult(activeVoiceEngine.value, String(event.call_id), result))
+      sendRealtimeEvent({ type: 'response.create' })
+    }
+    return
+  }
+  if (event.type === 'response.done' || event.type === 'response.output_audio.done' || event.type === 'response.audio.done') {
+    if (event.type === 'response.done') realtimeResponseActive = false
+    if (!processingToolCalls.value) setPushToTalkIdleStatus()
+    return
+  }
+  if (event.type === 'error') {
+    localResponsePending.value = false
+    const message = event.error?.message || 'The realtime voice session reported an error.'
+    error.value = String(message)
+    voiceStatus.value = 'Voice error'
+  }
+}
+
+function configureDataChannel(channel: RTCDataChannel) {
+  dataChannel = channel
+
+  channel.onopen = () => {
+    if (activeVoiceEngine.value === 'live') {
+      voiceStatus.value = 'Starting GPT Live…'
+      return
+    }
+    setMicrophoneEnabled(false)
+    connecting.value = false
+    if (voiceStartTimer) clearTimeout(voiceStartTimer)
+    voiceStartTimer = null
+    voiceConnected.value = true
+    if (activeVoiceEngine.value === 'local') {
+      localHeartbeat = setInterval(() => sendRealtimeEvent({ type: 'local.ping' }), 15_000)
+    }
+    pushToTalkActive.value = false
+    voiceStatus.value = 'Connected · starting PERI…'
+    sendRealtimeEvent(voiceGreeting(activeVoiceEngine.value, Boolean(shiftReview.value), stepVoiceMode.value))
+  }
+
+  channel.onmessage = (event) => {
+    void handleRealtimeEvent(String(event.data || ''))
+  }
+
+  channel.onerror = () => {
+    error.value = 'The PERI voice data channel reported an error.'
+    voiceStatus.value = 'Voice error'
+  }
+  channel.onclose = () => {
+    if (dataChannel === channel) {
+      if (activeVoiceEngine.value === 'live' && liveSessionReady && !liveCloseConfirmed) {
+        error.value = 'The Live connection closed before PERI confirmed the session had finished. Reconnect to check the saved draft.'
+      }
+      if (activeVoiceEngine.value === 'local' && !liveCloseConfirmed) {
+        error.value = 'The local voice connection closed before pending work was confirmed. Reconnect to check the saved JHA.'
+      }
+      resolveLiveClose?.()
+      cleanupVoice('Disconnected')
+    }
+  }
+}
+
+function cleanupVoice(status = 'Not connected') {
+  if (localHeartbeat) clearInterval(localHeartbeat)
+  localHeartbeat = null
+  realtimeResponseActive = false
+  stopVoiceActivity?.()
+  stopVoiceActivity = null
+  remoteVoiceLevel.value = 0
+  if (voiceStartTimer) clearTimeout(voiceStartTimer)
+  voiceStartTimer = null
+  connectionGeneration += 1
+  liveToolLoop?.close()
+  liveToolLoop = null
+  liveSessionReady = false
+  resolveLiveClose?.()
+  resolveLiveClose = null
+  setMicrophoneEnabled(false)
+  pushToTalkActive.value = false
+
+  if (dataChannel) {
+    dataChannel.onopen = null
+    dataChannel.onmessage = null
+    dataChannel.onerror = null
+    dataChannel.onclose = null
+    try { dataChannel.close() } catch { /* already closed */ }
+  }
+  dataChannel = null
+
+  if (peerConnection) {
+    peerConnection.ontrack = null
+    peerConnection.onconnectionstatechange = null
+    try { peerConnection.close() } catch { /* already closed */ }
+  }
+  peerConnection = null
+
+  if (localStream) localStream.getTracks().forEach((track) => track.stop())
+  localStream = null
+  if (remoteAudio.value) remoteAudio.value.srcObject = null
+
+  voiceConnected.value = false
+  connecting.value = false
+  disconnecting.value = false
+  pendingPeriTranscript.value = ''
+  pendingCrewTranscript.value = ''
+  pendingCrewGeneration = null
+  localResponsePending.value = false
+  processingToolCalls.value = 0
+  voiceStatus.value = status
+}
+
+async function disconnectVoice() {
+  if (disconnecting.value) return
+  const generation = connectionGeneration
+  manualDisconnect = true
+  if (activeVoiceEngine.value === 'local' && dataChannel?.readyState === 'open') {
+    stopPushToTalk()
+    disconnecting.value = true
+    setMicrophoneEnabled(false)
+    voiceStatus.value = 'Finishing the voice session…'
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const closed = new Promise<void>((resolve) => {
+      resolveLiveClose = resolve
+      timer = setTimeout(resolve, 15_000)
+    })
+    sendRealtimeEvent({ type: 'session.close' })
+    await closed
+    clearTimeout(timer)
+    if (generation !== connectionGeneration) return
+    if (!liveCloseConfirmed) error.value = 'PERI did not confirm that all pending work finished. Reconnect to check the saved draft.'
+  }
+  if (activeVoiceEngine.value === 'live' && liveSessionReady && dataChannel?.readyState === 'open') {
+    disconnecting.value = true
+    setMicrophoneEnabled(false)
+    pushToTalkActive.value = false
+    voiceStatus.value = 'Finishing the voice session…'
+    let drainTimer: ReturnType<typeof setTimeout> | undefined
+    const finished = await Promise.race([
+      liveToolLoop?.waitForIdle(),
+      new Promise<boolean>((resolve) => { drainTimer = setTimeout(() => resolve(false), 10_000) }),
+    ])
+    clearTimeout(drainTimer)
+    if (generation !== connectionGeneration) return
+    liveToolLoop?.close()
+    if (!finished) error.value = 'PERI did not finish all pending work before disconnecting. Reconnect to check the saved draft before continuing.'
+    if (!dataChannel || dataChannel.readyState !== 'open') {
+      cleanupVoice('Disconnected')
+      manualDisconnect = false
+      return
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const closed = new Promise<void>((resolve) => {
+      resolveLiveClose = resolve
+      timer = setTimeout(resolve, 15_000)
+    })
+    if (!sendRealtimeEvent({ type: 'session.close', event_id: 'jha-close' })) resolveLiveClose?.()
+    await closed
+    clearTimeout(timer)
+    if (generation !== connectionGeneration) return
+    if (!liveCloseConfirmed) error.value = 'PERI did not confirm that the Live session finished. The microphone has been released; reconnect to check the saved draft.'
+  }
+  cleanupVoice('Disconnected')
+  window.setTimeout(() => { manualDisconnect = false }, 0)
+}
+
+async function connectVoice() {
+  if (!canConnectVoice.value || !jha.value?.name) return
+  if (!navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === 'undefined') {
+    error.value = 'This browser does not support the microphone/WebRTC features required for PERI voice.'
+    return
+  }
+
+  connecting.value = true
+  error.value = ''
+  voiceStatus.value = 'Requesting microphone…'
+  transcript.value = []
+  pendingPeriTranscript.value = ''
+  toolActivity.value = ''
+  completenessIssues.value = []
+  processedToolCalls.clear()
+  liveFragments.length = 0
+  liveTranscriptEvents.clear()
+  connectionGeneration += 1
+  const generation = connectionGeneration
+  let negotiated = false
+  activeVoiceEngine.value = configuredVoiceEngine.value
+  liveSessionReady = false
+  liveCloseConfirmed = false
+  liveToolLoop = new LiveJhaToolLoop(executeRealtimeTool, sendRealtimeEvent, (message) => {
+    error.value = message
+    voiceStatus.value = 'Voice error'
+  })
+  manualDisconnect = false
+  pushToTalkActive.value = false
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    })
+    if (generation !== connectionGeneration) {
+      stream.getTracks().forEach((track: MediaStreamTrack) => track.stop())
+      return
+    }
+    localStream = stream
+
+    setMicrophoneEnabled(false)
+
+    voiceStatus.value = 'Connecting to PERI…'
+    const pc = activeVoiceEngine.value === 'local'
+      ? new RTCPeerConnection({ iceServers: context.value?.voice_configuration?.ice_servers || [] })
+      : new RTCPeerConnection()
+    peerConnection = pc
+
+    pc.ontrack = (event) => {
+      if (!remoteAudio.value) return
+      const stream = event.streams?.[0] || new MediaStream([event.track])
+      remoteAudio.value.srcObject = stream
+      stopVoiceActivity?.()
+      stopVoiceActivity = monitorRemoteVoice(stream, (level) => {
+        const wasSpeaking = remoteVoiceLevel.value > 0
+        remoteVoiceLevel.value = level
+        if (level > 0 && voiceConnected.value && !pushToTalkActive.value) voiceStatus.value = 'PERI is speaking…'
+        else if (wasSpeaking && level === 0) setPushToTalkIdleStatus()
+      })
+      remoteAudio.value.play().catch(() => {})
+    }
+
+    pc.onconnectionstatechange = () => {
+      if (peerConnection !== pc) return
+      if (pc.connectionState === 'connected') {
+        if (!voiceConnected.value) voiceStatus.value = 'Starting PERI…'
+      } else if (pc.connectionState === 'failed') {
+        if (!manualDisconnect) error.value = 'The PERI voice connection failed.'
+        cleanupVoice('Connection failed')
+      } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
+        if (!manualDisconnect) cleanupVoice('Disconnected')
+      }
+    }
+
+    configureDataChannel(pc.createDataChannel('oai-events'))
+    localStream.getTracks().forEach((track) => pc.addTrack(track, localStream as MediaStream))
+
+    const offer = await pc.createOffer()
+    await pc.setLocalDescription(offer)
+    if (pc.iceGatheringState !== 'complete') {
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          pc.removeEventListener('icegatheringstatechange', gathered)
+          reject(new Error('Timed out while preparing the voice connection.'))
+        }, 10_000)
+        function gathered() {
+          if (pc.iceGatheringState !== 'complete') return
+          clearTimeout(timer)
+          pc.removeEventListener('icegatheringstatechange', gathered)
+          resolve()
+        }
+        pc.addEventListener('icegatheringstatechange', gathered)
+        gathered()
+      })
+    }
+    if (generation !== connectionGeneration) return
+    const offerSdp = pc.localDescription?.sdp
+    if (!offerSdp) throw new Error('Could not create the WebRTC offer.')
+
+    const payload = new FormData()
+    payload.append('jha_name', jha.value.name)
+    payload.append('sdp', offerSdp)
+    payload.append('consent_confirmed', '1')
+    if (stepVoiceMode.value) payload.append('step_briefing', '1')
+    else if (shiftReview.value?.name) payload.append('shift_review', shiftReview.value.name)
+
+    const data = await apiRequest<FrappeResponse<VoiceCallResponse>>(
+      '/api/method/verto.api.mobile.voice_jha.start_voice_jha_call',
+      { method: 'POST', body: payload }
+    )
+
+    if (generation !== connectionGeneration) return
+    if (!data.message?.sdp) throw new Error('PERI did not return a WebRTC answer.')
+    jha.value = data.message.jha
+    voiceModel.value = data.message.model || ''
+    activeVoiceEngine.value = data.message.engine || configuredVoiceEngine.value
+    if (context.value && data.message.configuration) context.value.voice_configuration = data.message.configuration
+    await pc.setRemoteDescription({ type: 'answer', sdp: data.message.sdp })
+    negotiated = true
+    setMicrophoneEnabled(false)
+    if (!voiceConnected.value) {
+      voiceStatus.value = 'Connecting audio…'
+      voiceStartTimer = setTimeout(() => {
+        error.value = 'PERI did not finish starting the voice session. Reconnect to resume the saved draft.'
+        cleanupVoice('Connection timed out')
+      }, 15_000)
+    }
+  } catch (err) {
+    if (generation !== connectionGeneration) return
+    const message = err instanceof DOMException && err.name === 'NotAllowedError'
+      ? 'Microphone access was not granted. Allow microphone access to use PERI voice.'
+      : err instanceof Error ? err.message : 'Could not connect voice with PERI.'
+    error.value = message
+    cleanupVoice('Not connected')
+  } finally {
+    if (!negotiated && generation === connectionGeneration) connecting.value = false
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('online', updateNetworkState)
+  window.addEventListener('offline', updateNetworkState)
+  void load()
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('online', updateNetworkState)
+  window.removeEventListener('offline', updateNetworkState)
+  pageActive = false
+  manualDisconnect = true
+  if ((activeVoiceEngine.value === 'live' && liveSessionReady) || activeVoiceEngine.value === 'local') sendRealtimeEvent({ type: 'session.close', event_id: 'jha-leave' })
+  cleanupVoice('Disconnected')
+})
+</script>
+
+<template>
+  <section class="min-h-full bg-surface-gray-1 px-[var(--verto-page-x,0.75rem)] py-[var(--verto-page-y,0.75rem)]"
+    :style="{ paddingBottom: `calc(var(--verto-page-y, 0.75rem) + ${voicePanelClearance}px)` }">
+    <div class="mx-auto w-full max-w-3xl space-y-3">
+      <div class="flex items-center justify-between gap-3">
+        <Button variant="subtle" theme="gray" size="sm" @click="router.back()">Back</Button>
+        <a href="/verto-mobile/jha-saved" class="text-sm text-blue-700 underline">Offline JHAs</a>
+        <Button v-if="jha" variant="subtle" theme="gray" size="sm" :loading="refreshing" :disabled="refreshing || voiceConnected || connecting || changingJha" @click="refreshJha">Refresh</Button>
+      </div>
+
+      <section v-if="loading" class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
+        <div class="space-y-3"><div class="h-5 w-40 rounded-4 bg-surface-gray-3" /><div class="h-8 w-3/4 rounded-4 bg-surface-gray-2" /><div class="h-24 rounded-7 bg-surface-gray-2" /></div>
+      </section>
+
+      <section v-else-if="error && !context" class="rounded-7 border border-red-200 bg-red-50 p-4 shadow-sm">
+        <p class="text-sm-medium text-red-800">Could not open this Work Summary.</p><p class="mt-1 text-sm text-red-700">{{ error }}</p>
+      </section>
+
+      <template v-else-if="context">
+        <section class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
+          <div class="flex flex-wrap items-center gap-2">
+            <Badge variant="subtle">{{ stepVoiceMode ? 'Step briefing with PERI' : shiftReview ? 'Shift review with PERI' : 'Develop JHA with PERI' }}</Badge>
+            <Badge v-if="jha?.status" variant="subtle">{{ jha.status }}</Badge>
+            <Badge v-if="context.work_order_number" variant="subtle">WO: {{ context.work_order_number }}</Badge>
+          </div>
+          <h1 class="mt-3 text-xl-semibold text-ink-gray-9">{{ context.title }}</h1>
+          <p class="mt-1 text-sm text-ink-gray-5">{{ context.project }}<span v-if="context.work_area"> · {{ context.work_area }}</span></p>
+          <div class="mt-4 rounded-7 border border-amber-200 bg-amber-50 p-3">
+            <p class="text-sm-medium text-amber-900">Team leader review (Supervisor or above) remains mandatory.</p>
+            <p v-if="jha?.status === 'Signed'" class="mt-1 text-sm leading-5 text-amber-800">Use PERI to discuss incident lessons and check this step’s controls with the crew. Changes need a new JHA revision and human sign-on.</p>
+            <p v-else class="mt-1 text-sm leading-5 text-amber-800">PERI can record confirmed discussion points into this draft JHA. It cannot approve, submit, sign, authorise work or declare the job safe.</p>
+          </div>
+        </section>
+
+        <section v-if="!jha" class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
+          <p class="text-base-semibold text-ink-gray-9">Start the JHA</p>
+          <p class="mt-1 text-sm leading-5 text-ink-gray-6">A Digital JHA draft will be created and linked to this assigned Work Summary before the voice discussion begins.</p>
+          <div class="mt-4 rounded-7 bg-surface-gray-1 p-3">
+            <p class="text-xs-semibold uppercase tracking-wide text-ink-gray-5">AI facilitator</p>
+            <p class="mt-1 text-sm-medium text-ink-gray-8">{{ context.peri_bot || 'PERI bot configuration required' }}</p>
+            <p v-if="voiceConfigSummary" class="mt-1 text-xs text-ink-gray-5">{{ voiceConfigSummary }}</p>
+          </div>
+          <Button variant="solid" theme="gray" size="lg" class="mt-4 w-full justify-center" :loading="creating" :disabled="!networkOnline || creating || !context.peri_bot" @click="createOrResumeDraft">Start JHA with PERI</Button>
+        </section>
+
+        <template v-else>
+          <JhaPhotoImport :jha="jha" :online="networkOnline" :busy="voiceSessionActive || changingJha"
+            @busy="photoBusy = $event" @updated="handleReviewUpdated" />
+          <p v-if="!networkOnline" role="status" class="rounded-7 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Offline reference view. Current revision and field conditions cannot be confirmed. Open your downloaded signed copy below to record observations.</p>
+          <JhaVoicePanel
+            ref="voicePanel"
+            v-if="!reviewStage || voiceSessionActive || shiftReviewOpen || stepBriefingOpen"
+            :connected="voiceConnected" :connecting="connecting" :disconnecting="disconnecting"
+            :can-connect="canConnectVoice" :consent="consentConfirmed" :talking="pushToTalkActive"
+            :busy="Boolean(processingToolCalls) || voiceStatus.includes('considering')" :level="remoteVoiceLevel"
+            :status="voiceStatus" :step="currentStepLabel" :latest-speech="latestPeriSpeech"
+            :changing="Boolean(jha.previous_jha)"
+            :revalidating="Boolean(shiftReview)"
+            :briefing="stepVoiceMode"
+            @consent="consentConfirmed = $event" @connect="connectVoice" @disconnect="disconnectVoice"
+            @talk-start="startPushToTalk" @talk-stop="stopPushToTalk"
+            @clearance-change="voicePanelClearance = $event"
+          />
+          <audio ref="remoteAudio" autoplay playsinline class="hidden" />
+          <JhaActiveStep :jha="jha" :online="networkOnline" :voice-briefing="stepBriefing"
+            :busy="changingJha || connecting || disconnecting || Boolean(processingToolCalls) || pushToTalkActive"
+            @briefing="handleStepBriefing" @discuss="discussActiveStep" @request-change="beginChangeManagement()" />
+          <section v-if="jha.previous_jha" class="rounded-7 border border-blue-200 bg-blue-50 p-3">
+            <p class="text-sm-medium text-blue-900">Change review · Revision {{ jha.revision }}</p>
+            <p class="mt-1 text-sm text-blue-800">Based on {{ jha.previous_jha }}. {{ jha.change_summary || 'Tell PERI what has changed or needs adding.' }}</p>
+            <p class="mt-1 text-xs text-blue-700">The revised JHA needs fresh team leader review (Supervisor or above) and sign-on.</p>
+          </section>
+          <details class="rounded-7 border border-outline-gray-1 bg-surface-base">
+            <summary class="cursor-pointer p-3 text-sm-medium text-ink-gray-8">Recorded JHA · {{ workStepCount }} steps · {{ hazardCount }} hazards · {{ participantCount }} people</summary>
+          <section class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0"><p class="text-xs-semibold uppercase tracking-wide text-ink-gray-5">Digital JHA</p><p class="mt-1 truncate text-base-semibold text-ink-gray-9">{{ jha.name }}</p></div>
+              <Badge variant="subtle">Rev {{ jha.revision || 1 }}</Badge>
+            </div>
+            <div class="mt-4 grid grid-cols-3 gap-2">
+              <div class="rounded-7 bg-surface-gray-1 p-3 text-center"><p class="text-lg-semibold text-ink-gray-9">{{ workStepCount }}</p><p class="mt-0.5 text-xs text-ink-gray-5">Steps</p></div>
+              <div class="rounded-7 bg-surface-gray-1 p-3 text-center"><p class="text-lg-semibold text-ink-gray-9">{{ hazardCount }}</p><p class="mt-0.5 text-xs text-ink-gray-5">Hazards</p></div>
+              <div class="rounded-7 bg-surface-gray-1 p-3 text-center"><p class="text-lg-semibold text-ink-gray-9">{{ participantCount }}</p><p class="mt-0.5 text-xs text-ink-gray-5">People</p></div>
+            </div>
+
+            <div v-if="jha.work_steps?.length" class="mt-4 space-y-2">
+              <p class="text-xs-semibold uppercase tracking-wide text-ink-gray-5">Recorded work steps</p>
+              <div v-for="step in jha.work_steps" :key="step.name || step.source_step_identifier || step.sequence" class="rounded-7 border border-outline-gray-1 bg-surface-gray-1 p-3">
+                <p class="text-sm-medium text-ink-gray-8">{{ step.sequence }}. {{ step.activity }}</p>
+                <p v-if="step.hold_or_pause_point" class="mt-1 text-xs text-amber-700">Hold / pause point</p>
+                <p v-if="step.paper_hold_point && !step.hold_point_confirmed" class="mt-1 text-xs text-amber-700">Written hold point: {{ step.paper_hold_point }}</p>
+              </div>
+            </div>
+
+            <div v-if="jha.hazards_and_controls?.length" class="mt-4 space-y-2">
+              <p class="text-xs-semibold uppercase tracking-wide text-ink-gray-5">Recorded hazards & controls</p>
+              <div v-for="hazard in jha.hazards_and_controls" :key="hazard.name || hazard.source_hazard_identifier" class="rounded-7 border border-outline-gray-1 bg-surface-gray-1 p-3">
+                <p class="text-sm-medium text-ink-gray-8">Step {{ hazard.work_step_sequence }} · {{ hazard.hazard_or_energy_source }}</p>
+                <p v-if="hazard.credible_consequence" class="mt-1 text-xs text-ink-gray-6">Consequence: {{ hazard.credible_consequence }}</p>
+                <p v-if="hazard.existing_controls || hazard.additional_controls" class="mt-1 text-xs text-ink-gray-6">Controls: {{ [hazard.existing_controls, hazard.additional_controls].filter(Boolean).join(' · ') }}</p>
+              </div>
+            </div>
+          </section>
+          </details>
+
+          <details v-if="jha.facilitation" class="rounded-7 border border-outline-gray-1 bg-surface-base">
+            <summary class="cursor-pointer p-3 text-sm-medium text-ink-gray-8">{{ jha.paper_review_mode === 'Automatic' ? `Paper preparation · ${workStepCount} steps` : `Step progress · ${jha.facilitation.completed_step_count || 0}/${workStepCount} complete` }}</summary>
+            <JhaFacilitationProgress :progress="jha.facilitation" />
+          </details>
+          <details v-if="incidentSearches.length" class="rounded-7 border border-outline-gray-1 bg-surface-base">
+            <summary class="cursor-pointer p-3 text-sm-medium text-ink-gray-8">Previous incident learning</summary>
+            <JhaIncidentLearning :searches="incidentSearches" />
+          </details>
+
+          <div v-if="toolActivity" class="rounded-7 bg-surface-gray-1 px-3 py-2 text-xs text-ink-gray-6">{{ toolActivity }}</div>
+          <div v-if="completenessIssues.length" class="rounded-7 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p v-for="issue in completenessIssues" :key="issue">{{ issue }}</p>
+          </div>
+          <JhaReviewSignoff
+            v-if="networkOnline"
+            :jha="jha" :change-starting="changingJha || connecting || disconnecting"
+            @request-change="beginChangeManagement" @updated="handleReviewUpdated"
+          />
+          <JhaFieldwork v-if="networkOnline" :jha="jha" :voice-review="shiftReview" :busy="changingJha || connecting || disconnecting"
+            @start-review="beginShiftReview" @review-updated="handleShiftReviewUpdated" @review-changes="beginChangeManagement" />
+          <JhaStepResources :jha="jha" :busy="changingJha || connecting || disconnecting" @updated="handleReviewUpdated" @request-change="beginChangeManagement({ workpack: true })" />
+          <JhaJobLearning :jha="jha" :busy="voiceSessionActive || changingJha" />
+          <JhaOfflineCopy :jha-name="jha.name" :can-download="jha.status === 'Signed' && !jha.replacement_jha" @changed="refreshJha" />
+
+
+          <details v-if="transcript.length || pendingPeriTranscript || pendingCrewTranscript" class="rounded-7 border border-outline-gray-1 bg-surface-base">
+            <summary class="cursor-pointer p-3 text-sm-medium text-ink-gray-8">Full conversation transcript</summary>
+          <section v-if="transcript.length || pendingPeriTranscript || pendingCrewTranscript" class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 shadow-sm">
+            <div class="flex items-center justify-between gap-3"><p class="text-base-semibold text-ink-gray-9">Live transcript preview</p><Badge variant="subtle">Session preview</Badge></div>
+            <div class="mt-3 max-h-80 space-y-2 overflow-y-auto">
+              <div v-for="(entry, index) in transcript" :key="`${entry.role}-${index}`" class="rounded-7 bg-surface-gray-1 p-3">
+                <p class="text-xs-semibold uppercase tracking-wide text-ink-gray-5">{{ entry.role }}</p><p class="mt-1 text-sm leading-5 text-ink-gray-8">{{ entry.text }}</p>
+              </div>
+              <div v-if="pendingPeriTranscript" class="rounded-7 bg-surface-gray-1 p-3"><p class="text-xs-semibold uppercase tracking-wide text-ink-gray-5">PERI</p><p class="mt-1 text-sm leading-5 text-ink-gray-8">{{ pendingPeriTranscript }}</p></div>
+              <div v-if="pendingCrewTranscript" class="rounded-7 bg-surface-gray-1 p-3"><p class="text-xs-semibold uppercase tracking-wide text-ink-gray-5">Crew · transcribing</p><p class="mt-1 text-sm leading-5 text-ink-gray-8">{{ pendingCrewTranscript }}</p></div>
+            </div>
+          </section>
+          </details>
+        </template>
+
+        <section v-if="error" class="rounded-7 border border-red-200 bg-red-50 p-3 shadow-sm"><p class="text-sm text-red-700">{{ error }}</p></section>
+      </template>
+    </div>
+  </section>
+</template>

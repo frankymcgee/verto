@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2026-06-04 10:25:56.514209",
+ "creation": "2026-08-17 11:00:31.177700",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -32,18 +32,86 @@
   "peri_bot_user",
   "peri_bot_image",
   "section_break_rtpg",
-  "generic_forms",
+  "core_mobile_forms",
   "column_break_ufwo",
-  "project_forms",
+  "generic_forms",
   "column_break_uzjk",
+  "project_forms",
+  "column_break_gvvx",
   "project_ccvs",
+  "section_break_kvpd",
+  "project_tools",
+  "jha_print_tab",
+  "jha_print_branding_section",
+  "jha_print_company_name",
+  "jha_print_header_text",
+  "jha_print_branding_column",
+  "jha_print_logo",
+  "jha_print_typography_section",
+  "jha_print_font",
+  "jha_print_colours_section",
+  "jha_print_primary_colour",
+  "jha_print_heading_text_colour",
+  "jha_print_text_colour",
+  "jha_print_border_colour",
+  "jha_print_colours_column",
+  "jha_print_critical_risk_colour",
+  "jha_print_critical_risk_text_colour",
+  "jha_print_critical_risk_border_colour",
+  "jha_printing_section",
+  "default_jha_print_email",
   "planner_tab",
   "planner_app_name",
   "desk_icon",
   "planner_icon",
   "planner_view_default",
+  "map_settings_tab",
+  "map_view_section",
+  "map_center_latitude",
+  "map_center_longitude",
+  "column_break_map_view",
+  "map_default_zoom",
+  "map_min_zoom",
+  "map_max_zoom",
+  "default_map_layer_section",
+  "map_default_tile_url",
+  "map_default_attribution",
+  "satellite_map_layer_section",
+  "map_satellite_tile_url",
+  "map_satellite_attribution",
+  "labels_map_layer_section",
+  "map_labels_tile_url",
+  "map_labels_attribution",
+  "terrain_map_layer_section",
+  "map_terrain_tile_url",
+  "map_terrain_attribution",
+  "column_break_map_terrain",
+  "map_terrain_max_zoom",
+  "map_terrain_opacity",
+  "rail_map_layer_section",
+  "map_rail_tile_url",
+  "map_rail_attribution",
+  "column_break_map_rail",
+  "map_rail_max_zoom",
+  "map_rail_opacity",
   "push_notifications_tab",
-  "timesheet_reminder_exclusions"
+  "push_configuration_section",
+  "push_notifications_enabled",
+  "vapid_subject",
+  "column_break_push",
+  "vapid_public_key",
+  "vapid_private_key",
+  "vapid_generated_on",
+  "shift_missing_hours_reminders_enabled",
+  "shift_missing_hours_last_scan",
+  "timesheet_reminder_exclusions",
+  "ai_photo_analysis_tab",
+  "ai_photo_analysis_section",
+  "ai_photo_analysis_enabled",
+  "ai_photo_analysis_bot",
+  "column_break_ai_photo",
+  "ai_photo_analysis_model",
+  "ai_photo_analysis_api_key"
  ],
  "fields": [
   {
@@ -250,17 +318,415 @@
    "label": "Push Notifications"
   },
   {
+   "fieldname": "push_configuration_section",
+   "fieldtype": "Section Break",
+   "label": "Web Push Configuration"
+  },
+  {
+   "default": "1",
+   "description": "Enable Verto web push notifications for this site.",
+   "fieldname": "push_notifications_enabled",
+   "fieldtype": "Check",
+   "label": "Push Notifications Enabled"
+  },
+  {
+   "default": "mailto:support@webwire.com.au",
+   "description": "VAPID subject. Use a mailto: address or an HTTPS URL.",
+   "fieldname": "vapid_subject",
+   "fieldtype": "Data",
+   "label": "VAPID Subject"
+  },
+  {
+   "fieldname": "column_break_push",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Generated automatically. Used by browsers when creating push subscriptions.",
+   "fieldname": "vapid_public_key",
+   "fieldtype": "Small Text",
+   "label": "VAPID Public Key",
+   "read_only": 1
+  },
+  {
+   "description": "Generated automatically and encrypted by Frappe. Rotating this key invalidates existing browser subscriptions.",
+   "fieldname": "vapid_private_key",
+   "fieldtype": "Password",
+   "label": "VAPID Private Key"
+  },
+  {
+   "fieldname": "vapid_generated_on",
+   "fieldtype": "Datetime",
+   "label": "VAPID Keys Generated On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "shift_missing_hours_reminders_enabled",
+   "fieldtype": "Check",
+   "label": "Remind After Shift",
+   "default": "1",
+   "description": "Notify assigned employees one hour after their Shift Type end time when daily hours are missing. Keep outstanding hours visible in the app and send one follow-up at 09:00 the next day. Timesheet Reminder Exclusions apply."
+  },
+  {
+   "fieldname": "shift_missing_hours_last_scan",
+   "fieldtype": "Datetime",
+   "label": "Last Missing Hours Scan",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
    "fieldname": "timesheet_reminder_exclusions",
    "fieldtype": "Table",
    "label": "Timesheet Reminder Exclusions",
    "options": "Verto Timesheet Reminder Exclusion"
+  },
+  {
+   "fieldname": "section_break_kvpd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "project_tools",
+   "fieldtype": "Table",
+   "label": "Project Tools",
+   "options": "Verto Mobile Project Tool"
+  },
+  {
+   "fieldname": "map_settings_tab",
+   "fieldtype": "Tab Break",
+   "label": "Map Settings"
+  },
+  {
+   "fieldname": "map_view_section",
+   "fieldtype": "Section Break",
+   "label": "Default Map View"
+  },
+  {
+   "default": "-32.5279",
+   "description": "Initial latitude used when a map has no saved location.",
+   "fieldname": "map_center_latitude",
+   "fieldtype": "Float",
+   "label": "Centre Latitude"
+  },
+  {
+   "default": "115.7189",
+   "description": "Initial longitude used when a map has no saved location.",
+   "fieldname": "map_center_longitude",
+   "fieldtype": "Float",
+   "label": "Centre Longitude"
+  },
+  {
+   "fieldname": "column_break_map_view",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "6",
+   "fieldname": "map_default_zoom",
+   "fieldtype": "Int",
+   "label": "Default Zoom"
+  },
+  {
+   "default": "0",
+   "fieldname": "map_min_zoom",
+   "fieldtype": "Int",
+   "label": "Minimum Zoom"
+  },
+  {
+   "default": "19",
+   "fieldname": "map_max_zoom",
+   "fieldtype": "Int",
+   "label": "Maximum Zoom"
+  },
+  {
+   "fieldname": "default_map_layer_section",
+   "fieldtype": "Section Break",
+   "label": "Default Street Layer"
+  },
+  {
+   "default": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+   "description": "Leaflet tile URL. The {s}, {z}, {x}, and {y} placeholders are supported.",
+   "fieldname": "map_default_tile_url",
+   "fieldtype": "Small Text",
+   "label": "Tile URL"
+  },
+  {
+   "default": "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors",
+   "fieldname": "map_default_attribution",
+   "fieldtype": "Small Text",
+   "label": "Attribution"
+  },
+  {
+   "fieldname": "satellite_map_layer_section",
+   "fieldtype": "Section Break",
+   "label": "Satellite Layer"
+  },
+  {
+   "default": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+   "fieldname": "map_satellite_tile_url",
+   "fieldtype": "Small Text",
+   "label": "Tile URL"
+  },
+  {
+   "default": "Tiles &copy; Esri and the GIS User Community",
+   "fieldname": "map_satellite_attribution",
+   "fieldtype": "Small Text",
+   "label": "Attribution"
+  },
+  {
+   "fieldname": "labels_map_layer_section",
+   "fieldtype": "Section Break",
+   "label": "Labels Overlay"
+  },
+  {
+   "default": "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+   "fieldname": "map_labels_tile_url",
+   "fieldtype": "Small Text",
+   "label": "Tile URL"
+  },
+  {
+   "default": "Labels &copy; Esri",
+   "fieldname": "map_labels_attribution",
+   "fieldtype": "Small Text",
+   "label": "Attribution"
+  },
+  {
+   "fieldname": "terrain_map_layer_section",
+   "fieldtype": "Section Break",
+   "label": "Terrain Overlay"
+  },
+  {
+   "default": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}",
+   "fieldname": "map_terrain_tile_url",
+   "fieldtype": "Small Text",
+   "label": "Tile URL"
+  },
+  {
+   "default": "Terrain &copy; Esri",
+   "fieldname": "map_terrain_attribution",
+   "fieldtype": "Small Text",
+   "label": "Attribution"
+  },
+  {
+   "fieldname": "column_break_map_terrain",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "13",
+   "fieldname": "map_terrain_max_zoom",
+   "fieldtype": "Int",
+   "label": "Maximum Zoom"
+  },
+  {
+   "default": "0.45",
+   "description": "Value from 0 (transparent) to 1 (opaque).",
+   "fieldname": "map_terrain_opacity",
+   "fieldtype": "Float",
+   "label": "Opacity",
+   "precision": "2"
+  },
+  {
+   "fieldname": "rail_map_layer_section",
+   "fieldtype": "Section Break",
+   "label": "Rail Overlay"
+  },
+  {
+   "default": "https://tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+   "description": "Transparent railway infrastructure overlay supplied by OpenRailwayMap.",
+   "fieldname": "map_rail_tile_url",
+   "fieldtype": "Small Text",
+   "label": "Tile URL"
+  },
+  {
+   "default": "&copy; <a href=\"https://www.openrailwaymap.org/\">OpenRailwayMap</a>, data &copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors",
+   "fieldname": "map_rail_attribution",
+   "fieldtype": "Small Text",
+   "label": "Attribution"
+  },
+  {
+   "fieldname": "column_break_map_rail",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "19",
+   "fieldname": "map_rail_max_zoom",
+   "fieldtype": "Int",
+   "label": "Maximum Zoom"
+  },
+  {
+   "default": "1",
+   "description": "Value from 0 (transparent) to 1 (opaque).",
+   "fieldname": "map_rail_opacity",
+   "fieldtype": "Float",
+   "label": "Opacity",
+   "precision": "2"
+  },
+  {
+   "fieldname": "core_mobile_forms",
+   "fieldtype": "Table",
+   "label": "Core Mobile Forms",
+   "options": "Verto Mobile Form Shortcut"
+  },
+  {
+   "fieldname": "column_break_gvvx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ai_photo_analysis_tab",
+   "fieldtype": "Tab Break",
+   "label": "AI Photo Analysis"
+  },
+  {
+   "fieldname": "ai_photo_analysis_section",
+   "fieldtype": "Section Break",
+   "label": "Submitted Form Photo Review"
+  },
+  {
+   "default": "0",
+   "description": "Analyse photos after a Verto Mobile form and all of its attachments have been saved.",
+   "fieldname": "ai_photo_analysis_enabled",
+   "fieldtype": "Check",
+   "label": "Enable AI Photo Analysis"
+  },
+  {
+   "depends_on": "eval:doc.ai_photo_analysis_enabled",
+   "description": "OpenAI-backed Raven AI bot whose Raven Settings credentials, vision-capable model and high-level instructions will be used for photo review. The same bot sends failed or uncertain results as direct messages to assigned Project users.",
+   "fieldname": "ai_photo_analysis_bot",
+   "fieldtype": "Link",
+   "label": "AI Photo Analysis Bot",
+   "options": "Raven Bot"
+  },
+  {
+   "description": "Legacy field retained for data compatibility. Photo analysis now uses the selected Raven Bot model.",
+   "fieldname": "ai_photo_analysis_model",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Legacy OpenAI Model"
+  },
+  {
+   "fieldname": "column_break_ai_photo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Legacy encrypted value retained for data compatibility. Photo analysis now uses Raven Settings credentials.",
+   "fieldname": "ai_photo_analysis_api_key",
+   "fieldtype": "Password",
+   "hidden": 1,
+   "label": "Legacy OpenAI API Key"
+  },
+  {
+   "fieldname": "jha_printing_section",
+   "fieldtype": "Section Break",
+   "label": "Automatic JHA Printing"
+  },
+  {
+   "fieldname": "default_jha_print_email",
+   "fieldtype": "Data",
+   "label": "Default JHA Printing Email",
+   "options": "Email",
+   "description": "Signed JHA PDFs are emailed here after the final required sign-on. A Project JHA Printing Email overrides this address. Leave both blank to disable automatic delivery."
+  },
+  {
+   "fieldname": "jha_print_tab",
+   "fieldtype": "Tab Break",
+   "label": "JHA Print"
+  },
+  {
+   "fieldname": "jha_print_branding_section",
+   "fieldtype": "Section Break",
+   "label": "Company Branding",
+   "description": "Branding used on newly generated Digital JHA Workpack prints and PDFs."
+  },
+  {
+   "fieldname": "jha_print_company_name",
+   "fieldtype": "Data",
+   "label": "Company Name",
+   "default": "Mine Site Support"
+  },
+  {
+   "fieldname": "jha_print_header_text",
+   "fieldtype": "Data",
+   "label": "Header Branding Text",
+   "description": "Leave blank to use the company name in uppercase on every page."
+  },
+  {
+   "fieldname": "jha_print_branding_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "jha_print_logo",
+   "fieldtype": "Attach Image",
+   "label": "Company Logo",
+   "description": "Upload a PNG, JPEG, WebP or GIF logo. It replaces the header branding text in the top right corner on every page, with the revision QR below. The image is embedded in PDFs, including private uploads."
+  },
+  {
+   "fieldname": "jha_print_typography_section",
+   "fieldtype": "Section Break",
+   "label": "Font"
+  },
+  {
+   "fieldname": "jha_print_font",
+   "fieldtype": "Select",
+   "label": "JHA Print Font",
+   "default": "Arial",
+   "options": "Arial\nHelvetica\nVerdana\nTahoma\nTrebuchet MS\nGeorgia\nTimes New Roman\nCourier New",
+   "description": "The PDF server must have the selected font installed; otherwise the print uses a standard fallback font."
+  },
+  {
+   "fieldname": "jha_print_colours_section",
+   "fieldtype": "Section Break",
+   "label": "Colours"
+  },
+  {
+   "fieldname": "jha_print_primary_colour",
+   "fieldtype": "Color",
+   "label": "Heading Colour",
+   "default": "#f47a20",
+   "description": "Background of table headings and section bars, and the CCV heading text."
+  },
+  {
+   "fieldname": "jha_print_heading_text_colour",
+   "fieldtype": "Color",
+   "label": "Heading Text Colour",
+   "default": "#ffffff"
+  },
+  {
+   "fieldname": "jha_print_text_colour",
+   "fieldtype": "Color",
+   "label": "Body Text Colour",
+   "default": "#111111"
+  },
+  {
+   "fieldname": "jha_print_border_colour",
+   "fieldtype": "Color",
+   "label": "Table Border Colour",
+   "default": "#222222"
+  },
+  {
+   "fieldname": "jha_print_colours_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "jha_print_critical_risk_colour",
+   "fieldtype": "Color",
+   "label": "Critical Risk Background Colour",
+   "default": "#ffd34d"
+  },
+  {
+   "fieldname": "jha_print_critical_risk_text_colour",
+   "fieldtype": "Color",
+   "label": "Critical Risk Text Colour",
+   "default": "#111111"
+  },
+  {
+   "fieldname": "jha_print_critical_risk_border_colour",
+   "fieldtype": "Color",
+   "label": "Critical Risk Border Colour",
+   "default": "#b88700"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-08-13 12:18:48.900602",
+ "modified": "2026-09-02 19:31:06.424904",
  "modified_by": "Administrator",
  "module": "Verto",
  "name": "Verto Mobile Settings",

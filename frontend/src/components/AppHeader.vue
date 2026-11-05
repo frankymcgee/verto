@@ -3,7 +3,7 @@
   <header
     :class="props.compact
       ? 'app-profile-compact pointer-events-none fixed z-40'
-      : 'app-header-safe z-40 shrink-0 border-b border-outline-gray-1 bg-surface-white/95 backdrop-blur'"
+      : 'app-header-safe relative z-40 shrink-0 border-b border-outline-gray-1 bg-surface-base/95 backdrop-blur'"
   >
     <div
       :class="props.compact
@@ -14,7 +14,7 @@
         v-if="!props.compact"
         class="flex min-w-0 items-center gap-2"
       >
-        <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-gray-2">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-7 bg-surface-gray-2">
           <img
             v-if="resolvedAppIcon"
             :src="resolvedAppIcon"
@@ -25,7 +25,7 @@
 
           <span
             v-else
-            class="text-sm font-semibold text-ink-gray-7"
+            class="text-sm-semibold text-ink-gray-7"
           >
             {{ appInitials }}
           </span>
@@ -36,19 +36,20 @@
             {{ appName }}
           </p>
 
-          <h1 class="truncate text-base font-semibold text-ink-gray-9">
+          <h1 class="truncate text-base-semibold text-ink-gray-9">
             {{ pageTitle }}
           </h1>
         </div>
       </div>
 
-      <div class="relative shrink-0">
+      <Popover v-model:open="menuOpen" align="end" bare @open="initialisePushNotifications(true)">
+<template #trigger>
         <button
           type="button"
-          class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-outline-gray-2 bg-surface-gray-1 text-sm font-semibold text-ink-gray-8 shadow-sm active:scale-95"
+          class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 bg-surface-gray-1 text-sm-semibold text-ink-gray-8 shadow-sm transition-colors active:scale-95"
+          :class="avatarStatusClass"
           aria-label="Open profile menu"
           :aria-expanded="menuOpen"
-          @click="toggleMenu"
         >
           <img
             v-if="resolvedUserImage"
@@ -62,14 +63,16 @@
             {{ userInitials }}
           </span>
         </button>
-
+</template>
         <div
-          v-if="menuOpen"
-          class="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-xl border border-outline-gray-1 bg-surface-white shadow-lg"
+          class="w-72 max-w-[calc(100vw-1rem)] max-h-[80dvh] overflow-y-auto rounded-7 border border-outline-gray-1 bg-surface-base shadow-lg"
         >
           <div class="border-b border-outline-gray-1 px-3 py-2">
             <div class="flex items-center gap-2">
-              <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-gray-2 text-sm font-semibold text-ink-gray-8">
+              <div
+                class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 bg-surface-gray-2 text-sm-semibold text-ink-gray-8 transition-colors"
+                :class="avatarStatusClass"
+              >
                 <img
                   v-if="resolvedUserImage"
                   :src="resolvedUserImage"
@@ -84,7 +87,7 @@
               </div>
 
               <div class="min-w-0">
-                <p class="truncate text-sm font-medium text-ink-gray-9">
+                <p class="truncate text-sm-medium text-ink-gray-9">
                   {{ userFullname }}
                 </p>
 
@@ -99,36 +102,8 @@
           </div>
 
           <div class="border-b border-outline-gray-1 px-3 py-2.5">
-            <button
-              type="button"
-              role="switch"
-              class="flex w-full items-center justify-between gap-3 text-left disabled:cursor-not-allowed disabled:opacity-60"
-              :aria-checked="subscribed"
-              :aria-label="subscribed ? 'Disable notifications' : 'Enable notifications'"
-              :disabled="notificationToggleDisabled"
-              @click="handleNotificationToggle"
-            >
-              <span class="min-w-0">
-                <span class="block text-sm font-medium text-ink-gray-9">
-                  Notifications
-                </span>
-
-                <span class="mt-0.5 block text-xs leading-4 text-ink-gray-5">
-                  {{ notificationStatus }}
-                </span>
-              </span>
-
-              <span
-                class="relative inline-flex h-6 w-10 shrink-0 rounded-full p-0.5 transition-colors"
-                :class="subscribed ? 'bg-blue-600' : 'bg-surface-gray-4'"
-                aria-hidden="true"
-              >
-                <span
-                  class="block h-5 w-5 rounded-full bg-white shadow-sm transition-transform"
-                  :class="subscribed ? 'translate-x-4' : 'translate-x-0'"
-                />
-              </span>
-            </button>
+            <Switch :model-value="subscribed" label="Notifications" :description="notificationStatus"
+              :disabled="notificationToggleDisabled" @update:model-value="handleNotificationToggle" />
 
             <p
               v-if="pushError"
@@ -138,64 +113,119 @@
             </p>
           </div>
 
-          <button
+          <div class="border-b border-outline-gray-1 px-3 py-2.5">
+            <div class="flex items-start justify-between gap-3">
+              <span class="min-w-0">
+                <span class="block text-sm-medium text-ink-gray-9">
+                  Offline data
+                </span>
+
+                <span class="mt-0.5 block text-xs leading-4 text-ink-gray-5">
+                  {{ offlineDataStatus }}
+                </span>
+              </span>
+
+              <Button variant="ghost"
+                type="button"
+                class="shrink-0 rounded-6 bg-surface-gray-2 px-2.5 py-1.5 text-xs-semibold text-ink-gray-8 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="!offlineIsOnline || offlineIsPriming || offlineIsSyncing"
+                @click="handleOfflineRefresh"
+              >
+                {{ offlineIsPriming ? 'Refreshing' : 'Refresh' }}
+              </Button>
+            </div>
+
+            <Button variant="ghost"
+              v-if="offlineSummary.total > 0"
+              type="button"
+              class="mt-2 flex w-full items-center justify-between gap-3 rounded-6 bg-blue-50 px-2.5 py-2 text-left text-xs-semibold text-blue-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="!offlineIsOnline || offlineIsSyncing || offlineIsPriming"
+              @click="syncNow"
+            >
+              <span>
+                {{ offlineIsSyncing ? 'Syncing offline work…' : 'Sync offline work' }}
+              </span>
+
+              <span>
+                {{ offlineSummary.total }}
+              </span>
+            </Button>
+
+            <p
+              v-if="offlineRefreshError"
+              class="mt-2 text-xs leading-4 text-red-600"
+            >
+              {{ offlineRefreshError }}
+            </p>
+          </div>
+
+          <Button variant="ghost"
             type="button"
             class="block w-full px-3 py-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1"
             @click="openAppList"
           >
             Apps
-          </button>
+          </Button>
 
-          <button
+          <Button variant="ghost"
             type="button"
             class="block w-full px-3 py-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1"
             @click="reloadApp"
           >
             Reload app
-          </button>
+          </Button>
 
-          <button
+          <Button variant="ghost"
             type="button"
             class="block w-full px-3 py-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1"
             @click="openProfile"
           >
             My profile
-          </button>
+          </Button>
 
-          <button
+          <Button variant="ghost"
             type="button"
             class="block w-full px-3 py-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1"
             @click="openLearning"
           >
             Learning
-          </button>
+          </Button>
 
-          <button
+          <Button variant="ghost"
+            type="button"
+            class="block w-full px-3 py-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1"
+            @click="openAbout"
+          >
+            About
+          </Button>
+
+          <Button variant="ghost"
             type="button"
             class="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
             @click="logout"
           >
             Log out
-          </button>
+          </Button>
         </div>
-      </div>
+      </Popover>
     </div>
   </header>
 
-  <button
-    v-if="menuOpen"
-    type="button"
-    class="fixed inset-0 z-30 cursor-default bg-transparent"
-    aria-label="Close menu"
-    @click="menuOpen = false"
+
+  <AboutAppToast
+    :open="aboutOpen"
+    @close="aboutOpen = false"
   />
 </template>
 
 <script setup lang="ts">
+import { Popover, Button, Switch } from 'frappe-ui'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import AboutAppToast from './AboutAppToast.vue'
 import { useMobileBoot } from '../lib/mobileBoot'
 import { openAppBrowser } from '../lib/appBrowser'
+import { useOfflineSync } from '../pwa/useOfflineSync'
 import { usePushNotifications } from '../pwa/usePushNotifications'
 
 const props = withDefaults(
@@ -233,7 +263,19 @@ const {
   disablePushNotifications,
 } = usePushNotifications()
 
+const {
+  isOnline: offlineIsOnline,
+  isSyncing: offlineIsSyncing,
+  isPriming: offlineIsPriming,
+  lastOfflineRefreshAt,
+  offlineRefreshError,
+  summary: offlineSummary,
+  primeNow,
+  syncNow,
+} = useOfflineSync()
+
 const menuOpen = ref(false)
+const aboutOpen = ref(false)
 const iconFailed = ref(false)
 const userImageFailed = ref(false)
 
@@ -337,6 +379,78 @@ const notificationStatus = computed(() => {
     : 'Disabled on this device'
 })
 
+const offlineDataStatus = computed(() => {
+  if (!offlineIsOnline.value) {
+    return offlineSummary.value.total > 0
+      ? `${offlineSummary.value.total} item${offlineSummary.value.total === 1 ? '' : 's'} saved offline`
+      : 'Offline mode active'
+  }
+
+  if (offlineIsSyncing.value) {
+    return 'Syncing saved work…'
+  }
+
+  if (offlineIsPriming.value) {
+    return 'Updating forms and shifts…'
+  }
+
+  if (offlineSummary.value.failed > 0) {
+    return `${offlineSummary.value.failed} item${offlineSummary.value.failed === 1 ? '' : 's'} failed to sync`
+  }
+
+  if (offlineSummary.value.total > 0) {
+    return `${offlineSummary.value.total} item${offlineSummary.value.total === 1 ? '' : 's'} waiting to sync`
+  }
+
+  if (!lastOfflineRefreshAt.value) {
+    return 'Not prepared on this device'
+  }
+
+  const date = new Date(lastOfflineRefreshAt.value)
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Ready for offline use'
+  }
+
+  const formatted = new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date)
+
+  return `Updated ${formatted}`
+})
+
+const avatarStatusClass = computed(() => {
+  if (!offlineIsOnline.value) {
+    return 'border-amber-400'
+  }
+
+  if (offlineSummary.value.failed > 0 || offlineRefreshError.value) {
+    return 'border-red-500'
+  }
+
+  if (
+    offlineIsSyncing.value ||
+    offlineIsPriming.value ||
+    offlineSummary.value.total > 0
+  ) {
+    return 'border-blue-500'
+  }
+
+  if (lastOfflineRefreshAt.value) {
+    return 'border-green-500'
+  }
+
+  return 'border-outline-gray-2'
+})
+
+function handleOfflineRefresh() {
+  void primeNow()
+}
+
 watch(
   () => appIconUrl.value,
   () => {
@@ -355,6 +469,7 @@ watch(
   () => route.fullPath,
   () => {
     menuOpen.value = false
+    aboutOpen.value = false
   }
 )
 
@@ -375,13 +490,6 @@ function getInitials(value: string) {
   return `${words[0][0]}${words[1][0]}`.toUpperCase()
 }
 
-function toggleMenu() {
-  menuOpen.value = !menuOpen.value
-
-  if (menuOpen.value) {
-    void initialisePushNotifications(true)
-  }
-}
 
 async function handleNotificationToggle() {
   if (subscribed.value) {
@@ -437,9 +545,23 @@ function openAppList() {
   })
 }
 
-function logout() {
+function openAbout() {
   menuOpen.value = false
-  window.location.href = '/logout'
+  aboutOpen.value = true
+}
+
+async function logout() {
+  menuOpen.value = false
+  // Remove the offline identity immediately, even if IndexedDB is unavailable.
+  try { window.localStorage.removeItem('verto:offline-actor') } catch { /* Browser storage may be disabled. */ }
+  try {
+    const { clearOfflineReadCache } = await import('../pwa/offlineSecurity')
+    await clearOfflineReadCache()
+  } catch {
+    // Logout must remain available when browser storage is disabled.
+  } finally {
+    window.location.href = '/logout'
+  }
 }
 </script>
 

@@ -21,6 +21,15 @@ def get_shift_calendar(start_date=None, end_date=None):
     start_date = getdate(start_date)
     end_date = getdate(end_date)
     user_fullname = get_user_fullname()
+    employees = frappe.get_all(
+        "Employee", filters={"user_id": frappe.session.user, "status": "Active"},
+        fields=["name", "employee_name"], limit_page_length=0,
+    )
+    employee_ids = [row.name for row in employees]
+    user_names = list({user_fullname, frappe.session.user} | {row.employee_name for row in employees if row.employee_name})
+
+    if not employee_ids:
+        return {"user": frappe.session.user, "user_fullname": user_fullname, "shifts": [], "timesheets": []}
 
     shift_fields = [
         "name",
@@ -50,11 +59,12 @@ def get_shift_calendar(start_date=None, end_date=None):
     shifts = frappe.get_all(
         "Shift Assignment",
         filters={
-            "employee_name": user_fullname,
+            "employee": ["in", employee_ids],
+            "docstatus": 1,
             "status": "Active",
             "start_date": ["<=", end_date],
-            "end_date": [">=", start_date],
         },
+        or_filters=[["end_date", ">=", start_date], ["end_date", "is", "not set"]],
         fields=shift_fields,
         limit_page_length=500,
         order_by="start_date asc",
@@ -63,7 +73,7 @@ def get_shift_calendar(start_date=None, end_date=None):
     attendance_rows = frappe.get_all(
         "Attendance",
         filters={
-            "employee_name": user_fullname,
+            "employee": ["in", employee_ids],
             "status": "On Leave",
             "attendance_date": ["between", [start_date, end_date]],
         },
@@ -110,7 +120,8 @@ def get_shift_calendar(start_date=None, end_date=None):
     timesheets = frappe.get_all(
         "Daily Timesheet",
         filters={
-            "current_user": user_fullname,
+            "current_user": ["in", user_names],
+            "docstatus": ["!=", 2],
             "date": ["between", [start_date, end_date]],
         },
         fields=timesheet_fields,

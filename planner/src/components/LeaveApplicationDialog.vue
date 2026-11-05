@@ -1,540 +1,241 @@
 <template>
-  <Teleport to="body">
-    <div
-      v-if="dialogOpen"
-      class="fixed inset-0 z-[9998] bg-black/50"
-      @click.self="closeDialog"
-    />
-
-    <div
-      v-if="dialogOpen"
-      class="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto px-4 py-10"
-      @click.self="closeDialog"
-    >
-      <div
-        class="w-full max-w-5xl overflow-visible rounded-lg bg-white shadow-2xl"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Create Leave Application"
-        @click.stop
-      >
-        <div class="flex items-center justify-between rounded-t-lg border-b border-gray-200 bg-white px-6 py-4">
-          <h2 class="text-xl font-semibold text-gray-900">Create Leave Application</h2>
-          <button
-            type="button"
-            class="rounded-md p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
-            aria-label="Close"
-            @click="closeDialog"
-          >
-            ✕
-          </button>
+  <Dialog :open="dialogOpen" :title="dialogTitle" size="5xl" @update:open="(open) => { if (!open) closeDialog() }">
+    <div class="planner-leave-dialog-body max-h-[calc(100vh-13rem)] overflow-y-auto px-6 py-5">
+      <div v-if="loading" class="py-8 text-center text-sm text-gray-500">Loading Leave Application...</div>
+      <div v-else-if="loadError" class="space-y-3" role="alert">
+        <p class="text-sm text-red-700">{{ loadError }}</p>
+        <Button @click="loadForm">Retry</Button>
+      </div>
+      <div v-else-if="metadata" class="space-y-5">
+        <div v-if="isEditing" class="flex flex-wrap items-center justify-between gap-3 rounded-5 border bg-gray-50 px-4 py-3">
+          <div>
+            <div class="text-sm-semibold">{{ metadata.name }}</div>
+            <div class="text-xs text-gray-600">{{ metadata.status }} · {{ documentState }}</div>
+          </div>
+          <Button variant="subtle" :disabled="busy" @click="loadForm">{{ isDirty ? 'Discard edits and reload' : 'Reload' }}</Button>
         </div>
-
-        <div class="max-h-[calc(100vh-13rem)] overflow-y-auto px-6 py-5">
-          <div v-if="leaveMeta.loading" class="py-8 text-center text-sm text-gray-500">
-            Loading Leave Application fields...
-          </div>
-
-          <div v-else class="space-y-5">
-            <div class="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-              This form is generated from the Leave Application DocType fields on this site.
+        <p v-if="isEditing && metadata.docstatus === 2" class="text-sm text-gray-600">This application is cancelled and cannot be edited.</p>
+        <p v-else-if="isEditing && !metadata.can_write" class="text-sm text-gray-600">You can view this application. Available actions are shown below.</p>
+        <p v-else-if="isEditing && metadata.docstatus === 1" class="text-sm text-gray-600">This application is submitted. Only fields permitted after submission can be edited.</p>
+        <p v-else-if="!isEditing && !canSubmit" class="text-sm text-gray-600">Your request will be saved as Open for approval.</p>
+        <div v-if="writeError" class="rounded-5 border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{{ writeError }}</div>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <template v-for="field in visibleFields" :key="field.key">
+            <div v-if="isSectionField(field)" class="col-span-full mt-2 border-b pb-2 text-sm-semibold text-gray-700">{{ field.label || 'Details' }}</div>
+            <div v-else-if="field.fieldtype !== 'Column Break' && !field.unsupported" :class="isTextareaField(field) ? 'col-span-full' : 'col-span-1'">
+              <label class="mb-1 block text-xs-medium text-gray-600">{{ field.label || field.fieldname }} <span v-if="isRequired(field)" class="text-red-500">*</span></label>
+              <Checkbox v-if="field.fieldtype === 'Check'" v-model="form[field.fieldname]" :aria-label="field.label || field.fieldname" :disabled="fieldDisabled(field)" />
+              <Select v-else-if="field.fieldtype === 'Select'" v-model="form[field.fieldname]" :aria-label="field.label || field.fieldname" :options="selectOptions(field)" :disabled="fieldDisabled(field)" />
+              <Combobox v-else-if="isLinkField(field)" :model-value="form[field.fieldname] || ''" :aria-label="field.label || field.fieldname"
+                :options="linkOptions[field.fieldname] || []" :loading="linkLoading[field.fieldname]" :filterable="false"
+                :disabled="fieldDisabled(field) || !resolveLinkDoctype(field)" :placeholder="`Search ${resolveLinkDoctype(field)}`"
+                @update:model-value="(value) => { form[field.fieldname] = value || '' }"
+                @update:query="(query) => searchLinks(field, query)"
+                @update:open="(open) => { if (open) fetchLinkOptions(field, '') }" />
+              <Textarea v-else-if="isTextareaField(field)" v-model="form[field.fieldname]" :aria-label="field.label || field.fieldname" :rows="field.fieldtype === 'Text Editor' ? 6 : 3" :disabled="fieldDisabled(field)" />
+              <TextInput v-else v-model="form[field.fieldname]" :aria-label="field.label || field.fieldname" :type="inputType(field)" :disabled="fieldDisabled(field)" />
+              <p v-if="field.description" class="mt-1 text-xs text-gray-500">{{ field.description }}</p>
             </div>
-
-            <div
-              v-if="!canSubmit"
-              class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
-            >
-              You can create an Open leave request, but it will not appear as approved leave in the planner until an authorised user submits it.
-            </div>
-
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <template v-for="field in visibleFields" :key="field.key">
-                <div
-                  v-if="isSectionField(field)"
-                  class="col-span-full mt-2 border-b border-gray-200 pb-2 text-sm font-semibold text-gray-700"
-                >
-                  {{ field.label || sectionFallbackLabel(field.fieldtype) }}
-                </div>
-
-                <div
-                  v-else-if="field.fieldtype !== 'Column Break'"
-                  :class="fieldContainerClass(field)"
-                >
-                  <label class="mb-1 block text-xs font-medium text-gray-600">
-                    {{ field.label || field.fieldname }}
-                    <span v-if="field.reqd" class="text-red-500">*</span>
-                  </label>
-
-                  <div
-                    v-if="field.unsupported"
-                    class="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500"
-                  >
-                    {{ field.fieldtype }} fields are managed from the full Leave Application form in Desk.
-                  </div>
-
-                  <label
-                    v-else-if="field.fieldtype === 'Check'"
-                    class="flex min-h-[38px] items-center gap-2 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-700"
-                  >
-                    <input
-                      v-model="form[field.fieldname]"
-                      type="checkbox"
-                      class="h-4 w-4 rounded border-gray-300"
-                    />
-                    <span>{{ field.description || 'Yes' }}</span>
-                  </label>
-
-                  <select
-                    v-else-if="field.fieldtype === 'Select'"
-                    v-model="form[field.fieldname]"
-                    class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-gray-500 focus:outline-none"
-                  >
-                    <option
-                      v-for="option in selectOptions(field)"
-                      :key="option.value"
-                      :value="option.value"
-                    >
-                      {{ option.label }}
-                    </option>
-                  </select>
-
-                  <div v-else-if="isLinkField(field)" class="relative">
-                    <input
-                      :value="linkSearch[field.fieldname] ?? ''"
-                      :placeholder="placeholderText(field)"
-                      autocomplete="off"
-                      class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 pr-9 text-sm text-gray-900 shadow-sm focus:border-gray-500 focus:outline-none"
-                      @focus="openLinkField(field)"
-                      @input="onLinkInputEvent(field, $event)"
-                      @blur="closeLinkFieldSoon(field)"
-                    />
-                    <button
-                      v-if="form[field.fieldname]"
-                      type="button"
-                      class="absolute right-2 top-1/2 -translate-y-1/2 rounded px-1 text-xs text-gray-400 hover:text-gray-700"
-                      title="Clear"
-                      @mousedown.prevent
-                      @click="clearLinkField(field)"
-                    >
-                      ✕
-                    </button>
-
-                    <div
-                      v-if="activeLinkField === field.fieldname"
-                      class="absolute left-0 right-0 top-full z-[10020] mt-1 max-h-56 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 text-sm shadow-xl"
-                      @mousedown.prevent
-                    >
-                      <div v-if="!resolveLinkDoctype(field)" class="px-3 py-2 text-xs text-gray-500">
-                        Select {{ linkTargetFieldLabel(field) }} first.
-                      </div>
-                      <div v-else-if="linkLoading[field.fieldname]" class="px-3 py-2 text-xs text-gray-500">
-                        Searching {{ resolveLinkDoctype(field) }}...
-                      </div>
-                      <div
-                        v-else-if="(linkOptions[field.fieldname] || []).length === 0"
-                        class="px-3 py-2 text-xs text-gray-500"
-                      >
-                        No {{ resolveLinkDoctype(field) }} records found.
-                      </div>
-                      <button
-                        v-for="option in linkOptions[field.fieldname] || []"
-                        :key="option.value"
-                        type="button"
-                        class="block w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
-                        @mousedown.prevent="selectLinkOption(field, option)"
-                      >
-                        <div class="font-medium text-gray-900">
-                          {{ option.label || option.value }}
-                        </div>
-                        <div
-                          v-if="option.description && option.description !== option.label"
-                          class="mt-0.5 truncate text-xs text-gray-500"
-                        >
-                          {{ option.description }}
-                        </div>
-                        <div
-                          v-if="option.label && option.label !== option.value"
-                          class="mt-0.5 truncate text-[11px] text-gray-400"
-                        >
-                          {{ option.value }}
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-
-                  <textarea
-                    v-else-if="isTextareaField(field)"
-                    v-model="form[field.fieldname]"
-                    :rows="field.fieldtype === 'Text Editor' ? 6 : 3"
-                    class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-gray-500 focus:outline-none"
-                  />
-
-                  <input
-                    v-else
-                    v-model="form[field.fieldname]"
-                    :type="inputType(field)"
-                    :placeholder="placeholderText(field)"
-                    class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-gray-500 focus:outline-none"
-                  />
-
-                  <p v-if="field.description && field.fieldtype !== 'Check'" class="mt-1 text-xs text-gray-500">
-                    {{ field.description }}
-                  </p>
-                </div>
-              </template>
-            </div>
-          </div>
-        </div>
-
-        <div class="rounded-b-lg border-t border-gray-200 bg-gray-50 px-6 py-4">
-          <div class="flex items-center justify-end gap-2">
-            <Button variant="subtle" @click="closeDialog">Cancel</Button>
-            <Button
-              variant="solid"
-              :loading="createLeave.loading"
-              @click="submitLeave"
-            >
-              Create Leave Application
-            </Button>
-          </div>
+          </template>
         </div>
       </div>
     </div>
-  </Teleport>
+    <template #actions>
+      <div class="rounded-b-6 border-t bg-gray-50 px-6 py-4">
+        <div v-if="confirmation" class="mb-3 space-y-2" role="alert">
+          <p class="text-sm">{{ confirmation.action === 'cancel' ? 'Cancel this Leave Application?' : `Apply ${confirmation.label} to this Leave Application?` }}</p>
+          <div class="flex justify-end gap-2">
+            <Button :disabled="busy" @click="confirmation = null">Go back</Button>
+            <Button variant="solid" :loading="updateLeave.loading" @click="confirmAction">Confirm {{ confirmation.label }}</Button>
+          </div>
+        </div>
+        <div v-else class="flex flex-wrap items-center justify-end gap-2">
+          <Button variant="subtle" :disabled="saving" @click="closeDialog">Close</Button>
+          <template v-if="metadata && !loading && !loadError">
+            <Button v-if="isEditing && metadata.can_cancel" :disabled="busy" @click="confirmation = { action: 'cancel', label: 'Cancellation' }">Cancel Leave Application</Button>
+            <Button v-for="action in metadata.workflow_actions || []" :key="action" :disabled="busy" @click="confirmation = { action: 'workflow', label: action }">{{ action }}</Button>
+            <Button v-if="isEditing && metadata.can_write" variant="solid" :loading="updateLeave.loading" :disabled="busy || !isDirty" @click="submitLeave('save')">Save Changes</Button>
+            <Button v-if="isEditing && canSubmit && ['Approved', 'Rejected'].includes(form.status)" variant="solid" :disabled="busy" @click="confirmation = { action: 'submit', label: 'Submission' }">Submit</Button>
+            <Button v-if="!isEditing" variant="solid" :loading="createLeave.loading" :disabled="busy" @click="submitLeave('save')">Create Leave Application</Button>
+          </template>
+        </div>
+      </div>
+    </template>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
-import { Button, createResource } from 'frappe-ui'
+import { Button, Checkbox, Combobox, Select, TextInput, Textarea, createResource } from 'frappe-ui'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import Dialog from './PlannerDialog.vue'
 import { dayjs, raiseToast } from '../utils'
 
 type LeaveField = {
-  key: string
-  fieldname: string
-  fieldtype: string
-  label?: string | null
-  options?: string | null
-  reqd?: 0 | 1 | boolean
-  default?: string | number | null
-  depends_on?: string | null
-  description?: string | null
-  permlevel?: number
-  unsupported?: boolean
+  key?: string; fieldname: string; fieldtype: string; label?: string; options?: string;
+  reqd?: number | boolean; default?: string | number | null; depends_on?: string;
+  read_only?: number | boolean; read_only_depends_on?: string; mandatory_depends_on?: string;
+  description?: string; unsupported?: boolean;
 }
-
-type LeaveMetaResponse = {
-  doctype: string
-  title?: string
-  fields: LeaveField[]
-  can_submit?: boolean
+type LeaveDetails = {
+  fields: LeaveField[]; name?: string; modified?: string; docstatus?: number; status?: string;
+  values?: Record<string, any>; can_write?: boolean; can_submit?: boolean; can_cancel?: boolean;
+  workflow_actions?: string[];
 }
-
-type LinkOption = {
-  value: string
-  label?: string
-  description?: string
-}
-
-const props = defineProps<{
-  modelValue?: boolean
-  isDialogOpen: boolean
-  company?: string
-}>()
-
-const emit = defineEmits<{
-  (event: 'update:modelValue', value: boolean): void
-  (event: 'fetchEvents'): void
-}>()
-
+type LinkOption = { value: string; label?: string; description?: string }
+type Action = 'save' | 'submit' | 'cancel' | 'workflow'
+const props = defineProps<{ modelValue?: boolean; isDialogOpen: boolean; company?: string; leaveApplicationName?: string }>()
+const emit = defineEmits<{ (event: 'update:modelValue', value: boolean): void; (event: 'fetchEvents'): void }>()
+const dialogOpen = computed(() => props.modelValue ?? props.isDialogOpen)
+const isEditing = computed(() => Boolean(props.leaveApplicationName))
+const dialogTitle = computed(() => isEditing.value ? 'Leave Application' : 'Create Leave Application')
+const metadata = ref<LeaveDetails | null>(null)
 const form = reactive<Record<string, any>>({})
-const linkSearch = reactive<Record<string, string>>({})
+const original = ref<Record<string, any>>({})
+const loading = ref(false)
+const loadError = ref('')
+const writeError = ref('')
+const confirmation = ref<{ action: Action; label: string } | null>(null)
 const linkOptions = reactive<Record<string, LinkOption[]>>({})
 const linkLoading = reactive<Record<string, boolean>>({})
-const activeLinkField = ref<string | null>(null)
-const linkSearchTimers: Record<string, ReturnType<typeof window.setTimeout>> = {}
+const linkTimers: Record<string, ReturnType<typeof setTimeout>> = {}
+const linkVersions: Record<string, number> = {}
+let loadVersion = 0
+const canSubmit = computed(() => Boolean(metadata.value?.can_submit))
+const documentState = computed(() => ['Draft', 'Submitted', 'Cancelled'][metadata.value?.docstatus || 0])
+const fields = computed(() => (metadata.value?.fields || []).map((field, index) => ({ ...field, key: field.fieldname || `${field.fieldtype}-${index}` })))
+const visibleFields = computed(() => fields.value.filter(field => condition(field.depends_on, true)))
+const leaveMeta = createResource({ url: 'verto.api.planner.get_leave_application_create_meta', auto: false })
+const leaveDetails = createResource({ url: 'verto.api.planner_leave.get_details', auto: false })
+const linkSearch = createResource({ url: 'verto.api.planner.search_leave_application_link_options', auto: false })
+const saving = computed(() => createLeave.loading || updateLeave.loading)
+const busy = computed(() => loading.value || saving.value)
+const isDirty = computed(() => Object.keys(buildSubmitValues()).length > 0)
 
-const dialogOpen = computed({
-  get: () => props.modelValue ?? props.isDialogOpen,
-  set: (value: boolean) => emit('update:modelValue', value),
-})
-
-const canSubmit = computed(() => Boolean((leaveMeta.data as LeaveMetaResponse | undefined)?.can_submit))
-
-const leaveMeta = createResource({
-  url: 'verto.api.planner.get_leave_application_create_meta',
-  auto: false,
-  onSuccess(data: LeaveMetaResponse) {
-    initialiseForm(data?.fields || [])
-  },
-  onError(error: { messages?: string[]; message?: string }) {
-    raiseToast('error', error?.messages?.[0] || error?.message || 'Failed to load Leave Application fields')
-  },
-})
-
-const createLeave = createResource({
-  url: 'verto.api.planner.create_planner_leave_application',
-  makeParams() {
-    return { values: buildSubmitValues() }
-  },
-  onSuccess(data: {
-    name?: string
-    employee_name?: string
-    status?: string
-    docstatus?: number
-  }) {
-    const detail = data?.employee_name ? ` for ${data.employee_name}` : ''
-    const state = data?.docstatus === 1 ? 'approved and submitted' : `${data?.status || 'Open'} draft`
-    raiseToast('success', `Leave Application created${detail} as ${state}.`)
-    emit('fetchEvents')
-    closeDialog()
-  },
-  onError(error: { messages?: string[]; message?: string }) {
-    raiseToast('error', error?.messages?.[0] || error?.message || 'Failed to create Leave Application')
-  },
-})
-
-const fields = computed<LeaveField[]>(() => {
-  const rawFields = (leaveMeta.data as LeaveMetaResponse | undefined)?.fields || []
-  return rawFields.map((field, index) => ({
-    ...field,
-    key: field.fieldname || `${field.fieldtype}-${index}`,
-  }))
-})
-
-const visibleFields = computed(() => fields.value.filter((field) => isFieldVisible(field)))
-
-watch(
-  () => props.isDialogOpen,
-  (open) => {
-    if (open) {
-      if (leaveMeta.data) initialiseForm(fields.value)
-      leaveMeta.fetch()
-    }
-  },
-  { immediate: true },
-)
-
-function initialiseForm(inputFields: LeaveField[]) {
-  Object.keys(form).forEach((key) => delete form[key])
-  Object.keys(linkSearch).forEach((key) => delete linkSearch[key])
-  Object.keys(linkOptions).forEach((key) => delete linkOptions[key])
-  Object.keys(linkLoading).forEach((key) => delete linkLoading[key])
-  activeLinkField.value = null
-
-  for (const field of inputFields) {
-    if (!field.fieldname || isSectionField(field) || field.fieldtype === 'Column Break' || field.unsupported) continue
-    const value = defaultValue(field)
-    form[field.fieldname] = value
-    if (isLinkField(field)) linkSearch[field.fieldname] = value ? String(value) : ''
-  }
-
-  const today = dayjs().format('YYYY-MM-DD')
-  if ('from_date' in form && !form.from_date) form.from_date = today
-  if ('to_date' in form && !form.to_date) form.to_date = today
-  if ('posting_date' in form && (!form.posting_date || form.posting_date === 'Today')) form.posting_date = today
-  if ('status' in form) form.status = canSubmit.value ? 'Approved' : 'Open'
-  if ('half_day' in form && form.half_day === undefined) form.half_day = false
-  if ('follow_via_email' in form && form.follow_via_email === undefined) form.follow_via_email = true
+function errorMessage(error: any) {
+  return error?.messages?.[0] || error?.message || 'Unable to save the Leave Application.'
 }
-
-function defaultValue(field: LeaveField) {
-  if (field.fieldtype === 'Check') return ['1', 1, true, 'true', 'Yes'].includes(field.default as any)
-  if (field.fieldtype === 'Date' && String(field.default || '').toLowerCase() === 'today') {
-    return dayjs().format('YYYY-MM-DD')
-  }
-  if (field.fieldtype === 'Datetime' && String(field.default || '').toLowerCase() === 'now') {
-    return dayjs().format('YYYY-MM-DDTHH:mm')
-  }
-  if (field.default !== undefined && field.default !== null && field.default !== '') return field.default
-  if (field.fieldtype === 'Select' && field.reqd) {
-    return selectOptions(field).find((option) => option.value)?.value || ''
-  }
-  if (['Int', 'Float', 'Currency', 'Percent', 'Rating'].includes(field.fieldtype)) return ''
-  return ''
-}
-
-function buildSubmitValues() {
-  const output: Record<string, any> = {}
-  for (const field of fields.value) {
-    if (!field.fieldname || isSectionField(field) || field.fieldtype === 'Column Break' || field.unsupported) continue
-    if (!isFieldVisible(field)) continue
-
-    const value = form[field.fieldname]
-    if (value === '' || value === undefined || value === null) {
-      if (field.fieldtype === 'Check') output[field.fieldname] = false
-      continue
-    }
-    output[field.fieldname] = value
-  }
-  return output
-}
-
-function submitLeave() {
-  const missing = fields.value.find((field) => {
-    if (!field.reqd || !isFieldVisible(field) || field.unsupported) return false
-    const value = form[field.fieldname]
-    return value === '' || value === undefined || value === null
-  })
-
-  if (missing) {
-    raiseToast('error', `${missing.label || missing.fieldname} is required.`)
-    return
-  }
-
-  if (form.from_date && form.to_date && dayjs(form.to_date).isBefore(dayjs(form.from_date), 'day')) {
-    raiseToast('error', 'To Date cannot be before From Date.')
-    return
-  }
-
-  if (form.half_day && form.half_day_date) {
-    const halfDay = dayjs(form.half_day_date)
-    if (halfDay.isBefore(dayjs(form.from_date), 'day') || halfDay.isAfter(dayjs(form.to_date), 'day')) {
-      raiseToast('error', 'Half Day Date must be between From Date and To Date.')
-      return
-    }
-  }
-
-  createLeave.submit()
-}
-
-function closeDialog() {
+function saved(message: string) {
+  raiseToast('success', message)
+  emit('fetchEvents')
   emit('update:modelValue', false)
 }
+const createLeave = createResource({
+  url: 'verto.api.planner.create_planner_leave_application', auto: false,
+  onSuccess() { saved('Leave Application created.') },
+  onError(error: any) { writeError.value = errorMessage(error) },
+})
+const updateLeave = createResource({
+  url: 'verto.api.planner_leave.update', auto: false,
+  onSuccess() { saved('Leave Application updated.') },
+  onError(error: any) { writeError.value = errorMessage(error); confirmation.value = null },
+})
 
-function isLinkField(field: LeaveField) {
-  return field.fieldtype === 'Link' || field.fieldtype === 'Dynamic Link'
+function clearSearchTimers() {
+  Object.values(linkTimers).forEach(clearTimeout)
+  Object.keys(linkTimers).forEach(key => delete linkTimers[key])
 }
+async function loadForm() {
+  const version = ++loadVersion
+  clearSearchTimers()
+  loading.value = true
+  loadError.value = ''
+  writeError.value = ''
+  confirmation.value = null
+  metadata.value = null
+  Object.keys(form).forEach(key => delete form[key])
+  Object.keys(linkOptions).forEach(key => delete linkOptions[key])
+  Object.keys(linkLoading).forEach(key => delete linkLoading[key])
+  try {
+    const data: LeaveDetails = isEditing.value
+      ? await leaveDetails.fetch({ name: props.leaveApplicationName }) : await leaveMeta.fetch()
+    if (version !== loadVersion || !dialogOpen.value) return
+    metadata.value = data
+    for (const field of data.fields || []) {
+      if (!field.fieldname || isLayout(field) || field.unsupported) continue
+      let value = isEditing.value ? data.values?.[field.fieldname] : defaultValue(field)
+      if (field.fieldtype === 'Check') value = ['1', 1, true, 'true', 'Yes'].includes(value)
+      if (field.fieldtype === 'Datetime' && value) value = String(value).replace(' ', 'T').slice(0, 16)
+      form[field.fieldname] = value ?? ''
+      if (isLinkField(field) && value) linkOptions[field.fieldname] = [{ value: String(value), label: String(value) }]
+    }
+    form.name = data.name || ''
+    form.docstatus = data.docstatus || 0
+    form.__islocal = !isEditing.value
+    if (!isEditing.value) {
+      for (const key of ['from_date', 'to_date', 'posting_date']) {
+        if (key in form && !form[key]) form[key] = dayjs().format('YYYY-MM-DD')
+      }
+      if ('status' in form) form.status = canSubmit.value ? 'Approved' : 'Open'
+    }
+    original.value = { ...form }
+  } catch (error: any) {
+    if (version === loadVersion) loadError.value = errorMessage(error)
+  } finally {
+    if (version === loadVersion) loading.value = false
+  }
+}
+watch(() => [dialogOpen.value, props.leaveApplicationName], ([open]) => {
+  if (open) void loadForm()
+  else { ++loadVersion; clearSearchTimers(); confirmation.value = null }
+}, { immediate: true })
+onBeforeUnmount(() => { ++loadVersion; clearSearchTimers() })
 
-function resolveLinkDoctype(field: LeaveField) {
-  if (field.fieldtype === 'Link') return field.options || ''
-  if (field.fieldtype === 'Dynamic Link' && field.options) return form[field.options] || ''
+function defaultValue(field: LeaveField) {
+  const value = field.default
+  if (field.fieldtype === 'Date' && String(value).toLowerCase() === 'today') return dayjs().format('YYYY-MM-DD')
+  if (field.fieldtype === 'Datetime' && String(value).toLowerCase() === 'now') return dayjs().format('YYYY-MM-DDTHH:mm')
+  if (value !== undefined && value !== null && value !== '') return value
+  if (field.fieldtype === 'Select' && field.reqd) return selectOptions(field).find(option => option.value)?.value || ''
   return ''
 }
-
-function linkTargetFieldLabel(field: LeaveField) {
-  if (field.fieldtype !== 'Dynamic Link' || !field.options) return 'document type'
-  const targetField = fields.value.find((item) => item.fieldname === field.options)
-  return targetField?.label || field.options
+function fieldReadOnly(field: LeaveField) {
+  return Boolean(field.read_only || condition(field.read_only_depends_on, false))
 }
-
-function openLinkField(field: LeaveField) {
-  activeLinkField.value = field.fieldname
-  if (!(field.fieldname in linkSearch)) {
-    linkSearch[field.fieldname] = form[field.fieldname] ? String(form[field.fieldname]) : ''
+function fieldDisabled(field: LeaveField) { return busy.value || fieldReadOnly(field) }
+function isRequired(field: LeaveField) { return Boolean(field.reqd || condition(field.mandatory_depends_on, false)) }
+function buildSubmitValues() {
+  const values: Record<string, any> = {}
+  for (const field of fields.value) {
+    if (!field.fieldname || isLayout(field) || field.unsupported || fieldReadOnly(field) || !condition(field.depends_on, true)) continue
+    const value = form[field.fieldname]
+    if (isEditing.value) {
+      if (String(value ?? '') !== String(original.value[field.fieldname] ?? '')) values[field.fieldname] = value ?? ''
+    } else if (value !== undefined && value !== null && value !== '') values[field.fieldname] = value
   }
-  fetchLinkOptions(field)
+  return values
 }
-
-function closeLinkFieldSoon(field: LeaveField) {
-  window.setTimeout(() => {
-    if (activeLinkField.value === field.fieldname) activeLinkField.value = null
-  }, 160)
-}
-
-function onLinkInputEvent(field: LeaveField, event: Event) {
-  onLinkInput(field, (event.target as HTMLInputElement).value)
-}
-
-function onLinkInput(field: LeaveField, value: string) {
-  linkSearch[field.fieldname] = value
-  form[field.fieldname] = value
-
-  if (linkSearchTimers[field.fieldname]) window.clearTimeout(linkSearchTimers[field.fieldname])
-  linkSearchTimers[field.fieldname] = window.setTimeout(() => fetchLinkOptions(field), 220)
-}
-
-function clearLinkField(field: LeaveField) {
-  form[field.fieldname] = ''
-  linkSearch[field.fieldname] = ''
-  linkOptions[field.fieldname] = []
-  activeLinkField.value = null
-}
-
-function selectLinkOption(field: LeaveField, option: LinkOption) {
-  form[field.fieldname] = option.value
-  linkSearch[field.fieldname] = option.label || option.value
-  activeLinkField.value = null
-}
-
-async function fetchLinkOptions(field: LeaveField) {
-  const linkDoctype = resolveLinkDoctype(field)
-  if (!linkDoctype) {
-    linkOptions[field.fieldname] = []
-    return
+function validForm() {
+  const missing = visibleFields.value.find(field => !isLayout(field) && !field.unsupported && !fieldReadOnly(field)
+    && isRequired(field) && (form[field.fieldname] === '' || form[field.fieldname] == null))
+  if (missing) { writeError.value = `${missing.label || missing.fieldname} is required.`; return false }
+  if (form.from_date && form.to_date && dayjs(form.to_date).isBefore(dayjs(form.from_date), 'day')) {
+    writeError.value = 'To Date cannot be before From Date.'; return false
   }
-
-  linkLoading[field.fieldname] = true
+  if (form.half_day && form.half_day_date && (dayjs(form.half_day_date).isBefore(dayjs(form.from_date), 'day') || dayjs(form.half_day_date).isAfter(dayjs(form.to_date), 'day'))) {
+    writeError.value = 'Half Day Date must be between From Date and To Date.'; return false
+  }
+  return true
+}
+async function submitLeave(action: Action, workflowAction?: string) {
+  if (busy.value || !metadata.value || loadError.value) return
+  writeError.value = ''
+  if (action !== 'cancel' && !validForm()) { confirmation.value = null; return }
   try {
-    const data = await callPlannerMethod<LinkOption[]>('verto.api.planner.search_leave_application_link_options', {
-      link_doctype: linkDoctype,
-      txt: linkSearch[field.fieldname] || '',
-      fieldname: field.fieldname,
-      company: props.company || '',
-    })
-    linkOptions[field.fieldname] = data || []
-  } catch (error: any) {
-    linkOptions[field.fieldname] = []
-    raiseToast('error', error?.message || `Failed to search ${linkDoctype}`)
-  } finally {
-    linkLoading[field.fieldname] = false
-  }
+    if (isEditing.value) {
+      await updateLeave.submit({ name: metadata.value.name, expected_modified: metadata.value.modified,
+        values: action === 'cancel' ? {} : buildSubmitValues(), action, workflow_action: workflowAction })
+    } else await createLeave.submit({ values: buildSubmitValues() })
+  } catch { /* Resource error handler keeps the form and the user's edits visible. */ }
 }
-
-async function callPlannerMethod<T>(method: string, params: Record<string, any>): Promise<T> {
-  const response = await fetch(`/api/method/${method}`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Frappe-CSRF-Token': getCsrfToken(),
-    },
-    body: JSON.stringify(params),
-  })
-
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok || payload.exc || payload.exception) {
-    const messages = parseServerMessages(payload)
-    throw new Error(messages[0] || payload._error_message || payload.message || 'Request failed')
-  }
-  return payload.message as T
+function confirmAction() {
+  if (confirmation.value) void submitLeave(confirmation.value.action, confirmation.value.action === 'workflow' ? confirmation.value.label : undefined)
 }
-
-function getCsrfToken() {
-  const win = window as any
-  return win.csrf_token || win.frappe?.csrf_token || ''
-}
-
-function parseServerMessages(payload: any) {
-  try {
-    if (!payload?._server_messages) return []
-    return JSON.parse(payload._server_messages)
-      .map((message: string) => JSON.parse(message)?.message)
-      .filter(Boolean)
-  } catch {
-    return []
-  }
-}
-
-function isSectionField(field: LeaveField) {
-  return field.fieldtype === 'Section Break' || field.fieldtype === 'Tab Break'
-}
-
-function sectionFallbackLabel(fieldtype: string) {
-  return fieldtype === 'Tab Break' ? 'Section' : 'Details'
-}
-
-function fieldContainerClass(field: LeaveField) {
-  return isWideField(field) ? 'col-span-full' : 'col-span-1'
-}
-
-function isWideField(field: LeaveField) {
-  return ['Small Text', 'Long Text', 'Text', 'Text Editor', 'Code'].includes(field.fieldtype)
-}
-
-function isTextareaField(field: LeaveField) {
-  return ['Small Text', 'Long Text', 'Text', 'Text Editor', 'Code'].includes(field.fieldtype)
-}
-
+function closeDialog() { if (!saving.value) emit('update:modelValue', false) }
+function isSectionField(field: LeaveField) { return ['Section Break', 'Tab Break'].includes(field.fieldtype) }
+function isLayout(field: LeaveField) { return isSectionField(field) || field.fieldtype === 'Column Break' }
+function isLinkField(field: LeaveField) { return ['Link', 'Dynamic Link'].includes(field.fieldtype) }
+function isTextareaField(field: LeaveField) { return ['Small Text', 'Long Text', 'Text', 'Text Editor', 'Code'].includes(field.fieldtype) }
+function resolveLinkDoctype(field: LeaveField) { return field.fieldtype === 'Dynamic Link' ? form[field.options || ''] || '' : field.options || '' }
 function inputType(field: LeaveField) {
   if (field.fieldtype === 'Date') return 'date'
   if (field.fieldtype === 'Datetime') return 'datetime-local'
@@ -546,38 +247,37 @@ function inputType(field: LeaveField) {
   if (field.fieldtype === 'Phone') return 'tel'
   return 'text'
 }
-
-function placeholderText(field: LeaveField) {
-  if (field.fieldtype === 'Link') return field.options ? `Search ${field.options}` : ''
-  if (field.fieldtype === 'Dynamic Link') return field.options ? `Uses ${field.options}` : ''
-  return ''
-}
-
 function selectOptions(field: LeaveField) {
   let options = String(field.options || '').split('\n')
-  if (field.fieldname === 'status') {
-    options = canSubmit.value
-      ? options.filter((option) => option !== 'Cancelled')
-      : options.filter((option) => option === '' || option === 'Open')
-  }
-  return options.map((option) => ({ value: option, label: option || '' }))
+  if (field.fieldname === 'status' && !fieldReadOnly(field)) options = canSubmit.value
+    ? options.filter(option => option !== 'Cancelled') : options.filter(option => !option || option === 'Open')
+  return options.map(value => ({ value, label: value }))
 }
-
-function isFieldVisible(field: LeaveField) {
-  if (!field.depends_on) return true
-
-  const dependsOn = String(field.depends_on).trim()
-  if (!dependsOn) return true
-
-  if (dependsOn.startsWith('eval:')) {
-    const expression = dependsOn.slice(5)
-    try {
-      return Boolean(Function('doc', `return Boolean(${expression})`)(form))
-    } catch {
-      return false
-    }
-  }
-
-  return Boolean(form[dependsOn])
+function condition(expression?: string, fallback = true): boolean {
+  if (!expression?.trim()) return fallback
+  if (!expression.startsWith('eval:')) return Boolean(form[expression])
+  try { return Boolean(Function('doc', `return Boolean(${expression.slice(5)})`)(form)) }
+  catch { return false }
 }
+function searchLinks(field: LeaveField, query: string) {
+  clearTimeout(linkTimers[field.fieldname])
+  linkTimers[field.fieldname] = setTimeout(() => void fetchLinkOptions(field, query), 220)
+}
+async function fetchLinkOptions(field: LeaveField, query: string) {
+  if (fieldDisabled(field) || !resolveLinkDoctype(field)) return
+  const generation = loadVersion
+  const version = (linkVersions[field.fieldname] || 0) + 1
+  linkVersions[field.fieldname] = version
+  linkLoading[field.fieldname] = true
+  try {
+    const options = await linkSearch.fetch({ link_doctype: resolveLinkDoctype(field), txt: query, fieldname: field.fieldname,
+      company: form.company || props.company || '', name: props.leaveApplicationName || undefined })
+    if (generation === loadVersion && version === linkVersions[field.fieldname]) linkOptions[field.fieldname] = options || []
+  } catch (error: any) {
+    if (generation === loadVersion) raiseToast('error', errorMessage(error))
+  } finally {
+    if (generation === loadVersion && version === linkVersions[field.fieldname]) linkLoading[field.fieldname] = false
+  }
+}
+defineExpose({ busy })
 </script>

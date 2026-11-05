@@ -1,0 +1,142 @@
+{
+ "doctype": "DocType",
+ "name": "JHA Job Template",
+ "module": "Safety",
+ "autoname": "hash",
+ "engine": "InnoDB",
+ "field_order": [
+  "jha",
+  "revision",
+  "work_summary",
+  "project",
+  "title",
+  "status",
+  "content",
+  "proposed_by",
+  "proposed_at",
+  "reviewed_by",
+  "reviewed_at",
+  "review_notes",
+  "request_key",
+  "request_fingerprint"
+ ],
+ "fields": [
+  {
+   "fieldname": "jha",
+   "label": "Jha",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "in_list_view": 1,
+   "options": "Digital Job Hazard Analysis",
+   "reqd": 1
+  },
+  {
+   "fieldname": "revision",
+   "label": "Revision",
+   "fieldtype": "Int",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "work_summary",
+   "label": "Work Summary",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "Task",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project",
+   "label": "Project",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "Project"
+  },
+  {
+   "fieldname": "title",
+   "label": "Title",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "in_list_view": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "status",
+   "label": "Status",
+   "fieldtype": "Select",
+   "read_only": 1,
+   "in_list_view": 1,
+   "options": "Pending Review\nApproved\nRejected\nRetired",
+   "reqd": 1
+  },
+  {
+   "fieldname": "content",
+   "label": "Content",
+   "fieldtype": "Long Text",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "proposed_by",
+   "label": "Proposed By",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "proposed_at",
+   "label": "Proposed At",
+   "fieldtype": "Datetime",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "reviewed_by",
+   "label": "Reviewed By",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "reviewed_at",
+   "label": "Reviewed At",
+   "fieldtype": "Datetime",
+   "read_only": 1
+  },
+  {
+   "fieldname": "review_notes",
+   "label": "Review Notes",
+   "fieldtype": "Small Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_key",
+   "label": "Request Key",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "unique": 1,
+   "hidden": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "request_fingerprint",
+   "label": "Request Fingerprint",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "hidden": 1,
+   "reqd": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "All",
+   "read": 1,
+   "print": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

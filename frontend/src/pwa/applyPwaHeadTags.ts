@@ -1,6 +1,7 @@
 // VERTO_PWA_SETTINGS_METADATA_HEAD_TAGS_2026_06_11
 
 import type { Router } from 'vue-router'
+import { useMobileBoot } from '../lib/mobileBoot'
 
 type FrappeResponse<T> = {
   message: T
@@ -17,9 +18,9 @@ type PwaMetadata = {
   background_color?: string
 }
 
-const FALLBACK_TITLE = 'MSS'
-const FALLBACK_DESCRIPTION = 'PWA Companion app for Mine Site Support'
-const FALLBACK_MANIFEST_HREF = '/files/verto-mobile-manifest.webmanifest'
+const FALLBACK_TITLE = 'Verto'
+const FALLBACK_DESCRIPTION = 'Mobile companion app for Verto'
+const FALLBACK_MANIFEST_HREF = '/verto-mobile.webmanifest'
 const FALLBACK_APPLE_TOUCH_ICON = '/assets/verto/manifest/apple-touch-icon.png'
 const FALLBACK_ICON = '/assets/verto/manifest/mss-pwa-192.png'
 const FALLBACK_MASK_ICON = '/assets/verto/manifest/mss-pwa-maskable-512.png'
@@ -27,13 +28,13 @@ const FALLBACK_MASK_ICON = '/assets/verto/manifest/mss-pwa-maskable-512.png'
 let titleObserver: MutationObserver | null = null
 let routerHookInstalled = false
 let currentMetadata: Required<PwaMetadata> = {
-  app_name: FALLBACK_TITLE,
-  short_name: FALLBACK_TITLE,
-  description: FALLBACK_DESCRIPTION,
+  app_name: document.querySelector<HTMLMetaElement>('meta[name="application-name"]')?.content || FALLBACK_TITLE,
+  short_name: document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-title"]')?.content || FALLBACK_TITLE,
+  description: document.querySelector<HTMLMetaElement>('meta[name="description"]')?.content || FALLBACK_DESCRIPTION,
   manifest_url: FALLBACK_MANIFEST_HREF,
-  apple_touch_icon: FALLBACK_APPLE_TOUCH_ICON,
-  icon: FALLBACK_ICON,
-  theme_color: '#171717',
+  apple_touch_icon: document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]')?.getAttribute('href') || FALLBACK_APPLE_TOUCH_ICON,
+  icon: document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.getAttribute('href') || FALLBACK_ICON,
+  theme_color: document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content || '#171717',
   background_color: '#171717',
 }
 
@@ -95,14 +96,27 @@ function replacePwaLinks() {
   const appleIcon = normalisePathOrUrl(currentMetadata.apple_touch_icon, FALLBACK_APPLE_TOUCH_ICON)
   const icon = normalisePathOrUrl(currentMetadata.icon, FALLBACK_ICON)
 
-  removeLinks('link[rel="manifest"]')
+  // Keep the same manifest element across navigation and metadata refreshes.
+  // Removing it repeatedly can restart Chrome's installation checks.
+  const manifests = Array.from(document.head.querySelectorAll<HTMLLinkElement>('link[rel="manifest"]'))
+  const manifest = manifests.shift() || addLink('manifest', manifestUrl)
+  manifests.forEach((element) => element.remove())
+  if (manifest.getAttribute('href') !== manifestUrl) {
+    manifest.setAttribute('href', manifestUrl)
+  }
+  manifest.setAttribute('type', 'application/manifest+json')
+  // Reapplying titles on navigation must not remove/reinsert unchanged icons.
+  const existingApple = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"][sizes="180x180"]')
+  const existingIcon = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+  const existingMask = document.querySelector<HTMLLinkElement>('link[rel="mask-icon"]')
+  if (existingApple?.getAttribute('href') === appleIcon && existingIcon?.getAttribute('href') === icon
+    && existingMask?.getAttribute('color') === (currentMetadata.theme_color || '#171717')) return
   removeLinks('link[rel="apple-touch-icon"]')
   removeLinks('link[rel="apple-touch-icon-precomposed"]')
   removeLinks('link[rel="icon"]')
   removeLinks('link[rel="shortcut icon"]')
   removeLinks('link[rel="mask-icon"]')
 
-  addLink('manifest', manifestUrl)
   addLink('apple-touch-icon', appleIcon, {
     sizes: '180x180',
     type: 'image/png',
@@ -124,6 +138,7 @@ function applyStaticPwaTags() {
   const title = getPwaTitle()
 
   upsertMeta('description', currentMetadata.description || FALLBACK_DESCRIPTION)
+  upsertMeta('application-name', currentMetadata.app_name || FALLBACK_TITLE)
   upsertMeta('theme-color', currentMetadata.theme_color || '#171717')
   upsertMeta('background-color', currentMetadata.background_color || '#171717')
   upsertMeta('apple-mobile-web-app-capable', 'yes')
@@ -189,19 +204,16 @@ function installRouterTitleEnforcer(router?: Router) {
 
 async function loadPwaMetadataFromSettings() {
   try {
-    const response = await fetch('/api/method/verto.api.mobile.pwa_manifest.get_pwa_metadata', {
-      credentials: 'include',
-      headers: {
-        Accept: 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
+    const boot = await useMobileBoot().loadMobileBoot()
+    let message = boot.pwa_metadata
+    if (!message) {
+      // Support a cached/older boot response during a rolling PWA update.
+      const response = await fetch('/api/method/verto.api.mobile.pwa_manifest.get_pwa_metadata', {
+        credentials: 'include', headers: { Accept: 'application/json' },
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      message = ((await response.json()) as FrappeResponse<PwaMetadata>).message || {}
     }
-
-    const data = await response.json() as FrappeResponse<PwaMetadata>
-    const message = data.message || {}
 
     currentMetadata = {
       app_name: String(message.app_name || FALLBACK_TITLE),
@@ -241,7 +253,6 @@ export function applyVertoPwaHeadTags(router?: Router) {
   window.setTimeout(() => {
     applyStaticPwaTags()
     forcePwaTitle()
-    loadPwaMetadataFromSettings()
   }, 1000)
 
   window.setTimeout(() => {

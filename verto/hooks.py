@@ -1,59 +1,63 @@
 app_name = "verto"
 app_title = "Verto"
 app_publisher = "Webwire"
-app_description = "Fully customised instance for ERPNext Version-15"
+app_description = "Fully customised Verto application for ERPNext Version-16"
 app_email = "support@webwire.com.au"
 app_license = "apache-2.0"
-# Apps
-# ------------------
+app_logo = "/assets/verto/images/marketplace-logo.png"
+app_logo_url = "/assets/verto/images/marketplace-logo.png"
 
-# required_apps = []
+required_apps = ["erpnext", "hrms", "raven", "gameplan"]
 
-# Each item in the list will be shown as an app in the apps page
 add_to_apps_screen = [
-	{
-		"name": "Planner",
- 		"logo": "/assets/verto/images/verto.png",
- 		"title": "Planner",
- 		"route": "/planner",
- 		"has_permission": "verto.api.planner.check_app_permission"
- 	}
- ]
+    {
+        "name": "verto",
+        "logo": "/assets/verto/images/marketplace-logo.png",
+        "title": "Verto Planner",
+        "route": "/planner",
+        "has_permission": "verto.access.can_view_planner_app",
+    },
+    {
+        "name": "verto_mobile",
+        "logo": "/assets/verto/images/marketplace-logo.png",
+        "title": "Verto Mobile",
+        "route": "/verto-mobile",
+        "has_permission": "verto.access.can_view_mobile_app",
+    },
+    {
+        "name": "verto_investigations",
+        "logo": "/assets/verto/images/investigations.svg",
+        "title": "Verto Investigations",
+        "route": "/investigations",
+        "has_permission": "verto.access.can_view_investigations_app",
+    },
+]
 
-# Includes in <head>
-# ------------------
-
-# include js, css files in header of desk.html
 app_include_css = [
-	"/assets/verto/css/verto.css",
+    "/assets/verto/css/verto.css",
     "/assets/verto/css/leaflet.css",
     "/assets/verto/css/leaflet.draw.css",
     "/assets/verto/css/easy-button.css",
-    "/assets/verto/css/L.Control.Locate.css"
+    "/assets/verto/css/L.Control.Locate.css",
+    "/assets/verto/css/whiteboard.css",
+    "/assets/verto/css/excalidraw.css",
 ]
+
 app_include_js = [
-	"/assets/verto/js/gantt_view.js",
+    "/assets/verto/js/gantt_view.js",
     "/assets/verto/js/task_gantt_map.js",
-	#"/assets/verto/js/geolocation.js",
-	"/assets/verto/js/map_defaults.js",
-	"/assets/verto/js/project_calendar.js",
-	"/assets/verto/js/map_view.js",
-    #"/assets/verto/js/leaflet.js",
-    #"/assets/verto/js/leaflet.draw.js",
-    #"/assets/verto/js/easy-button.js",
-    #"/assets/verto/js/L.Control.Locate.js"
+    "/assets/verto/js/map_defaults.js",
+    "/assets/verto/js/geolocation.js",
+    "/assets/verto/js/project_calendar.js",
+    "/assets/verto/js/map_view.js",
     "/assets/verto/js/raven_peri_auto_command.js",
-]	
+    "/assets/verto/js/whiteboard_custom.js",
+]
 
-# include js, css files in header of web template
 web_include_js = [
-    #"/assets/verto/js/mobile_install_prompt.js",
     "/assets/verto/js/raven_peri_auto_command.js",
 ]
-
-web_include_css = [
-    #"/assets/verto/css/mobile_install_prompt.css"
-]
+web_include_css = []
 
 website_context = {
     "include_js": [
@@ -61,118 +65,115 @@ website_context = {
     ]
 }
 
-# include custom scss in every website theme (without file extension ".scss")
-# website_theme_scss = "verto/public/scss/website"
+doctype_js = {
+    "Employee": "public/js/employee.js",
+}
 
-# include js, css files in header of web form
-# webform_include_js = {"doctype": "public/js/doctype.js"}
-# webform_include_css = {"doctype": "public/css/doctype.css"}
+doctype_list_js = {
+    "Timesheet": "public/js/internal-timesheet-approval-list.js",
+}
 
-# include js in page
-# page_js = {"page" : "public/js/file.js"}
+# Installation / migration hardening
+# ----------------------------------
+after_install = [
+    "verto.install.after_install",
+    "verto.api.mobile.peri_voice_settings.after_install",
+    "verto.api.mobile.voice_jha_print.after_install",
+    "verto.api.mobile.voice_jha_email.ensure_print_email_fields",
+    "verto.api.mobile.global_notifications.after_install",
+]
+after_migrate = [
+    "verto.install.after_migrate",
+    "verto.api.mobile.peri_voice_settings.after_migrate",
+    "verto.api.mobile.voice_jha_print.after_migrate",
+    "verto.api.mobile.voice_jha_email.ensure_print_email_fields",
+    "verto.api.mobile.global_notifications.after_migrate",
+    "verto.api.mobile.home_child_tasks.sync_active_jha_planned_steps",
+]
+after_app_install = "verto.optional_integrations.after_app_install"
 
-# include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
-# doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
-# doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
-# doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
+extend_bootinfo = ["verto.api.mobile.boot.add_map_settings_to_boot"]
 
-# Svg Icons
-# ------------------
-# include app icons in desk
-# app_include_icons = "verto/public/icons.svg"
+# Apply site-specific runtime configuration before normal web and worker code.
+# This removes the need to manually duplicate Verto settings into site_config.json.
+before_request = [
+    "verto.runtime_config.apply_runtime_config",
+    "verto.default_apps.configure_default_apps",
+]
+before_job = ["verto.runtime_config.apply_runtime_job_config"]
 
-# Home Pages
-# ----------
+# Password login can create its session before before_request hooks run.
+on_session_creation = "verto.default_apps.configure_default_apps"
 
-# application home page (will override Website Settings)
-# home_page = "login"
-
-# website user home page (by Role)
-# role_home_page = {
-#	"Role": "home_page"
-# }
-
-# Generators
-# ----------
-
-# automatically create page for each record of this doctype
-# website_generators = ["Web Page"]
-
-# Jinja
-# ----------
-
-# add methods and filters to jinja environment
-# jinja = {
-#	"methods": "verto.utils.jinja_methods",
-#	"filters": "verto.utils.jinja_filters"
-# }
-
-# Installation
-# ------------
-
-# before_install = "verto.install.before_install"
-# after_install = "verto.install.after_install"
-
-# Uninstallation
-# ------------
-
-# before_uninstall = "verto.uninstall.before_uninstall"
-# after_uninstall = "verto.uninstall.after_uninstall"
-
-# Integration Setup
-# ------------------
-# To set up dependencies/integrations with other apps
-# Name of the app being installed is passed as an argument
-
-# before_app_install = "verto.utils.before_app_install"
-# after_app_install = "verto.utils.after_app_install"
-
-# Integration Cleanup
-# -------------------
-# To clean up dependencies/integrations with other apps
-# Name of the app being uninstalled is passed as an argument
-
-# before_app_uninstall = "verto.utils.before_app_uninstall"
-# after_app_uninstall = "verto.utils.after_app_uninstall"
-
-# Desk Notifications
-# ------------------
-# See frappe.core.notifications.get_notification_config
-
-# notification_config = "verto.notifications.get_notification_config"
+extend_doctype_class = {
+    "File": ["verto.api.investigations.InvestigationFileMixin"],
+    "User": ["verto.default_apps.VertoDefaultAppMixin"],
+}
 
 # Permissions
 # -----------
-# Permissions evaluated in scripted ways
+permission_query_conditions = {
+    "JHA Photo Import": "verto.api.mobile.voice_jha_photos.photo_query_conditions",
+    "JHA Print Delivery": "verto.api.mobile.voice_jha_email.delivery_query_conditions",
+    "Verto Investigation": "verto.api.investigations.query_conditions",
+    "JHA Step Briefing": "verto.api.mobile.voice_jha_steps.briefing_query_conditions",
+    "JHA Step Resource": "verto.api.mobile.voice_jha_workpack.resource_query_conditions",
+    "JHA Job Template": "verto.api.mobile.voice_jha_learning.template_query_conditions",
+    "JHA Job Closeout": "verto.api.mobile.voice_jha_learning.closeout_query_conditions",
+    "JHA Control Verification": "verto.api.mobile.voice_jha_fieldwork.verification_query_conditions",
+    "JHA Shift Revalidation": "verto.api.mobile.voice_jha_fieldwork.shift_query_conditions",
+    "Verto Whiteboard": "verto.api.whiteboard.get_permission_query_conditions",
+    "Digital Job Hazard Analysis": "verto.api.mobile.voice_jha_permissions.get_permission_query_conditions",
+    "JHA Incident Learning": "verto.api.mobile.voice_jha_incidents.incident_query_conditions",
+}
 
-# permission_query_conditions = {
-#	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-#	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+has_permission = {
+    "JHA Photo Import": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
+    "JHA Print Delivery": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
+    "Verto Investigation": "verto.api.investigations.has_permission",
+    "JHA Step Briefing": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
+    "JHA Step Resource": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
+    "JHA Job Template": "verto.api.mobile.voice_jha_learning.template_has_permission",
+    "JHA Job Closeout": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
+    "JHA Control Verification": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
+    "JHA Shift Revalidation": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
+    "Verto Whiteboard": "verto.api.whiteboard.has_permission",
+    "Digital Job Hazard Analysis": "verto.api.mobile.voice_jha_permissions.has_permission",
+    "JHA Incident Learning": "verto.api.mobile.voice_jha_incidents.incident_has_permission",
+}
 
-# DocType Class
+jinja = {"methods": ["verto.api.mobile.voice_jha_print.jha_workpack_qr", "verto.api.mobile.voice_jha_print.jha_print_field_checks", "verto.api.mobile.voice_jha_print.jha_print_resources", "verto.api.mobile.voice_jha_print.jha_print_branding"]}
+
+# Document events
 # ---------------
-# Override standard doctype classes
-
-# override_doctype_class = {
-#     "Shift Schedule Assignment": "verto.overrides.shift_schedule_assignment.CustomShiftScheduleAssignment"
-# }
-
-# Document Events
-# ---------------
-# Hook on document methods and events
-
 doc_events = {
-	# "*": {
-	# 	"on_update": "method",
-	# 	"on_cancel": "method",
-	# 	"on_trash": "method"
-	# }
+    "Digital Job Hazard Analysis": {
+        "on_update": ["verto.api.mobile.voice_jha_email.jha_updated", "verto.api.mobile.voice_jha_paper_review.jha_updated"],
+    },
+    "File": {
+        "before_validate": "verto.api.investigations.validate_attachment",
+    },
+    "Timesheet": {
+        "before_save": "verto.api.internal_timesheet_approval.invalidate_changed_internal_approval",
+        "before_update_after_submit": "verto.api.internal_timesheet_approval.invalidate_changed_internal_approval",
+    },
+    "Daily Timesheet": {
+        "on_update": "verto.api.mobile.timesheet_hour_limits.notify_daily_timesheet_hours_exceeded",
+    },
+    "Verto Mobile Settings": {
+        "validate": "verto.api.mobile.voice_jha_email.validate_destination",
+        "on_update": "verto.install.refresh_mobile_settings_configuration",
+    },
+    "Task": {
+        "before_validate": "verto.api.mobile.task_checklist.sync_task_checklist_progress",
+        "on_update": "verto.safety.doctype.digital_job_hazard_analysis.digital_job_hazard_analysis.mark_linked_jhas_for_work_change",
+    },
+    "Employee": {
+        "before_validate": "verto.api.qualifications.validate_employee_qualifications",
+    },
     "Project": {
+        "validate": "verto.api.mobile.voice_jha_email.validate_destination",
+        "before_validate": "verto.api.planner_staffing.validate_project_staffing",
         "after_insert": "verto.api.hooks.create_project_handover_records",
         "on_update": "verto.api.hooks.create_project_handover_records",
     },
@@ -185,131 +186,90 @@ doc_events = {
         "after_delete": "verto.api.mobile.raven_realtime_bridge.publish_raven_message_delete",
     },
     "Shift Assignment": {
+        "before_validate": "verto.api.planner_staffing.apply_scheduled_staffing",
+        "before_update_after_submit": "verto.api.planner_staffing.apply_scheduled_staffing",
         "on_submit": "verto.api.mobile.push_notifications.notify_shift_assigned",
         "on_update_after_submit": "verto.api.mobile.push_notifications.notify_shift_changed",
     },
     "ToDo": {
         "after_insert": "verto.api.mobile.push_notifications.notify_document_assignment",
-    }
+    },
 }
 
-# Scheduled Tasks
-# ---------------
+# Merge with existing document hooks so live updates also include Desk, mobile,
+# imports and background jobs. on_change includes Document.db_set operations.
+from verto.api.planner_realtime import DOCTYPE_SCOPES as _planner_doctype_scopes
 
+for _doctype in _planner_doctype_scopes:
+    _events = doc_events.setdefault(_doctype, {})
+    for _event in ("after_insert", "on_update", "on_submit", "on_cancel", "on_update_after_submit", "on_change", "after_delete", "after_rename"):
+        _existing = _events.get(_event, [])
+        if isinstance(_existing, str):
+            _existing = [_existing]
+        _events[_event] = [*_existing, "verto.api.planner_realtime.document_changed"]
+
+# Scheduled tasks
+# ---------------
 scheduler_events = {
-#	"all": [
-#		"verto.tasks.all"
-#	],
-    # "daily": [
-    #     "verto.jobs.daily.populate_kpi_snapshots",
-    # ],
-    # "hourly": [
-    #     "verto.jobs.hourly.escalate_overdue_actions",
-    # ],
-#	"weekly": [
-#		"verto.tasks.weekly"
-#	],
-#	"monthly": [
-#		"verto.tasks.monthly"
-#	],
+    "hourly": [
+        "verto.api.mobile.ai_photo_analysis.retry_failed_reviews",
+    ],
+    "daily": [
+        "verto.api.qualifications.refresh_qualification_statuses",
+        "verto.api.qualifications.send_qualification_expiry_notifications",
+    ],
     "cron": {
+        "*/5 * * * *": [
+            "verto.api.mobile.voice_jha_email.reconcile_print_deliveries",
+            "verto.api.mobile.voice_jha_paper_review.reconcile_review_emails",
+            "verto.api.mobile.timesheet_reminders.send_shift_missing_hours_reminders",
+        ],
+        "0 08 * * *": [
+            "verto.api.mobile.global_notifications.send_project_missing_purchase_order_reminders",
+        ],
         "0 09 * * *": [
-                    "verto.api.mobile.push_notifications.send_previous_day_missing_hours_reminders",
-                ],
+            "verto.api.mobile.push_notifications.send_previous_day_missing_hours_reminders",
+        ],
         "0 10 * * *": [
             "verto.api.automate.send_weekly_timesheet_verification",
         ],
-        "0 13 * * *": [
-            "verto.api.automate.send_grouped_weekly_timesheets"
-        ],
         "0 12 * * *": [
-            "verto.api.automate.send_grouped_timesheet_followup_reminders"
-        ]
-    }
+            "verto.api.automate.send_grouped_timesheet_followup_reminders",
+        ],
+        "0 13 * * *": [
+            "verto.api.automate.send_grouped_weekly_timesheets",
+        ],
+    },
 }
 
-# Testing
-# -------
+# Retain global-notification de-duplication records long enough to cover audits
+# without allowing the delivery table to grow forever.
+default_log_clearing_doctypes = {
+    "Verto Global Notification Log": 180,
+}
 
-# before_tests = "verto.install.before_tests"
-
-# Overriding Methods
-# ------------------------------
-#
-# override_whitelisted_methods = {
-#	"frappe.desk.doctype.event.event.get_events": "verto.event.get_events"
-# }
 override_whitelisted_methods = {
+    "frappe.website.doctype.web_form.web_form.accept": "verto.api.web_form_attachments.accept",
+    "frappe.desk.form.load.getdoc": "verto.api.inx_incident_sanitisation.get_learning_document",
+    "frappe.desk.form.load.get_docinfo": "verto.api.inx_incident_sanitisation.get_learning_docinfo",
+    "frappe.apps.get_apps": "verto.default_apps.get_apps",
+    "frappe.apps.set_app_as_default": "verto.default_apps.set_app_as_default",
     "frappe.geo.utils.get_coords": "verto.geo.utils.verto_get_coords",
+    "verto.api.mobile.home.get_home_summary": "verto.api.mobile.home_child_tasks.get_home_summary",
+    "verto.api.mobile.voice_jha.get_voice_jha_bootstrap": "verto.api.mobile.voice_jha_phase2.get_voice_jha_bootstrap",
+    "verto.api.mobile.voice_jha.create_voice_jha_draft": "verto.api.mobile.voice_jha_phase2.create_voice_jha_draft",
+    "verto.api.mobile.voice_jha.start_voice_jha_call": "verto.api.mobile.voice_jha_facilitator.start_voice_jha_call",
+    "verto.api.mobile.voice_jha_tools.execute_voice_jha_tool": "verto.api.mobile.voice_jha_tools_streamlined.execute_voice_jha_tool",
 }
 
-#
-# each overriding function accepts a `data` argument;
-# generated from the base implementation of the doctype dashboard,
-# along with any modifications made in other Frappe apps
-# override_doctype_dashboards = {
-#	"Task": "verto.task.get_dashboard_data"
-# }
-
-# exempt linked doctypes from being automatically cancelled
-#
-# auto_cancel_exempted_doctypes = ["Auto Repeat"]
-
-# Ignore links to specified DocTypes when deleting documents
-# -----------------------------------------------------------
-
-# ignore_links_on_delete = ["Communication", "ToDo"]
-
-# Request Events
-# ----------------
-# before_request = ["verto.utils.before_request"]
-# after_request = ["verto.utils.after_request"]
-
-# Job Events
-# ----------
-# before_job = ["verto.utils.before_job"]
-# after_job = ["verto.utils.after_job"]
-
-# User Data Protection
-# --------------------
-
-# user_data_fields = [
-#	{
-#		"doctype": "{doctype_1}",
-#		"filter_by": "{filter_by}",
-#		"redact_fields": ["{field_1}", "{field_2}"],
-#		"partial": 1,
-#	},
-#	{
-#		"doctype": "{doctype_2}",
-#		"filter_by": "{filter_by}",
-#		"partial": 1,
-#	},
-#	{
-#		"doctype": "{doctype_3}",
-#		"strict": False,
-#	},
-#	{
-#		"doctype": "{doctype_4}"
-#	}
-# ]
-
-# Authentication and authorization
-# --------------------------------
-
-# auth_hooks = [
-#	"verto.auth.validate"
-# ]
-
-# Automatically update python controller files with type annotations for this app.
-# export_python_type_annotations = True
-
-# default_log_clearing_doctypes = {
-#	"Logging DocType Name": 30  # days to retain logs
-# }
-
+# Serve site-specific install metadata and the root worker through Frappe.
+page_renderer = [
+    "verto.pwa.VertoManifestRenderer",
+    "verto.pwa.VertoServiceWorkerRenderer",
+]
 
 website_route_rules = [
+    {"from_route": "/investigations/<path:app_path>", "to_route": "investigations"},
     {"from_route": "/verto-mobile/<path:app_path>", "to_route": "verto-mobile"},
     {"from_route": "/planner/<path:app_path>", "to_route": "planner"},
 ]

@@ -1,8 +1,47 @@
 import frappe
-from frappe.utils import get_url
+from frappe.utils import cint, flt, get_url
 
 
 SETTINGS_DOCTYPE = "Verto Mobile Settings"
+
+
+DEFAULT_MAP_SETTINGS = {
+    "center_latitude": -32.5279,
+    "center_longitude": 115.7189,
+    "default_zoom": 6,
+    "min_zoom": 0,
+    "max_zoom": 19,
+    "default_tile_url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    "default_attribution": (
+        '&copy; <a href="https://www.openstreetmap.org/copyright">'
+        "OpenStreetMap</a> contributors"
+    ),
+    "satellite_tile_url": (
+        "https://server.arcgisonline.com/ArcGIS/rest/services/"
+        "World_Imagery/MapServer/tile/{z}/{y}/{x}"
+    ),
+    "satellite_attribution": "Tiles &copy; Esri and the GIS User Community",
+    "labels_tile_url": (
+        "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/"
+        "World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+    ),
+    "labels_attribution": "Labels &copy; Esri",
+    "terrain_tile_url": (
+        "https://server.arcgisonline.com/ArcGIS/rest/services/"
+        "World_Terrain_Base/MapServer/tile/{z}/{y}/{x}"
+    ),
+    "terrain_attribution": "Terrain &copy; Esri",
+    "terrain_max_zoom": 13,
+    "terrain_opacity": 0.45,
+    "rail_tile_url": "https://tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+    "rail_attribution": (
+        '&copy; <a href="https://www.openrailwaymap.org/">OpenRailwayMap</a>, '
+        'data &copy; <a href="https://www.openstreetmap.org/copyright">'
+        "OpenStreetMap</a> contributors"
+    ),
+    "rail_max_zoom": 19,
+    "rail_opacity": 1.0,
+}
 
 
 DEFAULT_BOOT = {
@@ -54,6 +93,12 @@ def get_site_base_url():
     frappe.utils.get_url() will use the active request/site context, and can
     also use host_name from site_config when needed.
     """
+    forwarded_proto = str(frappe.get_request_header("X-Forwarded-Proto") or "").split(",")[0].strip()
+    forwarded_host = str(frappe.get_request_header("X-Forwarded-Host") or "").split(",")[0].strip()
+
+    if forwarded_proto in {"http", "https"} and forwarded_host:
+        return f"{forwarded_proto}://{forwarded_host}".rstrip("/")
+
     return get_url().rstrip("/")
 
 
@@ -77,18 +122,14 @@ def normalise_asset_url(value):
 
 
 def absolute_url(value):
+    """Return a browser-safe asset URL without exposing an internal Bench port."""
     if not value:
         return ""
 
-    value = str(value).strip()
-
-    if value.startswith(("http://", "https://", "data:")):
-        return value
-
-    if not value.startswith("/"):
-        value = f"/{value}"
-
-    return get_url(value)
+    # Browser clients resolve same-site paths against their actual public origin.
+    # Calling get_url(value) here can leak site_config.host_name (often :8000
+    # behind Pilot/nginx) into image and icon requests.
+    return normalise_asset_url(value)
 
 
 def get_user_image(user):
@@ -173,6 +214,118 @@ def get_peri_bot_image_from_raven(bot_name):
     return ""
 
 
+def get_map_settings():
+    """Return validated map configuration from Verto Mobile Settings."""
+    settings = get_mobile_settings()
+
+    return {
+        "center_latitude": flt(
+            get_setting(
+                settings,
+                "map_center_latitude",
+                DEFAULT_MAP_SETTINGS["center_latitude"],
+            )
+        ),
+        "center_longitude": flt(
+            get_setting(
+                settings,
+                "map_center_longitude",
+                DEFAULT_MAP_SETTINGS["center_longitude"],
+            )
+        ),
+        "default_zoom": cint(
+            get_setting(
+                settings,
+                "map_default_zoom",
+                DEFAULT_MAP_SETTINGS["default_zoom"],
+            )
+        ),
+        "min_zoom": cint(
+            get_setting(settings, "map_min_zoom", DEFAULT_MAP_SETTINGS["min_zoom"])
+        ),
+        "max_zoom": cint(
+            get_setting(settings, "map_max_zoom", DEFAULT_MAP_SETTINGS["max_zoom"])
+        ),
+        "default_tile_url": get_setting(
+            settings,
+            "map_default_tile_url",
+            DEFAULT_MAP_SETTINGS["default_tile_url"],
+        ),
+        "default_attribution": get_setting(
+            settings,
+            "map_default_attribution",
+            DEFAULT_MAP_SETTINGS["default_attribution"],
+        ),
+        "satellite_tile_url": get_setting(
+            settings,
+            "map_satellite_tile_url",
+            DEFAULT_MAP_SETTINGS["satellite_tile_url"],
+        ),
+        "satellite_attribution": get_setting(
+            settings,
+            "map_satellite_attribution",
+            DEFAULT_MAP_SETTINGS["satellite_attribution"],
+        ),
+        "labels_tile_url": get_setting(
+            settings,
+            "map_labels_tile_url",
+            DEFAULT_MAP_SETTINGS["labels_tile_url"],
+        ),
+        "labels_attribution": get_setting(
+            settings,
+            "map_labels_attribution",
+            DEFAULT_MAP_SETTINGS["labels_attribution"],
+        ),
+        "terrain_tile_url": get_setting(
+            settings,
+            "map_terrain_tile_url",
+            DEFAULT_MAP_SETTINGS["terrain_tile_url"],
+        ),
+        "terrain_attribution": get_setting(
+            settings,
+            "map_terrain_attribution",
+            DEFAULT_MAP_SETTINGS["terrain_attribution"],
+        ),
+        "terrain_max_zoom": cint(
+            get_setting(
+                settings,
+                "map_terrain_max_zoom",
+                DEFAULT_MAP_SETTINGS["terrain_max_zoom"],
+            )
+        ),
+        "terrain_opacity": flt(
+            get_setting(
+                settings,
+                "map_terrain_opacity",
+                DEFAULT_MAP_SETTINGS["terrain_opacity"],
+            )
+        ),
+        "rail_tile_url": get_setting(
+            settings, "map_rail_tile_url", DEFAULT_MAP_SETTINGS["rail_tile_url"]
+        ),
+        "rail_attribution": get_setting(
+            settings,
+            "map_rail_attribution",
+            DEFAULT_MAP_SETTINGS["rail_attribution"],
+        ),
+        "rail_max_zoom": cint(
+            get_setting(
+                settings, "map_rail_max_zoom", DEFAULT_MAP_SETTINGS["rail_max_zoom"]
+            )
+        ),
+        "rail_opacity": flt(
+            get_setting(
+                settings, "map_rail_opacity", DEFAULT_MAP_SETTINGS["rail_opacity"]
+            )
+        ),
+    }
+
+
+def add_map_settings_to_boot(bootinfo):
+    """Expose site map settings to Desk before map controls initialise."""
+    bootinfo.verto_map_settings = get_map_settings()
+
+
 @frappe.whitelist()
 def get_mobile_boot():
     require_login()
@@ -215,9 +368,10 @@ def get_mobile_boot():
         user_details.get("user_image")
     )
 
-    return {
+    result = {
         "site_name": frappe.local.site,
         "base_url": get_site_base_url(),
+        "csrf_token": frappe.sessions.get_csrf_token(),
 
         # App identity
         "app_name": get_setting(settings, "app_name", DEFAULT_BOOT["app_name"]),
@@ -262,3 +416,20 @@ def get_mobile_boot():
         "user_image": user_image,
         "user_image_url": absolute_url(user_image),
     }
+
+    # Small startup reads share this authenticated response. Optional subsystem
+    # failures must not prevent the mobile shell from loading.
+    from verto.api.mobile.navigation import get_navigation_access
+    from verto.api.mobile.pwa_manifest import get_pwa_metadata
+    from verto.api.mobile.push_notifications import get_push_boot_config
+
+    for key, getter in (
+        ("navigation_access", get_navigation_access),
+        ("pwa_metadata", get_pwa_metadata),
+        ("push_config", get_push_boot_config),
+    ):
+        try:
+            result[key] = getter()
+        except Exception:
+            frappe.log_error(title=f"Mobile boot: {key} unavailable")
+    return result

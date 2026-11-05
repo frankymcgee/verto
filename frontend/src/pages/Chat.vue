@@ -6,22 +6,22 @@
         v-if="chat.loading.value"
         class="space-y-3 p-3"
       >
-        <Card class="p-3">
+        <section class="bg-surface-base rounded-7 shadow-sm p-3">
           <div class="space-y-3">
-            <div class="h-4 w-40 rounded bg-surface-gray-3" />
-            <div class="h-10 rounded-xl bg-surface-gray-2" />
-            <div class="h-10 rounded-xl bg-surface-gray-2" />
-            <div class="h-32 rounded-xl bg-surface-gray-2" />
+            <div class="h-4 w-40 rounded-4 bg-surface-gray-3" />
+            <div class="h-10 rounded-7 bg-surface-gray-2" />
+            <div class="h-10 rounded-7 bg-surface-gray-2" />
+            <div class="h-32 rounded-7 bg-surface-gray-2" />
           </div>
-        </Card>
+        </section>
       </div>
 
       <div
         v-else-if="chat.error.value"
         class="p-3"
       >
-        <Card class="border border-red-200 bg-red-50 p-3">
-          <p class="text-sm font-medium text-red-800">
+        <section class="rounded-7 shadow-sm border border-red-200 bg-red-50 p-3">
+          <p class="text-sm-medium text-red-800">
             Could not load chat
           </p>
 
@@ -37,14 +37,14 @@
           >
             Retry
           </Button>
-        </Card>
+        </section>
       </div>
 
       <template v-else>
-        <div class="shrink-0 border-b border-outline-gray-1 bg-surface-white px-[var(--verto-page-x,0.75rem)] py-2">
+        <div class="shrink-0 border-b border-outline-gray-1 bg-surface-base px-[var(--verto-page-x,0.75rem)] py-2">
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
-              <p class="truncate text-sm font-semibold text-ink-gray-9">
+              <p class="truncate text-sm-semibold text-ink-gray-9">
                 {{ activeChannelLabel }}
               </p>
 
@@ -84,23 +84,23 @@
           ref="messagesEl"
           class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-[var(--verto-page-x,0.75rem)] py-[var(--verto-page-y,0.75rem)]"
         >
-          <Card
+          <section
             v-if="!chat.activeChannel.value"
-            class="p-4"
+            class="bg-surface-base rounded-7 shadow-sm p-4"
           >
-            <div class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center">
-              <p class="text-sm font-medium text-ink-gray-7">
+            <div class="rounded-7 border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center">
+              <p class="text-sm-medium text-ink-gray-7">
                 No channel selected.
               </p>
             </div>
-          </Card>
+          </section>
 
-          <Card
+          <section
             v-else-if="chat.orderedMessages.value.length === 0"
-            class="p-4"
+            class="bg-surface-base rounded-7 shadow-sm p-4"
           >
-            <div class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center">
-              <p class="text-sm font-medium text-ink-gray-7">
+            <div class="rounded-7 border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-6 text-center">
+              <p class="text-sm-medium text-ink-gray-7">
                 No messages yet.
               </p>
 
@@ -108,7 +108,7 @@
                 Send the first message in this channel.
               </p>
             </div>
-          </Card>
+          </section>
 
           <div
             v-for="message in chat.orderedMessages.value"
@@ -125,13 +125,13 @@
             />
 
             <div
-              class="max-w-[86%] rounded-2xl px-3 py-2 shadow-sm"
+              class="max-w-[86%] rounded-8 px-3 py-2 shadow-sm"
               :class="isOwnMessage(message)
                 ? 'bg-blue-600 text-white'
-                : 'border border-outline-gray-1 bg-surface-white text-ink-gray-9'"
+                : 'border border-outline-gray-1 bg-surface-base text-ink-gray-9'"
             >
               <div
-                class="mb-1 text-xs font-semibold"
+                class="mb-1 text-xs-semibold"
                 :class="isOwnMessage(message) ? 'text-white/80' : 'text-ink-gray-6'"
               >
                 {{ getMessageDisplayName(message) }}
@@ -147,7 +147,7 @@
               <button
                 v-if="hasDocumentLink(message)"
                 type="button"
-                class="mt-2 block w-full rounded-xl border p-3 text-left transition active:scale-[0.99]"
+                class="mt-2 block w-full rounded-7 border p-3 text-left transition active:scale-[0.99]"
                 :class="isOwnMessage(message)
                   ? 'border-white/20 bg-white/15 text-white'
                   : 'border-outline-gray-1 bg-surface-gray-1 text-ink-gray-9'"
@@ -156,7 +156,7 @@
                 <div class="flex items-start gap-3">
                   <div
                     v-if="getDocumentPreviewImage(message)"
-                    class="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-current/10"
+                    class="h-12 w-12 shrink-0 overflow-hidden rounded-6 bg-current/10"
                   >
                     <img
                       :src="getDocumentPreviewImage(message)"
@@ -169,10 +169,10 @@
 
                   <div
                     v-else
-                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
+                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded-6 text-xs-semibold"
                     :class="isOwnMessage(message)
                       ? 'bg-white/20 text-white'
-                      : 'bg-surface-white text-ink-gray-7'"
+                      : 'bg-surface-base text-ink-gray-7'"
                   >
                     DOC
                   </div>
@@ -183,7 +183,7 @@
                         class="rounded-full px-2 py-0.5 text-[10px] font-semibold"
                         :class="isOwnMessage(message)
                           ? 'bg-white/20 text-white'
-                          : 'bg-surface-white text-ink-gray-7'"
+                          : 'bg-surface-base text-ink-gray-7'"
                       >
                         {{ getDocumentPreviewDoctype(message) }}
                       </span>
@@ -196,7 +196,7 @@
                       </span>
                     </div>
 
-                    <p class="mt-1 truncate text-sm font-semibold">
+                    <p class="mt-1 truncate text-sm-semibold">
                       {{ getDocumentPreviewTitle(message) }}
                     </p>
 
@@ -244,7 +244,7 @@
                   <button
                     v-if="isImageAttachment(attachment)"
                     type="button"
-                    class="block w-full overflow-hidden rounded-xl text-left"
+                    class="block w-full overflow-hidden rounded-7 text-left"
                     @click="openPreview(attachment)"
                   >
                     <img
@@ -259,24 +259,24 @@
                   <button
                     v-else
                     type="button"
-                    class="flex w-full items-center gap-3 rounded-xl border p-3 text-left"
+                    class="flex w-full items-center gap-3 rounded-7 border p-3 text-left"
                     :class="isOwnMessage(message)
                       ? 'border-white/20 bg-white/15'
                       : 'border-outline-gray-1 bg-surface-gray-1'"
                     @click="openPreview(attachment)"
                   >
                     <div
-                      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xs font-semibold uppercase"
+                      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-6 text-xs-semibold uppercase"
                       :class="isOwnMessage(message)
                         ? 'bg-white/20 text-white'
-                        : 'bg-surface-white text-ink-gray-7'"
+                        : 'bg-surface-base text-ink-gray-7'"
                     >
                       {{ getAttachmentLabel(attachment) }}
                     </div>
 
                     <div class="min-w-0 flex-1">
                       <p
-                        class="truncate text-sm font-medium"
+                        class="truncate text-sm-medium"
                         :class="isOwnMessage(message) ? 'text-white' : 'text-ink-gray-9'"
                       >
                         {{ attachment.file_name || 'Attachment' }}
@@ -332,7 +332,7 @@
         </div>
 
         <form
-          class="shrink-0 border-t border-outline-gray-1 bg-surface-white p-[var(--verto-page-x,0.75rem)]"
+          class="shrink-0 border-t border-outline-gray-1 bg-surface-base p-[var(--verto-page-x,0.75rem)]"
           @submit.prevent="sendDraft"
         >
           <div class="flex items-end gap-2">
@@ -348,7 +348,7 @@
               type="button"
               variant="subtle"
               theme="gray"
-              class="h-10 w-10 shrink-0 justify-center rounded-full text-lg font-semibold"
+              class="h-10 w-10 shrink-0 justify-center rounded-full text-lg-semibold"
               :loading="chat.uploading.value"
               :disabled="chat.uploading.value || chat.sending.value || !chat.activeChannel.value"
               aria-label="Upload file"
@@ -395,16 +395,12 @@
     </main>
 
     <!-- File Attachment Preview Drawer -->
-    <Transition name="drawer-fade-slide">
-      <div
-        v-if="previewAttachment"
-        class="fixed inset-0 z-[70] flex items-end bg-black/60"
-        @click.self="closePreview"
-      >
-        <Card class="drawer-panel flex max-h-[92vh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
-        <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+    <MobileSheet :open="Boolean(previewAttachment)" title="Attachment Preview" @update:open="!$event && closePreview()">
+<template v-if="previewAttachment">
+          <section class="rounded-7 shadow-sm drawer-panel flex max-h-full w-full min-w-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-base shadow-2xl">
+        <div class="z-10 flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-base px-4 py-3">
           <div class="min-w-0">
-            <p class="truncate text-sm font-semibold text-ink-gray-9">
+            <p class="truncate text-sm-semibold text-ink-gray-9">
               {{ previewAttachment.file_name || 'Attachment' }}
             </p>
 
@@ -422,31 +418,31 @@
           </Button>
         </div>
 
-        <div class="flex-1 overflow-auto bg-surface-gray-1 p-3">
+        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-gray-1 p-3 [-webkit-overflow-scrolling:touch]">
           <img
             v-if="isImageAttachment(previewAttachment)"
             :src="previewAttachment.file_url"
             :alt="previewAttachment.file_name || 'Image attachment'"
-            class="mx-auto max-h-[76vh] rounded-xl object-contain"
+            class="mx-auto max-h-[76vh] rounded-7 object-contain"
           >
 
           <iframe
             v-else-if="canIframePreview(previewAttachment)"
             :src="previewAttachment.file_url"
-            class="h-[76vh] w-full rounded-xl border border-outline-gray-1 bg-surface-white"
+            class="h-[76vh] w-full rounded-7 border border-outline-gray-1 bg-surface-base"
           />
 
-          <Card
+          <section
             v-else
-            class="p-4"
+            class="bg-surface-base rounded-7 shadow-sm p-4"
           >
             <div class="flex items-start gap-3">
-              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surface-gray-2 text-xs font-semibold uppercase text-ink-gray-7">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-7 bg-surface-gray-2 text-xs-semibold uppercase text-ink-gray-7">
                 {{ getAttachmentLabel(previewAttachment) }}
               </div>
 
               <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-semibold text-ink-gray-9">
+                <p class="truncate text-sm-semibold text-ink-gray-9">
                   {{ previewAttachment.file_name || 'Attachment' }}
                 </p>
 
@@ -467,23 +463,19 @@
             >
               Open File
             </Button>
-          </Card>
+          </section>
         </div>
-        </Card>
-      </div>
-    </Transition>
+          </section>
+        </template>
+</MobileSheet>
 
     <!-- Thread Drawer -->
-    <Transition name="drawer-fade-slide">
-      <div
-        v-if="threadOpen"
-        class="fixed inset-0 z-[65] flex items-end bg-black/50"
-        @click.self="closeThread"
-      >
-        <Card class="drawer-panel flex max-h-[88vh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-white">
-        <div class="sticky top-0 z-10 flex items-center justify-between border-b border-outline-gray-1 bg-surface-white px-4 py-3">
+    <MobileSheet :open="Boolean(threadOpen)" title="Thread" @update:open="!$event && closeThread()">
+<template v-if="threadOpen">
+          <section class="rounded-7 shadow-sm drawer-panel flex max-h-full w-full min-w-0 flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-base shadow-2xl">
+        <div class="z-10 flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-base px-4 py-3">
           <div class="min-w-0">
-            <p class="truncate text-base font-semibold text-ink-gray-9">
+            <p class="truncate text-base-semibold text-ink-gray-9">
               Thread
             </p>
 
@@ -503,24 +495,24 @@
 
         <div
           ref="threadMessagesEl"
-          class="flex-1 space-y-3 overflow-y-auto bg-surface-gray-1 p-3"
+          class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-surface-gray-1 p-3 [-webkit-overflow-scrolling:touch]"
         >
-          <Card
+          <section
             v-if="threadLoading"
-            class="p-3"
+            class="bg-surface-base rounded-7 shadow-sm p-3"
           >
             <div class="space-y-3">
-              <div class="h-4 w-32 rounded bg-surface-gray-3" />
-              <div class="h-20 rounded-xl bg-surface-gray-2" />
+              <div class="h-4 w-32 rounded-4 bg-surface-gray-3" />
+              <div class="h-20 rounded-7 bg-surface-gray-2" />
             </div>
-          </Card>
+          </section>
 
           <template v-else>
-            <Card
+            <section
               v-if="threadParent"
-              class="p-3"
+              class="bg-surface-base rounded-7 shadow-sm p-3"
             >
-              <p class="text-xs font-semibold text-ink-gray-7">
+              <p class="text-xs-semibold text-ink-gray-7">
                 {{ getMessageDisplayName(threadParent) }}
               </p>
 
@@ -533,13 +525,13 @@
               <button
                 v-if="hasDocumentLink(threadParent)"
                 type="button"
-                class="mt-2 block w-full rounded-xl border border-outline-gray-1 bg-surface-gray-1 p-3 text-left text-ink-gray-9 transition active:scale-[0.99]"
+                class="mt-2 block w-full rounded-7 border border-outline-gray-1 bg-surface-gray-1 p-3 text-left text-ink-gray-9 transition active:scale-[0.99]"
                 @click="openDocumentPreview(threadParent)"
               >
                 <div class="flex items-start gap-3">
                   <div
                     v-if="getDocumentPreviewImage(threadParent)"
-                    class="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-surface-gray-2"
+                    class="h-12 w-12 shrink-0 overflow-hidden rounded-6 bg-surface-gray-2"
                   >
                     <img
                       :src="getDocumentPreviewImage(threadParent)"
@@ -551,14 +543,14 @@
 
                   <div
                     v-else
-                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface-white text-xs font-semibold text-ink-gray-7"
+                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded-6 bg-surface-base text-xs-semibold text-ink-gray-7"
                   >
                     DOC
                   </div>
 
                   <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-center gap-1">
-                      <span class="rounded-full bg-surface-white px-2 py-0.5 text-[10px] font-semibold text-ink-gray-7">
+                      <span class="rounded-full bg-surface-base px-2 py-0.5 text-[10px] font-semibold text-ink-gray-7">
                         {{ getDocumentPreviewDoctype(threadParent) }}
                       </span>
 
@@ -567,7 +559,7 @@
                       </span>
                     </div>
 
-                    <p class="mt-1 truncate text-sm font-semibold">
+                    <p class="mt-1 truncate text-sm-semibold">
                       {{ getDocumentPreviewTitle(threadParent) }}
                     </p>
 
@@ -592,7 +584,7 @@
                   </div>
                 </div>
               </button>
-            </Card>
+            </section>
 
             <div
               v-for="reply in orderedThreadReplies"
@@ -601,13 +593,13 @@
               :class="isOwnMessage(reply) ? 'justify-end' : 'justify-start'"
             >
               <div
-                class="max-w-[82%] rounded-2xl px-3 py-2 shadow-sm"
+                class="max-w-[82%] rounded-8 px-3 py-2 shadow-sm"
                 :class="isOwnMessage(reply)
                   ? 'bg-blue-600 text-white'
-                  : 'border border-outline-gray-1 bg-surface-white text-ink-gray-9'"
+                  : 'border border-outline-gray-1 bg-surface-base text-ink-gray-9'"
               >
                 <div
-                  class="mb-1 text-xs font-semibold"
+                  class="mb-1 text-xs-semibold"
                   :class="isOwnMessage(reply) ? 'text-white/80' : 'text-ink-gray-6'"
                 >
                   {{ getMessageDisplayName(reply) }}
@@ -623,7 +615,7 @@
                 <button
                   v-if="hasDocumentLink(reply)"
                   type="button"
-                  class="mt-2 block w-full rounded-xl border p-3 text-left transition active:scale-[0.99]"
+                  class="mt-2 block w-full rounded-7 border p-3 text-left transition active:scale-[0.99]"
                   :class="isOwnMessage(reply)
                     ? 'border-white/20 bg-white/15 text-white'
                     : 'border-outline-gray-1 bg-surface-gray-1 text-ink-gray-9'"
@@ -632,7 +624,7 @@
                   <div class="flex items-start gap-3">
                     <div
                       v-if="getDocumentPreviewImage(reply)"
-                      class="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-current/10"
+                      class="h-12 w-12 shrink-0 overflow-hidden rounded-6 bg-current/10"
                     >
                       <img
                         :src="getDocumentPreviewImage(reply)"
@@ -644,10 +636,10 @@
 
                     <div
                       v-else
-                      class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
+                      class="flex h-12 w-12 shrink-0 items-center justify-center rounded-6 text-xs-semibold"
                       :class="isOwnMessage(reply)
                         ? 'bg-white/20 text-white'
-                        : 'bg-surface-white text-ink-gray-7'"
+                        : 'bg-surface-base text-ink-gray-7'"
                     >
                       DOC
                     </div>
@@ -658,7 +650,7 @@
                           class="rounded-full px-2 py-0.5 text-[10px] font-semibold"
                           :class="isOwnMessage(reply)
                             ? 'bg-white/20 text-white'
-                            : 'bg-surface-white text-ink-gray-7'"
+                            : 'bg-surface-base text-ink-gray-7'"
                         >
                           {{ getDocumentPreviewDoctype(reply) }}
                         </span>
@@ -671,7 +663,7 @@
                         </span>
                       </div>
 
-                      <p class="mt-1 truncate text-sm font-semibold">
+                      <p class="mt-1 truncate text-sm-semibold">
                         {{ getDocumentPreviewTitle(reply) }}
                       </p>
                     </div>
@@ -687,30 +679,30 @@
               </div>
             </div>
 
-            <Card
+            <section
               v-if="!orderedThreadReplies.length && !threadLoading"
-              class="p-3"
+              class="bg-surface-base rounded-7 shadow-sm p-3"
             >
-              <div class="rounded-xl border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-5 text-center">
-                <p class="text-sm font-medium text-ink-gray-7">
+              <div class="rounded-7 border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-5 text-center">
+                <p class="text-sm-medium text-ink-gray-7">
                   No replies yet.
                 </p>
               </div>
-            </Card>
+            </section>
 
-            <Card
+            <section
               v-if="threadError"
-              class="border border-yellow-200 bg-yellow-50 p-3"
+              class="rounded-7 shadow-sm border border-yellow-200 bg-yellow-50 p-3"
             >
               <p class="text-sm text-yellow-800">
                 {{ threadError }}
               </p>
-            </Card>
+            </section>
           </template>
         </div>
 
         <form
-          class="sticky bottom-0 z-10 border-t border-outline-gray-1 bg-surface-white p-3"
+          class="z-10 shrink-0 border-t border-outline-gray-1 bg-surface-base p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
           @submit.prevent="sendThreadReply"
         >
           <div class="flex items-end gap-2">
@@ -734,19 +726,19 @@
             </Button>
           </div>
         </form>
-        </Card>
-      </div>
-    </Transition>
+          </section>
+        </template>
+</MobileSheet>
   </section>
 </template>
 
 <script setup lang="ts">
+import MobileSheet from '../components/MobileSheet.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Avatar,
   Button,
-  Card,
   Textarea,
 } from 'frappe-ui'
 import { useMobileBoot } from '../lib/mobileBoot'
@@ -755,6 +747,7 @@ import {
   getExistingMessageThread,
   getMessageThread,
   getMessages,
+  getThreadCounts,
   normaliseRavenMessage,
   sendTextMessage,
   sortMessagesOldestFirst,
@@ -763,6 +756,7 @@ import {
 } from '../lib/ravenClient'
 import { useRavenChat } from '../composables/useRavenChat'
 import { useRavenRealtime } from '../composables/useRavenRealtime'
+import { CHAT_POLL_INTERVAL_MS, shouldRefreshChat } from '../lib/chatRefreshPolicy'
 import { openAppBrowser } from '../lib/appBrowser'
 
 const route = useRoute()
@@ -792,9 +786,11 @@ const threadReplies = ref<RavenMessage[]>([])
 const threadDraft = ref('')
 const activeThreadId = ref('')
 const threadCounts = ref<Record<string, number>>({})
+const loadedThreadCountEstimates = ref<Record<string, number>>({})
 const hydratingThreadCounts = ref(false)
+const threadCountCheckedAt = new Map<string, number>()
 
-const FALLBACK_REFRESH_INTERVAL_MS = 60_000
+let lastFallbackRefreshAt = Date.now()
 let fallbackRefreshTimer: number | undefined
 let fallbackRefreshInFlight = false
 const visibleMessageHtmlCache = new Map<string, string>()
@@ -870,7 +866,8 @@ const realtime = useRavenRealtime({
       await refreshThreadMessages()
     }
 
-    await chat.fetchNewer()
+    threadCountCheckedAt.delete(channelId)
+    await hydrateThreadCountsForMessages()
   },
 })
 
@@ -1544,6 +1541,9 @@ function getNumericThreadCountValue(value: unknown) {
 }
 
 function getThreadCount(message: RavenMessage) {
+  if (Object.prototype.hasOwnProperty.call(threadCounts.value, message.name)) {
+    return threadCounts.value[message.name]
+  }
   const directCount = getNumericThreadCountValue(
     message.number_of_replies ??
       message.thread_count ??
@@ -1559,7 +1559,7 @@ function getThreadCount(message: RavenMessage) {
     return directCount
   }
 
-  return threadCounts.value[message.name] || 0
+  return loadedThreadCountEstimates.value[message.name] || 0
 }
 
 function shouldShowThreadButton(message: RavenMessage) {
@@ -1577,7 +1577,8 @@ async function hydrateThreadCountsForMessages() {
   }
 
   const missingThreadCounts = chat.messages.value.filter((message) => {
-    return Boolean(message.is_thread) && !getThreadCount(message) && !threadCounts.value[message.name]
+    return Boolean(message.is_thread)
+      && Date.now() - (threadCountCheckedAt.get(message.name) || 0) >= 60_000
   })
 
   if (!missingThreadCounts.length) {
@@ -1587,21 +1588,16 @@ async function hydrateThreadCountsForMessages() {
   hydratingThreadCounts.value = true
 
   try {
-    const nextCounts = { ...threadCounts.value }
-
-    await Promise.all(
-      missingThreadCounts.slice(0, 12).map(async (message) => {
-        try {
-          const threadData = await getMessages(message.name, 100)
-          nextCounts[message.name] = threadData.messages.length
-        } catch {
-          nextCounts[message.name] = 0
-        }
-      })
-    )
-
-    threadCounts.value = nextCounts
+    const channelId = chat.activeChannelId.value
+    const counts = await getThreadCounts(missingThreadCounts.map((message) => message.name))
+    if (channelId !== chat.activeChannelId.value) return
+    threadCounts.value = { ...threadCounts.value, ...counts }
+  } catch (err) {
+    console.warn('[verto raven] Could not refresh thread counts', err)
   } finally {
+    // Zero counts, inaccessible threads and failures must not cause a request
+    // on every unrelated incoming message. Explicit thread events invalidate it.
+    for (const message of missingThreadCounts) threadCountCheckedAt.set(message.name, Date.now())
     hydratingThreadCounts.value = false
   }
 }
@@ -1611,8 +1607,10 @@ function setKnownThreadCount(messageName: string, count: number) {
     return
   }
 
-  threadCounts.value = {
-    ...threadCounts.value,
+  // A loaded page is only an estimate; never replace the authoritative Raven
+  // count with a page length (or count an image batch as multiple replies).
+  loadedThreadCountEstimates.value = {
+    ...loadedThreadCountEstimates.value,
     [messageName]: Math.max(0, Math.round(count)),
   }
 }
@@ -1854,6 +1852,7 @@ async function fallbackRefreshFromRaven() {
   }
 
   fallbackRefreshInFlight = true
+  lastFallbackRefreshAt = Date.now()
 
   const beforeLatestMessage = getLatestMessageName(chat.messages.value)
   const beforeThreadLatestMessage = getLatestMessageName(threadReplies.value)
@@ -1893,13 +1892,16 @@ function startFallbackRefreshPolling() {
       document.visibilityState === 'visible'
       && navigator.onLine
     ) {
-      if (!realtime.isConnected()) {
+      const connected = realtime.isConnected()
+      if (!connected) {
         realtime.ensureConnected()
       }
 
-      void fallbackRefreshFromRaven()
+      if (shouldRefreshChat(connected, lastFallbackRefreshAt)) {
+        void fallbackRefreshFromRaven()
+      }
     }
-  }, FALLBACK_REFRESH_INTERVAL_MS)
+  }, CHAT_POLL_INTERVAL_MS)
 }
 
 async function recoverLiveChat() {

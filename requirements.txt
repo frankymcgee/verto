@@ -1,3 +1,5 @@
 # verto/requirements.txt
 python-docx
 pywebpush>=2.3,<3
+pypdf>=6.10,<7
+reportlab>=4.4,<5

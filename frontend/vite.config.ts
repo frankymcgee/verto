@@ -4,112 +4,8 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import Icons from 'unplugin-icons/vite'
+import { lucideIconsPlugin } from 'frappe-ui/vite/lucideIconsPlugin'
 import { VitePWA } from 'vite-plugin-pwa'
-import type { ManifestOptions } from 'vite-plugin-pwa'
-
-const mssManifest = {
-  name: 'MSS Dashboard',
-  short_name: 'MSS',
-  id: '/verto-mobile',
-  start_url: '/verto-mobile',
-  scope: '/verto-mobile',
-  display: 'standalone',
-  description: 'PWA Companion app for Mine Site Support',
-  lang: 'en-AU',
-  dir: 'auto',
-  theme_color: '#171717',
-  background_color: '#171717',
-  orientation: 'portrait-primary',
-  prefer_related_applications: false,
-  icons: [
-    {
-      src: '/assets/verto/manifest/mss-pwa-192.png',
-      sizes: '192x192',
-      type: 'image/png',
-      purpose: 'any',
-    },
-    {
-      src: '/assets/verto/manifest/mss-pwa-512.png',
-      sizes: '512x512',
-      type: 'image/png',
-      purpose: 'any',
-    },
-    {
-      src: '/assets/verto/manifest/mss-pwa-maskable-192.png',
-      sizes: '192x192',
-      type: 'image/png',
-      purpose: 'maskable',
-    },
-    {
-      src: '/assets/verto/manifest/mss-pwa-maskable-512.png',
-      sizes: '512x512',
-      type: 'image/png',
-      purpose: 'maskable',
-    },
-    {
-      src: '/assets/verto/manifest/apple-touch-icon.png',
-      sizes: '180x180',
-      type: 'image/png',
-      purpose: 'any',
-    },
-  ],
-  screenshots: [
-    {
-      src: 'https://dashboard.minesitesupport.com.au/files/screen1.png',
-      sizes: '1242x2688',
-      type: 'image/png',
-      description: 'Companion app for Mine Site Support',
-    },
-    {
-      src: 'https://dashboard.minesitesupport.com.au/files/screen2.png',
-      sizes: '1242x2688',
-      type: 'image/png',
-      description: 'Complete Site Forms online',
-    },
-    {
-      src: 'https://dashboard.minesitesupport.com.au/files/screen3.png',
-      sizes: '1242x2688',
-      type: 'image/png',
-      description: 'Chat with teams on any jobsite',
-    },
-    {
-      src: 'https://dashboard.minesitesupport.com.au/files/screen4.png',
-      sizes: '1242x2688',
-      type: 'image/png',
-      description: 'Direct message other team members',
-    },
-  ],
-  categories: [
-    'business',
-    'productivity',
-  ],
-  shortcuts: [
-    {
-      name: 'Home',
-      short_name: 'Home',
-      url: '/verto-mobile/',
-      description: 'Open the Verto Mobile home page',
-    },
-    {
-      name: 'Shifts',
-      short_name: 'Shifts',
-      url: '/verto-mobile/shifts',
-      description: 'View allocated shifts',
-    },
-    {
-      name: 'Forms',
-      short_name: 'Forms',
-      url: '/verto-mobile/forms',
-      description: 'Open completed forms',
-    },
-    {
-      name: 'Ask PERI',
-      short_name: 'PERI',
-      url: '/verto-mobile/chat/peri?mode=ai',
-      description: 'Open Ask PERI',
-    },
-  ],
-} as unknown as Partial<ManifestOptions>
 
 function copyVertoServiceWorkerPlugin(): Plugin {
   return {
@@ -145,6 +41,7 @@ function copyVertoServiceWorkerPlugin(): Plugin {
 
 export default defineConfig(({ command }) => {
   const isDev = command === 'serve'
+  const devProxyTarget = process.env.VERTO_DEV_PROXY_TARGET || 'http://localhost:8000'
 
   return {
     base: isDev
@@ -153,6 +50,7 @@ export default defineConfig(({ command }) => {
 
     plugins: [
       vue(),
+      lucideIconsPlugin(),
       Icons({
         compiler: 'vue3',
         autoInstall: true,
@@ -195,8 +93,9 @@ export default defineConfig(({ command }) => {
           },
         },
 
-        manifestFilename: 'manifest.webmanifest',
-        manifest: mssManifest,
+        // The tenant manifest is served by Frappe at /verto-mobile.webmanifest.
+        // Do not inject a second, build-generated manifest into index.html.
+        manifest: false,
       }),
       copyVertoServiceWorkerPlugin(),
     ],
@@ -204,8 +103,13 @@ export default defineConfig(({ command }) => {
     server: {
       host: '0.0.0.0',
       proxy: {
+        '/verto-mobile.webmanifest': {
+          target: devProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
         '/api': {
-          target: 'https://dashboard.minesitesupport.com.au',
+          target: devProxyTarget,
           changeOrigin: true,
           secure: false,
         },
@@ -232,8 +136,6 @@ export default defineConfig(({ command }) => {
 
     optimizeDeps: {
       include: [
-        'frappe-ui > feather-icons',
-        'showdown',
         'engine.io-client',
       ],
     },

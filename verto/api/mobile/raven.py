@@ -1094,6 +1094,38 @@ def get_number_of_replies(message):
     }
 
 
+@frappe.whitelist(methods=["GET"])
+def get_thread_counts(messages):
+    """Return Raven's cached reply counts without downloading thread bodies."""
+    if frappe.session.user == "Guest":
+        frappe.throw(_("Login required"), frappe.PermissionError)
+
+    if isinstance(messages, str):
+        messages = json.loads(messages)
+    if not isinstance(messages, list) or len(messages) > 50 or any(
+        not isinstance(name, str) or not name or len(name) > 140 for name in messages
+    ):
+        frappe.throw(_("Provide up to 50 thread message IDs."))
+    if not messages:
+        return {}
+
+    from raven.api.threads import get_number_of_replies as count_replies
+
+    parents = frappe.get_all(
+        "Raven Message",
+        filters={"name": ["in", list(dict.fromkeys(messages))], "is_thread": 1},
+        fields=["name"],
+        limit_page_length=50,
+    )
+    # Match Raven's chat-stream permission check. A thread channel uses the
+    # parent message ID as its name; private thread counts are not disclosed.
+    return {
+        row.name: int(count_replies(row.name) or 0)
+        for row in parents
+        if frappe.has_permission("Raven Channel", doc=row.name, ptype="read")
+    }
+
+
 @frappe.whitelist()
 def create_thread(message):
     thread = _get_or_create_thread_for_message(message)

@@ -1,0 +1,1042 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mount, flushPromises, DOMWrapper } from "@vue/test-utils";
+import { nextTick } from "vue";
+import { createRouter, createMemoryHistory } from "vue-router";
+import { FormControl, Combobox, Select, dialog, setConfig } from "frappe-ui";
+import ShiftAssignmentDialog from "../src/components/ShiftAssignmentDialog.vue";
+import ProjectSpanDialog from "../src/components/ProjectSpanDialog.vue";
+import ProjectTimelineRow from "../src/components/ProjectTimelineRow.vue";
+import YearViewTable from "../src/components/YearViewTable.vue";
+import LeaveApplicationDialog from "../src/components/LeaveApplicationDialog.vue";
+import { dayjs } from "../src/utils";
+
+vi.mock("../src/utils", async () => ({
+  ...(await vi.importActual("../src/utils")),
+  raiseToast: vi.fn(),
+}));
+
+const employees = [
+  { name: "EMP-1", employee_name: "Alex", company: "Test company" },
+];
+const defaults = {
+  custom_project: "PROJ-1",
+  project_name: "Test project",
+  shift_location: "LOC-1",
+  shift_type: "DS",
+  start_date: "2026-09-01",
+  end_date: "2026-09-30",
+};
+const bootstrapData = {
+  references: { shift_type: [{ name: 'DS' }, { name: 'NS' }],
+    designation: [{ name: 'Advisor' }, { name: 'Supervisor' }, { name: 'Labour' }],
+    shift_location: [{ name: 'LOC-1' }, { name: 'OTHER-LOCATION' }] },
+  projects: [{ name: 'OTHER-PROJECT', project_name: 'Other project' }],
+};
+let wrapper, saved, project, shiftDoc, yearEvents;
+const settle = async () => {
+  await flushPromises();
+  await nextTick();
+};
+const projectDetails = () => ({
+  ...project,
+  project_start_date: project.start_date,
+  project_end_date: project.end_date,
+  can_update_project_dates: true,
+  can_update_notes: true,
+  notes_field: "notes",
+  notes: "Original note",
+  execution_tasks: [
+    {
+      name: "TASK-1",
+      subject: "Execution Works",
+      location_subject: "General",
+      can_assign: true,
+      assignees: [],
+    },
+  ],
+});
+
+describe('Live project collaboration', () => {
+  it('preserves unsaved notes, blocks stale saves, and lets the user reload', async () => {
+    let details = { ...projectDetails(), modified: 'revision-one' };
+    setConfig('resourceFetcher', async ({ url }) => {
+      if (url.endsWith('get_bootstrap')) return structuredClone(bootstrapData);
+      if (url.endsWith('get_project_planner_details')) return structuredClone(details);
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await mountComponent(ProjectSpanDialog, { isDialogOpen: true, modelValue: true, project });
+    const notes = () => new DOMWrapper(document.querySelector('textarea[placeholder="Add project notes..."]'));
+    await notes().setValue('My unsaved note');
+    details = { ...details, modified: 'revision-two', notes: 'Saved by another planner' };
+    await wrapper.vm.refreshLive();
+    await settle();
+    expect(notes().element.value).toBe('My unsaved note');
+    expect(document.body.textContent).toContain('This project changed elsewhere');
+    expect(button('Update').attributes('disabled')).toBeDefined();
+    await button('Discard my edits and reload').trigger('click');
+    await settle();
+    expect(notes().element.value).toBe('Saved by another planner');
+    expect(button('Update').attributes('disabled')).toBeUndefined();
+  });
+
+  it('updates a clean open form live and sends the latest revision when saving', async () => {
+    let details = { ...projectDetails(), modified: 'revision-one' };
+    let submitted;
+    setConfig('resourceFetcher', async ({ url, params }) => {
+      if (url.endsWith('get_bootstrap')) return structuredClone(bootstrapData);
+      if (url.endsWith('get_project_planner_details')) return structuredClone(details);
+      if (url.endsWith('update_project_planner_details')) { submitted = params; return structuredClone(details); }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await mountComponent(ProjectSpanDialog, { isDialogOpen: true, modelValue: true, project });
+    details = { ...details, modified: 'revision-two', notes: 'Latest saved note' };
+    await wrapper.vm.refreshLive();
+    await settle();
+    expect(document.querySelector('textarea[placeholder="Add project notes..."]').value).toBe('Latest saved note');
+    await button('Update').trigger('click');
+    await settle();
+    expect(submitted.expected_modified).toBe('revision-two');
+  });
+});
+const shiftModal = () =>
+  document
+    .querySelector(".planner-shift-assignment-dialog-body")
+    ?.closest("[role=dialog]") || null;
+function picker(label) {
+  return [
+    ...wrapper.findAllComponents(Combobox),
+    ...wrapper.findAllComponents(Select),
+  ].find((c) => c.props("label") === label);
+}
+async function selectValue(label, value) {
+  picker(label).vm.$emit("update:modelValue", value);
+  await settle();
+}
+function button(label, root = document) {
+  return new DOMWrapper(
+    [...root.querySelectorAll("button")].find(
+      (el) => el.textContent.trim() === label,
+    ),
+  );
+}
+async function fieldValue(label, value) {
+  const control = wrapper
+    .findAllComponents(FormControl)
+    .find((control) => control.props("label") === label);
+  await control.find("input, textarea").setValue(value);
+  await control.find("input, textarea").trigger("blur");
+}
+async function mountComponent(component, props) {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: "/", component: { template: "<div />" } }],
+  });
+  await router.push("/");
+  await router.isReady();
+  wrapper = mount(component, {
+    attachTo: document.body,
+    props,
+    global: { plugins: [router] },
+  });
+  await settle();
+}
+async function openShift(extra = {}) {
+  await mountComponent(ShiftAssignmentDialog, {
+    isDialogOpen: false,
+    modelValue: false,
+    employees,
+    assignmentDefaults: defaults,
+    ...extra,
+  });
+  await wrapper.setProps({ isDialogOpen: true, modelValue: true });
+  await settle();
+}
+async function chooseEmployeeAndDates(end = "2026-09-15") {
+  await selectValue("Employee", "EMP-1");
+  await settle();
+  await fieldValue("Start Date", "2026-09-14");
+  await fieldValue("End Date", end);
+  await settle();
+}
+
+beforeEach(() => {
+  saved = [];
+  yearEvents = null;
+  project = {
+    project: "PROJ-1",
+    project_name: "Test project",
+    customer: "Test customer",
+    custom_project_location: "LOC-1",
+    start_date: "2026-09-01",
+    end_date: "2026-09-30",
+    status: "Open",
+    task_count: 3,
+    has_tasks: true,
+    is_active: true,
+    po_entered: true,
+    assignments: {},
+    ds_personnel: [],
+    ns_personnel: [],
+    ds_requested: 2,
+    ns_requested: 2,
+  };
+  shiftDoc = {
+    name: "SHIFT-1",
+    modified: "2026-10-01 09:00:00",
+    employee: "EMP-1",
+    employee_name: "Alex",
+    company: "Test company",
+    department: "Maintenance",
+    custom_project: "OTHER-PROJECT",
+    shift_type: "NS",
+    shift_location: "OTHER-LOCATION",
+    start_date: "2026-10-01",
+    end_date: "2026-10-02",
+    status: "Active",
+  };
+  setConfig("resourceFetcher", async ({ url, params }) => {
+    if (url.endsWith('get_bootstrap')) return structuredClone(bootstrapData);
+    if (url === "frappe.client.get_list") {
+      if (params.doctype === "Shift Type")
+        return [{ name: "DS" }, { name: "NS" }];
+      if (params.doctype === "Shift Location")
+        return [{ name: "LOC-1" }, { name: "OTHER-LOCATION" }];
+      if (params.doctype === "Project")
+        return [{ name: "OTHER-PROJECT", project_name: "Other project" }]; // source project deliberately outside the list
+      if (params.doctype === "Shift Assignment") return [];
+    }
+    if (url === "frappe.client.get") return shiftDoc;
+    if (url.endsWith("get_values"))
+      return {
+        name: params.name,
+        employee_name: "Alex",
+        company: "Test company",
+        department: "Maintenance",
+      };
+    if (url.endsWith("get_project_planner_details")) return projectDetails();
+    if (url === "verto.api.planner_leave.get_details") return {
+      name: params.name, modified: "revision-one", docstatus: 0, status: "Open", fields: [], values: {},
+    };
+    if (url.endsWith("get_year_events"))
+      return yearEvents || {
+        contract_version: 2,
+        employee_event_days: {},
+        project_rows: [{ ...project }],
+        day_markers: {},
+        employee_details: {},
+        timesheet_days: {},
+      };
+    if (url === "verto.api.planner_shift.update") {
+      saved.push({ url, params });
+      shiftDoc = { ...shiftDoc, ...params.values, modified: "2026-10-01 10:00:00" };
+      return { name: shiftDoc.name };
+    }
+    if (url.endsWith("insert_shift") || url.includes("create_")) {
+      saved.push({ url, params });
+      project = {
+        ...project,
+        ds_personnel: params.shift_type === "DS" ? ["Alex"] : [],
+        ns_personnel: params.shift_type === "NS" ? ["Alex"] : [],
+      };
+      return {};
+    }
+    throw new Error(
+      `Unexpected fixture request ${url} ${JSON.stringify(params)}`,
+    );
+  });
+});
+afterEach(() => {
+  wrapper?.unmount();
+  document.body.innerHTML = "";
+  vi.restoreAllMocks();
+});
+
+describe("Project shift defaults", () => {
+  it.each(["DS", "NS"])(
+    "emits the actual project and location from the %s section",
+    async (shift) => {
+      await mountComponent(ProjectSpanDialog, {
+        isDialogOpen: true,
+        modelValue: true,
+        project,
+      });
+      const name = shift === "DS" ? "Assign day shifts" : "Assign night shifts";
+      for (const label of ["Project Start Date", "Project End Date"]) {
+        expect(
+          wrapper
+            .findAllComponents(FormControl)
+            .find((c) => c.props("label") === label)
+            .find("input").element.disabled,
+        ).toBe(false);
+      }
+      await new DOMWrapper(
+        document.querySelector(`[aria-label="${name}"]`),
+      ).trigger("click");
+      expect(wrapper.emitted("assignShifts")[0][0]).toEqual({
+        ...defaults,
+        shift_type: shift,
+      });
+      expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+    },
+  );
+
+  it.each(["DS", "NS"])(
+    "prefills %s including project dates and leaves personnel for entry",
+    async (shift) => {
+      await openShift({
+        assignmentDefaults: { ...defaults, shift_type: shift },
+        selectedCell: { employee: "STALE-EMPLOYEE", date: "2025-01-01" },
+      });
+      expect(picker("Project").props("modelValue")).toBe("PROJ-1");
+      expect(picker("Shift Type").props("modelValue")).toBe(shift);
+      expect(picker("Shift Location").props("modelValue")).toBe("LOC-1");
+      expect(picker("Employee").props("modelValue")).toBe("");
+      expect(
+        wrapper
+          .findAllComponents(FormControl)
+          .find((c) => c.props("label") === "Start Date")
+          .find("input").element.value,
+      ).toBe(defaults.start_date);
+      expect(
+        wrapper
+          .findAllComponents(FormControl)
+          .find((c) => c.props("label") === "End Date")
+          .find("input").element.value,
+      ).toBe(defaults.end_date);
+      expect(saved).toEqual([]);
+    },
+  );
+
+  it("selects employees and shift types through the v1 popup controls", async () => {
+    await openShift();
+    await picker("Employee").find("input").trigger("click");
+    await settle();
+    const employeeOption = [...document.querySelectorAll("[role=option]")].find(
+      (el) => el.textContent.includes("Alex"),
+    );
+    expect(employeeOption).toBeTruthy();
+    await new DOMWrapper(employeeOption).trigger("click");
+    await settle();
+    expect(picker("Employee").props("modelValue")).toBe("EMP-1");
+    const trigger = picker("Shift Type").find("[role=combobox]");
+    await trigger.trigger("keydown", { key: "Enter" });
+    await settle();
+    const nightOption = [...document.querySelectorAll("[role=option]")].find(
+      (el) => el.textContent.trim() === "NS",
+    );
+    expect(nightOption).toBeTruthy();
+    await new DOMWrapper(nightOption).trigger("keydown", {key: "Enter"});
+    await settle();
+    expect(picker("Shift Type").props("modelValue")).toBe("NS");
+  });
+
+  it("displays the project and linked location even outside the fetched options", async () => {
+    await openShift({
+      assignmentDefaults: { ...defaults, shift_location: "REMOTE-LOCATION" },
+    });
+    expect(
+      picker("Project")
+        .props("options")
+        .find((o) => o.value === "PROJ-1").label,
+    ).toBe("Test project");
+    expect(picker("Shift Location").props("modelValue")).toBe(
+      "REMOTE-LOCATION",
+    );
+  });
+
+  it("allows the location to be selected when the project has none", async () => {
+    await openShift({
+      assignmentDefaults: { ...defaults, shift_location: "" },
+    });
+    expect(picker("Shift Location").props("modelValue")).toBe("");
+    expect(Boolean(picker("Shift Location").props("disabled"))).toBe(false);
+    await selectValue("Shift Location", "LOC-1");
+    expect(picker("Shift Location").props("modelValue")).toBe("LOC-1");
+  });
+
+  it("resets defaults before a normal calendar assignment", async () => {
+    await openShift();
+    await wrapper.setProps({ modelValue: false, isDialogOpen: false });
+    await wrapper.setProps({
+      assignmentDefaults: null,
+      selectedCell: { employee: "EMP-1", date: "2026-10-14" },
+      modelValue: true,
+      isDialogOpen: true,
+    });
+    await settle();
+    expect(picker("Employee").props("modelValue")).toBe("EMP-1");
+    expect(picker("Project").props("modelValue")).toBe("");
+    expect(picker("Shift Type").props("modelValue")).toBe("");
+    expect(picker("Shift Location").props("modelValue")).toBe("");
+    expect(
+      wrapper
+        .findAllComponents(FormControl)
+        .find((c) => c.props("label") === "Start Date")
+        .find("input").element.value,
+    ).toBe("2026-10-14");
+  });
+
+  it("keeps an existing shift document values when editing", async () => {
+    await openShift({
+      shiftAssignmentName: "SHIFT-1",
+      selectedCell: { employee: "EMP-1", date: "2026-10-01" },
+    });
+    expect(picker("Project").props("modelValue")).toBe("OTHER-PROJECT");
+    expect(picker("Shift Type").props("modelValue")).toBe("NS");
+    expect(picker("Shift Location").props("modelValue")).toBe("OTHER-LOCATION");
+    for (const label of ["Employee", "Shift Type", "Shift Location"]) {
+      expect(Boolean(picker(label).props("disabled"))).toBe(false);
+    }
+    expect(wrapper.findAllComponents(FormControl).find((c) => c.props("label") === "Start Date").find("input").element.disabled).toBe(false);
+    expect(button("Update", shiftModal()).element.disabled).toBe(true);
+  });
+});
+
+describe("Editing allocated shifts", () => {
+  it.each([
+    ["Employee", "employee", "EMP-2"],
+    ["Shift Type", "shift_type", { value: "DS", label: "Day shift" }],
+    ["Shift Location", "shift_location", "LOC-1"],
+    ["Project", "custom_project", "PROJ-1"],
+    ["Project Designation", "custom_project_designation", "Advisor"],
+    ["Status", "status", { value: "Inactive", label: "Inactive" }],
+    ["Start Date", "start_date", "2026-10-02"],
+    ["End Date", "end_date", ""],
+    ["Note", "note", "Updated allocation note"],
+  ])("saves a change to %s with the allocation revision", async (label, field, value) => {
+    shiftDoc.name = `SHIFT-EDIT-${field}`;
+    await openShift({ shiftAssignmentName: shiftDoc.name });
+    expect(button("Update", shiftModal()).element.disabled).toBe(true);
+    if (["Start Date", "End Date", "Note"].includes(label)) {
+      await fieldValue(label, value);
+    } else {
+      await selectValue(label, value);
+    }
+    await settle();
+    expect(button("Update", shiftModal()).element.disabled).toBe(false);
+    await button("Update", shiftModal()).trigger("click");
+    await settle();
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toEqual({
+      url: "verto.api.planner_shift.update",
+      params: {
+        name: shiftDoc.name,
+        expected_modified: "2026-10-01 09:00:00",
+        values: { [field]: typeof value === "object" ? value.value : value },
+      },
+    });
+    expect(wrapper.emitted("fetchEvents")).toHaveLength(1);
+    expect(button("Update", shiftModal()).element.disabled).toBe(true);
+  });
+
+  it("refreshes employee details when changing or restoring the allocated employee", async () => {
+    shiftDoc.name = "SHIFT-CHANGE-EMPLOYEE";
+    setConfig("resourceFetcher", async ({ url, params }) => {
+      if (url.endsWith("get_bootstrap")) return structuredClone(bootstrapData);
+      if (url === "frappe.client.get") return structuredClone(shiftDoc);
+      if (url.endsWith("get_values")) return { name: params.name, employee_name: "Second employee", company: "Other company", department: "Other department" };
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await openShift({ shiftAssignmentName: shiftDoc.name, employees: [] });
+    expect(picker("Employee").props("options")).toContainEqual({ label: "EMP-1: Alex", value: "EMP-1" });
+    await selectValue("Employee", "EMP-2");
+    const company = () => wrapper.findAllComponents(FormControl).find((c) => c.props("label") === "Company").find("input").element.value;
+    expect(company()).toBe("Other company");
+    await selectValue("Employee", "EMP-1");
+    expect(company()).toBe("Test company");
+    expect(button("Update", shiftModal()).element.disabled).toBe(true);
+  });
+
+  it("retains unsaved edits and shows a server rejection without reporting success", async () => {
+    shiftDoc.name = "SHIFT-STALE-EDIT";
+    setConfig("resourceFetcher", async ({ url }) => {
+      if (url.endsWith("get_bootstrap")) return structuredClone(bootstrapData);
+      if (url === "frappe.client.get") return structuredClone(shiftDoc);
+      if (url === "verto.api.planner_shift.update") throw Object.assign(new Error("Shift changed elsewhere"), { messages: ["Shift changed elsewhere"] });
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await openShift({ shiftAssignmentName: shiftDoc.name });
+    await selectValue("Shift Location", "LOC-1");
+    await button("Update", shiftModal()).trigger("click");
+    await settle();
+    const { raiseToast } = await import("../src/utils");
+    expect(raiseToast).toHaveBeenCalledWith("error", "Shift changed elsewhere");
+    expect(wrapper.emitted("fetchEvents")).toBeUndefined();
+    expect(picker("Shift Location").props("modelValue")).toBe("LOC-1");
+    expect(button("Update", shiftModal()).element.disabled).toBe(false);
+  });
+});
+
+describe("Submitting project shifts", () => {
+  it.each(["DS", "NS"])(
+    "passes project defaults into a single %s assignment",
+    async (shift) => {
+      await openShift({
+        assignmentDefaults: { ...defaults, shift_type: shift },
+      });
+      await chooseEmployeeAndDates();
+      await button("Submit", shiftModal()).trigger("click");
+      await settle();
+      expect(saved[0].url).toBe("verto.api.planner.insert_shift");
+      expect(saved[0].params).toMatchObject({
+        custom_project: "PROJ-1",
+        shift_location: "LOC-1",
+        shift_type: shift,
+        employee: "EMP-1",
+        company: "Test company",
+      });
+      expect(wrapper.emitted("fetchEvents")).toHaveLength(1);
+    },
+  );
+
+  it.each([
+    ["Repeat On Days", "create_shift_schedule_assignment"],
+    ["Rolling Roster", "create_rolling_roster_assignment"],
+    ["Dynamic Rolling Roster", "create_dynamic_rolling_roster_assignment"],
+    ["Rolling Day/Night Roster", "create_rolling_day_night_roster_assignment"],
+  ])("retains defaults with the %s option", async (schedule, method) => {
+    await openShift({ assignmentDefaults: { ...defaults, custom_project_designation: "Advisor" } });
+    await chooseEmployeeAndDates("2026-10-30");
+    await selectValue("Schedule Type", schedule);
+    if (schedule === "Rolling Roster") await fieldValue("Days On Site", 4);
+    await button("Submit", shiftModal()).trigger("click");
+    await settle();
+    expect(saved[0].url).toBe(`verto.api.planner.${method}`);
+    expect(saved[0].params).toMatchObject({
+      custom_project: "PROJ-1",
+      shift_location: "LOC-1",
+      employee: "EMP-1",
+      custom_project_designation: "Advisor",
+    });
+    if (schedule === "Rolling Roster")
+      expect(saved[0].params.days_on_site).toBe("4");
+    if (schedule !== "Rolling Day/Night Roster")
+      expect(saved[0].params.shift_type).toBe("DS");
+    else
+      expect(saved[0].params).toMatchObject({
+        day_shift_type: "DS",
+        night_shift_type: "NS",
+      });
+  });
+});
+
+describe("Project personnel designations", () => {
+  it("saves requirement rows, calculates totals and retains existing legacy counts", async () => {
+    let submitted;
+    const details = { ...projectDetails(), can_update_personnel_requirements: true, personnel_requirements: [] };
+    setConfig("resourceFetcher", async ({ url, params }) => {
+      if (url.endsWith("get_bootstrap")) return structuredClone(bootstrapData);
+      if (url.endsWith("get_project_planner_details")) return structuredClone(details);
+      if (url.endsWith("update_project_planner_details")) { submitted = params; return structuredClone(details); }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await mountComponent(ProjectSpanDialog, { isDialogOpen: true, modelValue: true, project });
+    await button("+ Add role").trigger("click");
+    await settle();
+    const designations = wrapper.findAllComponents(Combobox).filter((control) => control.props("label") === "Designation");
+    expect(designations).toHaveLength(3); // Existing DS/NS totals plus the new role.
+    designations[2].vm.$emit("update:modelValue", "Advisor");
+    const required = wrapper.findAllComponents(FormControl).filter((control) => control.props("label") === "Required");
+    await required[2].find("input").setValue("3");
+    await settle();
+    await button("Update").trigger("click");
+    await settle();
+    expect(submitted.personnel_requirements).toEqual([
+      { shift: "DS", designation: "", required_personnel: 2 },
+      { shift: "NS", designation: "", required_personnel: 2 },
+      { shift: "DS", designation: "Advisor", required_personnel: 3 },
+    ]);
+    expect(submitted).toMatchObject({ ds_requested: 5, ns_requested: 2,
+      project_start_date: defaults.start_date, project_end_date: defaults.end_date });
+  });
+
+  it("emits the selected shift and designation and keeps people with the same name", async () => {
+    project = { ...project, can_update_personnel_requirements: true,
+      personnel_requirements: [{ shift: "NS", designation: "Supervisor", required_personnel: 2 }],
+      personnel_allocations: [{ shift: "NS", designation: "Supervisor", required_personnel: 2,
+        personnel: [{ employee: "EMP-1", employee_name: "Alex" }, { employee: "EMP-2", employee_name: "Alex" }] }] };
+    await mountComponent(ProjectSpanDialog, { isDialogOpen: true, modelValue: true, project });
+    expect(document.body.textContent.match(/Alex/g)).toHaveLength(2);
+    expect(document.body.textContent).toContain("2 / 2 required");
+    await new DOMWrapper(document.querySelector('[aria-label="Assign NS Supervisor shifts"]')).trigger("click");
+    expect(wrapper.emitted("assignShifts")[0][0]).toMatchObject({ ...defaults,
+      shift_type: "NS", custom_project_designation: "Supervisor" });
+  });
+
+  it("blocks duplicate shift/designation rows and permits clearing all requirements", async () => {
+    let submitted;
+    const details = { ...projectDetails(), can_update_personnel_requirements: true, can_update_ds: true, can_update_ns: true,
+      personnel_requirements: [{ shift: "DS", designation: "Advisor", required_personnel: 2 }] };
+    setConfig("resourceFetcher", async ({ url, params }) => {
+      if (url.endsWith("get_bootstrap")) return structuredClone(bootstrapData);
+      if (url.endsWith("get_project_planner_details")) return structuredClone(details);
+      if (url.endsWith("update_project_planner_details")) { submitted = params; return { ...structuredClone(details),
+        personnel_requirements: params.personnel_requirements || [], ds_requested: params.ds_requested, ns_requested: params.ns_requested }; }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await mountComponent(ProjectSpanDialog, { isDialogOpen: true, modelValue: true, project });
+    await button("+ Add role").trigger("click");
+    await settle();
+    const designations = wrapper.findAllComponents(Combobox).filter((control) => control.props("label") === "Designation");
+    designations[1].vm.$emit("update:modelValue", "Advisor");
+    await settle();
+    expect(button("Update").attributes("disabled")).toBeDefined();
+    const remove = [...document.querySelectorAll('button[aria-label^="Remove DS"]')];
+    for (const element of remove) await new DOMWrapper(element).trigger("click");
+    await settle();
+    const ds = wrapper.findAllComponents(FormControl).find((control) => control.props("label") === "DS Personnel Required");
+    expect(ds.find("input").element.disabled).toBe(true);
+    await button("Update").trigger("click");
+    await settle();
+    expect(submitted).toMatchObject({ personnel_requirements: [], ds_requested: 0, ns_requested: 0 });
+    expect(ds.find("input").element.disabled).toBe(false);
+    await fieldValue("DS Personnel Required", "4");
+    await button("Update").trigger("click");
+    await settle();
+    expect(submitted.ds_requested).toBe("4");
+    expect(submitted.personnel_requirements).toBeUndefined();
+  });
+
+  it("prefills and saves a project role on a single shift", async () => {
+    await openShift({ assignmentDefaults: { ...defaults, custom_project_designation: "Advisor" } });
+    expect(picker("Project Designation").props("modelValue")).toBe("Advisor");
+    await chooseEmployeeAndDates();
+    await button("Submit", shiftModal()).trigger("click");
+    await settle();
+    expect(saved[0].params.custom_project_designation).toBe("Advisor");
+  });
+
+  it("edits the project role and clears it when the project is removed", async () => {
+    let submitted;
+    shiftDoc.custom_project_designation = "Advisor";
+    shiftDoc.name = "SHIFT-ROLE-1";
+    setConfig("resourceFetcher", async ({ url, params }) => {
+      if (url.endsWith("get_bootstrap")) return structuredClone(bootstrapData);
+      if (url === "frappe.client.get") return structuredClone(shiftDoc);
+      if (url === "verto.api.planner_shift.update") { submitted = params; shiftDoc = { ...shiftDoc, ...params.values }; return { name: shiftDoc.name }; }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await openShift({ shiftAssignmentName: "SHIFT-ROLE-1", selectedCell: { employee: "EMP-1", date: "2026-10-01" } });
+    expect(picker("Project Designation").props("modelValue")).toBe("Advisor");
+    await selectValue("Project Designation", "Labour");
+    expect(button("Update", shiftModal()).attributes("disabled")).toBeUndefined();
+    await button("Update", shiftModal()).trigger("click");
+    await settle();
+    expect(submitted.values.custom_project_designation).toBe("Labour");
+    await selectValue("Project", "");
+    expect(picker("Project Designation").props("modelValue")).toBe("");
+    expect(picker("Project Designation").props("disabled")).toBe(true);
+  });
+});
+
+describe("Annual leave status visibility and scheduling", () => {
+  const leaveCases = [
+    { status: "Open", leave_type: "Annual Leave", label: "AL", docstatus: 0 },
+    { status: "Approved", leave_type: "Sick Leave", label: "SL", docstatus: 1 },
+    { status: "Rejected", leave_type: "R 'n' R", label: "RnR", docstatus: 1 },
+    { status: "Cancelled", leave_type: "Unavailable", label: "U", docstatus: 2 },
+  ];
+  async function openRoster(version, withShift = false) {
+    const leaves = leaveCases.map((leave, index) => ({
+      ...leave,
+      leave: `LEAVE/${index}`,
+      // A cancelled document can retain Approved in the stored status field.
+      status: leave.docstatus === 2 ? "Approved" : leave.status,
+      from_date: `2026-09-${10 + index}`,
+      to_date: `2026-09-${10 + index}`,
+    }));
+    const shift = {
+      name: "SHIFT-1", shift_type: "DS", status: "Active", color: "blue",
+      start_date: "2026-09-10", end_date: "2026-09-13",
+      start_time: "06:00:00", end_time: "18:00:00",
+    };
+    yearEvents = version === 1 ? {
+      events: { "EMP-1": [...leaves, ...(withShift ? [shift] : [])] },
+    } : {
+      contract_version: 2,
+      leave_applications: Object.fromEntries(leaves.map(leave => [leave.leave, leave])),
+      employee_event_days: { "EMP-1": Object.fromEntries(leaves.map(leave => [leave.from_date, {
+        leave: leave.leave,
+        ...(withShift ? { shifts: [shift.name] } : {}),
+      }])) },
+      shift_assignments: withShift ? { [shift.name]: shift } : {},
+    };
+    await mountComponent(YearViewTable, {
+      firstOfMonth: dayjs("2026-09-01"), employees,
+      employeeFilters: {}, shiftFilters: {},
+    });
+  }
+
+  it.each([1, 2])("opens existing leave applications for all four statuses in contract %s", async version => {
+    const openWindow = vi.spyOn(window, "open").mockReturnValue(null);
+    await openRoster(version);
+    const backgrounds = new Set();
+    for (const leave of leaveCases) {
+      const cell = wrapper.find(`td[aria-label="${leave.leave_type} · ${leave.status}"]`);
+      expect(cell.text()).toBe(leave.label);
+      expect(cell.element.style.backgroundImage).toContain("repeating-linear-gradient");
+      backgrounds.add(cell.element.style.backgroundColor);
+      await cell.trigger("click");
+      await settle();
+      const leaveDialog = wrapper.findComponent(LeaveApplicationDialog);
+      expect(leaveDialog.props("leaveApplicationName")).toBe(`LEAVE/${leaveCases.indexOf(leave)}`);
+      expect(leaveDialog.props("isDialogOpen")).toBe(true);
+      expect(wrapper.findComponent(ShiftAssignmentDialog).props("isDialogOpen")).toBe(false);
+      await button("Close").trigger("click");
+      await settle();
+    }
+    expect(backgrounds.size).toBe(4);
+    expect(wrapper.findAll(".year-employee-legend-leave")).toHaveLength(4);
+    expect(openWindow).not.toHaveBeenCalled();
+    await wrapper.find('td.year-cell[aria-label="Monday, 14 September 2026"]').trigger("click");
+    await settle();
+    const dialog = wrapper.findComponent(ShiftAssignmentDialog);
+    expect(dialog.props("isDialogOpen")).toBe(true);
+    expect(dialog.props("selectedCell")).toEqual({ employee: "EMP-1", date: "2026-09-14" });
+    expect(openWindow).not.toHaveBeenCalled();
+  });
+
+  it.each([1, 2])("retains shifts and leave status markers on non-approved days in contract %s", async version => {
+    const openWindow = vi.spyOn(window, "open").mockReturnValue(null);
+    await openRoster(version, true);
+    expect(wrapper.findAll(".year-employee-shift-cell")).toHaveLength(3);
+    expect(wrapper.findAll(".year-leave-status-marker")).toHaveLength(3);
+    for (const leave of leaveCases.filter(leave => leave.status !== "Approved")) {
+      const cell = wrapper.find(`td[aria-label$="${leave.leave_type} · ${leave.status}"]`);
+      expect(cell.text()).toBe("DS");
+      expect(cell.attributes("draggable")).toBe("true");
+      expect(cell.find(".year-leave-status-marker").element.style.backgroundImage).toContain("repeating-linear-gradient");
+      await cell.find(".year-leave-status-marker").trigger("click");
+      await settle();
+      const leaveDialog = wrapper.findComponent(LeaveApplicationDialog);
+      expect(leaveDialog.props("leaveApplicationName")).toBe(`LEAVE/${leaveCases.indexOf(leave)}`);
+      expect(leaveDialog.props("isDialogOpen")).toBe(true);
+      expect(wrapper.findComponent(ShiftAssignmentDialog).props("isDialogOpen")).toBe(false);
+      await button("Close").trigger("click");
+      await settle();
+    }
+    const cancelled = wrapper.find('td[aria-label$="Unavailable · Cancelled"]');
+    await cancelled.trigger("mouseenter", { clientX: 100, clientY: 100 });
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Unavailable · Cancelled"));
+    await cancelled.trigger("click");
+    await settle();
+    expect(wrapper.findComponent(ShiftAssignmentDialog).props("shiftAssignmentName")).toBe("SHIFT-1");
+    expect(openWindow).not.toHaveBeenCalled();
+  });
+});
+
+describe("Cancelled project visibility", () => {
+  it("shows cancelled annual projects with dark stripes across filters and live status changes", async () => {
+    yearEvents = {
+      contract_version: 2, events: {}, employee_event_days: {},
+      project_rows: [
+        { ...project, project: "CANCELLED-JOB", project_name: "Cancelled shutdown", status: "Cancelled", is_active: false, customer_color: "#ff0000", po_entered: false },
+        { ...project, project: "COMPLETED-JOB", project_name: "Completed shutdown", status: "Completed" },
+      ],
+    };
+    await mountComponent(YearViewTable, {
+      firstOfMonth: dayjs("2026-09-01"), employees, employeeFilters: {}, shiftFilters: {},
+    });
+    const cancelled = wrapper.find(".year-project-span-cancelled");
+    expect(cancelled.text()).toContain("Cancelled shutdown");
+    expect(cancelled.attributes("aria-label")).toContain("Cancelled");
+    expect(cancelled.classes()).not.toContain("year-project-span-inactive");
+    expect(["#374151", "rgb(55, 65, 81)"]).toContain(cancelled.element.style.backgroundColor);
+    expect(cancelled.element.style.backgroundImage).toMatch(/repeating-linear-gradient\(135deg/);
+    expect(cancelled.element.style.backgroundImage).toContain("4px");
+    expect(cancelled.element.style.backgroundImage).toContain("8px");
+    expect(["#f9fafb", "rgb(249, 250, 251)"]).toContain(cancelled.element.style.color);
+    const toggles = wrapper.findAll(".year-project-header-actions label");
+    await toggles.find(toggle => toggle.text() === "Hide completed").find("input").setValue(true);
+    expect(wrapper.find(".year-project-span-completed").exists()).toBe(false);
+    expect(wrapper.find(".year-project-span-cancelled").exists()).toBe(true);
+    await toggles.find(toggle => toggle.text() === "Birds eye").find("input").setValue(true);
+    expect(wrapper.find(".year-project-span-cancelled").element.style.backgroundImage).toContain("135deg");
+    yearEvents = { ...yearEvents, project_rows: yearEvents.project_rows.map(row => row.project === "CANCELLED-JOB" ? { ...row, status: "Open" } : row) };
+    await wrapper.vm.events.fetch(); await settle();
+    expect(wrapper.find(".year-project-span-cancelled").exists()).toBe(false);
+    expect(wrapper.find(".year-project-span").element.style.backgroundImage).toBe("");
+    yearEvents = { ...yearEvents, project_rows: yearEvents.project_rows.map(row => row.project === "CANCELLED-JOB" ? { ...row, status: " Cancelled " } : row) };
+    await wrapper.vm.events.fetch(); await settle();
+    expect(wrapper.find(".year-project-span-cancelled").element.style.backgroundImage).toContain("135deg");
+    await wrapper.find(".year-project-span-cancelled").trigger("mouseenter", { clientX: 200, clientY: 200 });
+    expect(document.querySelector('[role="tooltip"]').textContent).toContain("Cancelled");
+    await wrapper.find(".year-project-span-cancelled").trigger("click");
+    await settle();
+    expect(wrapper.findComponent(ProjectSpanDialog).props("project").project).toBe("CANCELLED-JOB");
+  });
+
+  it("uses the same dark cancellation shading on monthly project bars", async () => {
+    setConfig("resourceFetcher", async ({ url }) => {
+      if (url === "frappe.client.get_list") return [
+        { name: "MONTH-CANCELLED", project_name: "Cancelled monthly job", status: "Cancelled", color: "#ff0000", expected_start_date: "2026-09-01", expected_end_date: "2026-09-30" },
+        { name: "MONTH-OPEN", project_name: "Open monthly job", status: "Open", color: "#ff0000", expected_start_date: "2026-09-01", expected_end_date: "2026-09-30" },
+      ];
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await mountComponent(ProjectTimelineRow, {
+      firstOfMonth: dayjs("2026-09-01"), projectFilters: { company: "CANCELLED-PROJECT-TEST" },
+    });
+    const cancelled = wrapper.find(".project-bar-cancelled");
+    expect(cancelled.text()).toContain("Cancelled monthly job");
+    expect(cancelled.attributes("data-tooltip")).toContain("Status: Cancelled");
+    expect(["#374151", "rgb(55, 65, 81)"]).toContain(cancelled.element.style.backgroundColor);
+    expect(cancelled.element.style.backgroundImage).toContain("135deg");
+    expect(wrapper.findAll(".bar")).toHaveLength(2);
+    expect(wrapper.find('.bar[aria-label^="Open monthly job"]').element.style.backgroundImage).toBe("");
+  });
+});
+
+describe("Annual Planner integration", () => {
+  it("filters completed and cancelled projects independently and restores rows from an empty Birds eye view", async () => {
+    yearEvents = { contract_version: 2, employee_event_days: {}, project_rows: [
+      { ...project, project: "DONE", project_name: "Finished shutdown", status: " Completed ", roster_or_shutdown: "Shutdown" },
+      { ...project, project: "CANCELLED", project_name: "Cancelled shutdown", status: " cAnCeLeD ", roster_or_shutdown: "Shutdown" },
+      { ...project, project: "ACTIVE", project_name: "Current roster", roster_or_shutdown: "Roster" },
+    ] };
+    await mountComponent(YearViewTable, {
+      firstOfMonth: dayjs("2026-09-01"), employees, employeeFilters: {}, shiftFilters: {},
+    });
+    const toggles = wrapper.findAll(".year-project-header-actions label");
+    expect(toggles.map(toggle => toggle.text())).toEqual(["Hide completed", "Hide cancelled", "Birds eye"]);
+    const toggle = label => toggles.find(toggle => toggle.text() === label).find("input");
+    expect(toggle("Hide completed").element.checked).toBe(false);
+    expect(toggle("Hide cancelled").element.checked).toBe(false);
+    const projects = () => wrapper.findAll(".year-project-span-name").map(span => span.text());
+    expect(projects()).toContain("Finished shutdown");
+    expect(projects()).toContain("Cancelled shutdown");
+    expect(projects()).toContain("Current roster");
+    await toggle("Hide completed").setValue(true);
+    expect(projects()).not.toContain("Finished shutdown");
+    expect(projects()).toContain("Cancelled shutdown");
+    expect(projects()).toContain("Current roster");
+    await toggle("Hide cancelled").setValue(true);
+    expect(projects()).toEqual(["Current roster"]);
+    await toggle("Hide completed").setValue(false);
+    expect(projects()).toContain("Finished shutdown");
+    expect(projects()).not.toContain("Cancelled shutdown");
+    expect(projects()).toContain("Current roster");
+    await button("Shutdown").trigger("click");
+    await toggle("Birds eye").setValue(true);
+    await toggle("Hide completed").setValue(true);
+    expect(projects()).toEqual([]);
+    expect(wrapper.text()).toContain("No projects match the current annual filters");
+    expect(wrapper.findAll(".year-project-header-actions label")).toHaveLength(3);
+    await toggle("Hide completed").setValue(false);
+    expect(projects()).toContain("Finished shutdown");
+    expect(projects()).not.toContain("Cancelled shutdown");
+    expect(projects()).not.toContain("Current roster");
+    await toggle("Hide cancelled").setValue(false);
+    expect(projects()).toContain("Cancelled shutdown");
+    expect(projects()).not.toContain("Current roster");
+    expect(wrapper.find(".year-project-table").classes()).toContain("year-project-birds-eye-table");
+  });
+
+  async function openProject() {
+    await mountComponent(YearViewTable, {
+      firstOfMonth: dayjs("2026-09-01"),
+      employees,
+      employeeFilters: {},
+      shiftFilters: {},
+    });
+    await wrapper.find(".year-project-cell.year-project-span").trigger("click");
+    await settle();
+    expect(
+      document.querySelector('[aria-label="Assign day shifts"]'),
+    ).not.toBeNull();
+  }
+  it("returns to project details on cancel without assigning a shift", async () => {
+    await openProject();
+    await new DOMWrapper(
+      document.querySelector('[aria-label="Assign night shifts"]'),
+    ).trigger("click");
+    await settle();
+    expect(picker("Shift Type").props("modelValue")).toBe("NS");
+    expect(
+      wrapper
+        .findAllComponents(FormControl)
+        .find((c) => c.props("label") === "Start Date")
+        .find("input").element.value,
+    ).toBe(defaults.start_date);
+    expect(
+      wrapper
+        .findAllComponents(FormControl)
+        .find((c) => c.props("label") === "End Date")
+        .find("input").element.value,
+    ).toBe(defaults.end_date);
+    expect(
+      document.querySelector('[aria-label="Assign day shifts"]'),
+    ).toBeNull();
+    await new DOMWrapper(
+      shiftModal().querySelector('[aria-label="Close"]'),
+    ).trigger("click");
+    await settle();
+    expect(
+      document.querySelector('[aria-label="Assign day shifts"]'),
+    ).not.toBeNull();
+    expect(shiftModal()).toBeNull();
+    expect(saved).toEqual([]);
+  });
+
+  it("refreshes DS personnel while retaining unsaved project notes", async () => {
+    await openProject();
+    const notes = new DOMWrapper(
+      document.querySelector('textarea[placeholder="Add project notes..."]'),
+    );
+    await notes.setValue("Keep this unsaved note");
+    await new DOMWrapper(
+      document.querySelector('[aria-label="Assign day shifts"]'),
+    ).trigger("click");
+    await settle();
+    await chooseEmployeeAndDates();
+    await button("Submit", shiftModal()).trigger("click");
+    await settle();
+    expect(shiftModal()).toBeNull();
+    expect(
+      wrapper.findComponent(ProjectSpanDialog).props("project").ds_personnel,
+    ).toEqual(["Alex"]);
+    expect(
+      document.querySelector('textarea[placeholder="Add project notes..."]')
+        .value,
+    ).toBe("Keep this unsaved note");
+    expect(document.body.textContent).toContain("Alex");
+  });
+});
+
+describe("Appending generic tasks", () => {
+  it("keeps existing personnel controls and allows repeated additions", async () => {
+    let details = { ...projectDetails(), outline_task: "OUTLINE-1", can_create_generic_tasks: true };
+    const confirm = vi
+      .spyOn(dialog, "confirm")
+      .mockImplementation((options) => options.onConfirm());
+    setConfig("resourceFetcher", async ({ url, params }) => {
+      if (url.endsWith("get_project_planner_details")) return details;
+      if (url.endsWith("create_generic_project_tasks")) {
+        saved.push(params);
+        details = {
+          ...details,
+          task_count: details.task_count + 2,
+          execution_tasks: [
+            ...details.execution_tasks,
+            {
+              name: `NEW-${saved.length}`,
+              subject: `New Execution ${saved.length}`,
+              location_subject: "General",
+              can_assign: true,
+              assignees: [],
+            },
+          ],
+        };
+        return { project_details: details, created_tasks: [{}, {}] };
+      }
+      throw new Error(`Unexpected request ${url}`);
+    });
+    await mountComponent(ProjectSpanDialog, {
+      isDialogOpen: true,
+      modelValue: true,
+      project,
+    });
+    expect(
+      document.querySelector(
+        '[aria-label="Manage personnel for Execution Works"]',
+      ),
+    ).not.toBeNull();
+    for (let i = 1; i <= 2; i++) {
+      expect(button("Add 2 Generic Tasks").element.disabled).toBe(false);
+      await button("Add 2 Generic Tasks").trigger("click");
+      await settle();
+      expect(
+        document.querySelector(
+          `[aria-label="Manage personnel for New Execution ${i}"]`,
+        ),
+      ).not.toBeNull();
+      expect(
+        document.querySelector(
+          '[aria-label="Manage personnel for Execution Works"]',
+        ),
+      ).not.toBeNull();
+    }
+    expect(saved).toHaveLength(2);
+    expect(saved[0]).toMatchObject({
+      project: "PROJ-1",
+      locations: [{ subject: "General", work_summaries: ["Execution Works"] }],
+    });
+    expect(wrapper.emitted("fetchEvents")).toHaveLength(2);
+    expect(confirm.mock.calls[0][0].message).toContain(
+      "Existing tasks will be preserved",
+    );
+    expect(confirm.mock.calls[0][0].message).toContain("add 2 tasks");
+  });
+
+  it("counts a new Outline only until the first one is created", async () => {
+    let details = { ...projectDetails(), has_tasks: false, task_count: 0, outline_task: null,
+      execution_tasks: [], can_create_generic_tasks: true };
+    vi.spyOn(dialog, "confirm").mockImplementation((options) => options.onConfirm());
+    setConfig("resourceFetcher", async ({ url }) => {
+      if (url.endsWith("get_project_planner_details")) return details;
+      if (url.endsWith("create_generic_project_tasks")) {
+        details = { ...details, has_tasks: true, task_count: 3, outline_task: "OUTLINE-1" };
+        return { project_details: details, created_tasks: [{}, {}, {}] };
+      }
+      throw new Error(`Unexpected request ${url}`);
+    });
+    await mountComponent(ProjectSpanDialog, { isDialogOpen: true, modelValue: true, project });
+    await button("Create 3 Generic Tasks").trigger("click");
+    await settle();
+    expect(button("Add 2 Generic Tasks").element.disabled).toBe(false);
+    expect(document.body.textContent).toContain("existing Outline");
+  });
+});
+
+describe("Location Work Summaries", () => {
+  it.each([[false, false], [false, true], [true, false], [true, true]])(
+    "adds multiple summaries with existing location=%s and Outline=%s",
+    async (existing, hasOutline) => {
+      const details = {
+        ...projectDetails(),
+        can_create_generic_tasks: true,
+        outline_task: hasOutline ? "OUTLINE-1" : null,
+        location_tasks: [{ name: "LOCATION-1", subject: "Area A" }],
+      };
+      vi.spyOn(dialog, "confirm").mockImplementation((options) =>
+        options.onConfirm(),
+      );
+      setConfig("resourceFetcher", async ({ url, params }) => {
+        if (url.endsWith("get_project_planner_details")) return details;
+        if (url.endsWith("create_generic_project_tasks")) {
+          saved.push(params);
+          return { project_details: details, created_tasks: [{}, {}] };
+        }
+        throw new Error(`Unexpected ${url}`);
+      });
+      await mountComponent(ProjectSpanDialog, {
+        isDialogOpen: true,
+        modelValue: true,
+        project,
+      });
+      if (existing) {
+        wrapper
+          .findAllComponents(Combobox)
+          .find((c) => c.vm.$attrs["aria-label"] === "Location 1 target")
+          .vm.$emit("update:modelValue", "LOCATION-1");
+        await settle();
+      }
+      await new DOMWrapper(
+        document.querySelector('[aria-label="Add Work Summary to Location 1"]'),
+      ).trigger("click");
+      const count = existing ? 2 : (hasOutline ? 3 : 4);
+      expect(button(`Add ${count} Generic Tasks`).element.disabled).toBe(true);
+      await fieldValue("Location 1 Work Summary 1", "Inspection");
+      await fieldValue("Location 1 Work Summary 2", "Repair");
+      await button(`Add ${count} Generic Tasks`).trigger("click");
+      await settle();
+      expect(saved[0].locations).toEqual([
+        {
+          subject: "General",
+          ...(existing ? { task: "LOCATION-1" } : {}),
+          work_summaries: ["Inspection", "Repair"],
+        },
+      ]);
+    },
+  );
+});

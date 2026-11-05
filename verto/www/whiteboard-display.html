@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Whiteboard display</title>
+  <link rel="stylesheet" href="/assets/verto/css/excalidraw.css">
+  {{ include_style("whiteboard.bundle.css") }}
+</head>
+<body class="verto-whiteboard-display-shell">
+  <div id="whiteboard-display" class="verto-whiteboard-host"></div>
+  <script>
+    window.frappe = { ui: {}, provide: function () {} };
+    window.__ = function (text) { return text; };
+  </script>
+  {{ include_script("whiteboard.bundle.jsx") }}
+  <script>
+    const options = new URLSearchParams(location.search);
+    const fragment = new URLSearchParams(location.hash.slice(1));
+    new frappe.ui.Whiteboard({
+      wrapper: document.getElementById("whiteboard-display"),
+      display: true,
+      boardName: options.get("board") || "personal",
+      pageId: options.get("page") || "",
+      token: fragment.get("token") || ""
+    });
+  </script>
+</body>
+</html>

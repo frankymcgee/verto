@@ -1,0 +1,491 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { Combobox, FormControl, Select, SidebarItem } from 'frappe-ui'
+import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
+import App from '../src/App.vue'
+import { call, downloadReport } from '../src/api'
+import { categories, draft } from '../src/model'
+import whyBranches from './fixtures/why-branches.json'
+
+const factorGroups = [
+  {
+    category: categories[0],
+    group: categories[0],
+    options: ['DF1 - Detection Systems', 'DF4 - Guards or Barriers', 'DF16 - Other'],
+  },
+  {
+    category: categories[1],
+    group: categories[1],
+    options: ['IT1 - Supervisory error or violation', 'IT14 - Other'],
+  },
+  {
+    category: categories[2],
+    group: 'Task / Environmental Conditions (TE)',
+    options: ['TE1 - Task Planning / Preparation / Manning', 'TE26 - Purchasing'],
+  },
+  {
+    category: categories[2],
+    group: 'Human Factors (HF)',
+    options: ['HF4 - Fatigue', 'HF26 - Other human factor'],
+  },
+  {
+    category: categories[3],
+    group: categories[3],
+    options: ['MC - Management of Change', 'VM - Vehicle Management'],
+  },
+]
+
+vi.mock('../src/api', () => ({ call: vi.fn(), uploadFile: vi.fn(), downloadReport: vi.fn() }))
+let wrapper
+const clone = (value) => JSON.parse(JSON.stringify(value))
+function record(extra = {}) {
+  return {
+    ...draft('lead@example.test'),
+    name: 'INV-00001',
+    title: 'Coupling movement during alignment',
+    incident_datetime: '2026-10-18 08:00:00',
+    modified: '2026-10-18 09:00:00.000001',
+    ...extra,
+  }
+}
+function button(text) {
+  return new DOMWrapper(document.body).findAll('button').find((item) => item.text() === text)
+}
+function control(text) {
+  return wrapper
+    .findAllComponents(FormControl)
+    .find((item) => item.props('label') === text.replace(' *', ''))
+}
+function field(text) {
+  return control(text).find('input,textarea')
+}
+function section(text) {
+  return wrapper
+    .findAllComponents(SidebarItem)
+    .find((item) => item.props('label') === text)
+    .find('button')
+}
+async function open(hash = '', value = record()) {
+  window.history.replaceState(null, '', '/#/' + hash)
+  call.mockImplementation(async (method, params) => {
+    if (method === 'get_bootstrap')
+      return {
+        user: 'lead@example.test',
+        full_name: 'Lead Investigator',
+        apps: [],
+        statuses: ['Draft', 'In Review', 'Closed'],
+        icam_factor_groups: factorGroups,
+      }
+    if (method === 'list_investigations') return { items: [], counts: {}, today: '2026-10-18' }
+    if (method === 'get_investigation') return clone(value)
+    if (method === 'search_options') return []
+    if (method === 'save_investigation')
+      return {
+        ...clone(params.data),
+        name: 'INV-00001',
+        modified: '2026-10-18 09:01:00.000001',
+        readiness: ['Record evidence.'],
+      }
+    return clone(value)
+  })
+  wrapper = mount(App, { attachTo: document.body })
+  await flushPromises()
+}
+beforeEach(() => {
+  call.mockReset()
+  downloadReport.mockReset().mockResolvedValue(undefined)
+  window.innerWidth = 1280
+  vi.spyOn(window, 'print').mockImplementation(() => {})
+  Element.prototype.scrollIntoView = vi.fn()
+})
+afterEach(() => {
+  wrapper?.unmount()
+  vi.restoreAllMocks()
+  document.body.innerHTML = ''
+})
+
+describe('investigations workspace', () => {
+  it('opens a dedicated dashboard and starts a new investigation', async () => {
+    await open()
+    expect(wrapper.text()).toContain('Start with the facts')
+    await button('New investigation').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Unsaved draft')
+    expect(wrapper.text()).toContain('Incident overview')
+    expect(field('Investigation title *').element.value).toBe('')
+  })
+  it('saves a draft through the authenticated API with the current revision', async () => {
+    await open('INV-00001')
+    await field('Investigation title *').setValue('Updated factual title')
+    await button('Save investigation').trigger('click')
+    await flushPromises()
+    expect(call).toHaveBeenCalledWith(
+      'save_investigation',
+      expect.objectContaining({
+        expected_modified: '2026-10-18 09:00:00.000001',
+        data: expect.objectContaining({ title: 'Updated factual title' }),
+      }),
+    )
+    expect(wrapper.text()).not.toContain('Unsaved changes')
+  })
+  it('retains unsaved changes when navigation is declined', async () => {
+    await open('INV-00001')
+    await field('Investigation title *').setValue('Unsaved finding')
+    await button('Investigations').trigger('click')
+    await flushPromises()
+    expect(document.body.textContent).toContain('Discard unsaved changes?')
+    await button('Keep editing').trigger('click')
+    await flushPromises()
+    expect(field('Investigation title *').element.value).toBe('Unsaved finding')
+    expect(window.location.hash).toContain('INV-00001')
+  })
+  it('discards unsaved changes only after confirmation and returns to the dashboard', async () => {
+    await open('INV-00001')
+    await field('Investigation title *').setValue('Unsaved finding')
+    await button('Investigations').trigger('click')
+    await flushPromises()
+    expect(window.location.hash).toContain('INV-00001')
+    await button('Discard changes').trigger('click')
+    await flushPromises()
+    expect(window.location.hash).toBe('#/')
+    expect(wrapper.text()).toContain('Start with the facts')
+    expect(wrapper.find('.record-content').exists()).toBe(false)
+  })
+  it('preserves date-only precision when copying a shutdown incident', async () => {
+    await open(
+      'INV-00001',
+      record({
+        incident_datetime: '',
+        source_doctype: 'Shutdown Incident Tracker',
+        source_name: 'INC-001',
+      }),
+    )
+    call.mockImplementation(async (method) =>
+      method === 'get_source_details'
+        ? { incident_datetime: '2026-10-17 00:00:00', incident_time_precision: 'Date only' }
+        : [],
+    )
+    await button('Use incident details in empty fields').trigger('click')
+    await flushPromises()
+    expect(control('Time precision').vm.$attrs.modelValue).toBe('Date only')
+    expect(field('Incident date and time *').element.value).toBe('2026-10-17 00:00')
+  })
+  it('does not offer editing or self-review on a submitted investigation', async () => {
+    await open(
+      'INV-00001',
+      record({ status: 'In Review', capabilities: { can_edit: false, can_review: false } }),
+    )
+    expect(button('Save investigation')).toBeUndefined()
+    expect(field('Investigation title *').element.closest('fieldset').disabled).toBe(true)
+    expect(control('Analysis method').getComponent(Select).props('disabled')).toBe(true)
+    expect(wrapper.text()).toContain('Submitted for independent review')
+    await section('Review & close-out').trigger('click')
+    expect(button('Approve findings and actions')).toBeUndefined()
+  })
+  it('shows 5 Whys and ICAM together when both methods are selected', async () => {
+    await open('INV-00001', record({ method: '5 Whys + ICAM' }))
+    expect(
+      wrapper
+        .findAllComponents(SidebarItem)
+        .map((item) => item.text())
+        .join(' '),
+    ).toContain('5 Whys')
+    expect(
+      wrapper
+        .findAllComponents(SidebarItem)
+        .map((item) => item.text())
+        .join(' '),
+    ).toContain('ICAM analysis')
+    await section('5 Whys').trigger('click')
+    await button('Add causal branch').trigger('click')
+    expect(wrapper.text()).toContain('Why 1')
+    expect(wrapper.text()).toContain('Supporting evidence')
+  })
+  it('auto arranges existing why positions by branch and saves without changing findings', async () => {
+    const five_whys = whyBranches.map((row, index) => ({ ...row, graph_x: 1000 - index * 10, graph_y: 50 + index * 10 }))
+    await open('INV-00001', record({ five_whys }))
+    await section('5 Whys').trigger('click')
+    const bubble = (id) => wrapper.get(`[data-node-id="${id}"]`).element.style
+    expect(bubble(five_whys[0].entry_id).left).toBe('1000px')
+    await button('Auto arrange').trigger('click')
+    expect(bubble(five_whys[0].entry_id).left).toBe(bubble(five_whys[4].entry_id).left)
+    expect(parseFloat(bubble(five_whys[4].entry_id).top)).toBeGreaterThan(parseFloat(bubble(five_whys[0].entry_id).top))
+    expect(bubble(five_whys[0].entry_id).top).toBe(bubble(five_whys[1].entry_id).top)
+    await button('Save investigation').trigger('click')
+    await flushPromises()
+    const saved = call.mock.calls.find(([method]) => method === 'save_investigation')[1].data.five_whys
+    expect(saved).toEqual(five_whys.map((row) => ({ ...row, graph_x: 0, graph_y: 0 })))
+  })
+  it('retains the local draft and explains a stale save failure', async () => {
+    await open('INV-00001')
+    call.mockImplementation(async (method) => {
+      if (method === 'save_investigation')
+        throw new Error('This investigation changed. Reload it before saving your changes.')
+      return {}
+    })
+    await field('Investigation title *').setValue('My local draft')
+    await button('Save investigation').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[role="alert"]').text()).toContain('Reload it')
+    expect(field('Investigation title *').element.value).toBe('My local draft')
+    expect(wrapper.text()).toContain('Unsaved changes')
+  })
+  it('filters ICAM dropdowns by category and saves a selected code without inventing a finding', async () => {
+    await open('INV-00001', record({ method: 'ICAM' }))
+    await section('ICAM analysis').trigger('click')
+    await button('Add factor').trigger('click')
+    const defence = wrapper.getComponent(Combobox)
+    expect(defence.props('placeholder')).toBe('Select factor from list')
+    expect(defence.props('options').flatMap((group) => group.options)).toEqual(
+      factorGroups[0].options,
+    )
+    await defence.get('[data-slot="trigger"]').trigger('click')
+    await flushPromises()
+    const body = new DOMWrapper(document.body)
+    await body
+      .findAll('[role="option"]')
+      .find((option) => option.text() === 'DF1 - Detection Systems')
+      .trigger('click')
+    await flushPromises()
+    control('New factor category')
+      .getComponent(Select)
+      .vm.$emit('update:modelValue', categories[2])
+    await flushPromises()
+    await button('Add factor').trigger('click')
+    const conditions = wrapper.getComponent(Combobox)
+    await conditions.get('[data-slot="trigger"]').trigger('click')
+    await flushPromises()
+    expect(body.text()).toContain('Task / Environmental Conditions (TE)')
+    expect(body.text()).toContain('Human Factors (HF)')
+    await body.get('[data-slot="search"] input').setValue('fatigue')
+    await flushPromises()
+    expect(body.findAll('[role="option"]').map((option) => option.text())).toEqual([
+      'HF4 - Fatigue',
+    ])
+    await body.get('[role="option"]').trigger('click')
+    await button('Save investigation').trigger('click')
+    await flushPromises()
+    const saved = call.mock.calls.find(([method]) => method === 'save_investigation')[1].data
+      .icam_factors
+    expect(saved.map((row) => row.factor_type)).toEqual([
+      'DF1 - Detection Systems',
+      'HF4 - Fatigue',
+    ])
+    expect(
+      saved.every((row) => row.description === '' && row.finding_status === 'Hypothesis'),
+    ).toBe(true)
+    expect(wrapper.get('.investigation-report').text()).toContain('DF1 - Detection Systems')
+    expect(wrapper.get('.investigation-report').text()).toContain('HF4 - Fatigue')
+  })
+  it('retains coded factors in the locked form, causal map and print report', async () => {
+    const factor = {
+      entry_id: 'F-000000000001',
+      category: categories[0],
+      factor_type: 'DF4 - Guards or Barriers',
+      description: 'No movement barrier was specified.',
+      finding_status: 'Supported',
+    }
+    await open(
+      'INV-00001',
+      record({
+        method: 'ICAM',
+        status: 'Closed',
+        capabilities: { can_edit: false },
+        icam_factors: [factor],
+      }),
+    )
+    await section('ICAM analysis').trigger('click')
+    const box = wrapper
+      .findAllComponents(Combobox)
+      .find((item) => item.props('label') === 'ICAM factor')
+    expect(box.props('disabled')).toBe(true)
+    expect(box.props('modelValue')).toBe(factor.factor_type)
+    expect(wrapper.get('.icam-workflow-map').text()).toContain(factor.factor_type)
+    expect(wrapper.get('.icam-workflow-map').text()).toContain(factor.description)
+    expect(wrapper.get('.investigation-report').text()).toContain(factor.factor_type)
+    await button('Print / PDF').trigger('click')
+    await flushPromises()
+    expect(downloadReport).toHaveBeenCalledWith('INV-00001', '2026-10-18 09:00:00.000001')
+  })
+  it('downloads the saved report and renders narratives as text', async () => {
+    await open(
+      'INV-00001',
+      record({
+        description: '<img src=x onerror="alert(1)">',
+        capabilities: { can_edit: false },
+      }),
+    )
+    expect(wrapper.find('.investigation-report').text()).toContain('<img src=x')
+    expect(wrapper.find('.investigation-report img').exists()).toBe(false)
+    await button('Print / PDF').trigger('click')
+    await flushPromises()
+    expect(downloadReport).toHaveBeenCalledWith('INV-00001', '2026-10-18 09:00:00.000001')
+    expect(call.mock.calls.filter(([method]) => method === 'save_investigation')).toHaveLength(
+      0,
+    )
+  })
+  it('saves dirty diagrams before requesting the report and stops if the save fails', async () => {
+    await open('INV-00001')
+    await field('Investigation title *').setValue('Saved diagram revision')
+    await button('Print / PDF').trigger('click')
+    await flushPromises()
+    const saveCall = call.mock.calls.findIndex(([method]) => method === 'save_investigation')
+    expect(saveCall).toBeGreaterThan(-1)
+    expect(downloadReport).toHaveBeenCalledWith('INV-00001', '2026-10-18 09:01:00.000001')
+    expect(call.mock.invocationCallOrder[saveCall]).toBeLessThan(
+      downloadReport.mock.invocationCallOrder[0],
+    )
+    downloadReport.mockClear()
+    await field('Investigation title *').setValue('Unsaved diagram revision')
+    call.mockImplementation(async (method) => {
+      if (method === 'save_investigation')
+        throw new Error('This investigation changed. Reload it.')
+      return {}
+    })
+    await button('Print / PDF').trigger('click')
+    await flushPromises()
+    expect(downloadReport).not.toHaveBeenCalled()
+    expect(field('Investigation title *').element.value).toBe('Unsaved diagram revision')
+  })
+  it('edits one timeline bubble at a time and saves its type and actual-event link', async () => {
+    await open(
+      'INV-00001',
+      record({
+        timeline: [
+          {
+            entry_id: 'T-000000000001',
+            event_datetime: '2026-10-18 07:00:00',
+            description: 'Before work',
+          },
+          {
+            entry_id: 'T-000000000002',
+            event_datetime: '2026-10-18 09:00:00',
+            description: 'Stopped work',
+          },
+        ],
+      }),
+    )
+    await section('Event timeline').trigger('click')
+    expect(wrapper.findAll('.record-content .entry-card')).toHaveLength(1)
+    await wrapper
+      .findAll('.workflow-node')
+      .find((node) => node.text().includes('Stopped work'))
+      .trigger('click')
+    expect(field('Event or condition').element.value).toBe('Stopped work')
+    control('Bubble type').getComponent(Select).vm.$emit('update:modelValue', 'Post event')
+    await flushPromises()
+    const preceding = wrapper
+      .findAll('fieldset.reference-picker')
+      .find((item) => item.text().includes('Connect from events'))
+    await preceding.find('input[type="checkbox"]').setValue(true)
+    await button('Save investigation').trigger('click')
+    await flushPromises()
+    const rows = call.mock.calls.find(([method]) => method === 'save_investigation')[1].data
+      .timeline
+    expect(rows[1].event_type).toBe('Post event')
+    expect(rows[1].previous_events).toBe('incident')
+    expect(rows[0].description).toBe('Before work')
+  })
+  it('reorders a selected event immediately when its time changes and retains its editor', async () => {
+    await open(
+      'INV-00001',
+      record({
+        timeline: [
+          {
+            entry_id: 'T-later',
+            description: 'Later event',
+            event_datetime: '2026-10-18 09:00:00',
+          },
+          {
+            entry_id: 'T-earlier',
+            description: 'Earlier event',
+            event_datetime: '2026-10-18 07:00:00',
+          },
+        ],
+      }),
+    )
+    await section('Event timeline').trigger('click')
+    expect(field('Event or condition').element.value).toBe('Earlier event')
+    expect(
+      wrapper.findAll('.workflow-node').map((node) => node.attributes('data-node-id')),
+    ).toEqual(['T-earlier', 'incident', 'T-later'])
+    await wrapper.get('[data-node-id="T-later"]').trigger('click')
+    control('Event time').vm.$emit('update:modelValue', '2026-10-17 06:00:00')
+    await flushPromises()
+    expect(
+      wrapper.findAll('.workflow-node').map((node) => node.attributes('data-node-id')),
+    ).toEqual(['T-later', 'T-earlier', 'incident'])
+    expect(wrapper.get('[data-node-id="T-later"]').attributes('aria-pressed')).toBe('true')
+    expect(field('Event or condition').element.value).toBe('Later event')
+    await button('Save investigation').trigger('click')
+    await flushPromises()
+    const rows = call.mock.calls.find(([method]) => method === 'save_investigation')[1].data
+      .timeline
+    expect(rows.find((row) => row.entry_id === 'T-later').event_datetime).toBe(
+      '2026-10-17 06:00:00',
+    )
+  })
+  it('records a reason when withdrawing a submitted investigation for revision', async () => {
+    await open(
+      'INV-00001',
+      record({ status: 'In Review', capabilities: { can_edit: false, can_withdraw: true } }),
+    )
+    await section('Review & close-out').trigger('click')
+    await button('Withdraw for revision').trigger('click')
+    await flushPromises()
+    await new DOMWrapper(document.body)
+      .get('.decision-panel textarea')
+      .setValue('The appointed reviewer has left the business.')
+    await button('Record decision').trigger('click')
+    await flushPromises()
+    expect(call).toHaveBeenCalledWith(
+      'transition',
+      expect.objectContaining({
+        action: 'withdraw_review',
+        notes: 'The appointed reviewer has left the business.',
+      }),
+    )
+  })
+  it('reassigns a completed action verifier while preserving its owner', async () => {
+    const value = record({
+      status: 'Actions in Progress',
+      capabilities: { can_edit: false },
+      reviewer: 'reviewer@example.test',
+      team: [{ user: 'replacement@example.test', team_role: 'Investigator' }],
+      actions: [
+        {
+          entry_id: 'A-000000000001',
+          title: 'Update the controlled work pack',
+          action_status: 'Completed',
+          assigned_to_user: 'lead@example.test',
+          verifier: 'reviewer@example.test',
+          completed_by: 'lead@example.test',
+          can_reassign: true,
+        },
+      ],
+    })
+    await open('INV-00001', value)
+    await section('Corrective actions').trigger('click')
+    await button('Reassign responsibilities').trigger('click')
+    await flushPromises()
+    const selects = wrapper
+      .findAllComponents(Select)
+      .filter((item) => item.element.closest('.decision-panel'))
+    expect(selects[0].props('disabled')).toBe(true)
+    selects[1].vm.$emit('update:modelValue', 'replacement@example.test')
+    await flushPromises()
+    await new DOMWrapper(document.body)
+      .get('.decision-panel textarea')
+      .setValue('Replacement verifier appointed.')
+    await button('Record decision').trigger('click')
+    await flushPromises()
+    expect(call).toHaveBeenCalledWith(
+      'update_action',
+      expect.objectContaining({
+        action: 'reassign',
+        assigned_to_user: 'lead@example.test',
+        verifier: 'replacement@example.test',
+        notes: 'Replacement verifier appointed.',
+      }),
+    )
+  })
+})

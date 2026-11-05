@@ -2,42 +2,17 @@ import json
 from datetime import datetime, timedelta
 
 import frappe
-from frappe.utils import getdate, now_datetime, today
+from frappe.utils import cint, getdate, now_datetime, today
+from frappe.utils.file_manager import save_file
 
 
-ALLOWED_MOBILE_DOCTYPES = {
-    "field-interaction": "Field Interaction",
-    "commitment-interaction": "Commitment Interaction",
-    "workplace-inspection": "Workplace Inspection",
-    "job-hazard-analysis-review": "Job Hazard Analysis Review",
-    "contractor-management-audit-checklist": "Contractor Management Audit Checklist",
-    "prohibited-and-restricted-tooling-checklist": "Prohibited and Restricted Tooling Checklist",
-    "safety-identification-rectification": "Safety Identification Rectification",
-    "supervisor-batb": "Supervisor BATB",
-    "weekly-summary": "Weekly Summary",
-
-    "safety-handover": "Safety Handover",
-    "lead-safety-handover": "Lead Safety Handover",
-
-    "lv-pre-start": "LV Pre-Start",
-    "take-5": "Take 5",
-    "shift-request": "Shift Request",
-    "leave-application": "Leave Application",
-    "personal-fatigue-assessment": "Personal Fatigue Assessment",
-
-    "daily-timesheet": "Daily Timesheet",
-
-    "ccv---confined-space": "CCV - Confined Space",
-    "ccv---contact-with-electricity": "CCV - Contact with Electricity",
-    "ccv---dropped-objects": "CCV - Dropped Objects",
-    "ccv---entanglement-and-crushing": "CCV - Entanglement and Crushing",
-    "ccv---fall-from-height": "CCV - Fall From Height",
-    "ccv---hot-works": "CCV - Hot Works",
-    "ccv---lifting-operations": "CCV - Lifting Operations",
-    "ccv---uncontrolled-release-of-energy": "CCV - Uncontrolled Release of Energy",
-    "ccv---vehicles-and-mobile-equipment": "CCV - Vehicles and Mobile Equipment",
-    "ccv---working-near-water": "CCV - Working Near Water",
-}
+MOBILE_SETTINGS_DOCTYPE = "Verto Mobile Settings"
+MOBILE_FORM_TABLES = (
+    "core_mobile_forms",
+    "generic_forms",
+    "project_forms",
+    "project_ccvs",
+)
 
 
 SKIP_FIELD_TYPES = {
@@ -92,6 +67,33 @@ def normalise_mobile_doctype_key(value):
     return frappe.scrub(value).replace("_", "-")
 
 
+def get_allowed_mobile_doctypes():
+    """Return enabled DocTypes from every Verto Mobile Settings form table."""
+    try:
+        settings = frappe.get_cached_doc(MOBILE_SETTINGS_DOCTYPE)
+    except frappe.DoesNotExistError:
+        return {}
+
+    allowed = {}
+
+    for fieldname in MOBILE_FORM_TABLES:
+        if not settings.meta.has_field(fieldname):
+            continue
+
+        for row in settings.get(fieldname) or []:
+            if not cint(row.get("enabled")):
+                continue
+
+            doctype = str(row.get("doc_type") or "").strip()
+
+            if not doctype:
+                continue
+
+            allowed[normalise_mobile_doctype_key(doctype)] = doctype
+
+    return allowed
+
+
 def get_allowed_doctype(mobile_doctype):
     if not mobile_doctype:
         frappe.throw("Mobile DocType is required.", frappe.ValidationError)
@@ -105,19 +107,21 @@ def get_allowed_doctype(mobile_doctype):
 
     normalised_key = normalise_mobile_doctype_key(decoded_value)
 
+    allowed_mobile_doctypes = get_allowed_mobile_doctypes()
+
     # 1. Standard mobile slug lookup:
     # field-interaction -> Field Interaction
-    if normalised_key in ALLOWED_MOBILE_DOCTYPES:
-        return ALLOWED_MOBILE_DOCTYPES[normalised_key]
+    if normalised_key in allowed_mobile_doctypes:
+        return allowed_mobile_doctypes[normalised_key]
 
     # 2. Raw key lookup, just in case:
     # field-interaction exactly as provided
-    if raw_value in ALLOWED_MOBILE_DOCTYPES:
-        return ALLOWED_MOBILE_DOCTYPES[raw_value]
+    if raw_value in allowed_mobile_doctypes:
+        return allowed_mobile_doctypes[raw_value]
 
-    # 3. Allow actual DocType names if they are in the allowed mobile map:
+    # 3. Allow actual DocType names if they are in the configured mobile map:
     # Field Interaction -> Field Interaction
-    allowed_doctypes = set(ALLOWED_MOBILE_DOCTYPES.values())
+    allowed_doctypes = set(allowed_mobile_doctypes.values())
 
     if decoded_value in allowed_doctypes:
         return decoded_value
@@ -137,7 +141,7 @@ def get_allowed_doctype(mobile_doctype):
 def get_mobile_slug_for_doctype(doctype):
     doctype = str(doctype or "").strip()
 
-    for mobile_doctype, mapped_doctype in ALLOWED_MOBILE_DOCTYPES.items():
+    for mobile_doctype, mapped_doctype in get_allowed_mobile_doctypes().items():
         if mapped_doctype == doctype:
             return mobile_doctype
 
@@ -399,6 +403,61 @@ def get_existing_files_for_doc(doctype, docname):
         ],
         order_by="creation desc",
     )
+
+
+@frappe.whitelist(methods=["POST"])
+def upload_mobile_attachment(doctype=None, docname=None, file_name=None, is_private=1):
+    """Attach an uploaded file without relying on Frappe's generic upload handler.
+
+    Mobile Safari can submit a valid multipart blob without a filename that the
+    generic handler recognises. The PWA therefore sends file_name separately and
+    this endpoint deliberately preserves it when saving the File document.
+    """
+    require_login()
+
+    request_args = getattr(frappe.request, "args", None) or {}
+    doctype = str(doctype or request_args.get("doctype") or "").strip()
+    docname = str(docname or request_args.get("docname") or "").strip()
+    file_name = str(file_name or request_args.get("file_name") or "").strip()
+    is_private = request_args.get("is_private", is_private)
+
+    allowed_doctype = get_allowed_doctype(doctype)
+    if not docname or not frappe.db.exists(allowed_doctype, docname):
+        frappe.throw("Attachment target was not found.", frappe.DoesNotExistError)
+
+    target_doc = frappe.get_doc(allowed_doctype, docname)
+    require_desk_doc_write(target_doc)
+
+    files = getattr(frappe.request, "files", None) or {}
+    uploaded = files.get("file")
+    if not uploaded:
+        frappe.throw("Attachment file was not received.", frappe.ValidationError)
+
+    filename = str(file_name or uploaded.filename or "").strip()
+    if not filename:
+        frappe.throw("Attachment filename was not received.", frappe.ValidationError)
+
+    content = uploaded.stream.read()
+    if not content:
+        frappe.throw("Attachment file is empty.", frappe.ValidationError)
+
+    file_doc = save_file(
+        filename,
+        content,
+        allowed_doctype,
+        docname,
+        is_private=cint(is_private),
+    )
+
+    return {
+        "name": file_doc.name,
+        "file_name": file_doc.file_name,
+        "file_url": file_doc.file_url,
+        "file_size": file_doc.file_size,
+        "is_private": cint(file_doc.is_private),
+        "doctype": allowed_doctype,
+        "docname": docname,
+    }
 
 
 def set_doc_values_from_mobile(doc, values):
@@ -909,6 +968,7 @@ def get_prefill_values(
     work_order_number=None,
     project_scope_name=None,
     parent_task_name=None,
+    shift_allocation=None,
 ):
     require_login()
 
@@ -1038,6 +1098,25 @@ def get_prefill_values(
 
         if date:
             daily_values["date"] = date
+
+        if shift_allocation:
+            # Reminder links carry the exact allocation. Verify ownership and
+            # date before returning any of its details to the requesting user.
+            selected_shift = frappe.get_doc("Shift Assignment", shift_allocation)
+            work_date = getdate(date or frappe.utils.today())
+            employee_user = frappe.db.get_value("Employee", selected_shift.get("employee"), "user_id")
+            if (employee_user != frappe.session.user or selected_shift.docstatus != 1
+                    or selected_shift.get("status") != "Active"
+                    or getdate(selected_shift.start_date) > work_date
+                    or (selected_shift.get("end_date") and getdate(selected_shift.end_date) < work_date)):
+                frappe.throw("This shift allocation is not available for your timesheet.", frappe.PermissionError)
+            daily_values.update({
+                "shift_allocation": selected_shift.name,
+                "current_user": selected_shift.get("employee_name") or get_user_full_name(),
+                "shift": selected_shift.get("shift_type"),
+                "project_id": selected_shift.get("custom_project"),
+                "project": selected_shift.get("custom_project_name"),
+            })
 
         daily_values = apply_daily_timesheet_defaults(daily_values)
 

@@ -1,0 +1,324 @@
+{
+ "doctype": "DocType",
+ "name": "Verto Investigation",
+ "module": "Safety",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "status",
+  "method",
+  "incident_datetime",
+  "incident_time_precision",
+  "due_date",
+  "project",
+  "site_location",
+  "incident_type",
+  "classification",
+  "actual_severity",
+  "potential_severity",
+  "source_doctype",
+  "source_name",
+  "external_reference",
+  "description",
+  "immediate_response",
+  "regulatory_review",
+  "reportability_notes",
+  "regulator",
+  "regulator_reference",
+  "lead_investigator",
+  "reviewer",
+  "team",
+  "evidence",
+  "timeline",
+  "five_whys",
+  "icam_factors",
+  "category_reviews",
+  "findings_summary",
+  "lessons_learned",
+  "actions",
+  "open_actions",
+  "review_notes",
+  "approved_by",
+  "approved_on",
+  "closure_summary",
+  "closed_by",
+  "closed_on",
+  "history"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "label": "Investigation title",
+   "fieldtype": "Data",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "label": "Status",
+   "fieldtype": "Select",
+   "options": "Draft\nEvidence Gathering\nAnalysis\nIn Review\nActions in Progress\nClosed\nReopened",
+   "default": "Draft",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "method",
+   "label": "Analysis method",
+   "fieldtype": "Select",
+   "options": "5 Whys\nICAM\n5 Whys + ICAM",
+   "default": "5 Whys",
+   "reqd": 1
+  },
+  {
+   "fieldname": "incident_datetime",
+   "label": "Incident date and time",
+   "fieldtype": "Datetime",
+   "reqd": 1
+  },
+  {
+   "fieldname": "incident_time_precision",
+   "fieldtype": "Select",
+   "label": "Time precision",
+   "options": "Exact\nApproximate\nDate only",
+   "default": "Exact"
+  },
+  {
+   "fieldname": "due_date",
+   "label": "Investigation due",
+   "fieldtype": "Date"
+  },
+  {
+   "fieldname": "project",
+   "label": "Project",
+   "fieldtype": "Link",
+   "options": "Project"
+  },
+  {
+   "fieldname": "site_location",
+   "label": "Site / work area",
+   "fieldtype": "Data"
+  },
+  {
+   "fieldname": "incident_type",
+   "label": "Incident type",
+   "fieldtype": "Select",
+   "options": "Injury or illness\nNear miss\nEquipment damage\nEnvironmental\nProcess safety\nOther",
+   "default": "Other"
+  },
+  {
+   "fieldname": "classification",
+   "label": "Client classification",
+   "fieldtype": "Data"
+  },
+  {
+   "fieldname": "actual_severity",
+   "label": "Actual consequence",
+   "fieldtype": "Select",
+   "options": "\nMinor\nModerate\nSerious\nMajor\nSevere\nCatastrophic"
+  },
+  {
+   "fieldname": "potential_severity",
+   "label": "Potential consequence",
+   "fieldtype": "Select",
+   "options": "\nMinor\nModerate\nSerious\nMajor\nSevere\nCatastrophic"
+  },
+  {
+   "fieldname": "source_doctype",
+   "label": "Source type",
+   "fieldtype": "Select",
+   "options": "\nEHS Incident\nShutdown Incident Tracker"
+  },
+  {
+   "fieldname": "source_name",
+   "label": "Source incident",
+   "fieldtype": "Dynamic Link",
+   "options": "source_doctype"
+  },
+  {
+   "fieldname": "external_reference",
+   "label": "External incident reference",
+   "fieldtype": "Data"
+  },
+  {
+   "fieldname": "description",
+   "label": "What happened",
+   "fieldtype": "Long Text"
+  },
+  {
+   "fieldname": "immediate_response",
+   "label": "Immediate response",
+   "fieldtype": "Long Text"
+  },
+  {
+   "fieldname": "regulatory_review",
+   "label": "Reportability assessment",
+   "fieldtype": "Select",
+   "options": "Not assessed\nReview required\nNot reportable\nReportable",
+   "default": "Not assessed"
+  },
+  {
+   "fieldname": "reportability_notes",
+   "label": "Assessment basis / notification record",
+   "fieldtype": "Small Text"
+  },
+  {
+   "fieldname": "regulator",
+   "label": "Regulator",
+   "fieldtype": "Data"
+  },
+  {
+   "fieldname": "regulator_reference",
+   "label": "Regulator reference",
+   "fieldtype": "Data"
+  },
+  {
+   "fieldname": "lead_investigator",
+   "label": "Lead investigator",
+   "fieldtype": "Link",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reviewer",
+   "label": "Reviewer",
+   "fieldtype": "Link",
+   "options": "User"
+  },
+  {
+   "fieldname": "team",
+   "label": "Investigation team",
+   "fieldtype": "Table",
+   "options": "Investigation Team Member"
+  },
+  {
+   "fieldname": "evidence",
+   "label": "Evidence",
+   "fieldtype": "Table",
+   "options": "Investigation Evidence"
+  },
+  {
+   "fieldname": "timeline",
+   "label": "Timeline",
+   "fieldtype": "Table",
+   "options": "Investigation Timeline Event"
+  },
+  {
+   "fieldname": "five_whys",
+   "label": "5 Whys",
+   "fieldtype": "Table",
+   "options": "Investigation Why"
+  },
+  {
+   "fieldname": "icam_factors",
+   "label": "ICAM factors",
+   "fieldtype": "Table",
+   "options": "EHS ICAM Factors"
+  },
+  {
+   "fieldname": "category_reviews",
+   "label": "ICAM category reviews",
+   "fieldtype": "Table",
+   "options": "Investigation Category Review"
+  },
+  {
+   "fieldname": "findings_summary",
+   "label": "Findings summary",
+   "fieldtype": "Long Text"
+  },
+  {
+   "fieldname": "lessons_learned",
+   "label": "Lessons learned",
+   "fieldtype": "Long Text"
+  },
+  {
+   "fieldname": "actions",
+   "label": "Corrective actions",
+   "fieldtype": "Table",
+   "options": "Investigation Action"
+  },
+  {
+   "fieldname": "open_actions",
+   "label": "Open actions",
+   "fieldtype": "Int",
+   "read_only": 1
+  },
+  {
+   "fieldname": "review_notes",
+   "label": "Review notes",
+   "fieldtype": "Small Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_by",
+   "label": "Approved by",
+   "fieldtype": "Link",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_on",
+   "label": "Approved on",
+   "fieldtype": "Datetime",
+   "read_only": 1
+  },
+  {
+   "fieldname": "closure_summary",
+   "label": "Close-out summary",
+   "fieldtype": "Long Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "closed_by",
+   "label": "Closed by",
+   "fieldtype": "Link",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "closed_on",
+   "label": "Closed on",
+   "fieldtype": "Datetime",
+   "read_only": 1
+  },
+  {
+   "fieldname": "history",
+   "label": "Workflow history",
+   "fieldtype": "Table",
+   "options": "Investigation History",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "Verto Investigation Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "Verto Investigator",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "print": 1
+  }
+ ],
+ "autoname": "format:INV-{#####}",
+ "title_field": "title",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

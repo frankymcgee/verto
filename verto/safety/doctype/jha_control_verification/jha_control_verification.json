@@ -1,0 +1,171 @@
+{
+ "doctype": "DocType",
+ "name": "JHA Control Verification",
+ "module": "Safety",
+ "autoname": "hash",
+ "engine": "InnoDB",
+ "field_order": [
+  "jha",
+  "revision",
+  "work_summary",
+  "project",
+  "hazard_row",
+  "work_step",
+  "critical_control",
+  "result",
+  "ccv",
+  "ccv_modified",
+  "ccv_snapshot",
+  "verified_by",
+  "verifier_name",
+  "verified_at",
+  "evidence",
+  "notes",
+  "request_key",
+  "request_fingerprint"
+ ],
+ "fields": [
+  {
+   "fieldname": "jha",
+   "fieldtype": "Link",
+   "label": "JHA",
+   "read_only": 1,
+   "options": "Digital Job Hazard Analysis",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "revision",
+   "fieldtype": "Int",
+   "label": "Revision",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "work_summary",
+   "fieldtype": "Link",
+   "label": "Work Summary",
+   "read_only": 1,
+   "options": "Task",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "read_only": 1,
+   "options": "Project"
+  },
+  {
+   "fieldname": "hazard_row",
+   "fieldtype": "Data",
+   "label": "Hazard Row",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "work_step",
+   "fieldtype": "Int",
+   "label": "Work Step",
+   "read_only": 1
+  },
+  {
+   "fieldname": "critical_control",
+   "fieldtype": "Small Text",
+   "label": "Critical Control",
+   "read_only": 1
+  },
+  {
+   "fieldname": "result",
+   "fieldtype": "Select",
+   "label": "Result",
+   "read_only": 1,
+   "options": "Verified\nFailed",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "ccv",
+   "fieldtype": "Link",
+   "label": "CCV",
+   "read_only": 1,
+   "options": "Critical Control Verification"
+  },
+  {
+   "fieldname": "ccv_modified",
+   "fieldtype": "Datetime",
+   "label": "CCV Modified",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ccv_snapshot",
+   "fieldtype": "Long Text",
+   "label": "CCV Evidence Snapshot",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "verified_by",
+   "fieldtype": "Link",
+   "label": "Verified By",
+   "read_only": 1,
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "verifier_name",
+   "fieldtype": "Data",
+   "label": "Verifier",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "verified_at",
+   "fieldtype": "Datetime",
+   "label": "Checked At",
+   "read_only": 1,
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "evidence",
+   "fieldtype": "Attach",
+   "label": "Supporting Evidence",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Observations / Required Action",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_key",
+   "fieldtype": "Data",
+   "label": "Request Key",
+   "read_only": 1,
+   "unique": 1,
+   "hidden": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "request_fingerprint",
+   "fieldtype": "Data",
+   "label": "Request Fingerprint",
+   "read_only": 1,
+   "hidden": 1,
+   "reqd": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "All",
+   "read": 1,
+   "print": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

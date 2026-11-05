@@ -1,0 +1,83 @@
+{
+ "doctype": "DocType",
+ "name": "Verto Whiteboard",
+ "module": "Verto",
+ "autoname": "hash",
+ "engine": "InnoDB",
+ "title_field": "title",
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "field_order": [
+  "title",
+  "visibility",
+  "state",
+  "revision",
+  "public_token"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Board name",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "visibility",
+   "fieldtype": "Select",
+   "label": "View access",
+   "options": "Private\nWorkspace\nPublic link",
+   "default": "Private",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Workspace: signed-in Desk users. Public link: anyone with the display link can view all pages."
+  },
+  {
+   "fieldname": "state",
+   "fieldtype": "JSON",
+   "label": "Pages",
+   "read_only": 1,
+   "hidden": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "revision",
+   "fieldtype": "Int",
+   "label": "Revision",
+   "default": "0",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "public_token",
+   "fieldtype": "Data",
+   "label": "Display token",
+   "read_only": 1,
+   "hidden": 1,
+   "permlevel": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "All",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1
+  },
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1
+  },
+  {
+   "role": "System Manager",
+   "permlevel": 1,
+   "read": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

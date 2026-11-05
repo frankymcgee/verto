@@ -8,7 +8,7 @@
             Editing
           </p>
 
-          <h1 class="truncate text-base font-semibold text-ink-gray-9">
+          <h1 class="truncate text-base-semibold text-ink-gray-9">
             {{ schema?.title || docname || 'Edit Form' }}
           </h1>
 
@@ -31,25 +31,25 @@
       </div>
 
       <!-- Loading State -->
-      <Card
+      <section
         v-if="loading"
-        class="p-3"
+        class="bg-surface-base rounded-7 shadow-sm p-3"
       >
         <div class="space-y-3">
-          <div class="h-4 w-32 rounded bg-surface-gray-3" />
-          <div class="h-10 rounded bg-surface-gray-2" />
-          <div class="h-10 rounded bg-surface-gray-2" />
-          <div class="h-24 rounded bg-surface-gray-2" />
+          <div class="h-4 w-32 rounded-4 bg-surface-gray-3" />
+          <div class="h-10 rounded-4 bg-surface-gray-2" />
+          <div class="h-10 rounded-4 bg-surface-gray-2" />
+          <div class="h-24 rounded-4 bg-surface-gray-2" />
         </div>
-      </Card>
+      </section>
 
       <!-- Error State -->
-      <Card
+      <section
         v-else-if="error"
-        class="border border-red-200 bg-red-50 p-3"
+        class="rounded-7 shadow-sm border border-red-200 bg-red-50 p-3"
       >
         <div class="space-y-2">
-          <p class="text-sm font-medium text-red-800">
+          <p class="text-sm-medium text-red-800">
             Something went wrong
           </p>
 
@@ -57,7 +57,7 @@
             {{ cleanServerMessage(error) }}
           </p>
         </div>
-      </Card>
+      </section>
 
       <!-- Form -->
       <form
@@ -66,33 +66,33 @@
         @submit.prevent="saveForm"
       >
         <!-- Permission Warning -->
-        <Card
+        <section
           v-if="!canWrite"
-          class="border border-yellow-200 bg-yellow-50 p-3"
+          class="rounded-7 shadow-sm border border-yellow-200 bg-yellow-50 p-3"
         >
-          <p class="text-sm font-medium text-yellow-900">
+          <p class="text-sm-medium text-yellow-900">
             Read only
           </p>
 
           <p class="mt-1 text-sm text-yellow-800">
             You can view this document, but you do not have permission to save changes.
           </p>
-        </Card>
+        </section>
 
         <!-- Warnings -->
         <div
           v-if="warnings.length"
           class="space-y-2"
         >
-          <Card
+          <section
             v-for="warning in warnings"
             :key="warning"
-            class="border border-yellow-200 bg-yellow-50 p-3"
+            class="rounded-7 shadow-sm border border-yellow-200 bg-yellow-50 p-3"
           >
             <div class="text-sm text-yellow-800">
               {{ warning }}
             </div>
-          </Card>
+          </section>
         </div>
 
         <!-- Messages -->
@@ -100,46 +100,35 @@
           v-if="messages.length"
           class="space-y-2"
         >
-          <Card
+          <section
             v-for="message in messages"
             :key="message"
-            class="border border-blue-200 bg-blue-50 p-3"
+            class="rounded-7 shadow-sm border border-blue-200 bg-blue-50 p-3"
           >
             <div class="text-sm text-blue-800">
               {{ message }}
             </div>
-          </Card>
+          </section>
         </div>
 
         <!-- Saved Message -->
-        <Card
+        <section
           v-if="saved"
-          class="border border-green-200 bg-green-50 p-3"
+          class="rounded-7 shadow-sm border border-green-200 bg-green-50 p-3"
         >
           <p class="text-sm text-green-800">
             Saved successfully.
           </p>
-        </Card>
+        </section>
 
         <!-- Main Form Card -->
-        <Card class="overflow-hidden border border-outline-gray-1 bg-surface-white">
+        <section class="rounded-7 shadow-sm overflow-hidden border border-outline-gray-1 bg-surface-base">
           <!-- Form Tabs -->
           <div
             v-if="formTabs.length > 1"
-            class="border-b border-outline-gray-1 bg-surface-white px-3 py-3"
+            class="border-b border-outline-gray-1 bg-surface-base px-3 py-3"
           >
-            <div class="flex gap-2 overflow-x-auto">
-              <Button
-                v-for="tab in formTabs"
-                :key="tab.id"
-                :variant="activeTab === tab.id ? 'solid' : 'subtle'"
-                theme="gray"
-                size="sm"
-                @click="activeTab = tab.id"
-              >
-                {{ tab.label || 'Details' }}
-              </Button>
-            </div>
+            <TabButtons v-model="activeTab" :options="formTabs.map(tab => ({ label: tab.label || 'Details', value: tab.id }))" class="overflow-x-auto" />
           </div>
 
           <!-- Form Fields -->
@@ -161,7 +150,7 @@
                 >
                   <h2
                     v-if="field.label"
-                    class="text-base font-semibold text-ink-gray-9"
+                    class="text-base-semibold text-ink-gray-9"
                   >
                     {{ field.label }}
                   </h2>
@@ -190,6 +179,17 @@
                     :required="isFieldMandatory(field)"
                     :disabled="isFieldReadOnly(field) || !canWrite"
                     @update:model-value="handleFieldChange(field)"
+                  />
+
+                  <RichTextEditorField
+                    v-else-if="field.fieldtype === 'Text Editor'"
+                    v-model="values[field.fieldname]"
+                    :label="field.label"
+                    :description="field.description"
+                    :placeholder="field.label"
+                    :required="isFieldMandatory(field)"
+                    :disabled="isFieldReadOnly(field) || !canWrite"
+                    @change="handleFieldChange(field)"
                   />
 
                   <Textarea
@@ -280,16 +280,16 @@
               </template>
             </div>
           </div>
-        </Card>
+        </section>
 
         <!-- Existing Attachments -->
-        <Card
+        <section
           v-if="existingFiles.length"
-          class="border border-outline-gray-1 bg-surface-white p-3"
+          class="rounded-7 shadow-sm border border-outline-gray-1 bg-surface-base p-3"
         >
           <div class="space-y-3">
             <div>
-              <label class="block text-sm font-medium text-ink-gray-8">
+              <label class="block text-sm-medium text-ink-gray-8">
                 Existing Attachments
               </label>
 
@@ -305,7 +305,7 @@
                 :href="file.file_url"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="flex items-center justify-between gap-3 rounded-xl border border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-sm"
+                class="flex items-center justify-between gap-3 rounded-7 border border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-sm"
               >
                 <span class="min-w-0 truncate text-ink-gray-8">
                   {{ file.file_name || file.file_url }}
@@ -317,16 +317,16 @@
               </a>
             </div>
           </div>
-        </Card>
+        </section>
 
         <!-- New Attachments -->
-        <Card
+        <section
           v-if="canWrite"
-          class="border border-outline-gray-1 bg-surface-white p-3"
+          class="rounded-7 shadow-sm border border-outline-gray-1 bg-surface-base p-3"
         >
           <div class="space-y-3">
             <div>
-              <label class="block text-sm font-medium text-ink-gray-8">
+              <label class="block text-sm-medium text-ink-gray-8">
                 Add Attachments / Photos
               </label>
 
@@ -339,7 +339,7 @@
               type="file"
               multiple
               accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-              class="block w-full rounded border border-outline-gray-2 bg-surface-white px-3 py-2 text-sm text-ink-gray-7 file:mr-3 file:rounded file:border-0 file:bg-surface-gray-2 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink-gray-8"
+              class="block w-full rounded-4 border border-outline-gray-2 bg-surface-base px-3 py-2 text-sm text-ink-gray-7 file:mr-3 file:rounded-4 file:border-0 file:bg-surface-gray-2 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink-gray-8"
               @change="handleFiles"
             />
 
@@ -356,7 +356,7 @@
               </Badge>
             </div>
           </div>
-        </Card>
+        </section>
 
         <!-- Save Button -->
         <div
@@ -381,18 +381,24 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { defineAsyncComponent, computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Badge,
+  TabButtons,
   Button,
-  Card,
   Checkbox,
   FormControl,
   Select,
   Textarea,
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
+import { withCsrfHeaders } from '../lib/csrf'
+import { reportClientError } from '../lib/diagnostics'
+import {
+  attachFileToDocumentOperation,
+  makeOfflineAttachment,
+} from '../pwa/offlineQueue'
 import {
   evaluateDependsOn,
   evaluateMandatoryDependsOn,
@@ -401,6 +407,7 @@ import {
 import LinkField from '../components/mobile-fields/LinkField.vue'
 import ChildTableField from '../components/mobile-fields/ChildTableField.vue'
 import SignatureField from '../components/mobile-fields/SignatureField.vue'
+const RichTextEditorField = defineAsyncComponent(() => import('../components/mobile-fields/RichTextEditorField.vue'))
 import type { MobileField } from './NewDocument.vue'
 
 type FormSchema = {
@@ -431,6 +438,8 @@ type UpdateDocumentPayload = {
   docstatus?: number
   values?: Record<string, any>
   files?: ExistingFile[]
+  offline_queued?: boolean
+  offline_operation_id?: string
 }
 
 type DynamicFieldChangeResponse = {
@@ -569,7 +578,6 @@ function isTextArea(fieldtype: string) {
     'Text',
     'Small Text',
     'Long Text',
-    'Text Editor',
     'Code',
   ].includes(fieldtype)
 }
@@ -1141,20 +1149,63 @@ async function loadEditDocument() {
   }
 }
 
-async function uploadFiles(doctype: string, targetDocname: string) {
+async function uploadFiles(
+  doctype: string,
+  targetDocname: string,
+  offlineOperationId?: string
+) {
   for (const file of files.value) {
+    if (offlineOperationId) {
+      await attachFileToDocumentOperation(
+        offlineOperationId,
+        makeOfflineAttachment(file)
+      )
+      continue
+    }
+
     const formData = new FormData()
 
-    formData.append('file', file)
+    // Supplying the filename explicitly is important on iOS Safari. Without the
+    // third argument, some multipart requests arrive in Frappe as an unnamed
+    // blob, leaving the File document with neither file_name nor file_url.
+    formData.append('file', file, file.name)
+    formData.append('file_name', file.name)
     formData.append('doctype', doctype)
     formData.append('docname', targetDocname)
     formData.append('is_private', '1')
 
-    const response = await fetch('/api/method/upload_file', {
-      method: 'POST',
-      credentials: 'include',
-      body: formData,
+    // Keep attachment metadata in the URL as well as the multipart body. Some
+    // iOS service-worker versions forward the file but drop multipart text parts.
+    const uploadParams = new URLSearchParams({
+      doctype,
+      docname: targetDocname,
+      file_name: file.name,
+      is_private: '1',
     })
+
+    let response: Response
+    try {
+      response = await fetch(`/api/method/verto.api.mobile.documents.upload_mobile_attachment?${uploadParams}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: withCsrfHeaders(undefined, 'POST'),
+        body: formData,
+      })
+    } catch (error) {
+      void reportClientError({
+        message: error instanceof Error ? error.message : 'Photo upload network failure',
+        stack: error instanceof Error ? error.stack : '',
+        source: 'form.photo_upload.network',
+        details: {
+          doctype,
+          docname: targetDocname,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+        },
+      })
+      throw error
+    }
 
     if (response.status === 401 || response.status === 403) {
       window.location.href = `/login?redirect-to=${encodeURIComponent(window.location.pathname + window.location.search)}`
@@ -1162,8 +1213,42 @@ async function uploadFiles(doctype: string, targetDocname: string) {
     }
 
     if (!response.ok) {
-      throw new Error(`Failed to upload ${file.name}`)
+      const serverResponse = await response.text().catch(() => '')
+      void reportClientError({
+        message: `Failed to upload ${file.name}`,
+        source: 'form.photo_upload',
+        details: {
+          doctype,
+          docname: targetDocname,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+          status: response.status,
+          status_text: response.statusText,
+          server_response: serverResponse,
+        },
+      })
+      throw new Error(
+        serverResponse
+          ? `Failed to upload ${file.name}: ${serverResponse.slice(0, 500)}`
+          : `Failed to upload ${file.name} (${response.status})`
+      )
     }
+  }
+}
+
+async function queuePhotoAnalysis(doctype: string, targetDocname: string) {
+  const payload = new FormData()
+  payload.append('doctype', doctype)
+  payload.append('docname', targetDocname)
+
+  try {
+    await apiRequest(
+      '/api/method/verto.api.mobile.ai_photo_analysis.queue_submitted_form_review',
+      { method: 'POST', body: payload }
+    )
+  } catch (err) {
+    console.error('[Verto AI photo analysis] Could not queue review', err)
   }
 }
 
@@ -1190,6 +1275,8 @@ async function saveDocument() {
 
   existingFiles.value = message.files || existingFiles.value
   docstatus.value = Number(message.docstatus || docstatus.value || 0)
+
+  return message
 }
 
 async function saveForm() {
@@ -1213,10 +1300,21 @@ async function saveForm() {
       }
     }
 
-    await saveDocument()
+    const savedDocument = await saveDocument()
+    if (schema.value?.doctype === 'Daily Timesheet' && !savedDocument.offline_operation_id) {
+      window.dispatchEvent(new Event('verto:timesheet-saved'))
+    }
 
     if (schema.value?.doctype && files.value.length) {
-      await uploadFiles(schema.value.doctype, docname)
+      await uploadFiles(
+        schema.value.doctype,
+        docname,
+        savedDocument.offline_operation_id
+      )
+
+      if (!savedDocument.offline_operation_id) {
+        await queuePhotoAnalysis(schema.value.doctype, docname)
+      }
     }
 
     files.value = []

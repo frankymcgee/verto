@@ -1,0 +1,26 @@
+{
+ "doctype": "DocType",
+ "name": "Investigation Category Review",
+ "module": "Safety",
+ "engine": "InnoDB",
+ "field_order": [
+  "category",
+  "no_finding_reason"
+ ],
+ "fields": [
+  {
+   "fieldname": "category",
+   "label": "ICAM category",
+   "fieldtype": "Select",
+   "options": "Absent or Failed Defences\nIndividual or Team Actions\nTask or Environmental Conditions\nOrganisational Factors",
+   "reqd": 1
+  },
+  {
+   "fieldname": "no_finding_reason",
+   "label": "Reason no supported factor was identified",
+   "fieldtype": "Small Text"
+  }
+ ],
+ "permissions": [],
+ "istable": 1
+}

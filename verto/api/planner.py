@@ -1,12 +1,20 @@
+import json
+import re
+
 import frappe
 from frappe import _
-from frappe.utils import add_days, date_diff, getdate, get_datetime_str, nowdate
+from frappe.utils import add_days, date_diff, getdate, get_datetime, get_datetime_str, nowdate
 from frappe.desk.search import search_link
 
 from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
 
 from hrms.hr.doctype.shift_assignment.shift_assignment import ShiftAssignment
 from hrms.hr.doctype.shift_schedule.shift_schedule import get_or_insert_shift_schedule
+from verto.api.planner_realtime import publish_scope
+from verto.api.planner_staffing import (
+	DESIGNATION_FIELD, REQUIREMENTS_FIELD, normalise_requirements, requirement_totals,
+	validate_designation, project_staffing_details, get_project_requirements, summarise_staffing,
+)
 
 
 ANNUAL_ROSTER_RESULT_LIMIT = 1000
@@ -63,6 +71,7 @@ def create_planner_shift_assignment(
 	custom_project: str | None = None,
 	shift_schedule_assignment: str | None = None,
 	note: str | None = None,
+	custom_project_designation: str | None = None,
 ):
 	"""Create a Shift Assignment using Planner-owned custom fields.
 
@@ -79,6 +88,8 @@ def create_planner_shift_assignment(
 	assignment.end_date = _to_date_str(end_date)
 	assignment.status = status
 	assignment.shift_location = shift_location
+	custom_project_designation = validate_designation(custom_project, custom_project_designation)
+	_set_doc_field_if_exists(assignment, DESIGNATION_FIELD, custom_project_designation)
 
 	if shift_schedule_assignment:
 		assignment.shift_schedule_assignment = shift_schedule_assignment
@@ -100,6 +111,7 @@ def apply_planner_project_to_shift_assignments(
 	shift_schedule_assignment: str | None = None,
 	custom_project: str | None = None,
 	note: str | None = None,
+	custom_project_designation: str | None = None,
 ) -> None:
 	"""Apply Planner fields to already-created Shift Assignments.
 
@@ -107,7 +119,8 @@ def apply_planner_project_to_shift_assignments(
 	because the upstream schedule code creates standard Shift Assignment records
 	and does not know about Planner's custom project/note fields.
 	"""
-	if not custom_project and not note:
+	custom_project_designation = validate_designation(custom_project, custom_project_designation)
+	if not custom_project and not note and not custom_project_designation:
 		return
 
 	if shift_assignment_names is None:
@@ -126,8 +139,11 @@ def apply_planner_project_to_shift_assignments(
 	has_custom_project = _doctype_has_field("Shift Assignment", "custom_project")
 	has_custom_project_name = _doctype_has_field("Shift Assignment", "custom_project_name")
 	has_note = _doctype_has_field("Shift Assignment", "note")
+	has_designation = _doctype_has_field("Shift Assignment", DESIGNATION_FIELD)
 
 	for shift_assignment in shift_assignment_names or []:
+		if custom_project_designation and has_designation:
+			frappe.db.set_value("Shift Assignment", shift_assignment, DESIGNATION_FIELD, custom_project_designation, update_modified=False)
 		if custom_project and has_custom_project:
 			frappe.db.set_value(
 				"Shift Assignment",
@@ -152,6 +168,8 @@ def apply_planner_project_to_shift_assignments(
 				note,
 				update_modified=False,
 			)
+	if shift_assignment_names:
+		publish_scope("roster")
 
 
 def create_shift_schedule_shifts_with_planner_fields(
@@ -160,15 +178,17 @@ def create_shift_schedule_shifts_with_planner_fields(
 	end_date: str | None = None,
 	custom_project: str | None = None,
 	note: str | None = None,
+	custom_project_designation: str | None = None,
 ) -> None:
 	shift_schedule_assignment = frappe.get_doc("Shift Schedule Assignment", shift_schedule_assignment_name)
 	shift_schedule_assignment.create_shifts(start_date, end_date)
 
-	if custom_project or note:
+	if custom_project or note or custom_project_designation:
 		apply_planner_project_to_shift_assignments(
 			shift_schedule_assignment=shift_schedule_assignment_name,
 			custom_project=custom_project,
 			note=note,
+			custom_project_designation=custom_project_designation,
 		)
 
 
@@ -695,9 +715,13 @@ def search_leave_application_link_options(
 	txt: str = "",
 	fieldname: str | None = None,
 	company: str | None = None,
+	name: str | None = None,
 ) -> list[dict]:
 	"""Return searchable Link options for the Planner Leave Application dialog."""
-	if not frappe.has_permission("Leave Application", ptype="create"):
+	if name:
+		from verto.api.planner_leave import check_link_field_permission
+		check_link_field_permission(name, fieldname, link_doctype)
+	elif not frappe.has_permission("Leave Application", ptype="create"):
 		frappe.throw(_("You do not have permission to create Leave Applications."), frappe.PermissionError)
 
 	link_doctype = (link_doctype or "").strip()
@@ -888,7 +912,7 @@ def get_year_events(
 	year_end = f"{year}-12-31"
 
 	holidays = get_holidays(year_start, year_end, employee_filters)
-	leaves = get_leaves(year_start, year_end, employee_filters)
+	leaves = get_leaves(year_start, year_end, employee_filters, include_all_statuses=True)
 	shift_rows = get_shift_rows(year_start, year_end, employee_filters, shift_filters)
 	day_markers = get_year_day_markers(year_start, year_end, holidays)
 	timesheet_days = get_year_timesheet_days(year_start, year_end, shift_rows)
@@ -1593,7 +1617,7 @@ def get_year_employee_event_index(
 	shift_assignments: dict[str, dict] = {}
 
 	for employee, employee_leaves in (leaves or {}).items():
-		for leave in employee_leaves or []:
+		for leave in sorted(employee_leaves or [], key=_leave_status_priority):
 			leave_name = str(leave.get("leave") or "").strip()
 			if not leave_name:
 				continue
@@ -1624,8 +1648,10 @@ def get_year_employee_event_index(
 			open_ended=True,
 		):
 			day = employee_event_days.setdefault(employee, {}).setdefault(date_key, {})
-			if day.get("leave"):
+			if day.get("leave") and _is_approved_leave(leave_applications[day["leave"]]):
 				continue
+			# Other leave statuses are informational; retain the shift alongside
+			# the leave reference so the roster can show both without blocking work.
 			shift_names = day.setdefault("shifts", [])
 			if shift_name not in shift_names:
 				shift_names.append(shift_name)
@@ -1806,6 +1832,7 @@ def create_shift_schedule_assignment(
 	shift_location: str | None = None,
 	custom_project: str | None = None,
 	note: str | None = None,
+	custom_project_designation: str | None = None,
 ) -> None:
 	shift_schedule = get_or_insert_shift_schedule(shift_type, frequency, repeat_on_days)
 
@@ -1816,6 +1843,8 @@ def create_shift_schedule_assignment(
 	shift_schedule_assignment.shift_status = status
 	shift_schedule_assignment.shift_location = shift_location
 	shift_schedule_assignment.enabled = 0 if end_date else 1
+	custom_project_designation = validate_designation(custom_project, custom_project_designation)
+	_set_doc_field_if_exists(shift_schedule_assignment, DESIGNATION_FIELD, custom_project_designation)
 
 	if custom_project:
 		_set_doc_field_if_exists(shift_schedule_assignment, "custom_project", custom_project)
@@ -1834,6 +1863,7 @@ def create_shift_schedule_assignment(
 			end_date,
 			custom_project,
 			note,
+			custom_project_designation=custom_project_designation,
 		)
 		return
 
@@ -1845,6 +1875,7 @@ def create_shift_schedule_assignment(
 		end_date=end_date,
 		custom_project=custom_project,
 		note=note,
+		custom_project_designation=custom_project_designation,
 	)
 
 
@@ -1918,6 +1949,7 @@ def _create_single_rolling_swing(
 	minimum_on_site_days_for_fi_fo: int = 2,
 	minimum_message: str | None = None,
 	main_shift_type_label: str | None = None,
+	custom_project_designation: str | None = None,
 ) -> None:
 	if not include_fly_in_out:
 		insert_shift(
@@ -1930,6 +1962,7 @@ def _create_single_rolling_swing(
 			shift_location=shift_location,
 			custom_project=custom_project,
 			note=note,
+			custom_project_designation=custom_project_designation,
 		)
 		return
 
@@ -1946,6 +1979,7 @@ def _create_single_rolling_swing(
 		shift_location=shift_location,
 		custom_project=custom_project,
 		note=note,
+		custom_project_designation=custom_project_designation,
 	)
 
 	middle_start = getdate(add_days(swing_start, 1))
@@ -1961,6 +1995,7 @@ def _create_single_rolling_swing(
 			shift_location=shift_location,
 			custom_project=custom_project,
 			note=note,
+			custom_project_designation=custom_project_designation,
 		)
 
 	insert_shift(
@@ -1973,6 +2008,7 @@ def _create_single_rolling_swing(
 		shift_location=shift_location,
 		custom_project=custom_project,
 		note=note,
+		custom_project_designation=custom_project_designation,
 	)
 
 
@@ -1992,6 +2028,7 @@ def create_rolling_roster_assignment(
 	include_fly_in_out: bool | int | str = True,
 	fly_in_shift_type: str = "FI",
 	fly_out_shift_type: str = "FO",
+	custom_project_designation: str | None = None,
 ) -> None:
 	"""Create a rolling roster pattern across a date range.
 
@@ -2041,6 +2078,7 @@ def create_rolling_roster_assignment(
 				shift_location=shift_location,
 				custom_project=custom_project,
 				note=note,
+				custom_project_designation=custom_project_designation,
 			)
 			current = getdate(add_days(swing_start, days_on_site + days_off_site))
 			continue
@@ -2056,6 +2094,7 @@ def create_rolling_roster_assignment(
 			shift_location=shift_location,
 			custom_project=custom_project,
 			note=note,
+			custom_project_designation=custom_project_designation,
 		)
 
 		if date_diff(swing_end, swing_start) >= 1:
@@ -2074,6 +2113,7 @@ def create_rolling_roster_assignment(
 					shift_location=shift_location,
 					custom_project=custom_project,
 					note=note,
+					custom_project_designation=custom_project_designation,
 				)
 
 			# Final day of the swing: fly out.
@@ -2087,6 +2127,7 @@ def create_rolling_roster_assignment(
 				shift_location=shift_location,
 				custom_project=custom_project,
 				note=note,
+				custom_project_designation=custom_project_designation,
 			)
 
 		current = getdate(add_days(swing_start, days_on_site + days_off_site))
@@ -2107,6 +2148,7 @@ def create_dynamic_rolling_roster_assignment(
 	include_fly_in_out: bool | int | str = True,
 	fly_in_shift_type: str = "FI",
 	fly_out_shift_type: str = "FO",
+	custom_project_designation: str | None = None,
 ) -> None:
 	"""Create a dynamic rolling roster pattern across a date range.
 
@@ -2160,6 +2202,7 @@ def create_dynamic_rolling_roster_assignment(
 			fly_in_shift_type=fly_in_shift_type,
 			fly_out_shift_type=fly_out_shift_type,
 			minimum_message=_("Each dynamic rolling roster swing must have at least 2 days on site when fly in / fly out is enabled."),
+			custom_project_designation=custom_project_designation,
 		)
 
 		current = getdate(add_days(swing_start, days_on_site + days_off_site))
@@ -2184,6 +2227,7 @@ def create_rolling_day_night_roster_assignment(
 	night_shift_type: str = "NS",
 	fly_in_shift_type: str = "FI",
 	fly_out_shift_type: str = "FO",
+	custom_project_designation: str | None = None,
 ) -> None:
 	"""Create a rolling day/night roster pattern across a date range.
 
@@ -2264,6 +2308,7 @@ def create_rolling_day_night_roster_assignment(
 				shift_location=shift_location,
 				custom_project=custom_project,
 				note=note,
+				custom_project_designation=custom_project_designation,
 			)
 
 		current = getdate(add_days(swing_start, total_on_site_days + days_off_site))
@@ -2340,6 +2385,7 @@ def _find_shift_assignment_for_date(employee: str, date: str, preferred_shift: s
 			"shift_location",
 			"custom_project",
 			"note",
+			*([DESIGNATION_FIELD] if _doctype_has_field("Shift Assignment", DESIGNATION_FIELD) else []),
 		],
 		order_by="start_date desc, creation desc",
 		limit_start=0,
@@ -2375,6 +2421,7 @@ def _shift_snapshot(row, date: str) -> dict:
 		"shift_location": row.get("shift_location"),
 		"custom_project": row.get("custom_project"),
 		"note": row.get("note"),
+		DESIGNATION_FIELD: row.get(DESIGNATION_FIELD),
 	}
 
 
@@ -2496,6 +2543,7 @@ def bulk_move_or_swap_shifts(shifts, target_employee: str, target_date: str) -> 
 				shift_location=source.get("shift_location"),
 				custom_project=source.get("custom_project"),
 				note=source.get("note"),
+				custom_project_designation=source.get(DESIGNATION_FIELD),
 			)
 
 		# Swap existing target shifts back to the original source dates.
@@ -2512,6 +2560,7 @@ def bulk_move_or_swap_shifts(shifts, target_employee: str, target_date: str) -> 
 				shift_location=target.get("shift_location"),
 				custom_project=target.get("custom_project"),
 				note=target.get("note"),
+				custom_project_designation=target.get(DESIGNATION_FIELD),
 			)
 	except Exception:
 		frappe.db.rollback(save_point=savepoint)
@@ -2544,6 +2593,7 @@ def swap_shift(
 		src_shift_doc.shift_location,
 		src_shift_doc.get("custom_project"),
 		src_shift_doc.get("note"),
+		custom_project_designation=src_shift_doc.get(DESIGNATION_FIELD),
 	)
 
 	if tgt_shift:
@@ -2557,6 +2607,7 @@ def swap_shift(
 			tgt_shift_doc.shift_location,
 			tgt_shift_doc.get("custom_project"),
 			tgt_shift_doc.get("note"),
+			custom_project_designation=tgt_shift_doc.get(DESIGNATION_FIELD),
 		)
 
 
@@ -2586,6 +2637,7 @@ def break_shift(assignment: str | ShiftAssignment, date: str) -> None:
 	shift_location = assignment.shift_location
 	custom_project = assignment.get("custom_project")
 	note = assignment.get("note")
+	custom_project_designation = assignment.get(DESIGNATION_FIELD)
 
 	if date_diff(date, assignment.start_date) == 0:
 		assignment.cancel()
@@ -2605,6 +2657,7 @@ def break_shift(assignment: str | ShiftAssignment, date: str) -> None:
 			shift_location=shift_location,
 			custom_project=custom_project,
 			note=note,
+			custom_project_designation=custom_project_designation,
 		)
 
 
@@ -2619,8 +2672,10 @@ def insert_shift(
 	shift_location: str | None = None,
 	custom_project: str | None = None,
 	note: str | None = None,
+	custom_project_designation: str | None = None,
 ) -> None:
 	from frappe.utils import add_days
+	custom_project_designation = validate_designation(custom_project, custom_project_designation)
 
 	# Treat project as part of the identity so only same-project blocks merge
 	filters = {
@@ -2636,6 +2691,8 @@ def insert_shift(
 		filters["custom_project"] = custom_project
 	if _doctype_has_field("Shift Assignment", "note"):
 		filters["note"] = note
+	if _doctype_has_field("Shift Assignment", DESIGNATION_FIELD):
+		filters[DESIGNATION_FIELD] = custom_project_designation
 
 	prev_shift = frappe.db.exists(dict({"end_date": add_days(start_date, -1)}, **filters))
 	next_shift = (
@@ -2651,12 +2708,12 @@ def insert_shift(
 		frappe.db.set_value("Shift Assignment", prev_shift, "end_date", end_date or None)
 		# ensure Planner fields stick even if previous block had blank values
 		if custom_project or note:
-			apply_planner_project_to_shift_assignments([prev_shift], custom_project=custom_project, note=note)
+			apply_planner_project_to_shift_assignments([prev_shift], custom_project=custom_project, note=note, custom_project_designation=custom_project_designation)
 
 	elif next_shift:
 		frappe.db.set_value("Shift Assignment", next_shift, "start_date", start_date)
 		if custom_project or note:
-			apply_planner_project_to_shift_assignments([next_shift], custom_project=custom_project, note=note)
+			apply_planner_project_to_shift_assignments([next_shift], custom_project=custom_project, note=note, custom_project_designation=custom_project_designation)
 
 	else:
 		create_planner_shift_assignment(
@@ -2669,7 +2726,10 @@ def insert_shift(
 			shift_location=shift_location,
 			custom_project=custom_project,
 			note=note,
+			custom_project_designation=custom_project_designation,
 		)
+	# Adjacent-block merges use db.set_value and bypass document hooks.
+	publish_scope("roster")
 
 
 def get_holidays(month_start: str, month_end: str, employee_filters: dict[str, str]) -> dict[str, list[dict]]:
@@ -2697,7 +2757,28 @@ def get_holidays(month_start: str, month_end: str, employee_filters: dict[str, s
 	return holidays
 
 
-def get_leaves(month_start: str, month_end: str, employee_filters: dict[str, str]) -> dict[str, list[dict]]:
+def _leave_status(leave: dict) -> str:
+	if leave.get("docstatus") is not None and int(leave["docstatus"]) == 2:
+		return "Cancelled"
+	return leave.get("status") or ("Open" if leave.get("docstatus") == 0 else "Approved")
+
+
+def _leave_status_priority(leave: dict) -> int:
+	return {"Approved": 0, "Open": 1, "Rejected": 2, "Cancelled": 3}.get(_leave_status(leave), 4)
+
+
+def _is_approved_leave(leave: dict) -> bool:
+	return _leave_status(leave) == "Approved" and (
+		leave.get("docstatus") is None or int(leave["docstatus"]) == 1
+	)
+
+
+def get_leaves(
+	month_start: str,
+	month_end: str,
+	employee_filters: dict[str, str],
+	include_all_statuses: bool = False,
+) -> dict[str, list[dict]]:
 	employee_filters = _clean_filters(employee_filters)
 	LeaveApplication = frappe.qb.DocType("Leave Application")
 	Employee = frappe.qb.DocType("Employee")
@@ -2711,6 +2792,8 @@ def get_leaves(month_start: str, month_end: str, employee_filters: dict[str, str
 			LeaveApplication.to_date,
 			LeaveApplication.description.as_("reason"),
 			LeaveApplication.status,
+			LeaveApplication.docstatus,
+			LeaveApplication.modified,
 			LeaveApplication.total_leave_days,
 			LeaveApplication.half_day,
 			LeaveApplication.half_day_date,
@@ -2719,17 +2802,30 @@ def get_leaves(month_start: str, month_end: str, employee_filters: dict[str, str
 		.left_join(Employee)
 		.on(LeaveApplication.employee == Employee.name)
 		.where(
-			(LeaveApplication.docstatus == 1)
-			& (LeaveApplication.status == "Approved")
-			& (LeaveApplication.from_date <= month_end)
+			(LeaveApplication.from_date <= month_end)
 			& (LeaveApplication.to_date >= month_start)
 		)
 	)
 
+	if include_all_statuses:
+		query = query.where(
+			LeaveApplication.status.isin(["Open", "Approved", "Rejected", "Cancelled"])
+			| (LeaveApplication.docstatus == 2)
+		)
+	else:
+		query = query.where((LeaveApplication.docstatus == 1) & (LeaveApplication.status == "Approved"))
+
 	for filter in employee_filters:
 		query = query.where(Employee[filter] == employee_filters[filter])
 
-	return group_by_employee(query.run(as_dict=True))
+	rows = query.run(as_dict=True)
+	for leave in rows:
+		# Cancelling a document can leave its stored workflow status as Approved.
+		leave["status"] = _leave_status(leave)
+	# Prefer active requests over historical ones, then the latest application.
+	rows.sort(key=lambda leave: (str(leave.get("modified") or ""), leave["leave"]), reverse=True)
+	rows.sort(key=_leave_status_priority)
+	return group_by_employee(rows)
 
 
 def get_shifts(
@@ -2782,6 +2878,8 @@ def get_shift_rows(
 		)
 	)
 
+	if _doctype_has_field("Shift Assignment", DESIGNATION_FIELD):
+		query = query.select(ShiftAssignment[DESIGNATION_FIELD])
 	for filter in employee_filters:
 		query = query.where(Employee[filter] == employee_filters[filter])
 
@@ -2876,6 +2974,14 @@ PROJECT_NOTES_FIELD_CANDIDATES = [
 	"custom_notes",
 ]
 
+GENERIC_TASK_DEFAULT_LOCATION = "General"
+GENERIC_TASK_DEFAULT_WORK_SUMMARY = "Execution Works"
+GENERIC_TASK_DEFAULT_START_TIME = "08:00:00"
+GENERIC_TASK_DEFAULT_END_TIME = "20:00:00"
+GENERIC_TASK_DEFAULT_SHARED_VALUE = "MULTIPLE"
+GENERIC_TASK_ID_DIGITS = 4
+GENERIC_TASK_MAX_LOCATIONS = 100
+
 
 def _project_meta_fieldtype(fieldname: str | None) -> str | None:
 	if not fieldname:
@@ -2940,6 +3046,336 @@ def _validate_project_date_range(start_date, end_date) -> None:
 		frappe.throw(_("Project Start Date cannot be after Project End Date."))
 
 
+def _validate_project_dates_cover_tasks(project: str, start_date, end_date) -> None:
+	"""Keep the project range around all linked tasks, including group tasks."""
+	errors = []
+	for field, order, value, label, boundary in (
+		("exp_start_date", "asc", start_date, "Project Start Date", "start"),
+		("exp_end_date", "desc", end_date, "Project End Date", "end"),
+	):
+		rows = frappe.get_all(
+			"Task",
+			filters={"project": project, field: ["is", "set"]},
+			fields=["name", field],
+			order_by=f"{field} {order}, name asc",
+			limit_page_length=1,
+		)
+		if not rows:
+			continue
+		task = rows[0]
+		task_date = getdate(task.get(field))
+		if not value:
+			errors.append(_("{0} is required because task {1} has a {2} date of {3}.").format(
+				_(label), task.name, _(boundary), task_date,
+			))
+		elif boundary == "start" and getdate(value) > task_date:
+			errors.append(_("Project Start Date cannot be later than {0}, because task {1} starts on that date.").format(task_date, task.name))
+		elif boundary == "end" and getdate(value) < task_date:
+			errors.append(_("Project End Date cannot be earlier than {0}, because task {1} ends on that date.").format(task_date, task.name))
+	if errors:
+		frappe.throw(" ".join(errors))
+
+
+def _generic_task_creation_availability(doc, fields: dict[str, str | None]) -> tuple[bool, str]:
+	if (doc.get("status") or "").strip().lower() == "cancelled":
+		return False, _("Generic tasks cannot be created for a cancelled project.")
+
+	if not frappe.has_permission("Task", ptype="create"):
+		return False, _("You do not have permission to create Tasks.")
+
+	start_date_field = fields.get("start_date_field")
+	end_date_field = fields.get("end_date_field")
+	if not start_date_field or not end_date_field:
+		return False, _("The Project start and end date fields are not configured on this site.")
+
+	if not doc.get(start_date_field) or not doc.get(end_date_field):
+		return False, _("Set the Project Start Date and Project End Date before creating generic tasks.")
+
+	return True, ""
+
+
+def _normalise_generic_task_subject(value, fallback: str, label: str) -> str:
+	subject = " ".join(str(value or fallback).split()).strip()
+	if not subject:
+		frappe.throw(_("{0} is required.").format(label))
+	if len(subject) > 140:
+		frappe.throw(_("{0} cannot exceed 140 characters.").format(label))
+	return subject
+
+
+def _normalise_generic_task_time(value, fallback: str, label: str) -> str:
+	value = str(value or fallback).strip()
+	try:
+		return get_datetime(f"2000-01-01 {value}").strftime("%H:%M:%S")
+	except Exception:
+		frappe.throw(_("{0} must be a valid time.").format(label))
+
+
+def _normalise_generic_task_locations(locations, legacy_location_subject=None) -> list[str]:
+	if locations in (None, ""):
+		locations = [legacy_location_subject or GENERIC_TASK_DEFAULT_LOCATION]
+	elif isinstance(locations, str):
+		try:
+			locations = json.loads(locations)
+		except (TypeError, ValueError):
+			locations = [locations]
+
+	if isinstance(locations, dict):
+		locations = [locations]
+	if not isinstance(locations, (list, tuple)):
+		frappe.throw(_("Locations must be supplied as a list."))
+	if not locations:
+		frappe.throw(_("Add at least one Location task."))
+	if len(locations) > GENERIC_TASK_MAX_LOCATIONS:
+		frappe.throw(_("A maximum of {0} Location tasks can be created at once.").format(GENERIC_TASK_MAX_LOCATIONS))
+
+	subjects = []
+	seen = set()
+	for index, location in enumerate(locations, start=1):
+		if isinstance(location, dict):
+			location = location.get("subject") or location.get("location_subject") or location.get("name")
+		subject = _normalise_generic_task_subject(
+			location,
+			"",
+			_("Location {0} task name").format(index),
+		)
+		key = subject.casefold()
+		if key in seen:
+			frappe.throw(_("Location task names must be unique. Duplicate: {0}").format(subject))
+		seen.add(key)
+		subjects.append(subject)
+
+	return subjects
+
+
+def _normalise_work_summary_subjects(values, fallback: str) -> list[str]:
+	if values is None:
+		return [fallback]
+	if not isinstance(values, list) or not 1 <= len(values) <= 100:
+		frappe.throw(_("Add between 1 and 100 Work Summaries per location."))
+	return [_normalise_generic_task_subject(value, "", _("Work Summary task name")) for value in values]
+
+
+def _get_project_location_tasks(project: str) -> list[dict]:
+	rows = frappe.get_all("Task", filters={"project": project, "type": "Location", "is_group": 1},
+		fields=["name", "subject"], order_by="name asc")
+	return [dict(name=row.name, subject=row.subject) for row in rows
+		if frappe.get_doc("Task", row.name).has_permission("write")]
+
+
+def _get_project_outline_task_name(project: str) -> str | None:
+	"""Prefer the original Outline when earlier additions created duplicates."""
+	rows = frappe.get_all(
+		"Task",
+		filters={"project": project, "type": "Outline", "is_group": 1, "status": ["!=", "Cancelled"]},
+		fields=["name"],
+		order_by="creation asc, name asc",
+		limit_page_length=1,
+	)
+	return rows[0].name if rows else None
+
+
+def _next_project_task_names(project: str, count: int) -> list[str]:
+	prefix = f"{project}-"
+	pattern = re.compile(rf"^{re.escape(prefix)}(\d+)$")
+	existing_names = frappe.db.sql(
+		"SELECT name FROM `tabTask` WHERE name LIKE %s",
+		(f"{prefix}%",),
+		pluck=True,
+	)
+
+	sequence = 0
+	for name in existing_names:
+		match = pattern.match(name or "")
+		if match:
+			sequence = max(sequence, int(match.group(1)))
+
+	result = []
+	while len(result) < count:
+		sequence += 1
+		candidate = f"{prefix}{sequence:0{GENERIC_TASK_ID_DIGITS}d}"
+		if frappe.db.exists("Task", candidate):
+			continue
+		result.append(candidate)
+
+	return result
+
+
+def _insert_generic_project_task(
+	*,
+	name: str,
+	project_doc,
+	subject: str,
+	task_type: str,
+	is_group: bool,
+	start_date: str,
+	end_date: str,
+	start_time: str,
+	end_time: str,
+	expected_time: float,
+	parent_task=None,
+):
+	task = frappe.new_doc("Task")
+	task.subject = subject
+	task.project = project_doc.name
+	task.description = subject
+	task.is_group = 1 if is_group else 0
+	task.is_milestone = 0
+	task.exp_start_date = start_date
+	task.exp_end_date = end_date
+	task.expected_time = expected_time
+	task.progress = 0
+
+	_set_doc_field_if_exists(task, "type", task_type)
+	_set_doc_field_if_exists(task, "project_scope_name", project_doc.project_name or project_doc.name)
+	_set_doc_field_if_exists(task, "exp_start_time", start_time)
+	_set_doc_field_if_exists(task, "exp_end_time", end_time)
+	_set_doc_field_if_exists(task, "responsible_contractor", GENERIC_TASK_DEFAULT_SHARED_VALUE)
+	_set_doc_field_if_exists(task, "supervisor", GENERIC_TASK_DEFAULT_SHARED_VALUE)
+	_set_doc_field_if_exists(task, "client_functional_location", GENERIC_TASK_DEFAULT_SHARED_VALUE)
+	_set_doc_field_if_exists(task, "work_order_number", "0")
+	_set_doc_field_if_exists(task, "operation_number", "0")
+
+	if parent_task:
+		task.parent_task = parent_task.name
+		_set_doc_field_if_exists(task, "parent_task_name", parent_task.subject)
+
+	task.insert(set_name=name)
+	return task
+
+
+def _normalise_task_assignees(value) -> list[str]:
+	"""Return the unique User IDs stored in a Task's standard ``_assign`` field."""
+	if not value:
+		return []
+	if isinstance(value, str):
+		try:
+			value = json.loads(value)
+		except (TypeError, ValueError):
+			value = [value]
+	if not isinstance(value, (list, tuple, set)):
+		return []
+
+	assignees = []
+	seen = set()
+	for user in value:
+		user = str(user or "").strip()
+		key = user.casefold()
+		if not user or key in seen:
+			continue
+		seen.add(key)
+		assignees.append(user)
+	return assignees
+
+
+def _get_project_execution_tasks(project: str) -> list[dict]:
+	"""Return Work Summary tasks and their standard Frappe assignees."""
+	tasks = frappe.get_all(
+		"Task",
+		filters={"project": project, "type": "Work Summary"},
+		fields=["name", "subject", "parent_task", "_assign"],
+		order_by="name asc",
+	)
+	if not tasks:
+		return []
+
+	parent_names = sorted({row.get("parent_task") for row in tasks if row.get("parent_task")})
+	parent_subjects = {}
+	if parent_names:
+		parent_subjects = {
+			row.name: row.subject
+			for row in frappe.get_all(
+				"Task",
+				filters={"name": ["in", parent_names]},
+				fields=["name", "subject"],
+				limit_page_length=len(parent_names),
+			)
+		}
+
+	all_assignees = sorted({
+		user
+		for row in tasks
+		for user in _normalise_task_assignees(row.get("_assign"))
+	})
+	user_details = {}
+	if all_assignees:
+		user_details = {
+			row.name: row
+			for row in frappe.get_all(
+				"User",
+				filters={"name": ["in", all_assignees]},
+				fields=["name", "full_name", "user_image"],
+				limit_page_length=len(all_assignees),
+			)
+		}
+
+	result = []
+	for row in tasks:
+		assignees = []
+		for user in _normalise_task_assignees(row.get("_assign")):
+			user_row = user_details.get(user) or {}
+			assignees.append({
+				"user": user,
+				"full_name": user_row.get("full_name") or user,
+				"user_image": user_row.get("user_image"),
+			})
+
+		try:
+			can_assign = bool(frappe.get_doc("Task", row.name).has_permission("write"))
+		except Exception:
+			can_assign = False
+
+		result.append({
+			"name": row.name,
+			"subject": row.subject,
+			"parent_task": row.get("parent_task"),
+			"location_subject": parent_subjects.get(row.get("parent_task")) or row.get("parent_task") or "",
+			"assignees": assignees,
+			"can_assign": can_assign,
+		})
+	return result
+
+
+def _get_assignable_execution_task(project: str, task: str, *, for_update: bool = False):
+	if not project:
+		frappe.throw(_("Project is required"))
+	if not task:
+		frappe.throw(_("Task is required"))
+
+	task_doc = frappe.get_doc("Task", task, for_update=for_update)
+	if task_doc.project != project:
+		frappe.throw(_("Task {0} does not belong to Project {1}.").format(task, project))
+	if str(task_doc.get("type") or "").strip().casefold() != "work summary":
+		frappe.throw(_("Only Work Summary/Execution tasks can be assigned from the Planner."))
+	task_doc.check_permission("write")
+	return task_doc
+
+
+def _normalise_assignment_users(users, *, allow_empty: bool = False, max_users: int | None = 50) -> list[str]:
+	if isinstance(users, str):
+		try:
+			users = json.loads(users)
+		except (TypeError, ValueError):
+			users = [users]
+	if not isinstance(users, (list, tuple, set)):
+		frappe.throw(_("Personnel must be supplied as a list."))
+
+	result = []
+	seen = set()
+	for user in users:
+		user = str(user or "").strip()
+		key = user.casefold()
+		if not user or key in seen:
+			continue
+		seen.add(key)
+		result.append(user)
+	if not result and not allow_empty:
+		frappe.throw(_("Select at least one person to assign."))
+	if max_users is not None and len(result) > max_users:
+		frappe.throw(_("A maximum of {0} people can be assigned at once.").format(max_users))
+	return result
+
+
 @frappe.whitelist()
 def get_project_planner_details(project: str) -> dict:
 	"""Return editable annual-planner details for a Project span dialog."""
@@ -2947,6 +3383,7 @@ def get_project_planner_details(project: str) -> dict:
 		frappe.throw(_("Project is required"))
 
 	doc = frappe.get_doc("Project", project)
+	doc.check_permission("read")
 	fields = _project_planner_edit_fields()
 	po_field = fields.get("po_field")
 	po_fieldtype = fields.get("po_fieldtype")
@@ -2958,12 +3395,17 @@ def get_project_planner_details(project: str) -> dict:
 	notes_field = fields.get("notes_field")
 	task_count = get_project_task_counts([project]).get(project, 0)
 	has_tasks = task_count > 0
+	can_create_generic_tasks, generic_tasks_unavailable_reason = _generic_task_creation_availability(
+		doc,
+		fields,
+	)
 
 	po_value = doc.get(po_field) if po_field else None
 	is_po_check = po_fieldtype == "Check"
 
 	return {
 		"project": doc.name,
+		"modified": str(doc.get("modified") or ""),
 		"project_name": doc.project_name,
 		"customer": doc.get("customer") if doc.meta.has_field("customer") else None,
 		"custom_project_location": doc.get("custom_project_location") if doc.meta.has_field("custom_project_location") else None,
@@ -2986,12 +3428,311 @@ def get_project_planner_details(project: str) -> dict:
 		"notes": doc.get(notes_field) if notes_field else "",
 		"task_count": task_count,
 		"has_tasks": has_tasks,
+		"outline_task": _get_project_outline_task_name(project),
+		"execution_tasks": _get_project_execution_tasks(project),
+		"location_tasks": _get_project_location_tasks(project),
+		"can_create_generic_tasks": can_create_generic_tasks,
+		"generic_tasks_unavailable_reason": generic_tasks_unavailable_reason,
 		"can_update_po": bool(po_field),
 		"can_update_ds": bool(ds_field),
 		"can_update_ns": bool(ns_field),
 		"can_update_is_active": bool(is_active_field),
-		"can_update_project_dates": bool(start_date_field and end_date_field) and not has_tasks,
+		"can_update_project_dates": bool(start_date_field and end_date_field),
 		"can_update_notes": bool(notes_field),
+		**project_staffing_details(doc, _safe_int(doc.get(ds_field)) if ds_field else 0, _safe_int(doc.get(ns_field)) if ns_field else 0),
+	}
+
+
+@frappe.whitelist()
+def get_task_assignment_users(project: str, task: str) -> dict:
+	"""Return available personnel and current assignees, including disabled users."""
+	task_doc = _get_assignable_execution_task(project, task)
+	assigned_users = _normalise_task_assignees(task_doc.get("_assign"))
+	users = frappe.get_all(
+		"User",
+		filters={"enabled": 1, "user_type": "System User", "name": ["!=", "Guest"]},
+		fields=["name", "full_name", "user_image"],
+		order_by="full_name asc, name asc",
+		limit_page_length=1000,
+	)
+	# Existing assignees must remain visible and removable even if their account
+	# is now disabled, is a Website User, or is beyond the picker result limit.
+	available_users = {row.name for row in users}
+	missing_users = [user for user in assigned_users if user not in available_users]
+	if missing_users:
+		current_users = {
+			row.name: row for row in frappe.get_all(
+				"User", filters={"name": ["in", missing_users]},
+				fields=["name", "full_name", "user_image"], limit_page_length=len(missing_users),
+			)
+		}
+		users.extend(current_users.get(user) or frappe._dict(name=user, full_name=user, user_image=None)
+			for user in missing_users)
+	return {
+		"task": task_doc.name,
+		"assigned_users": assigned_users,
+		"users": [
+			{
+				"user": row.name,
+				"full_name": row.full_name or row.name,
+				"user_image": row.user_image,
+			}
+			for row in users
+		],
+	}
+
+
+def _validate_new_assignment_users(users: list[str]) -> None:
+	if not users:
+		return
+	valid_users = set(frappe.get_all(
+		"User",
+		filters={"name": ["in", users], "enabled": 1, "user_type": "System User"},
+		pluck="name",
+		limit_page_length=len(users),
+	))
+	invalid_users = [user for user in users if user not in valid_users or user == "Guest"]
+	if invalid_users:
+		frappe.throw(_("These personnel cannot be assigned: {0}").format(", ".join(invalid_users)))
+
+
+@frappe.whitelist()
+def assign_project_execution_task(project: str, task: str, users: list | str) -> dict:
+	"""Assign personnel through Frappe's standard Task/ToDo assignment flow."""
+	task_doc = _get_assignable_execution_task(project, task)
+	requested_users = _normalise_assignment_users(users)
+
+	_validate_new_assignment_users(requested_users)
+
+	existing_users = set(_normalise_task_assignees(task_doc.get("_assign")))
+	new_users = [user for user in requested_users if user not in existing_users]
+	if not new_users:
+		frappe.throw(_("All selected personnel are already assigned to this task."))
+
+	from frappe.desk.form.assign_to import add as add_assignment
+
+	add_assignment({
+		"assign_to": new_users,
+		"doctype": "Task",
+		"name": task_doc.name,
+		"description": task_doc.subject,
+	})
+	return {
+		"task": task_doc.name,
+		"assigned_users": new_users,
+		"project_details": get_project_planner_details(project),
+	}
+
+
+@frappe.whitelist(methods=["POST"])
+def update_project_execution_task_assignments(
+	project: str, task: str, add_users: list | str, remove_users: list | str,
+) -> dict:
+	"""Apply explicit assignment changes without overwriting other personnel.
+
+	Use the standard ToDo flow to keep Task._assign, history and notifications
+	in sync. Both operations are part of the same request transaction.
+	"""
+	task_doc = _get_assignable_execution_task(project, task, for_update=True)
+	requested_additions = _normalise_assignment_users(add_users, allow_empty=True)
+	requested_removals = _normalise_assignment_users(remove_users, allow_empty=True, max_users=None)
+	if {user.casefold() for user in requested_additions} & {user.casefold() for user in requested_removals}:
+		frappe.throw(_("The same person cannot be added and removed in one update."))
+
+	existing_users = set(_normalise_task_assignees(task_doc.get("_assign")))
+	new_users = [user for user in requested_additions if user not in existing_users]
+	removed_users = [user for user in requested_removals if user in existing_users]
+	_validate_new_assignment_users(new_users)
+
+	from frappe.desk.form.assign_to import add as add_assignment, remove as remove_assignment
+
+	if new_users:
+		add_assignment({
+			"assign_to": new_users, "doctype": "Task", "name": task_doc.name,
+			"description": task_doc.subject,
+		})
+	for user in removed_users:
+		remove_assignment("Task", task_doc.name, user)
+
+	return {
+		"task": task_doc.name,
+		"assigned_users": new_users,
+		"removed_users": removed_users,
+		"project_details": get_project_planner_details(project),
+	}
+
+
+@frappe.whitelist()
+def create_generic_project_tasks(
+	project: str,
+	location_subject: str | None = None,
+	locations: list | str | None = None,
+	work_summary_subject: str | None = None,
+	expected_start_time: str | None = None,
+	expected_end_time: str | None = None,
+) -> dict:
+	"""Create Work Summaries under new or existing Location tasks.
+
+	Reuse the project's original Outline, creating one only when none exists.
+	Lock the Project row so concurrent Planner requests share that Outline and
+	allocate distinct task name sequences.
+	"""
+	if not project:
+		frappe.throw(_("Project is required"))
+
+	if not frappe.has_permission("Task", ptype="create"):
+		frappe.throw(_("You do not have permission to create Tasks."), frappe.PermissionError)
+
+	project_doc = frappe.get_doc("Project", project)
+	project_doc.check_permission("read")
+
+	frappe.db.sql("SELECT name FROM `tabProject` WHERE name = %s FOR UPDATE", (project,))
+	project_doc.reload()
+
+	fields = _project_planner_edit_fields()
+	can_create, unavailable_reason = _generic_task_creation_availability(project_doc, fields)
+	if not can_create:
+		frappe.throw(unavailable_reason)
+
+	outline_subject = _normalise_generic_task_subject(
+		project_doc.project_name or project_doc.name,
+		project_doc.name,
+		_("Project task name"),
+	)
+	work_summary_subject = _normalise_generic_task_subject(
+		work_summary_subject,
+		GENERIC_TASK_DEFAULT_WORK_SUMMARY,
+		_("Work Summary task name"),
+	)
+	# Accept the legacy list of location names and richer per-location entries.
+	if isinstance(locations, str):
+		try:
+			locations = json.loads(locations)
+		except (TypeError, ValueError):
+			locations = [locations]
+	if locations in (None, ""):
+		locations = [location_subject or GENERIC_TASK_DEFAULT_LOCATION]
+	if isinstance(locations, dict):
+		locations = [locations]
+	if not isinstance(locations, list) or not 1 <= len(locations) <= GENERIC_TASK_MAX_LOCATIONS:
+		frappe.throw(_("Add between 1 and {0} locations.").format(GENERIC_TASK_MAX_LOCATIONS))
+	entries = []
+	new_subjects = []
+	for entry in locations:
+		entry = entry if isinstance(entry, dict) else {"subject": entry}
+		parent = None
+		if entry.get("task"):
+			parent = frappe.get_doc("Task", entry["task"], for_update=True)
+			parent.check_permission("write")
+			if parent.project != project or parent.get("type") != "Location" or not parent.get("is_group"):
+				frappe.throw(_("Select a Location group task belonging to this project."))
+			if parent.get("status") == "Cancelled":
+				frappe.throw(_("Work Summaries cannot be added to a cancelled Location."))
+			subject = parent.subject
+		else:
+			subject = entry.get("subject") or entry.get("location_subject") or entry.get("name")
+			subject = _normalise_generic_task_subject(subject, "", _("Location task name"))
+			new_subjects.append(subject)
+		entries.append((subject, parent, _normalise_work_summary_subjects(entry.get("work_summaries"), work_summary_subject)))
+	if new_subjects:
+		_normalise_generic_task_locations(new_subjects)
+	if sum(len(summaries) for _, _, summaries in entries) > 500:
+		frappe.throw(_("A maximum of 500 Work Summaries can be created at once."))
+	start_time = _normalise_generic_task_time(
+		expected_start_time,
+		GENERIC_TASK_DEFAULT_START_TIME,
+		_("Expected Start Time"),
+	)
+	end_time = _normalise_generic_task_time(
+		expected_end_time,
+		GENERIC_TASK_DEFAULT_END_TIME,
+		_("Expected End Time"),
+	)
+
+	start_date = _normalise_project_date_for_update(project_doc.get(fields["start_date_field"]))
+	end_date = _normalise_project_date_for_update(project_doc.get(fields["end_date_field"]))
+	_validate_project_date_range(start_date, end_date)
+
+	start_datetime = get_datetime(f"{start_date} {start_time}")
+	end_datetime = get_datetime(f"{end_date} {end_time}")
+	if end_datetime <= start_datetime:
+		frappe.throw(_("The generic task end date and time must be after its start date and time."))
+	expected_time = round((end_datetime - start_datetime).total_seconds() / 3600, 2)
+
+	outline_task = None
+	outline_start_date, outline_end_date = start_date, end_date
+	if new_subjects:
+		outline_name = _get_project_outline_task_name(project)
+		if outline_name:
+			outline_task = frappe.get_doc("Task", outline_name, for_update=True)
+			outline_task.check_permission("write")
+			if (
+				outline_task.project != project or outline_task.get("type") != "Outline"
+				or not outline_task.get("is_group") or outline_task.get("status") == "Cancelled"
+			):
+				frappe.throw(_("The project's Outline has changed. Reload the project and try again."))
+			# New locations inherit the existing Outline's dates. Adding tasks
+			# must not reschedule the Outline or any other existing task.
+			outline_start_date = _normalise_project_date_for_update(outline_task.get("exp_start_date"))
+			outline_end_date = _normalise_project_date_for_update(outline_task.get("exp_end_date"))
+			if not outline_start_date or not outline_end_date:
+				frappe.throw(_("Outline {0} needs an Expected Start Date and Expected End Date before adding locations.").format(outline_task.name))
+			if getdate(outline_start_date) > getdate(outline_end_date):
+				frappe.throw(_("Outline {0}'s Expected Start Date cannot be after its Expected End Date.").format(outline_task.name))
+			if getdate(outline_start_date) < getdate(start_date) or getdate(outline_end_date) > getdate(end_date):
+				frappe.throw(_("Outline {0} has dates outside the Project date range. Review the existing dates before adding locations.").format(outline_task.name))
+
+	# Existing locations keep their own date range; new ones use the Outline.
+	planned = []
+	for subject, parent, summaries in entries:
+		location_start = _normalise_project_date_for_update(parent.get("exp_start_date")) if parent else outline_start_date
+		location_end = _normalise_project_date_for_update(parent.get("exp_end_date")) if parent else outline_end_date
+		location_start, location_end = location_start or start_date, location_end or end_date
+		_validate_project_date_range(location_start, location_end)
+		if getdate(location_start) < getdate(start_date) or getdate(location_end) > getdate(end_date):
+			frappe.throw(_("Location {0} has dates outside the Project date range. Update its dates before adding Work Summaries.").format(subject))
+		hours = (get_datetime(f"{location_end} {end_time}") - get_datetime(f"{location_start} {start_time}")).total_seconds() / 3600
+		if hours <= 0:
+			frappe.throw(_("Work Summary end date and time must be after its start date and time."))
+		planned.append((subject, parent, summaries, location_start, location_end, round(hours, 2)))
+
+	create_outline = bool(new_subjects) and outline_task is None
+	count = int(create_outline) + len(new_subjects) + sum(len(summaries) for _, _, summaries in entries)
+	task_names = iter(_next_project_task_names(project_doc.name, count))
+	created_tasks = []
+	if create_outline:
+		outline_task = _insert_generic_project_task(
+			name=next(task_names), project_doc=project_doc, subject=outline_subject,
+			task_type="Outline", is_group=True, start_date=start_date, end_date=end_date,
+			start_time=start_time, end_time=end_time, expected_time=expected_time,
+		)
+		created_tasks.append(outline_task)
+	for subject, location_task, summaries, location_start, location_end, hours in planned:
+		if location_task is None:
+			location_task = _insert_generic_project_task(
+				name=next(task_names), project_doc=project_doc, subject=subject,
+				task_type="Location", is_group=True, start_date=location_start, end_date=location_end,
+				start_time=start_time, end_time=end_time, expected_time=hours, parent_task=outline_task,
+			)
+			created_tasks.append(location_task)
+		for subject in summaries:
+			created_tasks.append(_insert_generic_project_task(
+				name=next(task_names), project_doc=project_doc, subject=subject,
+				task_type="Work Summary", is_group=False, start_date=location_start, end_date=location_end,
+				start_time=start_time, end_time=end_time, expected_time=hours, parent_task=location_task,
+			))
+	return {
+		"project": project_doc.name,
+		"created_tasks": [
+			{
+				"name": task.name,
+				"subject": task.subject,
+				"type": task.get("type"),
+				"parent_task": task.get("parent_task"),
+			}
+			for task in created_tasks
+		],
+		"project_details": get_project_planner_details(project_doc.name),
 	}
 
 
@@ -3006,13 +3747,24 @@ def update_project_planner_details(
 	project_start_date: str | None = None,
 	project_end_date: str | None = None,
 	project_notes: str | None = None,
+	expected_modified: str | None = None,
+	personnel_requirements: list[dict] | str | None = None,
 ) -> dict:
 	"""Update the Project fields exposed by the annual project span dialog."""
 	if not project:
 		frappe.throw(_("Project is required"))
 
-	doc = frappe.get_doc("Project", project)
+	doc = frappe.get_doc("Project", project, for_update=True)
+	doc.check_permission("write")
+	_check_project_revision(doc, expected_modified)
 	fields = _project_planner_edit_fields()
+	if personnel_requirements is not None:
+		if not doc.meta.has_field(REQUIREMENTS_FIELD):
+			frappe.throw(_("Project personnel requirements are not installed. Run the site migration."))
+		rows = normalise_requirements(personnel_requirements)
+		doc.set(REQUIREMENTS_FIELD, rows)
+		totals = requirement_totals(rows)
+		ds_requested, ns_requested = totals["DS"], totals["NS"]
 
 	po_field = fields.get("po_field")
 	po_fieldtype = fields.get("po_fieldtype")
@@ -3042,7 +3794,7 @@ def update_project_planner_details(
 
 	start_date_field = fields.get("start_date_field")
 	end_date_field = fields.get("end_date_field")
-	if start_date_field or end_date_field:
+	if (start_date_field or end_date_field) and (project_start_date is not None or project_end_date is not None):
 		if not start_date_field or not end_date_field:
 			frappe.throw(_("Project date fields are not fully configured on this site."))
 
@@ -3051,9 +3803,7 @@ def update_project_planner_details(
 		_validate_project_date_range(start_date, end_date)
 
 		if _project_date_values_changed(doc, start_date_field, end_date_field, start_date, end_date):
-			task_count = get_project_task_counts([project]).get(project, 0)
-			if task_count:
-				frappe.throw(_("Project dates cannot be changed because this project already has {0} task(s) assigned.").format(task_count))
+			_validate_project_dates_cover_tasks(project, start_date, end_date)
 
 			doc.set(start_date_field, start_date)
 			doc.set(end_date_field, end_date)
@@ -3062,11 +3812,17 @@ def update_project_planner_details(
 	return get_project_planner_details(project)
 
 
+def _check_project_revision(doc, expected_modified):
+	if expected_modified and str(doc.get("modified") or "") != str(expected_modified):
+		frappe.throw(_("This project was changed by another user. Reload the latest details before saving your changes."))
+
+
 @frappe.whitelist()
 def update_project_planner_dates(
 	project: str,
 	project_start_date: str | None = None,
 	project_end_date: str | None = None,
+	expected_modified: str | None = None,
 ) -> dict:
 	"""Update only the Project date range used by the annual planner span drag/resize."""
 	if not project:
@@ -3083,12 +3839,11 @@ def update_project_planner_dates(
 	end_date = _normalise_project_date_for_update(project_end_date)
 	_validate_project_date_range(start_date, end_date)
 
-	doc = frappe.get_doc("Project", project)
+	doc = frappe.get_doc("Project", project, for_update=True)
+	_check_project_revision(doc, expected_modified)
 
 	if _project_date_values_changed(doc, start_date_field, end_date_field, start_date, end_date):
-		task_count = get_project_task_counts([project]).get(project, 0)
-		if task_count:
-			frappe.throw(_("Project has tasks assigned, so project dates cannot be changed."))
+		_validate_project_dates_cover_tasks(project, start_date, end_date)
 
 		doc.set(start_date_field, start_date)
 		doc.set(end_date_field, end_date)
@@ -3102,25 +3857,21 @@ def get_project_task_counts(project_names: set[str] | list[str] | tuple[str, ...
 	if not project_names:
 		return {}
 
-	try:
-		task_meta = frappe.get_meta("Task")
-		if not task_meta.has_field("project"):
-			return {}
-	except Exception:
+	task_meta = frappe.get_meta("Task")
+	if not task_meta.has_field("project"):
 		return {}
 
-	try:
-		rows = frappe.get_all(
-			"Task",
-			filters={"project": ["in", project_names]},
-			fields=["project", "count(name) as task_count"],
-			group_by="project",
-			limit_start=0,
-			limit_page_length=ANNUAL_ROSTER_RESULT_LIMIT,
-			limit=ANNUAL_ROSTER_RESULT_LIMIT,
-		)
-	except Exception:
-		return {}
+	# Frappe v16 requires structured aggregates in get_all. Do not turn query
+	# failures into zero counts: has_tasks controls task visibility, personnel
+	# allocation and generic task creation throughout the Planner.
+	rows = frappe.get_all(
+		"Task",
+		filters={"project": ["in", project_names]},
+		fields=["project", {"COUNT": "name", "as": "task_count"}],
+		group_by="project",
+		order_by="project asc",
+		limit_page_length=len(project_names),
+	)
 
 	return {row.project: _safe_int(row.task_count) for row in rows if row.get("project")}
 
@@ -3184,10 +3935,10 @@ def get_project_meta(
 ) -> dict[str, dict]:
 	"""Return Project metadata for every project that should appear in annual planning rows.
 
-	When a year range is supplied, this intentionally looks up Open and Completed
-	Projects by Project date range as well as projects referenced by Shift Assignment
-	rows. Cancelled projects are always excluded, while completed and inactive
-	projects remain visible when they overlap the selected year.
+	When a year range is supplied, this intentionally looks up Projects of all
+	statuses by Project date range as well as projects referenced by Shift Assignment
+	rows. Cancelled, completed and inactive projects remain visible when they
+	overlap the selected year so the Planner can distinguish them visually.
 
 	ANNUAL_ROSTER_RESULT_LIMIT is deliberately explicit because some Frappe list
 	queries otherwise fall back to the default page length of about 20 rows.
@@ -3256,17 +4007,16 @@ def get_project_meta(
 		if field
 	]
 
-	# Keep Open and Completed projects visible, but never return Cancelled projects.
-	# The backend filter also excludes cancelled projects referenced by old Shift
-	# Assignment rows, so they cannot reappear through the roster fallback.
-	project_filters = {"status": ["!=", "Cancelled"]}
+	# Keep cancelled jobs in the same year/date and shift-reference scope as other
+	# projects; the Planner renders them with a distinct cancelled appearance.
+	project_filters = {}
 	if project_names and not (year_start_date and year_end_date):
 		project_filters["name"] = ["in", project_names]
 
 	projects = frappe.get_all(
 		"Project",
 		filters=project_filters,
-		fields=["name", "project_name", "status", *optional_fields],
+		fields=["name", "project_name", "status", "modified", *optional_fields],
 		limit_start=0,
 		limit_page_length=ANNUAL_ROSTER_RESULT_LIMIT,
 		limit=ANNUAL_ROSTER_RESULT_LIMIT,
@@ -3320,6 +4070,7 @@ def get_project_meta(
 				)
 			}
 
+	personnel_requirements = get_project_requirements([project.name for project in projects])
 	for project in projects:
 		customer = project.get(customer_field) if customer_field else None
 		customer_detail = customer_details.get(customer) if customer else None
@@ -3329,6 +4080,10 @@ def get_project_meta(
 		project["po_entered"] = True if not po_field else _truthy_project_value(project.get(po_field))
 		project["ds_requested"] = _safe_int(project.get(ds_field)) if ds_field else 0
 		project["ns_requested"] = _safe_int(project.get(ns_field)) if ns_field else 0
+		project["personnel_requirements"] = personnel_requirements.get(project.name, [])
+		if project["personnel_requirements"]:
+			totals = requirement_totals(project["personnel_requirements"])
+			project["ds_requested"], project["ns_requested"] = totals["DS"], totals["NS"]
 		project["customer"] = customer
 		project["customer_name"] = (
 			customer_detail.get("customer_name") if customer_detail and customer_detail.get("customer_name") else customer
@@ -3422,6 +4177,7 @@ def get_year_project_rows(
 ) -> list[dict]:
 	projects = {}
 	shift_summaries: dict[str, dict] = {}
+	project_shifts: dict[str, list] = {}
 	year_start_date = getdate(year_start)
 	year_end_date = getdate(year_end)
 	shift_project_bounds = get_shift_project_bounds(shift_rows, year_start_date, year_end_date)
@@ -3440,6 +4196,7 @@ def get_year_project_rows(
 		project = shift.get("custom_project")
 		if not project or project not in all_projects:
 			continue
+		project_shifts.setdefault(project, []).append(shift)
 
 		start_date = max(getdate(shift.get("start_date")), year_start_date)
 		end_date = getdate(shift.get("end_date")) if shift.get("end_date") else year_end_date
@@ -3490,9 +4247,18 @@ def get_year_project_rows(
 			continue
 
 		project_task_count = task_counts.get(project, 0)
+		requirements = project_meta.get("personnel_requirements") or []
+		allocation_requirements = requirements or [
+			{"shift": shift, "designation": "", "required_personnel": project_meta.get(field, 0)}
+			for shift, field in (("DS", "ds_requested"), ("NS", "ns_requested"))
+		]
+		allocation_shifts = [shift for shift in project_shifts.get(project, [])
+			if getdate(shift["start_date"]) <= bounds[1]
+			and (not shift.get("end_date") or getdate(shift["end_date"]) >= bounds[0])]
 
 		projects[project] = {
 			"project": project,
+			"modified": str(project_meta.get("modified") or ""),
 			"project_name": project_name,
 			"status": project_meta.get("status"),
 			"customer": project_meta.get("customer"),
@@ -3507,6 +4273,8 @@ def get_year_project_rows(
 			"po_entered": project_meta.get("po_entered"),
 			"ds_requested": _safe_int(project_meta.get("ds_requested")),
 			"ns_requested": _safe_int(project_meta.get("ns_requested")),
+			"personnel_requirements": requirements,
+			"personnel_allocations": summarise_staffing(allocation_shifts, allocation_requirements),
 			"customer_color": project_meta.get("customer_color"),
 			"start_date": str(bounds[0]),
 			"end_date": str(bounds[1]),

@@ -1,0 +1,92 @@
+{
+ "doctype": "DocType",
+ "name": "Investigation Evidence",
+ "module": "Safety",
+ "engine": "InnoDB",
+ "field_order": [
+  "entry_id",
+  "title",
+  "evidence_type",
+  "observed_at",
+  "notes",
+  "file",
+  "verification_status",
+  "verification_notes",
+  "recorded_by",
+  "verified_by",
+  "verified_on"
+ ],
+ "fields": [
+  {
+   "fieldname": "entry_id",
+   "label": "Reference",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "title",
+   "label": "Evidence title",
+   "fieldtype": "Data",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "evidence_type",
+   "label": "PEEPO category",
+   "fieldtype": "Select",
+   "options": "People\nEnvironment\nEquipment\nProcedures\nOrganisation\nOther",
+   "default": "Other"
+  },
+  {
+   "fieldname": "observed_at",
+   "label": "Observed at",
+   "fieldtype": "Datetime"
+  },
+  {
+   "fieldname": "notes",
+   "label": "Facts and observations",
+   "fieldtype": "Long Text"
+  },
+  {
+   "fieldname": "file",
+   "label": "Evidence file",
+   "fieldtype": "Attach"
+  },
+  {
+   "fieldname": "verification_status",
+   "label": "Evidence status",
+   "fieldtype": "Select",
+   "options": "Unverified\nVerified\nDisputed",
+   "default": "Unverified",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "verification_notes",
+   "label": "Verification basis",
+   "fieldtype": "Small Text"
+  },
+  {
+   "fieldname": "recorded_by",
+   "label": "Recorded by",
+   "fieldtype": "Link",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "verified_by",
+   "label": "Verified by",
+   "fieldtype": "Link",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "verified_on",
+   "label": "Verified on",
+   "fieldtype": "Datetime",
+   "read_only": 1
+  }
+ ],
+ "permissions": [],
+ "istable": 1
+}
