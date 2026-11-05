@@ -365,7 +365,9 @@ PRINT_HTML = r"""
                 {% endif %}
               </td>
               <td>
-                {% if step.hold_or_pause_point %}<strong>YES</strong>{% else %}No{% endif %}
+                {% if doc.get('paper_review_mode') == 'Automatic' and step.get('paper_hold_point') and not step.get('hold_point_confirmed') %}
+                  {{ step.paper_hold_point | e }}
+                {% elif step.hold_or_pause_point %}<strong>YES</strong>{% else %}No{% endif %}
                 <div class="manual-sign-line"></div>
               </td>
             </tr>

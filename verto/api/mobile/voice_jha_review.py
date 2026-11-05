@@ -112,7 +112,15 @@ def _serialize_review(doc) -> dict:
         "signed_at": doc.get("signed_at"),
         "signed_by_user": doc.get("signed_by_user"),
         "participants": participants,
+        "requested_team_leader": doc.get("paper_review_team_leader"),
+        "can_review": _can_complete_review(doc),
     }
+
+
+def _can_complete_review(doc):
+    from verto.api.mobile.voice_jha_permissions import _is_privileged_user
+    return bool(doc.get("paper_review_mode") != "Automatic" or frappe.session.user == doc.get("paper_review_team_leader")
+                or _is_privileged_user(frappe.session.user))
 
 
 def _present_participants(doc):
@@ -145,6 +153,8 @@ def complete_human_review(
         )
 
     doc = _get_jha(jha_name, require_write=True)
+    if not _can_complete_review(doc):
+        frappe.throw(_("The nominated team leader or a System Manager must review this paper JHA."), frappe.PermissionError)
     if doc.jha_status != "Ready for Team Review":
         frappe.throw(
             _("Team leader review (Supervisor or above) can only be completed when the JHA is Ready for Team Review."),

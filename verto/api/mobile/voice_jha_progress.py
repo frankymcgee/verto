@@ -133,7 +133,7 @@ def calculate_facilitation_progress(doc) -> dict:
         None,
     )
 
-    return {
+    result = {
         "stage": stage,
         "job_steps_confirmed": job_steps_confirmed,
         "current_step_sequence": current_sequence,
@@ -142,6 +142,11 @@ def calculate_facilitation_progress(doc) -> dict:
         "total_step_count": len(step_states),
         "steps": step_states,
     }
+    if doc.get("paper_review_mode") == "Automatic":
+        for state, step in zip(step_states, steps):
+            state["paper_hold_point"] = step.get("paper_hold_point") or ""
+        result.update({"review_basis": "Paper JHA", "prepared_step_count": len(steps)})
+    return result
 
 
 def sync_facilitation_fields(doc, *, update_timestamp: bool = True) -> dict:

@@ -13,6 +13,7 @@
   "source_task",
   "source_step_identifier",
   "hold_or_pause_point",
+  "paper_hold_point",
   "hold_point_confirmed",
   "critical_controls_reviewed",
   "step_discussion_complete"
@@ -24,6 +25,7 @@
   {"fieldname":"source_task","fieldtype":"Link","hidden":1,"label":"Source Task","options":"Task","read_only":1},
   {"fieldname":"source_step_identifier","fieldtype":"Data","label":"Source Step Identifier"},
   {"default":"0","fieldname":"hold_or_pause_point","fieldtype":"Check","label":"Hold / Pause Point"},
+  {"fieldname":"paper_hold_point","fieldtype":"Small Text","label":"Written Paper JHA Hold Point","read_only":1},
   {"default":"0","fieldname":"hold_point_confirmed","fieldtype":"Check","hidden":1,"label":"Hold / Pause Point Confirmed","read_only":1},
   {"default":"0","fieldname":"critical_controls_reviewed","fieldtype":"Check","hidden":1,"label":"Critical Controls Reviewed","read_only":1},
   {"default":"0","fieldname":"step_discussion_complete","fieldtype":"Check","hidden":1,"label":"Step Discussion Complete","read_only":1}

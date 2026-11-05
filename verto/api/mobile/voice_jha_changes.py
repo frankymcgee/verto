@@ -60,6 +60,9 @@ def begin_jha_change(jha_name: str, confirmation=0):
         revision.set(field, None)
     revision.review_completed = 0
     revision.voice_transcription_consent_confirmed = 0
+    from verto.api.mobile.voice_jha_paper_review import FIELDS as PAPER_REVIEW_FIELDS
+    for field in PAPER_REVIEW_FIELDS:
+        revision.set(field, None)
     for row in revision.work_steps or []:
         row.source_step_identifier = row.get("source_step_identifier") or f"step-{row.sequence}"
     hazard_ids = {}

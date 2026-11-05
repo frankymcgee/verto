@@ -5,7 +5,8 @@ import { apiRequest } from '../lib/api'
 
 type Hazard = { hazard: string; controls: string; critical_control: string; control_owner: string }
 type Step = { page: number; activity: string; hold_point: string; hazards: Hazard[] }
-type Content = { job_description: string; uncertainties: string[]; steps: Step[] }
+type Person = { participant_name: string; role: string }
+type Content = { job_description: string; uncertainties: string[]; steps: Step[]; participants?: Person[] }
 type Page = { url: string; size?: number }
 type Reading = { name: string; status: string; pages: Page[]; content: Content; confirmed_by?: string }
 const props = defineProps<{ jha: Record<string, any>; online: boolean; busy?: boolean }>()
@@ -13,30 +14,48 @@ const emit = defineEmits<{ updated: [value: Record<string, any>]; busy: [value: 
 const loading = ref(false), saving = ref(''), error = ref(''), confirmed = ref(false)
 const reading = ref<Reading | null>(null), content = ref<Content | null>(null), pages = ref<Page[]>([])
 const serverAllows = ref(false)
+const canPrepare = ref(false), mode = ref('Guided'), teamLeader = ref(''), crew = ref<Person[]>([])
+const teamLeaders = ref<{ value: string; label: string }[]>([]), paperReview = ref<Record<string, any> | null>(null)
+let pollTimer: ReturnType<typeof setTimeout> | undefined
 let alive = true, generation = 0, readRequest = ''
 const eligible = computed(() => props.jha.status === 'Draft' && !props.jha.photo_import && !props.jha.previous_jha
   && !props.jha.voice_started_at && !props.jha.job_steps_confirmed && !props.jha.hazards_and_controls?.length && !props.jha.participants?.length)
 const visible = computed(() => eligible.value || Boolean(props.jha.photo_import))
 const locked = computed(() => Boolean(props.busy || saving.value || loading.value || !props.online))
 const editable = computed(() => eligible.value && serverAllows.value && reading.value?.status !== 'Imported')
+const chooseMode = computed(() => (editable.value && Boolean(reading.value)) || canPrepare.value)
+const autoReady = computed(() => Boolean(teamLeader.value && crew.value.length && crew.value.every(person => person.participant_name.trim())
+  && new Set(crew.value.map(person => person.participant_name.trim().toLowerCase())).size === crew.value.length))
 const endpoint = '/api/method/verto.api.mobile.voice_jha_photos.'
 function clone(value: Content): Content { return JSON.parse(JSON.stringify(value)) }
 function adopt(value: Reading) {
   reading.value = value; content.value = clone(value.content); pages.value = value.pages.map(page => ({ ...page })); confirmed.value = false
+  const people = props.jha.participants?.length ? props.jha.participants : value.content.participants || []
+  crew.value = people.map((person: Person) => ({ participant_name: person.participant_name, role: person.role || '' }))
+  if (!crew.value.length) crew.value.push({ participant_name: '', role: '' })
 }
 function start(action: string) { saving.value = action; error.value = ''; emit('busy', true) }
 function finish() { saving.value = ''; emit('busy', false) }
 function current(version: number, name: string) { return alive && version === generation && name === props.jha.name }
-async function load() {
+async function load(poll = false) {
+  clearTimeout(pollTimer)
   const version = ++generation, name = props.jha.name
-  reading.value = null; content.value = null; pages.value = []; error.value = ''; confirmed.value = false; readRequest = ''; serverAllows.value = false; loading.value = false
+  if (!poll) {
+    reading.value = null; content.value = null; pages.value = []; error.value = ''; confirmed.value = false; readRequest = ''; serverAllows.value = false; loading.value = false
+    canPrepare.value = false; paperReview.value = null; teamLeaders.value = []; teamLeader.value = ''; mode.value = 'Guided'; crew.value = []
+  }
   if (!visible.value || !props.online) return
-  loading.value = true
+  loading.value = !poll
   try {
     const result = await apiRequest<any>(`${endpoint}get_jha_photo_import?jha_name=${encodeURIComponent(name)}`, { cache: 'no-store' })
     if (!current(version, name)) return
     serverAllows.value = result.message.can_import
-    if (result.message.reading) adopt(result.message.reading)
+    canPrepare.value = Boolean(result.message.can_prepare)
+    teamLeaders.value = result.message.team_leaders || []
+    paperReview.value = result.message.paper_review || null
+    if (!poll && result.message.reading) adopt(result.message.reading)
+    if (result.message.incident_learning) emit('updated', { name, incident_learning: result.message.incident_learning })
+    if (paperReview.value && ['Pending', 'Queued', 'Sending'].includes(paperReview.value.status)) pollTimer = setTimeout(() => { void load(true) }, 5000)
   } catch (err) { if (current(version, name)) error.value = err instanceof Error ? err.message : 'Could not load the paper JHA reading.' }
   finally { if (current(version, name)) loading.value = false }
 }
@@ -87,34 +106,68 @@ async function readPages() {
   finally { finish() }
 }
 async function importReading() {
-  if (locked.value || !editable.value || !confirmed.value || !content.value?.steps.length || !reading.value) return
+  if (locked.value || !editable.value || !confirmed.value || !content.value?.steps.length || !reading.value || (mode.value === 'Automatic' && !autoReady.value)) return
   const version = generation, name = props.jha.name
   start('import')
   try {
     const body = new FormData()
     body.append('jha_name', name); body.append('import_name', reading.value.name)
-    body.append('reviewed_content', JSON.stringify(content.value)); body.append('confirmation', '1')
+    body.append('reviewed_content', JSON.stringify(mode.value === 'Automatic' ? { ...content.value, participants: crew.value } : content.value)); body.append('confirmation', '1')
+    body.append('auto_prepare', mode.value === 'Automatic' ? '1' : '0'); body.append('team_leader', teamLeader.value); body.append('participants', JSON.stringify(crew.value))
     const result = await apiRequest<any>(`${endpoint}confirm_jha_photo_import`, { method: 'POST', body })
     if (!current(version, name)) return
     adopt(result.message.reading); serverAllows.value = false; emit('updated', result.message.jha)
   } catch (err) { if (current(version, name)) error.value = err instanceof Error ? err.message : 'Could not import the checked reading. Your corrections are retained.' }
   finally { finish() }
 }
+async function prepareImported() {
+  if (locked.value || !canPrepare.value || !confirmed.value || !autoReady.value) return
+  const version = generation, name = props.jha.name
+  start('prepare')
+  try {
+    const body = new FormData()
+    body.append('jha_name', name); body.append('team_leader', teamLeader.value); body.append('participants', JSON.stringify(crew.value)); body.append('confirmation', '1')
+    const result = await apiRequest<any>('/api/method/verto.api.mobile.voice_jha_paper_review.prepare_paper_jha_for_review', { method: 'POST', body })
+    if (current(version, name)) { paperReview.value = result.message.paper_review; emit('updated', result.message.jha) }
+  } catch (err) { if (current(version, name)) error.value = err instanceof Error ? err.message : 'Could not prepare this paper JHA for review.' }
+  finally { finish() }
+}
+async function retryEmail() {
+  if (locked.value || !paperReview.value?.can_retry) return
+  const version = generation, name = props.jha.name
+  start('retry')
+  try {
+    const body = new FormData(); body.append('jha_name', name); body.append('confirmation', '1')
+    const result = await apiRequest<any>('/api/method/verto.api.mobile.voice_jha_paper_review.retry_paper_review_email', { method: 'POST', body })
+    if (current(version, name)) { paperReview.value = result.message; pollTimer = setTimeout(() => { void load(true) }, 5000) }
+  } catch (err) { if (current(version, name)) error.value = err instanceof Error ? err.message : 'Could not retry the review email.' }
+  finally { finish() }
+}
 function addStep() { content.value?.steps.push({ page: 1, activity: '', hold_point: '', hazards: [] }) }
 function addHazard(step: Step) { step.hazards.push({ hazard: '', controls: '', critical_control: '', control_owner: '' }) }
 watch(content, () => { confirmed.value = false }, { deep: true })
+watch([mode, teamLeader, crew], () => { confirmed.value = false }, { deep: true })
 watch(() => [props.jha.name, props.jha.status, props.jha.photo_import, props.online], () => { void load() }, { immediate: true })
-onBeforeUnmount(() => { alive = false; generation++; emit('busy', false) })
+onBeforeUnmount(() => { alive = false; generation++; clearTimeout(pollTimer); emit('busy', false) })
 </script>
 
 <template>
+  <section v-if="paperReview" class="space-y-3 rounded-7 border border-blue-200 bg-blue-50 p-4" data-testid="paper-review-status">
+    <h3 class="font-semibold text-blue-900">Prepared from paper JHA</h3>
+    <p class="text-sm text-blue-900">The guided voice discussion was skipped. Team leader review (Supervisor or above) and personal crew sign-on are still required.</p>
+    <p class="text-sm">Team leader: {{ paperReview.team_leader }} · {{ paperReview.recipient }}</p>
+    <p class="text-sm" role="status">Review email: {{ paperReview.status }}<span v-if="paperReview.status === 'Pending'"> · PERI is finding relevant incidents.</span><span v-if="paperReview.status === 'Sent'"> · Sent with the review link and incident briefing.</span></p>
+    <details v-if="paperReview.notes?.length" class="rounded-7 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><summary class="cursor-pointer font-medium">Items for the team leader to check · {{ paperReview.notes.length }}</summary><ul class="mt-2 list-disc space-y-1 pl-5"><li v-for="(note, index) in paperReview.notes" :key="index">{{ note }}</li></ul></details>
+    <p v-if="paperReview.error" role="alert" class="text-sm text-red-700">{{ paperReview.error }}</p>
+    <Button v-if="paperReview.can_retry" :loading="saving === 'retry'" :disabled="locked" @click="retryEmail">Retry review email</Button>
+  </section>
   <details v-if="visible" class="rounded-7 border border-blue-200 bg-surface-base" data-testid="jha-photo-import">
     <summary class="cursor-pointer p-4 text-base-semibold text-ink-gray-9">{{ jha.photo_import ? 'Paper JHA source pages' : 'Use a paper JHA' }}</summary>
     <div class="space-y-4 px-4 pb-4">
-      <p class="text-sm text-ink-gray-7">Photograph each page of your written JHA. Check PERI’s reading, then discuss the steps, hazards, controls and relevant incidents with PERI.</p>
+      <p class="text-sm text-ink-gray-7">Photograph each page and check PERI’s reading. Choose a guided discussion, or let PERI prepare the paper JHA and incident briefing directly for team leader review.</p>
       <p v-if="!online" role="status" class="text-sm text-amber-800">Connect to the internet to upload and read JHA pages.</p>
       <p v-if="loading" role="status" class="text-sm">Loading paper JHA…</p>
-      <p v-if="busy && eligible" class="text-sm text-amber-800">Finish the current action before importing pages.</p>
+      <p v-if="busy && (eligible || canPrepare)" class="text-sm text-amber-800">Disconnect voice or finish the current action before preparing the paper JHA.</p>
       <fieldset :disabled="locked" class="min-w-0 space-y-4">
         <template v-if="editable && !reading">
           <p class="text-xs text-ink-gray-6">Include the whole page in good light, with the writing in focus. Add pages in reading order. Up to 10 JPG, PNG or WebP photos; 10 MB per photo, 30 MB total.</p>
@@ -136,7 +189,7 @@ onBeforeUnmount(() => { alive = false; generation++; emit('busy', false) })
         <Button v-if="editable && !reading" variant="solid" :loading="saving === 'read'" :disabled="locked || !pages.length" @click="readPages">Read pages with PERI</Button>
         <p v-if="saving" role="status" class="text-sm text-ink-gray-6">{{ saving === 'read' ? 'PERI is reading all pages. This may take a minute.' : saving === 'upload' ? 'Uploading page photos…' : 'Saving the checked JHA…' }}</p>
         <template v-if="reading && content">
-          <p v-if="reading.status === 'Imported'" role="status" class="rounded-7 bg-blue-50 p-3 text-sm text-blue-900">Paper JHA imported. Connect PERI to review the recorded steps and controls and discuss relevant incidents. Team leader review (Supervisor or above) and sign-on are still required.</p>
+          <p v-if="reading.status === 'Imported'" role="status" class="rounded-7 bg-blue-50 p-3 text-sm text-blue-900">{{ paperReview ? 'Paper JHA prepared for team leader review.' : 'Paper JHA imported. Connect PERI for the guided review, or choose automatic preparation below.' }} Team leader review (Supervisor or above) and sign-on are still required.</p>
           <template v-else>
             <h3 class="font-semibold">Check PERI’s reading against every page</h3>
             <p class="text-sm text-ink-gray-7">Correct unclear writing and check that each control belongs to the right hazard and step. Missing details can be discussed with PERI. This will replace the draft’s planned step list.</p>
@@ -163,9 +216,26 @@ onBeforeUnmount(() => { alive = false; generation++; emit('busy', false) })
             </article>
             <Button v-if="editable" :disabled="locked || content.steps.length >= 60" @click="addStep">Add missing step</Button>
           </fieldset>
-          <template v-if="editable">
-            <label class="flex items-start gap-2 text-sm"><input v-model="confirmed" type="checkbox" class="mt-1" /><span>I checked every page and corrected the reading. Use these steps and controls as the draft for discussion with PERI.</span></label>
-            <div class="flex flex-wrap gap-2"><Button variant="solid" :loading="saving === 'import'" :disabled="locked || !confirmed || !content.steps.length" @click="importReading">Use checked JHA</Button><Button :disabled="locked" @click="retake">Retake or change pages</Button></div>
+          <fieldset v-if="chooseMode" class="space-y-3 rounded-7 border p-3">
+            <legend class="px-1 text-sm font-semibold">How should PERI prepare this JHA?</legend>
+            <label class="flex items-start gap-2 text-sm"><input v-model="mode" type="radio" name="paper-preparation" value="Guided" class="mt-1" />Discuss each step with PERI</label>
+            <label class="flex items-start gap-2 text-sm"><input v-model="mode" type="radio" name="paper-preparation" value="Automatic" class="mt-1" />Automatically prepare for team leader review</label>
+            <template v-if="mode === 'Automatic'">
+              <p class="text-xs text-ink-gray-6">Skip the voice interview. PERI sends the selected team leader a review link, relevant incidents and unclear or missing details. It does not sign or approve the JHA.</p>
+              <label class="block text-sm">Team leader (Supervisor or above)<select v-model="teamLeader" aria-label="Paper JHA team leader" class="mt-1 w-full rounded-7 border p-2"><option value="">Select team leader</option><option v-for="person in teamLeaders" :key="person.value" :value="person.value">{{ person.label }}</option></select></label>
+              <p v-if="!teamLeaders.length" class="text-xs text-amber-800">Assign the team leader to this Work Summary so they can open and review the JHA.</p>
+              <p class="text-sm font-medium">Confirm the people who participated in the paper JHA</p>
+              <div v-for="(person, index) in crew" :key="index" class="flex flex-wrap items-center gap-2">
+                <input v-model="person.participant_name" :aria-label="`Paper participant ${index + 1} name`" maxlength="140" placeholder="Name" class="min-w-0 flex-1 rounded-7 border p-2 text-sm" />
+                <input v-model="person.role" :aria-label="`Paper participant ${index + 1} role`" maxlength="140" placeholder="Role (optional)" class="min-w-0 flex-1 rounded-7 border p-2 text-sm" />
+                <Button size="sm" :disabled="locked" :aria-label="`Remove paper participant ${index + 1}`" @click="crew.splice(index, 1)">Remove</Button>
+              </div>
+              <Button size="sm" :disabled="locked || crew.length >= 100" @click="crew.push({ participant_name: '', role: '' })">Add participant</Button>
+            </template>
+          </fieldset>
+          <template v-if="editable || (canPrepare && mode === 'Automatic')">
+            <label class="flex items-start gap-2 text-sm"><input v-model="confirmed" type="checkbox" class="mt-1" /><span>{{ mode === 'Automatic' ? 'I checked the paper reading and confirmed the people who participated. Send this draft to the selected team leader for review.' : 'I checked every page and corrected the reading. Use these steps and controls as the draft for discussion with PERI.' }}</span></label>
+            <div class="flex flex-wrap gap-2"><Button v-if="editable" variant="solid" :loading="saving === 'import'" :disabled="locked || !confirmed || !content.steps.length || (mode === 'Automatic' && !autoReady)" @click="importReading">{{ mode === 'Automatic' ? 'Prepare and send for review' : 'Use checked JHA' }}</Button><Button v-else variant="solid" :loading="saving === 'prepare'" :disabled="locked || !confirmed || !autoReady" @click="prepareImported">Prepare and send for review</Button><Button v-if="editable" :disabled="locked" @click="retake">Retake or change pages</Button></div>
           </template>
         </template>
       </fieldset>

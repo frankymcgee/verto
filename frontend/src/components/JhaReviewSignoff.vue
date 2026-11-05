@@ -34,6 +34,8 @@ type ReviewState = {
   signed_at?: string
   signed_by_user?: string
   participants?: ReviewParticipant[]
+  can_review?: boolean
+  requested_team_leader?: string
 }
 
 const props = defineProps<{
@@ -311,7 +313,8 @@ onMounted(() => {
       </div>
 
       <template v-else-if="state.status === 'Ready for Team Review'">
-        <div v-if="!reviewComplete" class="mt-4 space-y-4">
+        <p v-if="!reviewComplete && state.can_review === false" class="mt-4 rounded-7 bg-blue-50 p-3 text-sm text-blue-900">Awaiting review by the nominated team leader: {{ state.requested_team_leader }}.</p>
+        <div v-if="!reviewComplete && state.can_review !== false" class="mt-4 space-y-4">
           <div class="rounded-7 border border-blue-200 bg-blue-50 p-3">
             <p class="text-sm-medium text-blue-900">Team leader review required (Supervisor or above).</p>
             <p class="mt-1 text-sm leading-5 text-blue-800">
@@ -361,7 +364,7 @@ onMounted(() => {
           </Button>
         </div>
 
-        <div v-else class="mt-4 space-y-4">
+        <div v-else-if="reviewComplete" class="mt-4 space-y-4">
           <div class="rounded-7 border border-green-200 bg-green-50 p-3">
             <p class="text-sm-medium text-green-900">Team leader review completed.</p>
             <p class="mt-1 text-sm text-green-800">

@@ -131,4 +131,64 @@ describe('paper JHA photo import', () => {
     resolve({ message: { can_import: true, reading: reading() } }); await flushPromises()
     expect(wrapper.text()).not.toContain('Remove pump'); expect(wrapper.findAll('img')).toHaveLength(0)
   })
+  it('offers automatic preparation with a verified team leader and confirmed paper crew', async () => {
+    const record = reading(); record.content.participants = [{ participant_name: 'Casey', role: 'Fitter' }]
+    apiRequest.mockResolvedValueOnce({ message: { can_import: true, reading: record,
+      team_leaders: [{ value: 'leader@example.test', label: 'Taylor · leader@example.test' }] } })
+    wrapper = mount(JhaPhotoImport, { props: { jha: draft, online: true } }); await flushPromises()
+    expect(wrapper.get('input[value=Guided]').element.checked).toBe(true)
+    await wrapper.get('input[value=Automatic]').setValue(true)
+    expect(wrapper.text()).toContain('Skip the voice interview')
+    expect(wrapper.get('[aria-label="Paper participant 1 name"]').element.value).toBe('Casey')
+    expect(button('Prepare and send for review').attributes('disabled')).toBeDefined()
+    await wrapper.get('[aria-label="Paper JHA team leader"]').setValue('leader@example.test')
+    await wrapper.get('input[type=checkbox]').setValue(true)
+    apiRequest.mockResolvedValueOnce({ message: { reading: { ...record, status: 'Imported' }, jha: { ...draft, status: 'Ready for Team Review', paper_review_mode: 'Automatic' } } })
+    await button('Prepare and send for review').trigger('click'); await flushPromises()
+    const body = apiRequest.mock.calls.at(-1)[1].body
+    expect(Object.fromEntries(body)).toMatchObject({ auto_prepare: '1', team_leader: 'leader@example.test', confirmation: '1' })
+    expect(JSON.parse(body.get('participants'))).toEqual(record.content.participants)
+    expect(wrapper.emitted('updated').at(-1)[0].status).toBe('Ready for Team Review')
+  })
+  it('can automatically prepare an existing imported draft without re-uploading its photos', async () => {
+    const record = reading(); record.status = 'Imported'
+    apiRequest.mockResolvedValueOnce({ message: { can_import: false, can_prepare: true, reading: record,
+      team_leaders: [{ value: 'leader@example.test', label: 'Team leader' }] } })
+    wrapper = mount(JhaPhotoImport, { props: { jha: { ...draft, photo_import: record.name }, online: true } }); await flushPromises()
+    await wrapper.get('input[value=Automatic]').setValue(true)
+    await wrapper.get('[aria-label="Paper participant 1 name"]').setValue('Casey')
+    await wrapper.get('[aria-label="Paper JHA team leader"]').setValue('leader@example.test')
+    await wrapper.get('input[type=checkbox]').setValue(true)
+    apiRequest.mockResolvedValueOnce({ message: { jha: { ...draft, status: 'Ready for Team Review' }, paper_review: { status: 'Pending' } } })
+    await button('Prepare and send for review').trigger('click'); await flushPromises()
+    expect(apiRequest.mock.calls.at(-1)[0]).toContain('prepare_paper_jha_for_review')
+    expect(apiRequest.mock.calls.some(([url]) => url.includes('upload_file'))).toBe(false)
+  })
+  it('removes automatic confirmation when the recipient or participant list changes', async () => {
+    const record = reading(); record.content.participants = [{ participant_name: 'Casey', role: '' }]
+    apiRequest.mockResolvedValueOnce({ message: { can_import: true, reading: record,
+      team_leaders: [{ value: 'leader@example.test', label: 'Team leader' }] } })
+    wrapper = mount(JhaPhotoImport, { props: { jha: draft, online: true } }); await flushPromises()
+    await wrapper.get('input[value=Automatic]').setValue(true)
+    await wrapper.get('[aria-label="Paper JHA team leader"]').setValue('leader@example.test')
+    await wrapper.get('input[type=checkbox]').setValue(true)
+    await wrapper.get('[aria-label="Paper participant 1 name"]').setValue('Alex')
+    expect(wrapper.get('input[type=checkbox]').element.checked).toBe(false)
+    expect(button('Prepare and send for review').attributes('disabled')).toBeDefined()
+  })
+  it('shows the asynchronous review email result and refreshes incident learning until sent', async () => {
+    vi.useFakeTimers()
+    try {
+      const record = { ...reading(), status: 'Imported' }
+      const state = status => ({ can_import: false, reading: record, paper_review: { team_leader: 'leader@example.test', status, notes: ['Confirm restraint owner.'] }, incident_learning: [] })
+      apiRequest.mockResolvedValueOnce({ message: state('Pending') }).mockResolvedValueOnce({ message: state('Sent') })
+      wrapper = mount(JhaPhotoImport, { props: { jha: { ...draft, status: 'Ready for Team Review', photo_import: record.name, paper_review_mode: 'Automatic' }, online: true } }); await flushPromises()
+      expect(wrapper.get('[data-testid=paper-review-status]').text()).toContain('PERI is finding relevant incidents')
+      await vi.advanceTimersByTimeAsync(5000); await flushPromises()
+      expect(wrapper.get('[data-testid=paper-review-status]').text()).toContain('Sent with the review link and incident briefing')
+      const count = apiRequest.mock.calls.length
+      await vi.advanceTimersByTimeAsync(15000); expect(apiRequest.mock.calls.length).toBe(count)
+      expect(wrapper.emitted('updated').at(-1)[0]).toMatchObject({ name: 'JHA-1', incident_learning: [] })
+    } finally { vi.useRealTimers() }
+  })
 })

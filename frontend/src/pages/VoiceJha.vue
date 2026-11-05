@@ -1016,6 +1016,7 @@ onBeforeUnmount(() => {
               <div v-for="step in jha.work_steps" :key="step.name || step.source_step_identifier || step.sequence" class="rounded-7 border border-outline-gray-1 bg-surface-gray-1 p-3">
                 <p class="text-sm-medium text-ink-gray-8">{{ step.sequence }}. {{ step.activity }}</p>
                 <p v-if="step.hold_or_pause_point" class="mt-1 text-xs text-amber-700">Hold / pause point</p>
+                <p v-if="step.paper_hold_point && !step.hold_point_confirmed" class="mt-1 text-xs text-amber-700">Written hold point: {{ step.paper_hold_point }}</p>
               </div>
             </div>
 
@@ -1031,7 +1032,7 @@ onBeforeUnmount(() => {
           </details>
 
           <details v-if="jha.facilitation" class="rounded-7 border border-outline-gray-1 bg-surface-base">
-            <summary class="cursor-pointer p-3 text-sm-medium text-ink-gray-8">Step progress · {{ jha.facilitation.completed_step_count || 0 }}/{{ workStepCount }} complete</summary>
+            <summary class="cursor-pointer p-3 text-sm-medium text-ink-gray-8">{{ jha.paper_review_mode === 'Automatic' ? `Paper preparation · ${workStepCount} steps` : `Step progress · ${jha.facilitation.completed_step_count || 0}/${workStepCount} complete` }}</summary>
             <JhaFacilitationProgress :progress="jha.facilitation" />
           </details>
           <details v-if="incidentSearches.length" class="rounded-7 border border-outline-gray-1 bg-surface-base">

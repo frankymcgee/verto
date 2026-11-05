@@ -14,18 +14,56 @@ Open the assigned Work Summary's JHA, create/resume a fresh draft and open
    associations and written owners/hold points; add or remove missing/incorrect
    rows. PERI retains uncertainty notes for clarification. Blank controls can be
    discussed later; unreadable step/hazard names must be corrected or removed.
-4. Confirm the checked reading and select **Use checked JHA**. This explicitly
+4. Choose **Discuss each step with PERI** (the default), or **Automatically
+   prepare for team leader review**. Confirm the checked reading. This explicitly
    replaces the draft's planned steps and adds the checked hazards/controls.
-5. Connect voice normally with group microphone/transcription consent. PERI
+5. For the guided option, connect voice normally with group microphone/transcription consent. PERI
    confirms the step list, reviews the existing hazards/controls, finds relevant
    incidents for each step, discusses recorded findings/actions and asks the team
    to confirm proposed changes. Critical-control owners and hold points still
    need explicit discussion. Team leader review (Supervisor or above) and crew
    sign-on follow the existing workflow.
 
-Imports are limited to fresh drafts before voice, confirmed steps, participants
+## Automatic preparation
+
+The automatic option skips the remaining voice interview and moves the checked
+paper JHA directly to **Ready for Team Review**. Select the team leader
+(Supervisor or above) and confirm the people who participated in the paper JHA.
+New photo readings include legible crew names/roles; correct or add names as
+needed. Earlier readings still work, with a manually confirmed team list.
+The selected user must be enabled, have a valid email address, and be assigned
+to the Work Summary (or be a System Manager) with JHA review access.
+
+After the draft commits, a background job searches the existing incident dataset
+for each step using its activity, hazards and controls. Searches run with the
+selected team leader's permissions. The review email contains an authenticated
+JHA review link, incident references/dates, why they relate to the steps,
+excerpts of recorded findings/actions, and missing or unclear paper details for
+the reviewer to check. Duplicate incidents are described once; all matched
+sources are linked by step, with at most 12 detailed excerpts. Missing data,
+unavailable searches and bounded results are labelled explicitly.
+
+Preparation does not create a voice discussion, transcription consent, verified
+controls, signatures or approval. Written hold points are retained as source
+text; any decisions already confirmed during a partial guided discussion take
+precedence. The nominated team leader (or a System Manager with access) still
+reviews/signs, followed by personal crew sign-on. The signed-print email remains
+the existing separate process after all required signatures.
+
+An already imported, editable paper draft also offers automatic preparation;
+disconnect voice before choosing it. Successful retries reuse the same request
+and email. The screen shows preparation/delivery status and offers an explicit
+retry after failures. The site's existing outgoing Email Account and workers
+send the review email immediately after preparation commits; the five-minute
+reconciliation job recovers unscheduled work. Sent means SMTP handoff, not
+confirmed inbox receipt. Changed/replaced/already reviewed JHAs and revoked
+reviewer access cancel unsent requests. New change revisions start in guided
+mode and retain the old preparation/audit details on the previous revision.
+
+Photo imports are limited to fresh drafts before voice, confirmed steps, participants
 or hazard analysis. Existing discussions, change revisions and reviewed/signed
-JHAs cannot be replaced by a photo import. A changed draft/work plan requires a
+JHAs cannot be replaced by a photo import. Automatic preparation of an existing
+paper draft preserves its current steps/controls. A changed draft/work plan requires a
 new reading. Importing does not confirm steps, complete discussion, verify field
 controls, copy signatures, record consent or approve/authorise work.
 
