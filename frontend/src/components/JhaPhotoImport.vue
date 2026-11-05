@@ -26,6 +26,15 @@ const editable = computed(() => eligible.value && serverAllows.value && reading.
 const chooseMode = computed(() => (editable.value && Boolean(reading.value)) || canPrepare.value)
 const autoReady = computed(() => Boolean(teamLeader.value && crew.value.length && crew.value.every(person => person.participant_name.trim())
   && new Set(crew.value.map(person => person.participant_name.trim().toLowerCase())).size === crew.value.length))
+const preparationHelp = computed(() => {
+  if (props.jha.status === 'Signed') return 'Team leader review and personal crew sign-on are complete.'
+  if (props.jha.status === 'Review Required - Work Changed') return 'The work changed. Use Review/change JHA to reassess the current work.'
+  if (props.jha.status === 'Superseded') return 'This JHA has been replaced. Use the current revision.'
+  if (props.jha.status === 'Cancelled') return 'This JHA has been cancelled.'
+  return props.jha.review_completed || paperReview.value?.review_completed
+    ? 'Team leader review is complete. Personal crew sign-on is still required.'
+    : 'Team leader review (Supervisor or above) and personal crew sign-on are still required.'
+})
 const endpoint = '/api/method/verto.api.mobile.voice_jha_photos.'
 function clone(value: Content): Content { return JSON.parse(JSON.stringify(value)) }
 function adopt(value: Reading) {
@@ -154,7 +163,7 @@ onBeforeUnmount(() => { alive = false; generation++; clearTimeout(pollTimer); em
 <template>
   <section v-if="paperReview" class="space-y-3 rounded-7 border border-blue-200 bg-blue-50 p-4" data-testid="paper-review-status">
     <h3 class="font-semibold text-blue-900">Prepared from paper JHA</h3>
-    <p class="text-sm text-blue-900">The guided voice discussion was skipped. Team leader review (Supervisor or above) and personal crew sign-on are still required.</p>
+    <p class="text-sm text-blue-900">The remaining guided voice discussion was skipped. {{ preparationHelp }}</p>
     <p class="text-sm">Team leader: {{ paperReview.team_leader }} · {{ paperReview.recipient }}</p>
     <p class="text-sm" role="status">Review email: {{ paperReview.status }}<span v-if="paperReview.status === 'Pending'"> · PERI is finding relevant incidents.</span><span v-if="paperReview.status === 'Sent'"> · Sent with the review link and incident briefing.</span></p>
     <details v-if="paperReview.notes?.length" class="rounded-7 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><summary class="cursor-pointer font-medium">Items for the team leader to check · {{ paperReview.notes.length }}</summary><ul class="mt-2 list-disc space-y-1 pl-5"><li v-for="(note, index) in paperReview.notes" :key="index">{{ note }}</li></ul></details>
@@ -189,7 +198,7 @@ onBeforeUnmount(() => { alive = false; generation++; clearTimeout(pollTimer); em
         <Button v-if="editable && !reading" variant="solid" :loading="saving === 'read'" :disabled="locked || !pages.length" @click="readPages">Read pages with PERI</Button>
         <p v-if="saving" role="status" class="text-sm text-ink-gray-6">{{ saving === 'read' ? 'PERI is reading all pages. This may take a minute.' : saving === 'upload' ? 'Uploading page photos…' : 'Saving the checked JHA…' }}</p>
         <template v-if="reading && content">
-          <p v-if="reading.status === 'Imported'" role="status" class="rounded-7 bg-blue-50 p-3 text-sm text-blue-900">{{ paperReview ? 'Paper JHA prepared for team leader review.' : 'Paper JHA imported. Connect PERI for the guided review, or choose automatic preparation below.' }} Team leader review (Supervisor or above) and sign-on are still required.</p>
+          <p v-if="reading.status === 'Imported'" role="status" class="rounded-7 bg-blue-50 p-3 text-sm text-blue-900">{{ paperReview ? 'Paper JHA prepared automatically from the checked pages.' : 'Paper JHA imported. Connect PERI for the guided review, or choose automatic preparation below.' }} Team leader review (Supervisor or above) and sign-on use the normal JHA workflow.</p>
           <template v-else>
             <h3 class="font-semibold">Check PERI’s reading against every page</h3>
             <p class="text-sm text-ink-gray-7">Correct unclear writing and check that each control belongs to the right hazard and step. Missing details can be discussed with PERI. This will replace the draft’s planned step list.</p>

@@ -56,7 +56,7 @@ describe('paper JHA photo import', () => {
     expect(JSON.parse(body.get('reviewed_content')).steps[0].hazards[0].controls).toBe('Isolate and test for zero energy')
     expect(body.get('confirmation')).toBe('1')
     expect(wrapper.emitted('updated')[0][0].photo_import).toBe('READ-1')
-    expect(wrapper.text()).toContain('Team leader review (Supervisor or above) and sign-on are still required')
+    expect(wrapper.text()).toContain('Team leader review (Supervisor or above) and sign-on use the normal JHA workflow')
   })
   it('preserves corrections when saving fails', async () => {
     await open(reading()); await wrapper.get('[aria-label="Step 1 activity"]').setValue('Restrain and remove pump')
@@ -190,5 +190,22 @@ describe('paper JHA photo import', () => {
       await vi.advanceTimersByTimeAsync(15000); expect(apiRequest.mock.calls.length).toBe(count)
       expect(wrapper.emitted('updated').at(-1)[0]).toMatchObject({ name: 'JHA-1', incident_learning: [] })
     } finally { vi.useRealTimers() }
+  })
+  it('shows completed review and sign-on after an automatically prepared JHA is signed', async () => {
+    const record = { ...reading(), status: 'Imported' }
+    apiRequest.mockResolvedValueOnce({ message: { reading: record, can_import: false, paper_review: {
+      team_leader: 'leader@example.test', status: 'Sent', review_completed: true, notes: [] } } })
+    wrapper = mount(JhaPhotoImport, { props: { jha: { ...draft, status: 'Signed', photo_import: record.name }, online: true } }); await flushPromises()
+    expect(wrapper.get('[data-testid=paper-review-status]').text()).toContain('Team leader review and personal crew sign-on are complete')
+    expect(wrapper.text()).not.toContain('sign-on are still required')
+  })
+  it('requires reassessment when work changes after a previous paper review', async () => {
+    const record = { ...reading(), status: 'Imported' }
+    apiRequest.mockResolvedValueOnce({ message: { reading: record, can_import: false, paper_review: {
+      team_leader: 'leader@example.test', status: 'Sent', review_completed: true, notes: [] } } })
+    wrapper = mount(JhaPhotoImport, { props: { jha: { ...draft, status: 'Review Required - Work Changed', photo_import: record.name }, online: true } }); await flushPromises()
+    const notice = wrapper.get('[data-testid=paper-review-status]').text()
+    expect(notice).toContain('The work changed')
+    expect(notice).not.toContain('review is complete')
   })
 })

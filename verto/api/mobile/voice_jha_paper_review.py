@@ -170,6 +170,7 @@ def review_state(jha):
     if jha.get("paper_review_mode") != "Automatic":
         return None
     return {"team_leader": jha.paper_review_team_leader, "recipient": jha.paper_review_recipient,
+        "review_completed": bool(cint(jha.get("review_completed"))),
         "status": jha.paper_review_status, "requested_at": str(jha.paper_review_requested_at or ""),
         "sent_at": str(jha.paper_review_sent_at or ""), "notes": json.loads(jha.paper_review_notes or "[]"),
         "error": jha.paper_review_error or "", "can_retry": jha.paper_review_status == "Failed" and jha.has_permission("write")}
