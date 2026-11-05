@@ -16,6 +16,7 @@ type StepProgress = {
   hold_point?: boolean | null
   discussion_complete: boolean
   is_current: boolean
+  paper_hold_point?: string
 }
 
 type FacilitationProgress = {
@@ -26,6 +27,7 @@ type FacilitationProgress = {
   completed_step_count?: number
   total_step_count?: number
   steps?: StepProgress[]
+  review_basis?: string
 }
 
 const props = defineProps<{
@@ -35,6 +37,7 @@ const props = defineProps<{
 const steps = computed(() => props.progress?.steps || [])
 const stageHelp = computed(() => {
   const stage = props.progress?.stage || ''
+  if (props.progress?.review_basis === 'Paper JHA') return 'Prepared from the checked paper JHA. The guided voice discussion was skipped; team leader review (Supervisor or above) and crew sign-on remain required.'
   if (stage === 'Job Steps') return 'Confirm the complete ordered job-step list before hazard analysis begins.'
   if (stage === 'Change Request') return 'Tell PERI what changed and confirm which steps or participants are affected.'
   if (stage === 'Change Confirmation') return 'Check PERI’s change read-back before the revised JHA returns for team leader review (Supervisor or above).'
@@ -81,7 +84,7 @@ function criticalLabel(step: StepProgress) {
       <div>
         <p class="text-xs-semibold uppercase tracking-wide text-ink-gray-5">Job-step list</p>
         <p class="mt-0.5 text-sm-medium text-ink-gray-8">
-          {{ progress.job_steps_confirmed ? 'Confirmed by crew' : 'Awaiting crew confirmation' }}
+          {{ progress.review_basis === 'Paper JHA' ? 'Submitted from checked paper JHA' : progress.job_steps_confirmed ? 'Confirmed by crew' : 'Awaiting crew confirmation' }}
         </p>
       </div>
       <span
@@ -106,7 +109,7 @@ function criticalLabel(step: StepProgress) {
             </p>
             <p v-if="step.is_current" class="mt-1 text-xs-medium text-blue-700">Current step</p>
             <p v-else-if="step.discussion_complete" class="mt-1 text-xs-medium text-green-700">Step complete</p>
-            <p v-else class="mt-1 text-xs text-ink-gray-5">Not started / incomplete</p>
+            <p v-else class="mt-1 text-xs text-ink-gray-5">{{ progress.review_basis === 'Paper JHA' ? 'From paper · team leader review required' : 'Not started / incomplete' }}</p>
           </div>
           <span
             class="text-lg-semibold"
@@ -120,7 +123,8 @@ function criticalLabel(step: StepProgress) {
           <span :class="itemClass(step.hazards_complete)">{{ step.hazards_complete ? '✓' : '○' }} Hazards</span>
           <span :class="itemClass(step.controls_complete)">{{ step.controls_complete ? '✓' : '○' }} Controls</span>
           <span :class="itemClass(step.critical_owner_complete)">{{ step.critical_owner_complete ? '✓' : '○' }} {{ criticalLabel(step) }}</span>
-          <span :class="itemClass(step.hold_point_complete)">
+          <span v-if="progress.review_basis === 'Paper JHA' && !step.hold_point_complete">Written hold point: {{ step.paper_hold_point || 'Not recorded' }}</span>
+          <span v-else :class="itemClass(step.hold_point_complete)">
             {{ step.hold_point_complete ? '✓' : '○' }} Hold point<span v-if="step.hold_point_complete">: {{ step.hold_point ? 'Yes' : 'No' }}</span>
           </span>
         </div>

@@ -148,7 +148,7 @@ jinja = {"methods": ["verto.api.mobile.voice_jha_print.jha_workpack_qr", "verto.
 # ---------------
 doc_events = {
     "Digital Job Hazard Analysis": {
-        "on_update": "verto.api.mobile.voice_jha_email.jha_updated",
+        "on_update": ["verto.api.mobile.voice_jha_email.jha_updated", "verto.api.mobile.voice_jha_paper_review.jha_updated"],
     },
     "File": {
         "before_validate": "verto.api.investigations.validate_attachment",
@@ -221,6 +221,7 @@ scheduler_events = {
     "cron": {
         "*/5 * * * *": [
             "verto.api.mobile.voice_jha_email.reconcile_print_deliveries",
+            "verto.api.mobile.voice_jha_paper_review.reconcile_review_emails",
             "verto.api.mobile.timesheet_reminders.send_shift_missing_hours_reminders",
         ],
         "0 08 * * *": [

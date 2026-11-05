@@ -129,6 +129,7 @@ def _serialize_jha(doc):
         "work_area": doc.work_area,
         "ai_bot": doc.ai_bot,
         "photo_import": doc.get("photo_import"),
+        "paper_review_mode": doc.get("paper_review_mode") or "Guided",
         "source_revision": doc.source_revision,
         "modified": doc.modified,
         "incident_learning": serialize_incident_learning(doc),
@@ -155,6 +156,7 @@ def _serialize_jha(doc):
                     "step_origin",
                     "source_step_identifier",
                     "hold_or_pause_point",
+                    "paper_hold_point",
                 ),
             )
             for row in (doc.work_steps or [])

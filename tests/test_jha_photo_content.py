@@ -2,7 +2,7 @@ import copy
 import json
 from unittest import TestCase
 
-from verto.api.mobile.jha_photo_content import content_schema, normalise_content
+from verto.api.mobile.jha_photo_content import content_schema, normalise_content, normalise_participants
 
 
 def paper_content():
@@ -13,6 +13,23 @@ def paper_content():
 
 
 class TestPaperJhaContent(TestCase):
+    def test_paper_participants_are_names_and_roles_without_signatures_or_consent(self):
+        data = paper_content(); data['participants'] = [{'participant_name': ' Casey ', 'role': 'Supervisor'}]
+        self.assertEqual(normalise_content(data, 2)['participants'], [{'participant_name': 'Casey', 'role': 'Supervisor'}])
+        for field in ('acknowledged', 'signature', 'transcription_consent', 'employee'):
+            people = [{'participant_name': 'Casey', 'role': 'Supervisor', field: 'forged'}]
+            with self.subTest(field=field), self.assertRaises(ValueError): normalise_participants(people)
+
+    def test_automatic_preparation_requires_named_distinct_participants(self):
+        for people in ([], [{'participant_name': '', 'role': ''}], [{'participant_name': 'Casey', 'role': ''}, {'participant_name': ' casey ', 'role': ''}]):
+            with self.subTest(people=people), self.assertRaises(ValueError): normalise_participants(people)
+        self.assertEqual(normalise_participants('[{"participant_name":"Casey","role":""}]')[0]['participant_name'], 'Casey')
+
+    def test_old_three_field_paper_readings_remain_compatible(self):
+        data = paper_content()
+        self.assertEqual(normalise_content(data, 2), data)
+        self.assertNotIn('participants', normalise_content(data, 2))
+
     def test_preserves_step_hazard_control_associations_and_uncertainties(self):
         data = paper_content()
         data["steps"].append({"page": 2, "activity": "Disconnect", "hold_point": "", "hazards": []})

@@ -29,8 +29,9 @@ Transcribe only what is legible. Use an empty string for missing or unreadable t
 every uncertainty with its page and step/field in uncertainties. Include cropped/missing pages,
 ambiguous columns, contradictory entries and non-JHA images. Never guess missing safety text,
 owners, ratings or controls. Do not add suggestions, incidents or risk assessments to transcription.
-Do not transcribe signatures, phone numbers, employee numbers or participant lists. A written
-control owner/role can be transcribed. Never infer approval, sign-on, consent or verification.
+Transcribe legible paper-JHA development-team names and roles into participants, or [] when
+not listed. Never transcribe signatures, phone numbers or employee numbers. A written control
+owner/role can be transcribed. Never infer approval, sign-on, consent or verification.
 If no job steps can be read, return steps=[] and explain why in uncertainties.
 Return only the specified JSON object; every field is required, empty strings/lists are allowed.
 """.strip()
@@ -115,7 +116,7 @@ def _transcribe(bot, images):
     else:
         chat_content = [{"type": "text", "text": item["text"]} if item["type"] == "input_text"
                         else {"type": "image_url", "image_url": {"url": item["image_url"], "detail": "high"}} for item in content]
-        parameters = {"model": bot.model, "messages": [{"role": "system", "content": TRANSCRIPTION_INSTRUCTIONS},
+        parameters = {"model": bot.model, "messages": [{"role": "system", "content": TRANSCRIPTION_INSTRUCTIONS + "\nJSON schema: " + json.dumps(content_schema())},
                        {"role": "user", "content": chat_content}], "response_format": {"type": "json_object"}}
         token_parameter = "max_completion_tokens" if str(bot.model).lower().startswith(("gpt-5", "o1", "o3", "o4")) else "max_tokens"
         parameters[token_parameter] = 16000
@@ -146,7 +147,13 @@ def get_jha_photo_import(jha_name: str):
     jha = review._get_jha(jha_name)
     frappe.local.response_headers["Cache-Control"] = "no-store"
     name = jha.get("photo_import") or frappe.db.get_value(DOCTYPE, {"jha": jha.name}, "name", order_by="creation desc")
+    from verto.api.mobile.voice_jha_paper_review import can_prepare, reviewer_options, review_state
+    from verto.api.mobile.voice_jha_incidents import serialize_incident_learning
     return {"can_import": can_import(jha) and jha.has_permission("write"),
+            "can_prepare": can_prepare(jha) and jha.has_permission("write"),
+            "team_leaders": reviewer_options(jha) if can_import(jha) or can_prepare(jha) else [],
+            "paper_review": review_state(jha),
+            "incident_learning": serialize_incident_learning(jha) if jha.get("paper_review_mode") == "Automatic" else None,
             "reading": _serialize(_record(jha, name)) if name else None}
 
 
@@ -180,7 +187,8 @@ def read_jha_photos(jha_name: str, page_urls, request_id: str):
 
 
 @frappe.whitelist(methods=["POST"])
-def confirm_jha_photo_import(jha_name: str, import_name: str, reviewed_content, confirmation=0):
+def confirm_jha_photo_import(jha_name: str, import_name: str, reviewed_content, confirmation=0,
+                            auto_prepare=0, team_leader: str = "", participants="[]"):
     jha = locked_jha(jha_name, allow_closed=True)
     record = _record(jha, import_name)
     if not cint(confirmation):
@@ -192,6 +200,9 @@ def confirm_jha_photo_import(jha_name: str, import_name: str, reviewed_content, 
     if record.status == "Imported":
         if jha.get("photo_import") != record.name or json_value(record.reviewed_content, {}) != content:
             frappe.throw(_("This reading has already been imported. Refresh the saved JHA."), frappe.ValidationError)
+        if cint(auto_prepare):
+            from verto.api.mobile.voice_jha_paper_review import prepare_draft
+            prepare_draft(jha, team_leader, participants)
         from verto.api.mobile.voice_jha_progress import serialize_jha
         return {"reading": _serialize(record), "jha": serialize_jha(jha), "replayed": True}
     _require_importable(jha)
@@ -207,6 +218,7 @@ def confirm_jha_photo_import(jha_name: str, import_name: str, reviewed_content, 
     for sequence, step in enumerate(content["steps"], start=1):
         identifier = f"paper-{record.name}-{sequence}"
         jha.append("work_steps", {"sequence": sequence, "activity": step["activity"],
+            "paper_hold_point": step["hold_point"],
             "source_step_identifier": identifier, "step_origin": "Photographed JHA",
             "hold_or_pause_point": 0, "hold_point_confirmed": 0, "critical_controls_reviewed": 0, "step_discussion_complete": 0})
         for index, hazard in enumerate(step["hazards"], start=1):
@@ -225,6 +237,9 @@ def confirm_jha_photo_import(jha_name: str, import_name: str, reviewed_content, 
     record.confirmed_at = now_datetime()
     record.flags.allow_jha_photo_mutation = True
     record.save(ignore_permissions=True)
+    if cint(auto_prepare):
+        from verto.api.mobile.voice_jha_paper_review import prepare_draft
+        prepare_draft(jha, team_leader, participants)
     return {"reading": _serialize(record), "jha": serialize_jha(jha), "replayed": False}
 
 

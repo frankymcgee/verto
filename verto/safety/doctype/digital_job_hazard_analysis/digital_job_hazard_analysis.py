@@ -49,6 +49,8 @@ CHANGE_PROTECTED_FIELDS = {
 
 class DigitalJobHazardAnalysis(Document):
     def validate(self):
+        from verto.api.mobile.voice_jha_paper_review import validate_mutations
+        validate_mutations(self)
         self._validate_photo_import_mutation()
         self._validate_change_mutations()
         self._validate_locked_content()

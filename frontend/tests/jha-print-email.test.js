@@ -93,4 +93,12 @@ describe('signed JHA printing email', () => {
     expect(button('Complete Team Leader Review').attributes('disabled')).toBeDefined()
     expect(wrapper.text()).not.toContain('Human review')
   })
+  it('waits for the nominated paper reviewer without claiming review is complete', async () => {
+    apiRequest.mockResolvedValue({ message: { ...jha, status: 'Ready for Team Review', review_completed: 0,
+      can_review: false, requested_team_leader: 'leader@example.test', participants: [] } })
+    wrapper = mount(JhaReviewSignoff, { props: { jha: { ...jha, status: 'Ready for Team Review' } } }); await flushPromises()
+    expect(wrapper.text()).toContain('Awaiting review by the nominated team leader: leader@example.test')
+    expect(wrapper.text()).not.toContain('Team leader review completed.')
+    expect(button('Complete Team Leader Review')).toBeUndefined()
+  })
 })
