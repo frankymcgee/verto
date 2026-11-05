@@ -130,6 +130,8 @@ def _build_facilitation_instructions(task, jha, bot, config: dict) -> str:
     bot_instructions = base._get_bot_instructions(bot)
     from verto.api.mobile.voice_jha_learning import learning_instructions
     job_guidance = learning_instructions(jha)
+    from verto.api.mobile.voice_jha_photos import photo_instructions
+    paper_guidance = photo_instructions(jha)
     conversation_style = base._build_conversation_style_instructions(config)
     progress = calculate_facilitation_progress(jha)
     change_instructions = ""
@@ -236,6 +238,8 @@ CURRENT JOB STEPS:
 
 {job_guidance}
 
+{paper_guidance}
+
 PERSISTED STEP PROGRESS:
 {current_progress}
 """.strip()
@@ -293,6 +297,13 @@ def _create_voice_call(*, sdp: str, task, jha, bot):
         frappe.throw(_("PERI Voice JHA is disabled in Verto Mobile Settings."), frappe.ValidationError)
 
     client = get_open_ai_client()
+    if config["engine"] == "local":
+        from verto.api.mobile.voice_jha_local import create_local_call
+        call = create_local_call(
+            client=client, sdp=sdp, config=config,
+            instructions=_build_facilitation_instructions(task, jha, bot, config), tools=_session_tools(jha),
+        )
+        return {**call, "engine": "local", "configuration": base._public_voice_configuration(config)}
     if config["engine"] == "live":
         call = create_live_call(client=client, sdp=sdp, session=_build_live_session(task, jha, bot, config))
         return {**call, "engine": "live", "configuration": base._public_voice_configuration(config)}
@@ -330,26 +341,9 @@ def _create_voice_call(*, sdp: str, task, jha, bot):
     }
 
 
-@frappe.whitelist(methods=["POST"])
-def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_engine: str | None = None,
-                         shift_review: str | None = None, step_briefing=0):
-    # Accept the old parameter for cached mobile clients, but never use it to
-    # override the engine controlled by Verto Mobile Settings.
-    base._require_login()
-
-    if not cint(consent_confirmed):
-        frappe.throw(
-            _("Confirm that everyone present has agreed to microphone use and transcription."),
-            frappe.ValidationError,
-        )
-
-    offer_sdp = str(sdp or "")
-    if not offer_sdp or not offer_sdp.startswith("v=0"):
-        frappe.throw(_("A valid WebRTC SDP offer is required."), frappe.ValidationError)
-    if len(offer_sdp) > base.MAX_SDP_LENGTH:
-        frappe.throw(_("The WebRTC SDP offer is unexpectedly large."), frappe.ValidationError)
-
+def _prepare_voice_context(jha_name, shift_review=None, step_briefing=0):
     jha = base._get_jha_doc(jha_name)
+    record = None
     if not jha.has_permission("write"):
         frappe.throw(_("You cannot start voice for this Digital JHA."), frappe.PermissionError)
     if shift_review and cint(step_briefing):
@@ -363,6 +357,7 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_eng
         if not briefing:
             frappe.throw(_("Select the active JHA step before connecting PERI."), frappe.ValidationError)
         jha.flags.step_briefing = True
+        record = briefing
     elif shift_review:
         from verto.api.mobile.voice_jha_revalidation import get_review, serialize_review, OPEN_STATUSES
         from verto.api.mobile.voice_jha_fieldwork import locked_jha
@@ -371,11 +366,39 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_eng
         if jha.jha_status != "Signed" or jha.get("replacement_jha") or shift.status not in OPEN_STATUSES:
             frappe.throw(_("Resume an open shift review against the current signed JHA."), frappe.ValidationError)
         jha.flags.shift_review = serialize_review(shift)
+        record = shift
     elif jha.jha_status not in base.ACTIVE_JHA_STATUSES:
         frappe.throw(
             _("Voice discussion is only available while the Digital JHA is active."),
             frappe.ValidationError,
         )
+    return jha, record
+
+
+@frappe.whitelist(methods=["POST"])
+def get_local_voice_context(jha_name: str, shift_review: str | None = None, step_briefing=0):
+    """Refresh a local call's permitted tools after a human changes its mode."""
+    base._require_login()
+    jha, _record = _prepare_voice_context(jha_name, shift_review, step_briefing)
+    config = voice_config_for_engine(get_peri_voice_settings())
+    task = base._validate_work_summary(jha.work_summary)
+    bot = base._get_peri_bot_doc()
+    return {"instructions": _build_facilitation_instructions(task, jha, bot, config), "tools": _session_tools(jha)}
+
+
+@frappe.whitelist(methods=["POST"])
+def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_engine: str | None = None,
+                         shift_review: str | None = None, step_briefing=0):
+    # Cached clients cannot override the tenant administrator's engine choice.
+    base._require_login()
+    if not cint(consent_confirmed):
+        frappe.throw(_("Confirm that everyone present has agreed to microphone use and transcription."), frappe.ValidationError)
+    offer_sdp = str(sdp or "")
+    if not offer_sdp or not offer_sdp.startswith("v=0"):
+        frappe.throw(_("A valid WebRTC SDP offer is required."), frappe.ValidationError)
+    if len(offer_sdp) > base.MAX_SDP_LENGTH:
+        frappe.throw(_("The WebRTC SDP offer is unexpectedly large."), frappe.ValidationError)
+    jha, record = _prepare_voice_context(jha_name, shift_review, step_briefing)
 
     if not shift_review and not cint(step_briefing):
         sync_facilitation_fields(jha, update_timestamp=False)
@@ -398,7 +421,6 @@ def start_voice_jha_call(jha_name: str, sdp: str, consent_confirmed=0, voice_eng
 
     started_at = now_datetime()
     if shift_review or cint(step_briefing):
-        record = briefing if cint(step_briefing) else shift
         record.voice_consent_confirmed = 1
         record.voice_consent_confirmed_by = frappe.session.user
         record.voice_consent_confirmed_at = started_at

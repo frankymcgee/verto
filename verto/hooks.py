@@ -113,6 +113,7 @@ extend_doctype_class = {
 # Permissions
 # -----------
 permission_query_conditions = {
+    "JHA Photo Import": "verto.api.mobile.voice_jha_photos.photo_query_conditions",
     "JHA Print Delivery": "verto.api.mobile.voice_jha_email.delivery_query_conditions",
     "Verto Investigation": "verto.api.investigations.query_conditions",
     "JHA Step Briefing": "verto.api.mobile.voice_jha_steps.briefing_query_conditions",
@@ -127,6 +128,7 @@ permission_query_conditions = {
 }
 
 has_permission = {
+    "JHA Photo Import": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
     "JHA Print Delivery": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",
     "Verto Investigation": "verto.api.investigations.has_permission",
     "JHA Step Briefing": "verto.api.mobile.voice_jha_fieldwork.field_record_has_permission",

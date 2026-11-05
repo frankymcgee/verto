@@ -128,6 +128,7 @@ def _serialize_jha(doc):
         "work_order_number": doc.work_order_number,
         "work_area": doc.work_area,
         "ai_bot": doc.ai_bot,
+        "photo_import": doc.get("photo_import"),
         "source_revision": doc.source_revision,
         "modified": doc.modified,
         "incident_learning": serialize_incident_learning(doc),
@@ -365,7 +366,7 @@ CURRENT STRUCTURED HAZARDS:
 def _public_voice_configuration(config: dict) -> dict:
     options = voice_engine_options(config)
     selected = next(option for option in options if option["id"] == config.get("engine", "realtime"))
-    return {
+    public = {
         "enabled": bool(config.get("enabled")),
         "engine": selected["id"],
         "engine_label": selected["label"],
@@ -389,6 +390,10 @@ def _public_voice_configuration(config: dict) -> dict:
         "turn_detection": config.get("turn_detection"),
         "semantic_vad_eagerness": config.get("semantic_vad_eagerness"),
     }
+    if selected["id"] == "local":
+        from verto.api.mobile.voice_jha_local import local_ice_servers
+        public["ice_servers"] = local_ice_servers()
+    return public
 
 
 def _build_realtime_session(task, jha, bot, config: dict) -> dict:

@@ -7,7 +7,10 @@ vi.mock('../src/lib/api', () => ({ apiRequest: vi.fn() }))
 vi.mock('vue-router', () => ({ useRoute: () => ({ params: { workSummary: 'WS-1' } }), useRouter: () => ({ back: vi.fn() }) }))
 
 let wrapper, connections, track, snapshot, configuredEngine, activeStep
-const configuration = () => ({ engine: configuredEngine, engine_label: configuredEngine === 'live' ? 'GPT Live' : 'GPT Realtime', model: configuredEngine === 'live' ? 'gpt-live-1' : 'gpt-realtime-2.1', voice: configuredEngine === 'live' ? 'quartz' : 'marin' })
+const configuration = () => ({ engine: configuredEngine,
+  engine_label: { live: 'GPT Live', realtime: 'GPT Realtime', local: 'Local Speech + OpenAI Reasoning' }[configuredEngine],
+  model: { live: 'gpt-live-1', realtime: 'gpt-realtime-2.1', local: 'gpt-6-luna' }[configuredEngine],
+  voice: configuredEngine === 'live' ? 'quartz' : 'marin' })
 const button = (text) => wrapper.findAll('button').find(item => item.text() === text)
 const channel = () => connections.at(-1).channel
 const sent = () => channel().send.mock.calls.map(([raw]) => JSON.parse(raw))
@@ -57,6 +60,7 @@ beforeEach(async () => {
       }
       return { message: { ok: true, result: { saved: true }, jha: snapshot } }
     }
+    if (url.includes('get_local_voice_context')) return { message: { instructions: 'Updated step briefing', tools: [{ name: 'get_current_jha_state', type: 'function' }] } }
     if (url.includes('get_jha_review_state')) return { message: snapshot }
     if (url.includes('get_jha_step_briefing')) return { message: activeStep || { jha: snapshot.name, revision: 1, can_select: true, active_step: null } }
     if (url.includes('select_jha_active_step')) {
@@ -83,7 +87,7 @@ beforeEach(async () => {
 afterEach(() => { wrapper?.unmount(); vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('Voice JHA configured engine connection', () => {
-  it.each(['live', 'realtime'])('switches an existing %s shift conversation to the selected step without reconnecting', async engine => {
+  it.each(['live', 'realtime', 'local'])('switches an existing %s shift conversation to the selected step without reconnecting', async engine => {
     snapshot = { ...snapshot, status: 'Signed', revision: 1, work_steps: [{ name: 'STEP-1', sequence: 1, activity: 'Restrain pump' }] }
     wrapper.unmount(); wrapper = mount(VoiceJha, { global: { stubs: { JhaReviewSignoff: true, JhaFieldwork: true } } })
     await flushPromises()
@@ -103,7 +107,7 @@ describe('Voice JHA configured engine connection', () => {
     expect(request[1].body.get('step_briefing')).toBe('1')
     expect(request[1].body.has('shift_review')).toBe(false)
   })
-  it.each(['live', 'realtime'])('briefs selected execution steps with %s, keeps the same call and uses only the step tool context', async engine => {
+  it.each(['live', 'realtime', 'local'])('briefs selected execution steps with %s, keeps the same call and uses only the step tool context', async engine => {
     snapshot = { ...snapshot, status: 'Signed', revision: 1, work_steps: [
       { name: 'STEP-1', sequence: 1, activity: 'Restrain pump' }, { name: 'STEP-2', sequence: 2, activity: 'Lift pump' },
     ] }
@@ -134,7 +138,7 @@ describe('Voice JHA configured engine connection', () => {
     expect(request[1].body.has('shift_review')).toBe(false)
     expect(JSON.stringify(sent())).toContain('Lift pump')
   })
-  it.each(['live', 'realtime'])('runs a %s shift review against the signed revision with consent and its own tool context', async engine => {
+  it.each(['live', 'realtime', 'local'])('runs a %s shift review against the signed revision with consent and its own tool context', async engine => {
     snapshot = { ...snapshot, status: 'Signed', revision: 1 }
     wrapper.unmount()
     wrapper = mount(VoiceJha, { global: { stubs: { JhaReviewSignoff: true, JhaFieldwork: true } } })
@@ -191,6 +195,42 @@ describe('Voice JHA configured engine connection', () => {
     expect(wrapper.text()).toContain('Pinch points')
     await receive({ type: 'response.function_call_arguments.done', name: 'record_hazard_and_control', call_id: 'rt-1', arguments: '{}' })
     expect(apiRequest.mock.calls.filter(([url]) => url.includes('execute_voice_jha_tool'))).toHaveLength(1)
+  })
+  it('streams local transcript previews and keeps push-to-talk on the same connection', async () => {
+    await connect('local')
+    expect(wrapper.find('select').exists()).toBe(false)
+    const talk = wrapper.find('[aria-label="Hold to talk to PERI"]')
+    await talk.trigger('pointerdown', { pointerId: 1 })
+    expect(track.enabled).toBe(true)
+    expect(sent().at(-1).type).toBe('local.input.start')
+    await receive({ type: 'local.transcript.partial', text: 'Isolate pump' })
+    expect(wrapper.text()).toContain('Crew · transcribing')
+    await receive({ type: 'local.transcript.partial', text: 'Isolate pump four' })
+    expect(wrapper.text()).toContain('Isolate pump four')
+    await talk.trigger('pointerup', { pointerId: 1 })
+    expect(track.enabled).toBe(false)
+    expect(sent().at(-1).type).toBe('local.input.commit')
+    await receive({ type: 'conversation.item.input_audio_transcription.completed', transcript: 'Isolate pump four' })
+    expect(wrapper.text()).not.toContain('Crew · transcribing')
+    await receive({ type: 'response.output_audio_transcript.delta', delta: 'Which valve?' })
+    expect(wrapper.text()).toContain('Which valve?')
+    await talk.trigger('pointerdown', { pointerId: 2 })
+    expect(sent().at(-1).type).toBe('local.input.start')
+    expect(connections).toHaveLength(1)
+    expect(track.stop).not.toHaveBeenCalled()
+  })
+  it('keeps local JHA tool updates and waits for a confirmed disconnect', async () => {
+    await connect('local')
+    await receive({ type: 'response.function_call_arguments.done', name: 'record_hazard_and_control', call_id: 'local-save', arguments: '{}' })
+    expect(wrapper.text()).toContain('Pinch points')
+    await button('Disconnect Voice').trigger('click')
+    expect(sent().at(-1).type).toBe('session.close')
+    expect(track.stop).not.toHaveBeenCalled()
+    await receive({ type: 'session.closed' })
+    expect(track.stop).toHaveBeenCalled()
+    await connect('realtime')
+    expect(connections).toHaveLength(2)
+    expect(sent()[0].type).toBe('response.create')
   })
   it('waits for Live session startup, keeps push-to-talk muted, and renders both transcript speakers', async () => {
     await connect()
@@ -276,7 +316,7 @@ describe('Voice JHA configured engine connection', () => {
     expect(wrapper.text()).toContain('did not confirm that the Live session finished')
   })
 
-  it.each(['live', 'realtime'])('keeps %s speech, audio and transcripts working through print/download until disconnect', async (engine) => {
+  it.each(['live', 'realtime', 'local'])('keeps %s speech, audio and transcripts working through print/download until disconnect', async (engine) => {
     // Exercise the real review component so printing/downloading is part of the
     // connected flow, including its review-state update back to this page.
     wrapper.unmount()
@@ -364,7 +404,7 @@ describe('Voice JHA configured engine connection', () => {
     await button('Disconnect Voice').trigger('click')
     await flushPromises()
     expect(track.enabled).toBe(false)
-    if (engine === 'live') {
+    if (engine === 'live' || engine === 'local') {
       expect(sent().at(-1).type).toBe('session.close')
       expect(button('Disconnect Voice').attributes('disabled')).toBeDefined()
       expect(track.stop).not.toHaveBeenCalled()

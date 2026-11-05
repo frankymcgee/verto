@@ -1,0 +1,6 @@
+pipecat-ai[webrtc]==1.15.0
+openai==2.54.0
+fastapi==0.162.0
+uvicorn==0.54.0
+httpx==0.28.1
+faster-whisper==1.2.1

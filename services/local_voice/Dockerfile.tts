@@ -1,0 +1,13 @@
+FROM python:3.11-slim
+RUN apt-get update && apt-get install -y --no-install-recommends git libsndfile1 libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+RUN pip install --no-cache-dir torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+# The PyPI 0.1.7 release predates Nano. Pin the inspected source revision that
+# implements nano=True rather than fetching an unversioned development branch.
+RUN pip install --no-cache-dir \
+    "git+https://github.com/resemble-ai/chatterbox.git@5de7a54aa4e5e2baadb0182dde554908b48b85c2" \
+    fastapi==0.162.0 uvicorn==0.54.0
+COPY services/local_voice /app/local_voice
+ENV HF_HOME=/models
+CMD ["uvicorn", "local_voice.tts_server:app", "--host", "127.0.0.1", "--port", "8091", "--no-access-log"]
