@@ -49,6 +49,7 @@ CHANGE_PROTECTED_FIELDS = {
 
 class DigitalJobHazardAnalysis(Document):
     def validate(self):
+        self._validate_photo_import_mutation()
         self._validate_change_mutations()
         self._validate_locked_content()
         self._validate_protected_review_mutations()
@@ -56,6 +57,14 @@ class DigitalJobHazardAnalysis(Document):
         self._set_work_summary_context()
         self._sync_planned_child_tasks()
         self._guard_source_revision()
+
+    def _validate_photo_import_mutation(self):
+        if self.flags.get("allow_jha_photo_mutation"):
+            return
+        before = self.get_doc_before_save() if not self.is_new() else None
+        previous = before.get("photo_import") if before else None
+        if str(self.get("photo_import") or "") != str(previous or ""):
+            frappe.throw(_("Use the paper JHA import workflow to set its source."), frappe.PermissionError)
 
     def _validate_change_mutations(self):
         if self.flags.get("allow_jha_change_mutation"):
@@ -165,7 +174,7 @@ class DigitalJobHazardAnalysis(Document):
         """Mirror direct Task children into editable JHAs as planned work steps."""
         # A change revision retains the crew's reviewed sequence. New/renamed
         # steps are inserted explicitly through the change workflow.
-        if self.get("previous_jha"):
+        if self.get("previous_jha") or self.get("photo_import"):
             return
         if not self.work_summary or not frappe.db.exists("Task", self.work_summary):
             return

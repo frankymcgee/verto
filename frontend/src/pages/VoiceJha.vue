@@ -13,6 +13,7 @@ import JhaStepResources from '../components/JhaStepResources.vue'
 import JhaJobLearning from '../components/JhaJobLearning.vue'
 import JhaOfflineCopy from '../components/JhaOfflineCopy.vue'
 import JhaActiveStep from '../components/JhaActiveStep.vue'
+import JhaPhotoImport from '../components/JhaPhotoImport.vue'
 import { monitorRemoteVoice } from '../lib/remoteVoiceActivity'
 import { LiveJhaToolLoop, liveTranscriptEntries, stepBriefingEvent, voiceGreeting, voiceToolResult } from '../lib/jhaVoiceProtocol'
 import type { LiveTranscriptFragment, VoiceEngine } from '../lib/jhaVoiceProtocol'
@@ -115,6 +116,7 @@ const toolActivity = ref('')
 const processingToolCalls = ref(0)
 const remoteVoiceLevel = ref(0)
 const changingJha = ref(false)
+const photoBusy = ref(false)
 const latestPeriSpeech = computed(() => pendingPeriTranscript.value || [...transcript.value].reverse().find(entry => entry.role === 'PERI')?.text || '')
 const currentStepLabel = computed(() => stepVoiceMode.value && stepBriefing.value?.active_step
   ? `Step ${stepBriefing.value.active_step.sequence} · ${stepBriefing.value.active_step.activity}`
@@ -171,6 +173,7 @@ const canConnectVoice = computed(() => Boolean(
   !connecting.value &&
   !disconnecting.value &&
   !voiceConnected.value &&
+  !photoBusy.value &&
   (!reviewStage.value || shiftReviewOpen.value || stepBriefingOpen.value)
 ))
 const voiceConfigSummary = computed(() => {
@@ -969,6 +972,8 @@ onBeforeUnmount(() => {
         </section>
 
         <template v-else>
+          <JhaPhotoImport :jha="jha" :online="networkOnline" :busy="voiceSessionActive || changingJha"
+            @busy="photoBusy = $event" @updated="handleReviewUpdated" />
           <p v-if="!networkOnline" role="status" class="rounded-7 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Offline reference view. Current revision and field conditions cannot be confirmed. Open your downloaded signed copy below to record observations.</p>
           <JhaVoicePanel
             ref="voicePanel"

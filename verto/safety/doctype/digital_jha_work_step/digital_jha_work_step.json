@@ -20,7 +20,7 @@
  "fields": [
   {"fieldname":"sequence","fieldtype":"Int","in_list_view":1,"label":"Sequence"},
   {"fieldname":"activity","fieldtype":"Small Text","in_list_view":1,"label":"Activity","reqd":1},
-  {"default":"Planned","fieldname":"step_origin","fieldtype":"Select","label":"Origin","options":"Planned\nVoice-derived\nManually added"},
+  {"default":"Planned","fieldname":"step_origin","fieldtype":"Select","label":"Origin","options":"Planned\nVoice-derived\nManually added\nPhotographed JHA"},
   {"fieldname":"source_task","fieldtype":"Link","hidden":1,"label":"Source Task","options":"Task","read_only":1},
   {"fieldname":"source_step_identifier","fieldtype":"Data","label":"Source Step Identifier"},
   {"default":"0","fieldname":"hold_or_pause_point","fieldtype":"Check","label":"Hold / Pause Point"},

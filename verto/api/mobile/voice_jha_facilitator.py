@@ -130,6 +130,8 @@ def _build_facilitation_instructions(task, jha, bot, config: dict) -> str:
     bot_instructions = base._get_bot_instructions(bot)
     from verto.api.mobile.voice_jha_learning import learning_instructions
     job_guidance = learning_instructions(jha)
+    from verto.api.mobile.voice_jha_photos import photo_instructions
+    paper_guidance = photo_instructions(jha)
     conversation_style = base._build_conversation_style_instructions(config)
     progress = calculate_facilitation_progress(jha)
     change_instructions = ""
@@ -235,6 +237,8 @@ CURRENT JOB STEPS:
 {existing_steps}
 
 {job_guidance}
+
+{paper_guidance}
 
 PERSISTED STEP PROGRESS:
 {current_progress}

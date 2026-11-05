@@ -1,0 +1,29 @@
+{
+ "doctype": "DocType",
+ "name": "JHA Photo Import",
+ "module": "Safety",
+ "autoname": "hash",
+ "engine": "InnoDB",
+ "field_order": ["jha", "revision", "work_summary", "project", "status", "pages", "extracted_content", "reviewed_content", "source_snapshot", "model", "recorded_by", "recorded_at", "confirmed_by", "confirmed_at", "request_key"],
+ "fields": [
+  {"fieldname":"jha","fieldtype":"Link","options":"Digital Job Hazard Analysis","label":"Digital JHA","reqd":1,"read_only":1},
+  {"fieldname":"revision","fieldtype":"Int","label":"Revision","reqd":1,"read_only":1},
+  {"fieldname":"work_summary","fieldtype":"Link","options":"Task","label":"Work Summary","reqd":1,"read_only":1},
+  {"fieldname":"project","fieldtype":"Link","options":"Project","label":"Project","reqd":1,"read_only":1},
+  {"fieldname":"status","fieldtype":"Select","options":"Pending Review\nImported","label":"Status","reqd":1,"read_only":1},
+  {"fieldname":"pages","fieldtype":"Long Text","label":"Ordered Private Page Photos","reqd":1,"read_only":1},
+  {"fieldname":"extracted_content","fieldtype":"Long Text","label":"Original PERI Reading","reqd":1,"read_only":1},
+  {"fieldname":"reviewed_content","fieldtype":"Long Text","label":"Human Checked Reading","read_only":1},
+  {"fieldname":"source_snapshot","fieldtype":"Data","label":"Draft Fingerprint","hidden":1,"reqd":1,"read_only":1},
+  {"fieldname":"model","fieldtype":"Data","label":"Reading Model","read_only":1},
+  {"fieldname":"recorded_by","fieldtype":"Link","options":"User","label":"Read By","reqd":1,"read_only":1},
+  {"fieldname":"recorded_at","fieldtype":"Datetime","label":"Read At","reqd":1,"read_only":1},
+  {"fieldname":"confirmed_by","fieldtype":"Link","options":"User","label":"Confirmed By","read_only":1},
+  {"fieldname":"confirmed_at","fieldtype":"Datetime","label":"Confirmed At","read_only":1},
+  {"fieldname":"request_key","fieldtype":"Data","label":"Request Key","unique":1,"hidden":1,"reqd":1,"read_only":1}
+ ],
+ "permissions": [{"role":"All","read":1,"report":1}],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

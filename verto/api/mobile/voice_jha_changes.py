@@ -54,7 +54,7 @@ def begin_jha_change(jha_name: str, confirmation=0):
     revision.change_requested_by = frappe.session.user
     revision.change_requested_at = now_datetime()
     for field in ("reviewed_by", "reviewer_name", "reviewed_at", "review_signature", "review_notes",
-                  "signed_at", "signed_by_user", "voice_model", "voice_started_at", "voice_session_reference",
+                  "signed_at", "signed_by_user", "voice_model", "voice_started_at", "voice_session_reference", "photo_import",
                   "voice_transcription_consent_confirmed_by", "voice_transcription_consent_confirmed_at",
                   "voice_tool_audit_log", "review_audit_log"):
         revision.set(field, None)

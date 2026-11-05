@@ -128,6 +128,7 @@ def _serialize_jha(doc):
         "work_order_number": doc.work_order_number,
         "work_area": doc.work_area,
         "ai_bot": doc.ai_bot,
+        "photo_import": doc.get("photo_import"),
         "source_revision": doc.source_revision,
         "modified": doc.modified,
         "incident_learning": serialize_incident_learning(doc),
