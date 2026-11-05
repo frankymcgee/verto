@@ -7,9 +7,11 @@ globalThis.ResizeObserver ??= class {
   unobserve() {}
   disconnect() {}
 }
-Element.prototype.scrollIntoView ??= function () {}
-Element.prototype.hasPointerCapture ??= function () {
-  return false
+if (typeof Element !== 'undefined') {
+  Element.prototype.scrollIntoView ??= function () {}
+  Element.prototype.hasPointerCapture ??= function () {
+    return false
+  }
+  Element.prototype.setPointerCapture ??= function () {}
+  Element.prototype.releasePointerCapture ??= function () {}
 }
-Element.prototype.setPointerCapture ??= function () {}
-Element.prototype.releasePointerCapture ??= function () {}

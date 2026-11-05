@@ -25,6 +25,7 @@ export type OfflineQueueItem = {
   attempts: number
   status: OfflineQueueItemStatus
   last_error?: string
+  last_error_retryable?: boolean
 
   // Mobile document operations.
   action_type?: OfflineDocumentAction
@@ -33,6 +34,9 @@ export type OfflineQueueItem = {
   values?: Record<string, any>
   attachments?: OfflineAttachment[]
   server_result?: Record<string, any> | null
+  uploaded_attachment_ids?: string[]
+  sync_owner?: string
+  sync_expires_at?: number
 
   // Standalone attachment uploads for an existing document.
   target_doctype?: string
@@ -311,6 +315,25 @@ export async function getCachedShiftCalendar(startDate: string, endDate: string)
     }
   }
 
+  const timesheets = await mergePendingTimesheets(Array.from(timesheetMap.values()), startDate, endDate, user)
+
+  if (!shiftMap.size && !timesheets.length && !user && !userFullname) {
+    return null
+  }
+
+  return {
+    message: {
+      user,
+      user_fullname: userFullname,
+      shifts: Array.from(shiftMap.values()),
+      timesheets,
+      offline_cached: true,
+    },
+  }
+}
+
+export async function mergePendingTimesheets(timesheets: any[], startDate: string, endDate: string, actor: string) {
+  const timesheetMap = new Map<string, any>(timesheets.map((row) => [row.name, row]))
   // Reflect unsynced Daily Timesheets in the calendar immediately. This keeps
   // an offline submission visible after the create page routes back to Shifts
   // and prevents the user from submitting the same date a second time.
@@ -320,6 +343,7 @@ export async function getCachedShiftCalendar(startDate: string, endDate: string)
     if (
       item.kind !== 'mobile_document' ||
       item.mobile_doctype !== 'daily-timesheet' ||
+      !actor || item.values?.__verto_offline_user !== actor ||
       item.status === 'synced'
     ) {
       continue
@@ -345,9 +369,10 @@ export async function getCachedShiftCalendar(startDate: string, endDate: string)
     }
 
     if (item.action_type === 'create') {
-      timesheetMap.set(item.id, {
+      const name = String(item.server_result?.name || item.id)
+      timesheetMap.set(name, {
         ...values,
-        name: item.id,
+        name,
         date,
         offline_queued: true,
         offline_operation_id: item.id,
@@ -355,19 +380,7 @@ export async function getCachedShiftCalendar(startDate: string, endDate: string)
     }
   }
 
-  if (!shiftMap.size && !timesheetMap.size && !user && !userFullname) {
-    return null
-  }
-
-  return {
-    message: {
-      user,
-      user_fullname: userFullname,
-      shifts: Array.from(shiftMap.values()),
-      timesheets: Array.from(timesheetMap.values()),
-      offline_cached: true,
-    },
-  }
+  return Array.from(timesheetMap.values())
 }
 
 export async function getCachedShiftForDate(date: string, shiftAllocation = '') {
@@ -419,18 +432,20 @@ export async function queueMobileDocumentAction(input: {
   mobileDoctype: string
   values: Record<string, any>
   docname?: string
+  operationId?: string
+  attachments?: OfflineAttachment[]
 }) {
   const timestamp = nowIso()
 
   const item: OfflineQueueItem = {
-    id: createOfflineId('document'),
+    id: input.operationId || createOfflineId('document'),
     kind: 'mobile_document',
     type: `mobile_document_${input.actionType}`,
     action_type: input.actionType,
     mobile_doctype: input.mobileDoctype,
     docname: input.docname,
     values: input.values || {},
-    attachments: [],
+    attachments: input.attachments || [],
     server_result: null,
     created_at: timestamp,
     updated_at: timestamp,
@@ -438,8 +453,31 @@ export async function queueMobileDocumentAction(input: {
     status: 'queued',
   }
 
-  await putOfflineQueueItem(item)
-  return item
+  const queued = await withStore(QUEUE_STORE, 'readwrite', async (store) => {
+    const existing: OfflineQueueItem | undefined = await requestToPromise(store.get(item.id))
+    if (existing) {
+      if (existing.mobile_doctype !== item.mobile_doctype ||
+          existing.action_type !== item.action_type || existing.docname !== item.docname ||
+          existing.values?.__verto_offline_user !== item.values?.__verto_offline_user) {
+        throw new Error('This submission belongs to another document or signed-in user.')
+      }
+      if (existing.status === 'failed' && existing.last_error_retryable === false && !existing.server_result) {
+        // Validation rejected the original write. A corrected form can reuse
+        // its ID because no document/receipt was committed for that attempt.
+        await requestToPromise(store.put(item))
+        return item
+      }
+      if (JSON.stringify(existing.values) !== JSON.stringify(item.values)) {
+        throw new Error('This submission is already saved or waiting to sync. Open it from Forms or Shifts to make changes.')
+      }
+      // A retry must keep the original payload and attachment IDs once sent.
+      return existing
+    }
+    await requestToPromise(store.put(item))
+    return item
+  })
+  dispatchQueueUpdated()
+  return queued
 }
 
 export async function queueJhaObservation(values: Record<string, any>) {
@@ -655,6 +693,12 @@ async function ensureSyncResponse(response: Response) {
     })
   }
 
+  if (response.ok && (!data || typeof data !== 'object')) {
+    throw new OfflineSyncError('The server response could not be confirmed. The saved item will retry safely.', {
+      retryable: true,
+    })
+  }
+
   if (!response.ok) {
     void reportClientError({
       message: serverMessage,
@@ -747,35 +791,38 @@ async function syncMobileDocumentItem(item: OfflineQueueItem) {
     formData.append('docname', item.docname)
   }
 
-  const response = await fetch('/api/method/verto.api.mobile.offline.sync_action', {
-    method: 'POST',
-    credentials: 'include',
-    headers: withCsrfHeaders(undefined, 'POST'),
-    body: formData,
-  })
+  let result: Record<string, any> = item.server_result || {}
+  if (!result?.doctype || !result?.name) {
+    const response = await fetch('/api/method/verto.api.mobile.offline.sync_action', {
+      method: 'POST',
+      credentials: 'include',
+      headers: withCsrfHeaders(undefined, 'POST'),
+      body: formData,
+    })
 
-  const message = await ensureSyncResponse(response)
-  const result = message?.result || message || {}
+    const message = await ensureSyncResponse(response)
+    result = message?.result || message || {}
+  }
   const targetDoctype = String(result.doctype || item.server_result?.doctype || '')
   const targetName = String(result.name || item.server_result?.name || item.docname || '')
 
   if (!targetDoctype || !targetName) {
-    throw new Error('The server did not return the synced document details.')
+    throw new OfflineSyncError('The server did not return the synced document details.', { retryable: true })
   }
 
-  await putOfflineQueueItem({
-    ...item,
-    server_result: result,
-    status: 'syncing',
-  })
+  item.server_result = result
+  await putOfflineQueueItem(item)
 
   for (const attachment of item.attachments || []) {
+    if (item.uploaded_attachment_ids?.includes(attachment.id)) continue
     await uploadQueuedAttachment({
       operationId: item.id,
       attachment,
       targetDoctype,
       targetName,
     })
+    item.uploaded_attachment_ids = [...(item.uploaded_attachment_ids || []), attachment.id]
+    await putOfflineQueueItem(item)
   }
 
   if ((item.attachments || []).length) {
@@ -853,49 +900,99 @@ async function replayQueueItem(item: OfflineQueueItem) {
   return replayLegacyQueueItem(item)
 }
 
-export async function syncOfflineQueueItem(
+const activeItemSyncs = new Map<string, Promise<any>>()
+const SYNC_LEASE_MS = 120_000
+
+export function syncOfflineQueueItem(
   id: string,
   options: { deleteOnPermanentFailure?: boolean } = {}
 ) {
-  const item = await getOfflineQueueItem(id)
+  const active = activeItemSyncs.get(id)
+  if (active) return active
+  const run = () => performItemSync(id, options)
+  const pending = (typeof navigator !== 'undefined' && navigator.locks
+    ? navigator.locks.request(`verto:offline-sync:${id}`, run)
+    : run()).finally(() => { activeItemSyncs.delete(id) })
+  activeItemSyncs.set(id, pending)
+  return pending
+}
+
+async function performItemSync(id: string, options: { deleteOnPermanentFailure?: boolean }) {
+  const owner = createOfflineId('sync')
+  const item = await withStore<OfflineQueueItem | undefined>(QUEUE_STORE, 'readwrite', async (store) => {
+    const current: OfflineQueueItem | undefined = await requestToPromise(store.get(id))
+    if (!current || current.status === 'synced') return current
+    if (current.sync_owner && (current.sync_expires_at || 0) > Date.now()) {
+      throw new OfflineSyncError('This item is already syncing in another window.', { retryable: true })
+    }
+    current.sync_owner = owner
+    current.sync_expires_at = Date.now() + SYNC_LEASE_MS
+    current.status = 'syncing'
+    current.attempts += 1
+    current.last_error = ''
+    await requestToPromise(store.put(current))
+    return current
+  })
 
   if (!item) {
     throw new Error('The offline queue item could not be found.')
   }
+  if (item.status === 'synced') return item.server_result
 
-  const syncingItem: OfflineQueueItem = {
-    ...item,
-    status: 'syncing',
-    attempts: item.attempts + 1,
-    last_error: '',
-  }
-
-  await putOfflineQueueItem(syncingItem)
+  dispatchQueueUpdated()
+  const heartbeat = setInterval(() => {
+    void withStore(QUEUE_STORE, 'readwrite', async (store) => {
+      const current: OfflineQueueItem | undefined = await requestToPromise(store.get(id))
+      if (current?.sync_owner !== owner) return
+      current.sync_expires_at = Date.now() + SYNC_LEASE_MS
+      await requestToPromise(store.put(current))
+    }).catch(() => { /* Server receipts also protect a replay after storage failure. */ })
+  }, SYNC_LEASE_MS / 4)
 
   try {
-    const result = await replayQueueItem(syncingItem)
-    await deleteOfflineQueueItem(syncingItem.id)
+    const result = await replayQueueItem(item)
+    if (item.kind === 'mobile_document') {
+      // Keep the result so retrying the same form cannot recreate the item.
+      await putOfflineQueueItem({ ...item, status: 'synced', server_result: result,
+        attachments: [], uploaded_attachment_ids: [], sync_owner: undefined, sync_expires_at: undefined })
+    } else {
+      await deleteOfflineQueueItem(item.id)
+    }
     return result
   } catch (error) {
     const shouldDelete = Boolean(options.deleteOnPermanentFailure) &&
+      !item.server_result &&
       !isRetryableOfflineSyncError(error) &&
       !isOfflineSyncAuthError(error)
 
     if (shouldDelete) {
-      await deleteOfflineQueueItem(syncingItem.id)
+      await deleteOfflineQueueItem(item.id)
     } else {
       await putOfflineQueueItem({
-        ...syncingItem,
+        ...item,
         status: 'failed',
+        sync_owner: undefined,
+        sync_expires_at: undefined,
         last_error: error instanceof Error ? error.message : 'Sync failed.',
+        last_error_retryable: isRetryableOfflineSyncError(error) || isOfflineSyncAuthError(error),
       })
     }
 
     throw error
+  } finally {
+    clearInterval(heartbeat)
   }
 }
 
-export async function syncOfflineQueue() {
+let queueSyncPromise: Promise<{ synced: number; failed: number; skipped: boolean }> | null = null
+
+export function syncOfflineQueue() {
+  if (queueSyncPromise) return queueSyncPromise
+  queueSyncPromise = performQueueSync().finally(() => { queueSyncPromise = null })
+  return queueSyncPromise
+}
+
+async function performQueueSync() {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     return {
       synced: 0,

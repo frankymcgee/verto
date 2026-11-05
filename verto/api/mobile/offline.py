@@ -52,11 +52,6 @@ def _save_receipt(receipt_id, receipt_type, result=None, target_doctype=None, ta
     if not receipt_id:
         frappe.throw("Offline operation ID is required.", frappe.ValidationError)
 
-    existing = _get_receipt(receipt_id)
-
-    if existing:
-        return existing
-
     result = result or {}
 
     receipt = frappe.get_doc({
@@ -78,6 +73,44 @@ def _save_receipt(receipt_id, receipt_type, result=None, target_doctype=None, ta
         "target_name": receipt.target_name,
         "result": result,
     }
+
+
+def _run_receipted_operation(receipt_id, receipt_type, execute):
+    """Reserve the unique receipt before any document hooks or file writes run.
+
+    The reservation and result commit together. A competing insert waits for
+    this transaction, then returns its result without executing the write.
+    """
+    if not receipt_id or len(receipt_id) > 140:
+        frappe.throw("A valid offline operation ID is required.", frappe.ValidationError)
+
+    existing = _get_receipt(receipt_id)
+    if existing:
+        return {"ok": True, "duplicate": True, "result": existing["result"]}
+
+    try:
+        _save_receipt(receipt_id, receipt_type)
+    except (frappe.DuplicateEntryError, frappe.UniqueValidationError):
+        frappe.db.rollback()
+        existing = _get_receipt(receipt_id)
+        if existing:
+            return {"ok": True, "duplicate": True, "result": existing["result"]}
+        raise
+
+    try:
+        result = execute()
+        frappe.db.set_value(RECEIPT_DOCTYPE, receipt_id, {
+            "result_json": json.dumps(result, default=str),
+            "target_doctype": result.get("doctype"),
+            "target_name": result.get("name") if receipt_type != "attachment" else result.get("docname"),
+            "processed_at": now_datetime(),
+        })
+        frappe.db.commit()
+    except Exception:
+        frappe.db.rollback()
+        raise
+
+    return {"ok": True, "duplicate": False, "result": result}
 
 
 def _serialise_edit_doc(doctype, docname, schema_cache=None, include_files=True):
@@ -288,14 +321,6 @@ def sync_action(
     require_login()
 
     operation_id = _receipt_name(operation_id)
-    existing = _get_receipt(operation_id)
-
-    if existing:
-        return {
-            "ok": True,
-            "duplicate": True,
-            "result": existing.get("result") or {},
-        }
 
     if isinstance(values, str):
         values = json.loads(values or "{}")
@@ -310,6 +335,13 @@ def sync_action(
     if action_type == "update" and not docname:
         frappe.throw("Document name is required for offline updates.", frappe.ValidationError)
 
+    return _run_receipted_operation(
+        operation_id, f"document_{action_type}",
+        lambda: _execute_document_action(action_type, mobile_doctype, values, docname),
+    )
+
+
+def _execute_document_action(action_type, mobile_doctype, values, docname):
     # Fetch fields that the online form normally resolves as Link values change.
     # This keeps offline submissions consistent even though those client-side
     # lookups cannot run while the device has no connection.
@@ -321,50 +353,15 @@ def sync_action(
     values.update(fetched.get("values") or {})
 
     if action_type == "create":
-        result = documents.create_mobile_doc(
+        return documents.create_mobile_doc(
             mobile_doctype=mobile_doctype,
             values=json.dumps(values),
         )
-    else:
-        result = documents.update_mobile_doc(
-            mobile_doctype=mobile_doctype,
-            docname=docname,
-            values=json.dumps(values),
-        )
-
-    # Keep the document write and its idempotency receipt in one transaction.
-    # If two tabs replay the same operation concurrently, the unique receipt ID
-    # rolls the losing transaction back instead of leaving a duplicate document.
-    try:
-        _save_receipt(
-            receipt_id=operation_id,
-            receipt_type=f"document_{action_type}",
-            result=result,
-            target_doctype=result.get("doctype"),
-            target_name=result.get("name"),
-        )
-    except frappe.DuplicateEntryError:
-        # Another tab/device won the same operation ID race. Roll back this
-        # transaction (including its document write), then return the winner.
-        frappe.db.rollback()
-        existing = _get_receipt(operation_id)
-
-        if existing:
-            return {
-                "ok": True,
-                "duplicate": True,
-                "result": existing.get("result") or {},
-            }
-
-        raise
-
-    frappe.db.commit()
-
-    return {
-        "ok": True,
-        "duplicate": False,
-        "result": result,
-    }
+    return documents.update_mobile_doc(
+        mobile_doctype=mobile_doctype,
+        docname=docname,
+        values=json.dumps(values),
+    )
 
 
 @frappe.whitelist(methods=["POST"])
@@ -421,6 +418,13 @@ def upload_attachment(
     if not uploaded:
         frappe.throw("Attachment file is required.", frappe.ValidationError)
 
+    return _run_receipted_operation(
+        receipt_id, "attachment",
+        lambda: _save_uploaded_attachment(uploaded, target_doctype, target_name),
+    )
+
+
+def _save_uploaded_attachment(uploaded, target_doctype, target_name):
     from frappe.utils.file_manager import save_file
 
     file_doc = save_file(
@@ -431,26 +435,10 @@ def upload_attachment(
         is_private=1,
     )
 
-    result = {
+    return {
         "name": file_doc.name,
         "file_name": file_doc.file_name,
         "file_url": file_doc.file_url,
         "doctype": target_doctype,
         "docname": target_name,
-    }
-
-    _save_receipt(
-        receipt_id=receipt_id,
-        receipt_type="attachment",
-        result=result,
-        target_doctype=target_doctype,
-        target_name=target_name,
-    )
-
-    frappe.db.commit()
-
-    return {
-        "ok": True,
-        "duplicate": False,
-        "result": result,
     }
