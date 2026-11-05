@@ -5,14 +5,15 @@ from unittest.mock import Mock, patch
 import uuid
 
 import frappe
-from frappe.tests.utils import FrappeTestCase
+from frappe.tests import IntegrationTestCase
 
 from verto.api.mobile import offline
 
 
-class TestOfflineReceiptTransactions(FrappeTestCase):
+class TestOfflineReceiptTransactions(IntegrationTestCase):
     def setUp(self):
         super().setUp()
+        frappe.set_user("Administrator")
         self.operation_id = f"test-offline-{uuid.uuid4().hex}"
         self.result = {"doctype": "Daily Timesheet", "name": "TS-OFFLINE-TEST", "route": "/shifts"}
 
