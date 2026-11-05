@@ -134,10 +134,11 @@ class TestJhaPhotoImport(IntegrationTestCase):
         self.assertEqual(tools._state(self.jha)["paper_jha"]["source"], reading["name"])
 
     def test_photo_provenance_is_not_forged_through_document_api_and_changes_keep_original_source(self):
-        self.jha.photo_import = "FORGED"
+        reading = self.read()
+        self.jha.photo_import = reading["name"]
         with self.assertRaises(frappe.PermissionError): self.jha.save(ignore_permissions=True)
         self.jha.reload()
-        reading = self.read(); self.confirm(reading); self.jha.reload()
+        self.confirm(reading); self.jha.reload()
         self.jha.jha_status = "Ready for Team Review"; self.jha.save()
         revision = changes.begin_jha_change(self.jha.name, confirmation=1)
         self.assertFalse(revision["photo_import"])

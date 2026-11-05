@@ -3,7 +3,7 @@ from frappe import _
 from frappe.model.document import Document
 
 
-class JhaPhotoImport(Document):
+class JHAPhotoImport(Document):
     def validate(self):
         if not self.flags.get("allow_jha_photo_mutation"):
             frappe.throw(_("Use the paper JHA import workflow."), frappe.PermissionError)
