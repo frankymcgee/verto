@@ -69,7 +69,7 @@ def evidence_file(jha, url, *, photo=False):
         from io import BytesIO
         from PIL import Image, UnidentifiedImageError
         try:
-            content = file.get_content()
+            content = file.get_content(encodings=[])
             if not isinstance(content, bytes) or len(content) > 10 * 1024 * 1024:
                 raise ValueError
             with Image.open(BytesIO(content)) as image:

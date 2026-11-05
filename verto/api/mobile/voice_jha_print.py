@@ -62,7 +62,7 @@ def _print_logo(value):
         return ""
     try:
         file = frappe.get_doc("File", name)
-        with Image.open(BytesIO(file.get_content())) as original:
+        with Image.open(BytesIO(file.get_content(encodings=[]))) as original:
             if original.width * original.height > 20_000_000:
                 return ""
             image = ImageOps.exif_transpose(original).convert("RGBA")
@@ -122,7 +122,7 @@ def jha_print_resources(doc):
             continue
         try:
             file = evidence_file(doc, row["evidence"], photo=True)
-            with Image.open(BytesIO(file.get_content())) as original:
+            with Image.open(BytesIO(file.get_content(encodings=[]))) as original:
                 image = ImageOps.exif_transpose(original).convert("RGB")
                 image.thumbnail((500, 300))
                 output = BytesIO(); image.save(output, format="JPEG", quality=80)

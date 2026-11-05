@@ -111,7 +111,7 @@ class TestJhaPhotoImport(IntegrationTestCase):
         frappe.db.set_value("File", self.file.name, "attached_to_name", "OTHER-JHA")
         with self.assertRaises(frappe.PermissionError): self.read()
         frappe.db.set_value("File", self.file.name, "attached_to_name", original)
-        with patch.object(photos, "evidence_file", return_value=frappe._dict(get_content=lambda: b"not an image")):
+        with patch.object(photos, "evidence_file", return_value=frappe._dict(get_content=lambda **kwargs: b"not an image")):
             with self.assertRaises((OSError, ValueError)): photos._pages(self.jha, [self.file.file_url])
         self.infer.assert_not_called()
 

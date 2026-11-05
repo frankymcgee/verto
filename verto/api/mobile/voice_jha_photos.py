@@ -76,7 +76,7 @@ def _pages(jha, value):
     hashes = set()
     for url in urls:
         file = evidence_file(jha, url, photo=True)
-        raw = file.get_content()
+        raw = file.get_content(encodings=[])
         total += len(raw)
         if total > MAX_TOTAL_BYTES:
             frappe.throw(_("The JHA page photos must total no more than 30 MB."), frappe.ValidationError)
@@ -251,6 +251,8 @@ PAPER JHA REVIEW — adapt the normal discussion to the team's existing handwrit
 - Current persisted JHA steps, hazards and facilitation progress take precedence over the
   original paper reading. On reconnect use get_current_jha_state; do not restore superseded
   paper text or repeat clarification the team has already resolved.
+- Before correcting an imported step or hazard, read get_current_jha_state and reuse its
+  saved identifiers. Do not create duplicate rows for the paper hazards already recorded.
 - For each current step, use find_relevant_incidents with its activity and recorded hazard/
   control exposures. Explain returned incidents and recorded actions, discuss applicability,
   challenge control gaps and confirm additions with the team before recording them.
