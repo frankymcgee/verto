@@ -51,6 +51,10 @@ class DailyTimesheet(Document):
                     "Please contact the office for a shift allocation."
                 )
 
+    def before_save(self):
+        if self.is_new():
+            prevent_duplicate_daily_timesheet(self)
+
     def on_update(self):
         """Enqueue background job AFTER COMMIT so the Daily Timesheet doc exists."""
         payload = self.as_dict()
@@ -149,24 +153,9 @@ def process_timesheet(doc: dict):
         if doc.get("project_id"):
             filters["parent_project"] = doc.get("project_id")
 
-        # --- Find existing weekly Timesheet for this project/employee/week ---
-        existing = frappe.get_all(
-            "Timesheet",
-            filters={
-                # Rule 1: Timesheet.employee_name == DailyTimesheet.current_user
-                "employee_name": doc.get("current_user"),
-
-                # Rule 2: DailyTimesheet.date is between Timesheet.custom_monday_date & custom_sunday_date
-                "custom_monday_date": ("<=", doc.get("date")),
-                "custom_sunday_date": (">=", doc.get("date")),
-
-                # Rule 3: Timesheet.parent_project == DailyTimesheet.project_id
-                "parent_project": doc.get("project_id"),
-            },
-            pluck="name",
-            limit=1,
-        )
-        existing_timesheet = existing[0] if existing else None
+        # Multiple daily saves can enqueue competing jobs before a weekly
+        # Timesheet exists. Keep the employee lock until the worker commits.
+        existing_timesheet = get_weekly_timesheet_for_update(employee, doc)
         ctx["existing_timesheet"] = existing_timesheet
         logger.info("Lookup existing weekly Timesheet (strict rules)", extra=ctx)
 
@@ -197,7 +186,7 @@ def process_timesheet(doc: dict):
 
         # --- Upsert into Timesheet ---
         if existing_timesheet:
-            ts = frappe.get_doc("Timesheet", existing_timesheet)
+            ts = frappe.get_doc("Timesheet", existing_timesheet, for_update=True)
             before_count = len(ts.time_logs or [])
             ts.time_logs = [
                 log
@@ -258,6 +247,47 @@ def process_timesheet(doc: dict):
         except Exception:
             pass
         raise
+
+def prevent_duplicate_daily_timesheet(doc):
+    # Serialise separate operation IDs for the same allocation, including
+    # requests from multiple devices. Locking reads see the latest committed
+    # timesheet even if this transaction already read other form metadata.
+    if doc.get("shift_allocation"):
+        frappe.db.get_value("Shift Assignment", doc.shift_allocation, "name", for_update=True)
+    else:
+        frappe.db.get_value("User", frappe.session.user, "name", for_update=True)
+
+    filters = {
+        "current_user": doc.get("current_user"),
+        "date": doc.get("date"),
+        "shift_allocation": doc.get("shift_allocation") or ["is", "not set"],
+        "docstatus": ["!=", 2],
+    }
+    existing = frappe.db.get_value("Daily Timesheet", filters, "name", for_update=True)
+    if existing:
+        frappe.throw(
+            f"A Daily Timesheet already exists for this person, date and shift ({existing}). "
+            "Open the existing timesheet from Shifts to change the hours.",
+            frappe.ValidationError,
+        )
+
+
+def get_weekly_timesheet_for_update(employee, doc):
+    if employee:
+        frappe.db.get_value("Employee", employee, "name", for_update=True)
+    else:
+        frappe.db.get_value("User", doc.get("owner"), "name", for_update=True)
+
+    # Use a locking read: a prior employee lookup may already have established
+    # a repeatable-read snapshot before another worker committed the new sheet.
+    return frappe.db.get_value("Timesheet", {
+        "employee_name": doc.get("current_user"),
+        "custom_monday_date": ("<=", doc.get("date")),
+        "custom_sunday_date": (">=", doc.get("date")),
+        "parent_project": doc.get("project_id"),
+        "docstatus": ("!=", 2),
+    }, "name", for_update=True)
+
 
 def reorder_time_logs(ts):
     """Ensure time_logs flow Monday → Sunday, sorted by start time"""

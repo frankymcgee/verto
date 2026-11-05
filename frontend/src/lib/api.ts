@@ -3,8 +3,11 @@ import {
   getCachedApiResponse,
   getCachedShiftForDate,
   getOfflineQueueItems,
+  getOfflineQueueItem,
   isOfflineSyncAuthError,
   isRetryableOfflineSyncError,
+  makeOfflineAttachment,
+  mergePendingTimesheets,
   queueMobileDocumentAction,
   syncOfflineQueueItem,
 } from '../pwa/offlineQueue'
@@ -448,6 +451,11 @@ function valuesWithOfflineActor(values: Record<string, any>) {
 }
 
 async function queueOfflineWrite<T>(url: string, options: RequestInit): Promise<T | null> {
+  const attachments = options.body instanceof FormData
+    ? options.body.getAll('attachments').filter((file): file is File => file instanceof Blob)
+      .map((file) => makeOfflineAttachment(file))
+    : []
+  const operationId = getFormValue(options.body, 'operation_id') || undefined
   if (url.includes('/api/method/verto.api.mobile.documents.create_mobile_doc')) {
     const mobileDoctype = getFormValue(options.body, 'mobile_doctype')
     const values = valuesWithOfflineActor(parseValues(options.body))
@@ -455,6 +463,8 @@ async function queueOfflineWrite<T>(url: string, options: RequestInit): Promise<
       actionType: 'create',
       mobileDoctype,
       values,
+      operationId,
+      attachments,
     })
 
     return {
@@ -477,6 +487,8 @@ async function queueOfflineWrite<T>(url: string, options: RequestInit): Promise<
       mobileDoctype,
       docname,
       values,
+      operationId,
+      attachments,
     })
 
     return {
@@ -532,7 +544,7 @@ async function submitDurableMobileDocumentWrite<T>(url: string, options: Request
     // An ambiguous network/server outage keeps the operation in IndexedDB and
     // returns the normal queued response. The idempotency receipt makes a later
     // replay safe even if the server accepted the first attempt.
-    if (isRetryableOfflineSyncError(error)) {
+    if (isRetryableOfflineSyncError(error) || (await getOfflineQueueItem(operationId))?.server_result) {
       return queuedResponse
     }
 
@@ -606,6 +618,14 @@ async function performApiRequest<T>(url: string, options: RequestInit): Promise<
 
     if (cacheableRead && cacheKey) {
       void cacheApiResponse(cacheKey, result, 'api-request')
+    }
+
+    if (url.includes('/api/method/verto.api.mobile.shifts.get_shift_calendar') && (result as any)?.message) {
+      const params = new URL(url, window.location.origin).searchParams
+      const payload = (result as any).message
+      return { ...result, message: { ...payload, timesheets: await mergePendingTimesheets(
+        payload.timesheets || [], params.get('start_date') || '', params.get('end_date') || '', payload.user || getOfflineActor()
+      ) } } as T
     }
 
     return result

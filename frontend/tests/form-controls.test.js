@@ -14,6 +14,7 @@ vi.mock('vue-router', () => ({
 vi.mock('../src/lib/api', () => ({ apiRequest: mocked.api }))
 vi.mock('../src/lib/diagnostics', () => ({ reportClientError: vi.fn() }))
 vi.mock('../src/pwa/offlineQueue', () => ({
+  createOfflineId: () => crypto.randomUUID(),
   attachFileToDocumentOperation: vi.fn(),
   makeOfflineAttachment: vi.fn(),
 }))
@@ -55,7 +56,7 @@ async function render() {
       }
     if (url.includes('get_prefill_values')) return { message: { values: {} } }
     if (url.includes('create_mobile_doc'))
-      return { message: { doctype: 'Daily Timesheet', name: 'TS-1' } }
+      return { message: { doctype: 'Daily Timesheet', name: 'TS-1', route: '/shifts' } }
     return { message: { values: {} } }
   })
   w = mount(NewDocument, { attachTo: document.body })
@@ -66,6 +67,7 @@ afterEach(() => {
   w?.unmount()
   document.body.innerHTML = ''
   localStorage.clear()
+  sessionStorage.clear()
   vi.clearAllMocks()
 })
 describe('Dynamic mobile forms', () => {
@@ -100,5 +102,31 @@ describe('Dynamic mobile forms', () => {
       shift: 'NS',
       approved: true,
     })
+  })
+
+  it('ignores a second submit while the first is still saving', async () => {
+    await render()
+    let resolve
+    mocked.api.mockImplementationOnce(() => new Promise(done => { resolve = done }))
+    await w.find('form').trigger('submit')
+    await w.find('form').trigger('submit')
+    expect(mocked.api.mock.calls.filter(([url]) => url.includes('create_mobile_doc'))).toHaveLength(1)
+    resolve({ message: { doctype: 'Daily Timesheet', name: 'TS-1', route: '/shifts' } })
+    await flushPromises()
+  })
+
+  it('restores the same submission ID after a failed save and page reload', async () => {
+    await render()
+    mocked.api.mockRejectedValueOnce(new Error('Could not save'))
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    const first = mocked.api.mock.calls.find(([url]) => url.includes('create_mobile_doc'))[1].body.get('operation_id')
+    w.unmount()
+    await render()
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    const requests = mocked.api.mock.calls.filter(([url]) => url.includes('create_mobile_doc'))
+    expect(requests[1][1].body.get('operation_id')).toBe(first)
+    expect(first).toBeTruthy()
   })
 })

@@ -393,12 +393,7 @@ import {
   Textarea,
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
-import { withCsrfHeaders } from '../lib/csrf'
-import { reportClientError } from '../lib/diagnostics'
-import {
-  attachFileToDocumentOperation,
-  makeOfflineAttachment,
-} from '../pwa/offlineQueue'
+import { createOfflineId } from '../pwa/offlineQueue'
 import {
   evaluateDependsOn,
   evaluateMandatoryDependsOn,
@@ -481,6 +476,7 @@ const route = useRoute()
 const router = useRouter()
 
 const loading = ref(true)
+let submissionOperationId = createOfflineId('document')
 const saving = ref(false)
 const saved = ref(false)
 const error = ref('')
@@ -1149,115 +1145,14 @@ async function loadEditDocument() {
   }
 }
 
-async function uploadFiles(
-  doctype: string,
-  targetDocname: string,
-  offlineOperationId?: string
-) {
-  for (const file of files.value) {
-    if (offlineOperationId) {
-      await attachFileToDocumentOperation(
-        offlineOperationId,
-        makeOfflineAttachment(file)
-      )
-      continue
-    }
-
-    const formData = new FormData()
-
-    // Supplying the filename explicitly is important on iOS Safari. Without the
-    // third argument, some multipart requests arrive in Frappe as an unnamed
-    // blob, leaving the File document with neither file_name nor file_url.
-    formData.append('file', file, file.name)
-    formData.append('file_name', file.name)
-    formData.append('doctype', doctype)
-    formData.append('docname', targetDocname)
-    formData.append('is_private', '1')
-
-    // Keep attachment metadata in the URL as well as the multipart body. Some
-    // iOS service-worker versions forward the file but drop multipart text parts.
-    const uploadParams = new URLSearchParams({
-      doctype,
-      docname: targetDocname,
-      file_name: file.name,
-      is_private: '1',
-    })
-
-    let response: Response
-    try {
-      response = await fetch(`/api/method/verto.api.mobile.documents.upload_mobile_attachment?${uploadParams}`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: withCsrfHeaders(undefined, 'POST'),
-        body: formData,
-      })
-    } catch (error) {
-      void reportClientError({
-        message: error instanceof Error ? error.message : 'Photo upload network failure',
-        stack: error instanceof Error ? error.stack : '',
-        source: 'form.photo_upload.network',
-        details: {
-          doctype,
-          docname: targetDocname,
-          file_name: file.name,
-          file_type: file.type,
-          file_size: file.size,
-        },
-      })
-      throw error
-    }
-
-    if (response.status === 401 || response.status === 403) {
-      window.location.href = `/login?redirect-to=${encodeURIComponent(window.location.pathname + window.location.search)}`
-      throw new Error('Login required')
-    }
-
-    if (!response.ok) {
-      const serverResponse = await response.text().catch(() => '')
-      void reportClientError({
-        message: `Failed to upload ${file.name}`,
-        source: 'form.photo_upload',
-        details: {
-          doctype,
-          docname: targetDocname,
-          file_name: file.name,
-          file_type: file.type,
-          file_size: file.size,
-          status: response.status,
-          status_text: response.statusText,
-          server_response: serverResponse,
-        },
-      })
-      throw new Error(
-        serverResponse
-          ? `Failed to upload ${file.name}: ${serverResponse.slice(0, 500)}`
-          : `Failed to upload ${file.name} (${response.status})`
-      )
-    }
-  }
-}
-
-async function queuePhotoAnalysis(doctype: string, targetDocname: string) {
-  const payload = new FormData()
-  payload.append('doctype', doctype)
-  payload.append('docname', targetDocname)
-
-  try {
-    await apiRequest(
-      '/api/method/verto.api.mobile.ai_photo_analysis.queue_submitted_form_review',
-      { method: 'POST', body: payload }
-    )
-  } catch (err) {
-    console.error('[Verto AI photo analysis] Could not queue review', err)
-  }
-}
-
 async function saveDocument() {
   const payload = new FormData()
 
   payload.append('mobile_doctype', mobileDoctype)
   payload.append('docname', docname)
   payload.append('values', JSON.stringify(getVisibleValues()))
+  payload.append('operation_id', submissionOperationId)
+  for (const file of files.value) payload.append('attachments', file, file.name)
 
   const data = await apiRequest<FrappeResponse<UpdateDocumentPayload>>(
     '/api/method/verto.api.mobile.documents.update_mobile_doc',
@@ -1280,6 +1175,7 @@ async function saveDocument() {
 }
 
 async function saveForm() {
+  if (saving.value || saved.value) return
   if (!canWrite.value) {
     error.value = 'You do not have permission to save this document.'
     return
@@ -1303,18 +1199,6 @@ async function saveForm() {
     const savedDocument = await saveDocument()
     if (schema.value?.doctype === 'Daily Timesheet' && !savedDocument.offline_operation_id) {
       window.dispatchEvent(new Event('verto:timesheet-saved'))
-    }
-
-    if (schema.value?.doctype && files.value.length) {
-      await uploadFiles(
-        schema.value.doctype,
-        docname,
-        savedDocument.offline_operation_id
-      )
-
-      if (!savedDocument.offline_operation_id) {
-        await queuePhotoAnalysis(schema.value.doctype, docname)
-      }
     }
 
     files.value = []
