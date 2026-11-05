@@ -1369,22 +1369,27 @@ function formatDate(value?: string) {
   return `${day}${suffix} ${month} ${year}`
 }
 
-function formatTime(value?: string) {
-  if (!value) {
+function formatTime(value: unknown) {
+  let hours: number
+  let minutes: number
+
+  // Frappe serialises database Time/timedelta values as seconds since midnight.
+  // Cached responses and other database drivers can also supply clock strings.
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0 || value >= 86400) return ''
+    hours = Math.floor(value / 3600)
+    minutes = Math.floor(value / 60) % 60
+  } else if (typeof value === 'string') {
+    const match = /^(\d{1,2}):([0-5]\d)(?::[0-5]\d(?:\.\d+)?)?$/.exec(value.trim())
+    if (!match || Number(match[1]) > 23) return ''
+    hours = Number(match[1])
+    minutes = Number(match[2])
+  } else {
     return ''
   }
 
-  const [rawHours, rawMinutes = '00'] = value.split(':')
-  let hours = Number(rawHours)
-
-  if (!Number.isFinite(hours)) {
-    return value
-  }
-
   const ampm = hours >= 12 ? 'pm' : 'am'
-  hours = hours % 12 || 12
-
-  return `${hours}:${rawMinutes}${ampm}`
+  return `${hours % 12 || 12}:${String(minutes).padStart(2, '0')}${ampm}`
 }
 
 function getPriorityColor(priority?: string) {

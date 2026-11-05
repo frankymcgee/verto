@@ -179,6 +179,10 @@ jobs:
         run: |
           bench build --app verto
 
+      - name: Verify mobile form location expansion
+        working-directory: /home/runner/frappe-bench/apps/verto/frontend
+        run: yarn test:ui tests/home-location.test.js
+
       - name: Verify reusable public Web Form attachments
         working-directory: /home/runner/frappe-bench
         env:
