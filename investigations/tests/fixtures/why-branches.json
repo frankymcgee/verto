@@ -1,0 +1,11 @@
+[
+  { "entry_id": "W-ff0000000001", "description": "Motor was not secured to the forklift backboard.", "finding_status": "Supported" },
+  { "entry_id": "W-110000000002", "description": "The pre-task review did not identify the lifting risk.", "finding_status": "Hypothesis" },
+  { "entry_id": "W-aa0000000003", "description": "The load was turned before it was lowered.", "finding_status": "Supported" },
+  { "entry_id": "W-220000000004", "parent_id": "W-aa0000000003", "description": "The operator could not see the spotter.", "finding_status": "Supported" },
+  { "entry_id": "W-cc0000000005", "parent_id": "W-ff0000000001", "description": "The work instruction did not specify a restraint.", "finding_status": "Supported" },
+  { "entry_id": "W-bb0000000006", "parent_id": "W-110000000002", "description": "The task was treated as a routine lift.", "finding_status": "Hypothesis" },
+  { "entry_id": "W-000000000007", "parent_id": "W-cc0000000005", "description": "The procedure review did not include this task.", "finding_status": "Supported", "is_root_cause": 1, "root_cause_reason": "The procedure scope confirms the omission." },
+  { "entry_id": "W-dd0000000008", "parent_id": "W-220000000004", "description": "The communication plan was incomplete.", "finding_status": "Supported", "is_root_cause": 1, "root_cause_reason": "The approved plan contains no spotter communication protocol." },
+  { "entry_id": "W-990000000009", "parent_id": "W-bb0000000006", "description": "The planning process had no lift-classification check.", "finding_status": "Hypothesis", "is_root_cause": 1, "root_cause_reason": "Confirm the planning process against the work pack." }
+]

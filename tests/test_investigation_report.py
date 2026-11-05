@@ -1,6 +1,8 @@
 """Exercise real PDF output, evidence bytes and diagram pagination without Frappe."""
 
 from io import BytesIO
+import json
+from pathlib import Path
 import unittest
 from unittest.mock import patch
 
@@ -9,9 +11,14 @@ from PIL import Image
 from pypdf import PdfReader, PdfWriter
 from reportlab.pdfgen.canvas import Canvas
 
-from verto.safety.investigation_report import ReportLimitError, build_report
+from verto.safety.investigation_report import ReportLimitError, _diagram_pdf, _diagram_sheets, _styles, build_report
 from verto.safety.investigation_rules import ICAM_CATEGORIES, validate_structure
 from verto.safety.investigation_workflow import diagram, event_time_key, event_type, ordered_timeline
+
+
+def why_branches():
+    fixture = Path(__file__).resolve().parents[1] / "investigations/tests/fixtures/why-branches.json"
+    return json.loads(fixture.read_text())
 
 
 def sample():
@@ -103,8 +110,94 @@ class TestInvestigationReport(unittest.TestCase):
             with self.assertRaises(ReportLimitError):
                 build_report(sample(), [{"file_name": "big.bin", "content": b"1234"}])
 
+    def test_why_maps_keep_chains_vertical_and_cross_sheet_links_traceable(self):
+        data = sample()
+        data["five_whys"] = why_branches()
+        graph = diagram(data, "whys")
+        sheets = _diagram_sheets(graph, "whys")
+        locations = {node["id"]: index for index, sheet in enumerate(sheets) for node in sheet["nodes"]}
+        reader = PdfReader(BytesIO(_diagram_pdf(data, "whys", _styles())))
+        self.assertEqual(len(reader.pages), len(sheets))
+        self.assertEqual(set(locations), {node["id"] for node in graph["nodes"]})
+        for edge in graph["edges"]:
+            source, target = locations[edge["from"]], locations[edge["to"]]
+            if source == target:
+                sheet = sheets[source]
+                ax, ay = sheet["points"][edge["from"]]
+                bx, by = sheet["points"][edge["to"]]
+                if edge["from"] != "incident":
+                    self.assertEqual(ax, bx)
+                self.assertGreater(ay, by + sheet["h"])
+            else:
+                self.assertIn(f"{edge['to']} (map {target + 1})", reader.pages[source].extract_text())
+                self.assertIn(f"{edge['from']} (map {source + 1})", reader.pages[target].extract_text())
+        self.assertIn("Why 3 - Root cause", "\n".join(page.extract_text() for page in reader.pages))
+
+    def test_wide_forked_why_maps_keep_every_bubble_inside_a_readable_sheet(self):
+        data = sample()
+        data["five_whys"] = why_branches() + [
+            {"entry_id": f"W-extra-{index}", "parent_id": "W-cc0000000005", "is_root_cause": 1}
+            for index in range(9)
+        ]
+        graph = diagram(data, "whys")
+        sheets = _diagram_sheets(graph, "whys")
+        self.assertEqual(sum(len(sheet["nodes"]) for sheet in sheets), len(graph["nodes"]))
+        for sheet in sheets:
+            self.assertGreater(sheet["w"], 180)
+            for entry, (x, y) in sheet["points"].items():
+                self.assertGreaterEqual(x, 36)
+                self.assertLessEqual(x + sheet["w"], 806)
+                self.assertGreater(y, 40)
+                self.assertLess(y + sheet["h"], 490)
+                for other, (ox, oy) in sheet["points"].items():
+                    if entry != other:
+                        self.assertTrue(x + sheet["w"] <= ox or ox + sheet["w"] <= x or
+                            y + sheet["h"] <= oy or oy + sheet["h"] <= y)
+        reader = PdfReader(BytesIO(_diagram_pdf(data, "whys", _styles())))
+        value = "\n".join(page.extract_text() for page in reader.pages)
+        for row in data["five_whys"]:
+            self.assertIn(row["entry_id"], value)
+
 
 class TestInvestigationWorkflow(unittest.TestCase):
+    def test_interleaved_why_rows_follow_their_parent_branch_instead_of_ids(self):
+        data = sample()
+        data["five_whys"] = why_branches()
+        graph = diagram(data, "whys")
+        nodes = {node["id"]: node for node in graph["nodes"]}
+        roots = [nodes[row["entry_id"]] for row in data["five_whys"] if not row.get("parent_id")]
+        self.assertEqual(len({node["depth"] for node in roots}), 1)
+        self.assertLess(roots[0]["column"], roots[1]["column"])
+        self.assertLess(roots[1]["column"], roots[2]["column"])
+        for row in data["five_whys"]:
+            if row.get("parent_id"):
+                parent, node = nodes[row["parent_id"]], nodes[row["entry_id"]]
+                self.assertEqual(parent["column"], node["column"])
+                self.assertEqual(parent["depth"] + 1, node["depth"])
+        data["five_whys"][3:] = reversed(data["five_whys"][3:])
+        for node in diagram(data, "whys")["nodes"]:
+            self.assertEqual((node["column"], node["depth"]), (nodes[node["id"]]["column"], nodes[node["id"]]["depth"]))
+
+    def test_forks_stay_with_their_own_subtree_and_invalid_rows_do_not_disappear(self):
+        data = sample()
+        data["five_whys"] = why_branches() + [
+            {"entry_id": "W-fork", "parent_id": "W-cc0000000005"},
+            {"entry_id": "W-deep", "parent_id": "W-fork", "is_root_cause": 1},
+        ]
+        nodes = {node["id"]: node for node in diagram(data, "whys")["nodes"]}
+        parent, left, right = (nodes[entry] for entry in ("W-cc0000000005", "W-000000000007", "W-fork"))
+        self.assertLess(left["column"], parent["column"])
+        self.assertLess(parent["column"], right["column"])
+        self.assertLess(right["column"], nodes["W-110000000002"]["column"])
+        self.assertEqual(right["column"], nodes["W-deep"]["column"])
+        data["five_whys"] = [
+            {"entry_id": "orphan", "parent_id": "missing"},
+            {"entry_id": "cycle-a", "parent_id": "cycle-b"},
+            {"entry_id": "cycle-b", "parent_id": "cycle-a"},
+            {"entry_id": "self", "parent_id": "self"},
+        ]
+        self.assertEqual(len(diagram(data, "whys")["nodes"]), 5)
+
     def test_timeline_is_horizontal_and_chronological_independent_of_type_or_saved_coordinates(self):
         data = sample()
         data["timeline"] = [

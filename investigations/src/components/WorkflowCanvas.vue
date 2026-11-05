@@ -39,7 +39,7 @@
           :style="{ width: `${width}px`, height: `${height}px`, transform: `scale(${zoom})` }"
         >
           <div
-            v-for="(lane, index) in mode === 'timeline' ? [] : graph.lanes"
+            v-for="(lane, index) in mode === 'icam' ? graph.lanes : []"
             :key="index"
             class="workflow-lane"
             :style="{ left: `${28 + index * 310}px` }"
@@ -130,10 +130,14 @@
       Dashed arrows show time sequence.
     </p>
     <p v-else class="workflow-caption">
+      <template v-if="mode === 'whys'">
+        Causal branches run across the page. Follow each branch downward through the whys
+        to its root cause.
+      </template>
       Select a bubble to view or edit it.
       {{ editable ? 'Drag bubbles to arrange them. ' : '' }}Scroll or drag the background to
       explore. Dashed connectors show
-      {{ mode === 'timeline' ? 'time sequence' : 'unconfirmed findings' }}.
+      unconfirmed findings.
     </p>
   </div>
 </template>
@@ -168,28 +172,43 @@ const height = computed(() =>
 )
 watch(
   () => {
-    if (props.mode !== 'timeline') return ''
+    if (!['timeline', 'whys'].includes(props.mode)) return ''
     const node = props.graph.nodes.find((node) => node.id === props.selectedId)
-    return `${props.selectedId}:${node?.x}:${zoom.value}`
+    return `${props.selectedId}:${node?.x}:${node?.y}:${zoom.value}`
   },
   async () => {
     await nextTick()
     const node = props.graph.nodes.find((node) => node.id === props.selectedId)
     const view = viewport.value
-    if (props.mode !== 'timeline' || !node || !view?.clientWidth) return
+    if (!['timeline', 'whys'].includes(props.mode) || !node || !view?.clientWidth) return
     const left = node.x * zoom.value,
       right = (node.x + nodeWidth) * zoom.value
-    // A time edit can move the selected event to the opposite end. Reveal it
-    // horizontally without scrolling the page or stealing focus from its editor.
+    // Reveal events after time edits and deeper whys after adding a child,
+    // without scrolling the page or stealing focus from the editor.
     if (left < view.scrollLeft + 12) view.scrollLeft = Math.max(0, left - 20)
     else if (right > view.scrollLeft + view.clientWidth - 12)
       view.scrollLeft = right - view.clientWidth + 20
+    if (props.mode === 'whys' && view.clientHeight) {
+      const top = node.y * zoom.value,
+        bottom = (node.y + nodeHeight) * zoom.value
+      if (top < view.scrollTop + 12) view.scrollTop = Math.max(0, top - 20)
+      else if (bottom > view.scrollTop + view.clientHeight - 12)
+        view.scrollTop = bottom - view.clientHeight + 20
+    }
   },
   { immediate: true },
 )
 function edgePath(edge) {
   const a = position(props.graph.nodes.find((node) => node.id === edge.from)),
     b = position(props.graph.nodes.find((node) => node.id === edge.to))
+  if (props.mode === 'whys') {
+    const ax = a.x + nodeWidth / 2,
+      ay = a.y + nodeHeight,
+      bx = b.x + nodeWidth / 2,
+      by = b.y,
+      mid = (ay + by) / 2
+    return `M ${ax} ${ay} C ${ax} ${mid}, ${bx} ${mid}, ${bx} ${by}`
+  }
   const right = b.x >= a.x,
     ax = a.x + (right ? nodeWidth : 0),
     bx = b.x + (right ? 0 : nodeWidth),
@@ -270,7 +289,9 @@ function select(node) {
   emit('select', node.id)
 }
 function fit() {
-  zoom.value = Math.min(1, Math.max(0.35, (viewport.value?.clientWidth || 900) / width.value))
+  const across = (viewport.value?.clientWidth || 900) / width.value,
+    down = props.mode === 'whys' ? (viewport.value?.clientHeight || 480) / height.value : 1
+  zoom.value = Math.min(1, Math.max(0.35, Math.min(across, down)))
 }
 </script>
 <style scoped>

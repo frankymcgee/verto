@@ -64,6 +64,41 @@ export function eventType(row, doc) {
       : eventTypes[0]
 }
 
+function whyLayout(rows) {
+  const byId = new Map(rows.map((row) => [row.entry_id, row])),
+    children = new Map(),
+    visited = new Set(),
+    positions = new Map()
+  for (const row of rows) {
+    if (!children.has(row.parent_id)) children.set(row.parent_id, [])
+    children.get(row.parent_id).push(row)
+  }
+  const visit = (row) => {
+    if (visited.has(row.entry_id)) return null
+    visited.add(row.entry_id)
+    const branches = (children.get(row.entry_id) || []).map(visit).filter(Boolean)
+    return { row, branches, span: Math.max(1, branches.reduce((n, branch) => n + branch.span, 0)) }
+  }
+  // Keep entry order between siblings, but reserve a contiguous span for each
+  // entire subtree. IDs and interleaved rows never decide a descendant's column.
+  const roots = rows.filter((row) => !byId.has(row.parent_id)).map(visit).filter(Boolean)
+  // Invalid, unsaved cycles still need selectable bubbles; saving validates them.
+  for (const row of rows) if (!visited.has(row.entry_id)) roots.push(visit(row))
+  const place = (branch, left, depth) => {
+    positions.set(branch.row.entry_id, { column: left + (branch.span - 1) / 2, depth })
+    for (const child of branch.branches) {
+      place(child, left, depth + 1)
+      left += child.span
+    }
+  }
+  let columns = 0
+  for (const root of roots) {
+    place(root, columns, 1)
+    columns += root.span
+  }
+  return { positions, columns: Math.max(1, columns) }
+}
+
 // The graph is a view of the investigation rows. Moving or linking a bubble
 // edits those rows, so there is no second copy of the findings to get out of sync.
 export function investigationGraph(doc, mode) {
@@ -73,7 +108,7 @@ export function investigationGraph(doc, mode) {
   const add = (row, lane, kind, title, table) => {
     const index = counts.get(lane) || 0
     counts.set(lane, index + 1)
-    nodes.push({
+    const node = {
       id: row.entry_id,
       row,
       table,
@@ -85,7 +120,9 @@ export function investigationGraph(doc, mode) {
       evidence: refs(row.evidence_refs),
       x: Number(row.graph_x) > 0 ? Number(row.graph_x) : 28 + lane * 310,
       y: Number(row.graph_y) > 0 ? Number(row.graph_y) : 64 + index * 204,
-    })
+    }
+    nodes.push(node)
+    return node
   }
   const incident = (lane) =>
     add(
@@ -140,32 +177,32 @@ export function investigationGraph(doc, mode) {
         })
     })
   } else if (mode === 'whys') {
-    lanes = ['Actual event', 'Direct factors', 'Contributing factors']
-    incident(0)
     const rows = doc.five_whys || [],
-      byId = new Map(rows.map((row) => [row.entry_id, row]))
+      layout = whyLayout(rows),
+      start = incident(0)
+    lanes = []
+    start.column = (layout.columns - 1) / 2
+    start.depth = 0
+    start.x = 28 + start.column * (nodeWidth + 80)
+    start.y = 48
     for (const row of rows) {
-      let depth = 1,
-        parent = byId.get(row.parent_id),
-        seen = new Set([row.entry_id])
-      while (parent && !seen.has(parent.entry_id)) {
-        seen.add(parent.entry_id)
-        depth++
-        parent = byId.get(parent.parent_id)
-      }
-      while (lanes.length <= depth) lanes.push(`Why ${lanes.length}`)
+      const { column, depth } = layout.positions.get(row.entry_id)
       const kind = row.is_root_cause
         ? 'Root cause'
         : depth === 1
           ? 'Direct factor'
           : 'Contributing factor'
-      add(
+      const node = add(
         row,
         depth,
         kind,
         `Why ${depth}${row.is_root_cause ? ' · Root cause' : ''}`,
         'five_whys',
       )
+      node.column = column
+      node.depth = depth
+      node.x = Number(row.graph_x) > 0 ? Number(row.graph_x) : 28 + column * (nodeWidth + 80)
+      node.y = Number(row.graph_y) > 0 ? Number(row.graph_y) : 48 + depth * (nodeHeight + 72)
       edges.push({
         from: row.parent_id || 'incident',
         to: row.entry_id,

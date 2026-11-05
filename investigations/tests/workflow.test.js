@@ -5,10 +5,13 @@ import {
   eventTimeKey,
   eventType,
   investigationGraph,
+  nodeHeight,
+  nodeWidth,
   orderedTimeline,
   whyParents,
 } from '../src/workflow'
 import WorkflowCanvas from '../src/components/WorkflowCanvas.vue'
+import whyBranches from './fixtures/why-branches.json'
 
 function record() {
   return {
@@ -123,6 +126,69 @@ describe('investigation workflow', () => {
     expect(graph.nodes.find((node) => node.id === 'W-b').kind).toBe('Root cause')
     expect(whyParents(doc.five_whys, 'W-a').map((row) => row.entry_id)).toEqual(['W-c'])
   })
+  it('keeps interleaved why chains below their own branch instead of sorting IDs', () => {
+    const doc = { ...record(), five_whys: structuredClone(whyBranches) }
+    const graph = investigationGraph(doc, 'whys'),
+      byId = new Map(graph.nodes.map((node) => [node.id, node])),
+      roots = doc.five_whys.filter((row) => !row.parent_id).map((row) => byId.get(row.entry_id))
+    expect(new Set(roots.map((node) => node.y)).size).toBe(1)
+    expect(roots[0].x + nodeWidth).toBeLessThan(roots[1].x)
+    expect(roots[1].x + nodeWidth).toBeLessThan(roots[2].x)
+    for (const row of doc.five_whys.filter((row) => row.parent_id)) {
+      const parent = byId.get(row.parent_id), node = byId.get(row.entry_id)
+      expect(node.x).toBe(parent.x)
+      expect(node.y).toBeGreaterThan(parent.y + nodeHeight)
+      expect(node.title).toContain(`Why ${parent.depth + 1}`)
+    }
+    expect(graph.nodes.filter((node) => node.kind === 'Root cause')).toHaveLength(3)
+    expect(doc.five_whys).toEqual(whyBranches)
+    // Reordering unrelated descendants cannot move them into another branch.
+    doc.five_whys.splice(3, 6, ...doc.five_whys.slice(3).reverse())
+    for (const node of investigationGraph(doc, 'whys').nodes) {
+      expect([node.x, node.y]).toEqual([byId.get(node.id).x, byId.get(node.id).y])
+    }
+  })
+  it('reserves separate subtree spans for forks without crossings or overlapping bubbles', () => {
+    const doc = { ...record(), five_whys: structuredClone(whyBranches) }
+    doc.five_whys.push(
+      { entry_id: 'W-fork', parent_id: 'W-cc0000000005' },
+      { entry_id: 'W-deep', parent_id: 'W-fork', is_root_cause: 1 },
+    )
+    const graph = investigationGraph(doc, 'whys'),
+      byId = new Map(graph.nodes.map((node) => [node.id, node]))
+    const firstBranch = ['W-ff0000000001', 'W-cc0000000005', 'W-000000000007', 'W-fork', 'W-deep']
+    const others = graph.nodes.filter((node) => node.id !== 'incident' && !firstBranch.includes(node.id))
+    expect(Math.max(...firstBranch.map((id) => byId.get(id).x + nodeWidth))).toBeLessThan(
+      Math.min(...others.map((node) => node.x)),
+    )
+    const parent = byId.get('W-cc0000000005')
+    expect(parent.x).toBeGreaterThan(byId.get('W-000000000007').x)
+    expect(parent.x).toBeLessThan(byId.get('W-fork').x)
+    expect(byId.get('W-deep').x).toBe(byId.get('W-fork').x)
+    for (const a of graph.nodes) for (const b of graph.nodes) {
+      if (a.id === b.id) continue
+      expect(a.x + nodeWidth <= b.x || b.x + nodeWidth <= a.x ||
+        a.y + nodeHeight <= b.y || b.y + nodeHeight <= a.y).toBe(true)
+    }
+    const edges = graph.edges.filter((edge) => edge.from !== 'incident')
+    for (const a of edges) for (const b of edges) {
+      const ap = byId.get(a.from), bp = byId.get(b.from)
+      if (ap.depth === bp.depth && ap.x < bp.x)
+        expect(byId.get(a.to).x).toBeLessThan(byId.get(b.to).x)
+    }
+  })
+  it('honours saved manual positions and keeps invalid unsaved branches selectable', () => {
+    const doc = { ...record(), five_whys: [
+      { entry_id: 'W-orphan', parent_id: 'missing', graph_x: 900, graph_y: 750 },
+      { entry_id: 'W-cycle-a', parent_id: 'W-cycle-b' },
+      { entry_id: 'W-cycle-b', parent_id: 'W-cycle-a' },
+      { entry_id: 'W-self', parent_id: 'W-self' },
+    ] }
+    const graph = investigationGraph(doc, 'whys')
+    expect(graph.nodes).toHaveLength(5)
+    expect(graph.nodes.every((node) => Number.isFinite(node.x) && Number.isFinite(node.y))).toBe(true)
+    expect(graph.nodes.find((node) => node.id === 'W-orphan')).toMatchObject({ x: 900, y: 750 })
+  })
   it('renders explicit ICAM links and preserves unconfirmed factor status', () => {
     const doc = record()
     doc.icam_factors = [
@@ -212,6 +278,31 @@ describe('investigation workflow', () => {
     await node.trigger('click')
     expect(wrapper.emitted('select').at(-1)).toEqual(['T-after'])
     expect(wrapper.findAll('.workflow-node-time')).toHaveLength(graph.nodes.length)
+    wrapper.unmount()
+  })
+  it('draws why arrows downward and reveals a newly selected deeper why', async () => {
+    const graph = investigationGraph({ ...record(), five_whys: structuredClone(whyBranches) }, 'whys')
+    const wrapper = mount(WorkflowCanvas, {
+      props: { graph, label: '5 Whys', mode: 'whys', editable: true, selectedId: 'W-ff0000000001' },
+    })
+    const viewport = wrapper.get('.workflow-viewport').element
+    Object.defineProperty(viewport, 'clientWidth', { value: 500 })
+    Object.defineProperty(viewport, 'clientHeight', { value: 480 })
+    const edgeIndex = graph.edges.findIndex((edge) => edge.to === 'W-000000000007'),
+      parent = graph.nodes.find((node) => node.id === 'W-cc0000000005'),
+      child = graph.nodes.find((node) => node.id === 'W-000000000007')
+    const path = wrapper.findAll('.workflow-connectors g > path')[edgeIndex].attributes('d')
+    expect(path).toMatch(new RegExp(`^M ${parent.x + nodeWidth / 2} ${parent.y + nodeHeight} C `))
+    expect(path.endsWith(`${child.x + nodeWidth / 2} ${child.y}`)).toBe(true)
+    await wrapper.setProps({ selectedId: child.id })
+    await flushPromises()
+    expect(viewport.scrollTop).toBeGreaterThan(0)
+    expect(child.y + nodeHeight - viewport.scrollTop).toBeLessThanOrEqual(480)
+    expect(wrapper.get(`[data-node-id="${child.id}"]`).attributes('aria-pressed')).toBe('true')
+    await wrapper.findAll('button').find((button) => button.text() === 'Fit').trigger('click')
+    const sheetHeight = parseFloat(wrapper.get('.workflow-sheet').element.style.height),
+      scale = Number(wrapper.get('.workflow-sheet').element.style.transform.match(/[\d.]+/)[0])
+    expect(sheetHeight * scale).toBeLessThanOrEqual(480)
     wrapper.unmount()
   })
   it('reveals the selected event after a time edit moves it across the timeline', async () => {

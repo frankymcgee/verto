@@ -42,13 +42,49 @@ def event_type(row, doc):
     return "Post event" if moment > incident else "Actual event" if moment == incident else EVENT_TYPES[0]
 
 
+def _why_layout(rows):
+    by_id = {row["entry_id"]: row for row in rows}
+    children, positions, visited = {}, {}, set()
+    for row in rows:
+        children.setdefault(row.get("parent_id"), []).append(row)
+
+    def visit(row):
+        if row["entry_id"] in visited:
+            return None
+        visited.add(row["entry_id"])
+        branches = [branch for child in children.get(row["entry_id"], []) if (branch := visit(child))]
+        return {"row": row, "branches": branches, "span": max(1, sum(branch["span"] for branch in branches))}
+
+    # Match the editor: preserve sibling entry order and keep whole subtrees
+    # together, even when their rows or generated IDs are interleaved.
+    roots = [visit(row) for row in rows if row.get("parent_id") not in by_id]
+    for row in rows:
+        if row["entry_id"] not in visited:
+            roots.append(visit(row))
+
+    def place(branch, left, depth):
+        positions[branch["row"]["entry_id"]] = {"column": left + (branch["span"] - 1) / 2, "depth": depth}
+        for child in branch["branches"]:
+            place(child, left, depth + 1)
+            left += child["span"]
+
+    columns = 0
+    for root in roots:
+        if root:
+            place(root, columns, 1)
+            columns += root["span"]
+    return positions, max(1, columns)
+
+
 def diagram(doc, mode):
     nodes, edges = [], []
 
     def add(row, lane, kind, title):
-        nodes.append({"id": row["entry_id"], "lane": lane, "kind": kind, "title": title,
+        node = {"id": row["entry_id"], "lane": lane, "kind": kind, "title": title,
             "description": text(row.get("description")), "status": row.get("finding_status") or "",
-            "evidence": refs(row.get("evidence_refs")), "time": text(row.get("event_datetime"))})
+            "evidence": refs(row.get("evidence_refs")), "time": text(row.get("event_datetime"))}
+        nodes.append(node)
+        return node
 
     incident = {"entry_id": "incident", "description": doc.get("description") or doc.get("title"),
         "event_datetime": doc.get("incident_datetime")}
@@ -70,19 +106,15 @@ def diagram(doc, mode):
             if not any(refs(row.get("next_events")) or refs(row.get("previous_events")) for row in by_id.values()):
                 edges.append({"from": current["id"], "to": following["id"], "dashed": True})
     elif mode == "whys":
-        lanes = ["Actual event", "Direct factors", "Contributing factors"]
-        add(incident, 0, "Actual event", "Actual event")
-        by_id = {row["entry_id"]: row for row in doc.get("five_whys") or []}
-        for row in by_id.values():
-            depth, parent, seen = 1, by_id.get(row.get("parent_id")), {row["entry_id"]}
-            while parent and parent["entry_id"] not in seen:
-                depth += 1
-                seen.add(parent["entry_id"])
-                parent = by_id.get(parent.get("parent_id"))
-            while len(lanes) <= depth:
-                lanes.append(f"Why {len(lanes)}")
+        lanes = []
+        rows = doc.get("five_whys") or []
+        positions, columns = _why_layout(rows)
+        add(incident, 0, "Actual event", "Actual event").update(column=(columns - 1) / 2, depth=0)
+        for row in rows:
+            position = positions[row["entry_id"]]
+            depth = position["depth"]
             kind = "Root cause" if checked(row.get("is_root_cause")) else "Direct factor" if depth == 1 else "Contributing factor"
-            add(row, depth, kind, f"Why {depth}" + (" - Root cause" if kind == "Root cause" else ""))
+            add(row, depth, kind, f"Why {depth}" + (" - Root cause" if kind == "Root cause" else "")).update(position)
             edges.append({"from": row.get("parent_id") or "incident", "to": row["entry_id"], "dashed": row.get("finding_status") != "Supported"})
     else:
         lanes = list(reversed(ICAM_CATEGORIES)) + ["Actual event"]
