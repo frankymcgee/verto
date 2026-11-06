@@ -1,0 +1,9 @@
+.git
+**/.git
+**/node_modules
+**/__pycache__
+**/.env*
+services/local_voice/voices
+verto/public/verto-mobile/assets
+verto/public/planner/assets
+verto/public/investigations/assets

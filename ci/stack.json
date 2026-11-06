@@ -1,0 +1,33 @@
+{
+  "generation": 1,
+  "python_image": "python:3.14-slim-bookworm",
+  "node_image": "node:24-bookworm-slim",
+  "bench_version": "5.31.1",
+  "apps": [
+    {
+      "name": "frappe",
+      "repository": "frappe/frappe",
+      "ref": "3d1284c5fdb52207a516a49bbf2fd186cb43b3ab"
+    },
+    {
+      "name": "erpnext",
+      "repository": "frappe/erpnext",
+      "ref": "495380b59c8701629f25089bd3807e6ddf7f26c6"
+    },
+    {
+      "name": "hrms",
+      "repository": "frappe/hrms",
+      "ref": "3b7f8f2854a06fb9eb4d2785e20ddaf8ad750980"
+    },
+    {
+      "name": "gameplan",
+      "repository": "frappe/gameplan",
+      "ref": "a3ea329b8e41d71ab62b698aa8f892e4f09fcb5d"
+    },
+    {
+      "name": "raven",
+      "repository": "frappe/raven",
+      "ref": "9b01029a92f790e999aab8973e428601261615d1"
+    }
+  ]
+}
