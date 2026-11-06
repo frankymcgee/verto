@@ -24,6 +24,10 @@ migrates the current code, and runs the complete integration suite in
   manual trigger on these trusted branches.
 
 The first image build is intentionally slower. Later runs pull the prepared image.
+The image retains Frappe/Verto build dependencies, while dropping download caches
+and frontend dependencies for upstream apps that these jobs do not build. The
+published GHCR image is the reusable cache; it is not uploaded a second time to
+the GitHub Actions file cache.
 If it is missing or registry access is unavailable, the test job builds it locally
 and still runs the checks. Pull requests never receive package publishing
 permissions. Workflows use the repository's built-in `GITHUB_TOKEN`, with read

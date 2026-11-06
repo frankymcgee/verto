@@ -71,15 +71,13 @@ jobs:
         with:
           context: .
           file: ci/Dockerfile
-          load: true
+          outputs: type=docker,compression=gzip,compression-level=1
           tags: ${{ steps.settings.outputs.image }}
           build-args: |
             CI_IMAGE_KEY=${{ steps.settings.outputs.key }}
             BENCH_VERSION=${{ steps.settings.outputs.bench }}
             PYTHON_IMAGE=${{ steps.settings.outputs.python }}
             NODE_IMAGE=${{ steps.settings.outputs.node }}
-          cache-from: type=gha,scope=verto-ci-v16
-          cache-to: type=gha,scope=verto-ci-v16,mode=max
       - name: Validate restored-seed integration tests
         env:
           CI_IMAGE: ${{ steps.settings.outputs.image }}

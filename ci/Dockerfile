@@ -35,7 +35,13 @@ USER frappe
 WORKDIR /opt
 RUN python /opt/verto-ci/prepare_bench.py \
     && printf '%s\n' "${CI_IMAGE_KEY}" > /opt/verto-ci/image-key \
-    && bash /opt/verto-ci/seed.sh
+    && bash /opt/verto-ci/seed.sh \
+    && du -sh /opt/frappe-bench \
+    && rm -rf /home/frappe/.cache /home/frappe/.npm \
+    && find /opt/frappe-bench/apps/erpnext /opt/frappe-bench/apps/hrms \
+      /opt/frappe-bench/apps/raven /opt/frappe-bench/apps/gameplan \
+      -type d -name node_modules -prune -exec rm -rf '{}' + \
+    && du -sh /opt/frappe-bench
 USER root
 RUN rm -rf /opt/verto-source /home/frappe/.cache/pip
 USER frappe
