@@ -21,7 +21,7 @@ permissions:
 
 concurrency:
   group: verto-ci-image-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   image:
@@ -65,6 +65,7 @@ jobs:
       - uses: docker/setup-buildx-action@v3
         if: steps.existing.outputs.found != 'true'
       - name: Build the pinned stack and synthetic seed
+        timeout-minutes: 20
         if: steps.existing.outputs.found != 'true'
         uses: docker/build-push-action@v6
         with:
