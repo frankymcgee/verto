@@ -2,24 +2,68 @@ name: Verto v16 CI
 
 on:
   push:
-    branches:
-      - develop
-      - version-16
+    branches: [develop, version-16]
   pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      fresh_install:
+        description: Also validate a completely fresh Verto site
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
 
 concurrency:
   group: verto-v16-${{ github.event.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    name: Select Verto CI checks
+    outputs:
+      integration: ${{ steps.plan.outputs.integration }}
+      fresh: ${{ steps.plan.outputs.fresh }}
+      image: ${{ steps.plan.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select checks and dependency image
+        id: plan
+        shell: bash
+        run: |
+          python ci/plan.py
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}-ci:$(python ci/image_key.py)" >> "$GITHUB_OUTPUT"
+
+  ci-config:
+    runs-on: ubuntu-latest
+    name: CI configuration regressions
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check cache invalidation, event routing and shell syntax
+        run: |
+          python -m unittest discover -s ci/tests -v
+          for script in ci/*.sh; do bash -n "$script"; done
+
   local-voice:
     runs-on: ubuntu-latest
     name: Optional local speech protocol
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: services/local_voice/requirements.txt
       - name: Install isolated speech gateway dependencies
         run: python -m pip install -r services/local_voice/requirements.txt requests
       - name: Verify speech streaming, interruption, tenant isolation and WebRTC
@@ -31,237 +75,70 @@ jobs:
     runs-on: ubuntu-latest
     name: Planner UI regressions
     steps:
-      - name: Checkout Verto
-        uses: actions/checkout@v4
-      - name: Setup Node 24
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: yarn
+          cache-dependency-path: planner/yarn.lock
       - name: Install planner dependencies
         working-directory: planner
         run: |
           npm install --global yarn@1.22.22
-          yarn install --frozen-lockfile
+          yarn install --frozen-lockfile --non-interactive
       - name: Run planner UI regressions
         working-directory: planner
         run: yarn test:ui
-
-      - name: Verify Desk geolocation loading
-        run: node --test tests/geolocation-loading.test.mjs
-
-      - name: Verify public Web Form attachment picker
-        run: node --test tests/web-form-attachments.test.mjs
+      - name: Verify Desk geolocation loading and public attachment picker
+        run: node --test tests/geolocation-loading.test.mjs tests/web-form-attachments.test.mjs
 
   validation:
+    needs: plan
+    if: needs.plan.outputs.integration == 'true'
     runs-on: ubuntu-latest
-    name: Frappe v16 fresh install validation
-
-    services:
-      redis-cache:
-        image: redis:alpine
-        ports:
-          - 13000:6379
-      redis-queue:
-        image: redis:alpine
-        ports:
-          - 11000:6379
-      mariadb:
-        image: mariadb:10.6
-        env:
-          MYSQL_ROOT_PASSWORD: root
-        ports:
-          - 3306:3306
-        options: --health-cmd="mariadb-admin ping -proot" --health-interval=5s --health-timeout=3s --health-retries=10
-
+    name: Frappe v16 integration validation
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
     steps:
-      - name: Checkout Verto
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      - name: Setup Python 3.14
-        uses: actions/setup-python@v5
+          persist-credentials: false
+      - name: Read the prepared image from GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          python-version: '3.14'
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Restore clean seed, migrate current Verto and run all regressions
+        env:
+          CI_IMAGE: ${{ needs.plan.outputs.image }}
+        run: bash ci/use-image.sh "$CI_IMAGE" integration
 
-      - name: Setup Node 24
-        uses: actions/setup-node@v4
+  fresh-install:
+    needs: plan
+    if: needs.plan.outputs.fresh == 'true'
+    runs-on: ubuntu-latest
+    name: Frappe v16 fresh install validation
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
         with:
-          node-version: 24
-          check-latest: true
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y mariadb-client redis-tools
-
-      - name: Install Bench
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install --upgrade frappe-bench
-
-      - name: Initialise Frappe v16 bench
-        run: |
-          bench init \
-            --frappe-branch version-16 \
-            --skip-redis-config-generation \
-            --skip-assets \
-            --python "$(which python)" \
-            ~/frappe-bench
-
-      - name: Fetch Verto dependencies
-        working-directory: /home/runner/frappe-bench
-        run: |
-          bench get-app --branch version-16 erpnext https://github.com/frappe/erpnext.git
-          bench get-app --branch version-16 hrms https://github.com/frappe/hrms.git
-          bench get-app gameplan https://github.com/frappe/gameplan.git
-          bench get-app raven https://github.com/frappe/raven.git
-          bench get-app verto "$GITHUB_WORKSPACE"
-          bench setup requirements --dev
-
-      - name: Create fresh site and install Verto
-        working-directory: /home/runner/frappe-bench
+          submodules: recursive
+          persist-credentials: false
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install current Verto on a blank site using the prepared stack
         env:
-          CI: 'Yes'
-        run: |
-          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
-          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
-          bench new-site \
-            --db-host 127.0.0.1 \
-            --db-port 3306 \
-            --db-root-password root \
-            --admin-password admin \
-            test_site
-          bench --site test_site install-app verto
-          bench --site test_site migrate
-
-      - name: Run planner task, leave and staffing regressions
-        working-directory: /home/runner/frappe-bench
-        env:
-          CI: 'Yes'
-        run: |
-          bench --site test_site run-tests \
-            --app verto \
-            --module verto.api.test_planner \
-            --case TestPlannerAppendGenericTasks \
-            --skip-before-tests
-          bench --site test_site run-tests \
-            --app verto \
-            --module verto.api.test_planner_leave \
-            --skip-before-tests
-          bench --site test_site run-tests \
-            --app verto \
-            --module verto.api.test_planner_staffing \
-            --skip-before-tests
-          bench --site test_site run-tests \
-            --app verto \
-            --module verto.api.test_planner_employee_colours \
-            --skip-before-tests
-          bench --site test_site run-tests \
-            --app verto \
-            --module verto.api.test_planner_shift \
-            --skip-before-tests
-          bench --site test_site run-tests \
-            --app verto \
-            --module verto.api.test_planner_projects \
-            --skip-before-tests
-
-      - name: Verify whiteboard pages and access controls
-        working-directory: /home/runner/frappe-bench
-        env:
-          CI: 'Yes'
-        run: |
-          node --test apps/verto/tests/whiteboard-pages.test.mjs
-          bench --site test_site set-config allow_tests true
-          bench --site test_site run-tests --app verto --module verto.api.test_whiteboard --skip-before-tests
-
-      - name: Build Verto assets
-        working-directory: /home/runner/frappe-bench
-        run: |
-          bench build --app verto
-
-      - name: Verify mobile form location expansion
-        working-directory: /home/runner/frappe-bench/apps/verto/frontend
-        run: yarn test:ui tests/home-location.test.js
-
-      - name: Verify reusable public Web Form attachments
-        working-directory: /home/runner/frappe-bench
-        env:
-          CI: 'Yes'
-        run: |
-          ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_web_form_attachments.py'
-          bench --site test_site run-tests --app verto --module verto.api.test_web_form_attachments --skip-before-tests
-
-      - name: Verify Voice JHA engines and incident learning
-        working-directory: /home/runner/frappe-bench
-        env:
-          CI: 'Yes'
-        run: |
-          ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_jha_risk_signals.py'
-          ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_jha_photo_content.py'
-          ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_inx_import.py'
-          ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_inx_sanitisation.py'
-          node --test apps/verto/tests/inx-import-ui.test.mjs
-          bench --site test_site run-tests --app verto --module verto.api.test_inx_incident_import --skip-before-tests
-          bench --site test_site run-tests --app verto --module verto.api.test_inx_incident_sanitisation --skip-before-tests
-          bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_incidents --skip-before-tests
-          bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_live --skip-before-tests
-          bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_changes --skip-before-tests
-          bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_fieldwork --skip-before-tests
-          bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_workpack --skip-before-tests
-          bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_steps --skip-before-tests
-          bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_email --skip-before-tests
-          bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_print --skip-before-tests
-          bench --site test_site run-tests --app verto --module verto.api.mobile.test_voice_jha_photos --skip-before-tests
-          bench --site test_site run-tests --app verto --module verto.api.mobile.test_qr_scanner --skip-before-tests
-          cd apps/verto/frontend
-          yarn test:ui tests/jha-incident-learning.test.js tests/jha-voice-protocol.test.js tests/jha-voice-engines.test.js tests/jha-voice-panel.test.js tests/jha-fieldwork.test.js tests/jha-workpack-ui.test.js tests/jha-active-step.test.js tests/jha-print-email.test.js tests/jha-offline.test.js tests/offline-payload.test.js tests/qr-links.test.js tests/qr-scanner.test.js tests/jha-photo-import.test.js
-
-      - name: Verify Investigations app, approvals and evidence privacy
-        working-directory: /home/runner/frappe-bench
-        env:
-          CI: 'Yes'
-        run: |
-          ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_investigation_rules.py'
-          ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_investigation_report.py'
-          bench --site test_site run-tests --app verto --module verto.api.test_investigations --skip-before-tests
-          bench --site test_site run-tests --app verto --module verto.test_default_apps --skip-before-tests
-          cd apps/verto/investigations
-          yarn test:ui
-
-      - name: Verify Daily Timesheet reminders and hour-limit alerts
-        working-directory: /home/runner/frappe-bench
-        env:
-          CI: 'Yes'
-        run: |
-          ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_offline_sync.py'
-          bench --site test_site run-tests --app verto --module verto.api.mobile.test_offline_sync --skip-before-tests
-          bench --site test_site run-tests --app verto --module verto.api.mobile.test_timesheet_hour_limits --skip-before-tests
-          bench --site test_site run-tests --app verto --module verto.api.mobile.test_timesheet_reminders --skip-before-tests
-          cd apps/verto/frontend
-          yarn test:ui tests/offline-sync.test.js tests/offline-request-efficiency.test.js tests/offline-payload.test.js tests/form-controls.test.js tests/timesheet-reminders.test.js tests/shift-navigation-performance.test.js
-
-      - name: Verify weekly Timesheet client rejection
-        working-directory: /home/runner/frappe-bench
-        env:
-          CI: 'Yes'
-        run: |
-          bench --site test_site run-tests --app verto --module verto.api.test_timesheet_approval --skip-before-tests
-          cd apps/verto/frontend
-          yarn test:ui tests/weekly-timesheet-approval.test.js
-
-      - name: Verify automated Verto setup
-        working-directory: /home/runner/frappe-bench
-        run: |
-          bench --site test_site execute verto.install.ensure_verto_setup
-          bench --site test_site execute verto.runtime_config.get_push_settings_config
-          bench --site test_site execute verto.health.collect_system_health
-
-      - name: Verify consolidated internal Timesheet approval
-        working-directory: /home/runner/frappe-bench
-        env:
-          CI: 'Yes'
-        run: |
-          bench --site test_site run-tests --app verto --module verto.api.test_internal_timesheet_approval --skip-before-tests
-          cd apps/verto/frontend
-          yarn test:ui tests/internal-timesheet-approval.test.js
+          CI_IMAGE: ${{ needs.plan.outputs.image }}
+        run: bash ci/use-image.sh "$CI_IMAGE" fresh

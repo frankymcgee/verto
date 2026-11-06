@@ -1,0 +1,100 @@
+name: Verto CI image
+
+# Only trusted branch pushes/manual runs may publish a reusable image.
+on:
+  push:
+    branches: [develop, version-16]
+    paths:
+      - 'ci/**'
+      - '.github/workflows/ci-image.yml'
+      - 'pyproject.toml'
+      - '.gitmodules'
+      - 'frappe-ui'
+      - '**/package.json'
+      - '**/yarn.lock'
+      - 'package.json'
+      - 'yarn.lock'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verto-ci-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    if: github.event_name == 'push' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/version-16'
+    runs-on: ubuntu-latest
+    name: Build and validate reusable ERPNext test image
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Resolve pinned build inputs
+        id: settings
+        shell: bash
+        run: |
+          mapfile -t settings < <(python ci/build_settings.py)
+          echo "key=${settings[0]}" >> "$GITHUB_OUTPUT"
+          echo "bench=${settings[1]}" >> "$GITHUB_OUTPUT"
+          echo "python=${settings[2]}" >> "$GITHUB_OUTPUT"
+          echo "node=${settings[3]}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}-ci:${settings[0]}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check for an already published dependency image
+        id: existing
+        env:
+          CI_IMAGE: ${{ steps.settings.outputs.image }}
+        run: |
+          if docker pull "$CI_IMAGE"; then
+            echo 'found=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'found=false' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: docker/setup-buildx-action@v3
+        if: steps.existing.outputs.found != 'true'
+      - name: Build the pinned stack and synthetic seed
+        timeout-minutes: 20
+        if: steps.existing.outputs.found != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ci/Dockerfile
+          outputs: type=docker,compression=gzip,compression-level=1
+          tags: ${{ steps.settings.outputs.image }}
+          build-args: |
+            CI_IMAGE_KEY=${{ steps.settings.outputs.key }}
+            BENCH_VERSION=${{ steps.settings.outputs.bench }}
+            PYTHON_IMAGE=${{ steps.settings.outputs.python }}
+            NODE_IMAGE=${{ steps.settings.outputs.node }}
+      - name: Validate restored-seed integration tests
+        env:
+          CI_IMAGE: ${{ steps.settings.outputs.image }}
+        run: bash ci/use-image.sh "$CI_IMAGE" integration
+      - name: Validate a completely fresh installation
+        env:
+          CI_IMAGE: ${{ steps.settings.outputs.image }}
+        run: bash ci/use-image.sh "$CI_IMAGE" fresh
+      - name: Publish only after both modes pass
+        if: steps.existing.outputs.found != 'true'
+        env:
+          CI_IMAGE: ${{ steps.settings.outputs.image }}
+        run: docker push "$CI_IMAGE"
+      - name: Record the reusable image
+        env:
+          CI_IMAGE: ${{ steps.settings.outputs.image }}
+        run: |
+          echo '### Reusable Verto CI image' >> "$GITHUB_STEP_SUMMARY"
+          echo "$CI_IMAGE" >> "$GITHUB_STEP_SUMMARY"
+          echo 'Integration and fresh-install validation passed before publication.' >> "$GITHUB_STEP_SUMMARY"
