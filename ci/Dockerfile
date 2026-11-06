@@ -35,7 +35,9 @@ USER frappe
 WORKDIR /opt
 RUN python /opt/verto-ci/prepare_bench.py \
     && printf '%s\n' "${CI_IMAGE_KEY}" > /opt/verto-ci/image-key \
-    && bash /opt/verto-ci/seed.sh \
-    && rm -rf /opt/verto-source /home/frappe/.cache/pip
+    && bash /opt/verto-ci/seed.sh
+USER root
+RUN rm -rf /opt/verto-source /home/frappe/.cache/pip
+USER frappe
 WORKDIR /opt/frappe-bench
 CMD ["bash", "/opt/verto-ci/run.sh", "integration"]
