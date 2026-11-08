@@ -19,6 +19,10 @@
               <span class="font-medium text-ink-gray-6">App version</span>
               <span class="text-right font-semibold text-ink-gray-9">{{ loading ? 'Loading…' : appVersion || 'Unavailable' }}</span>
             </div>
+            <div v-if="buildNumber" class="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-3 border-t border-outline-gray-1 px-3 py-2.5 text-sm">
+              <span class="font-medium text-ink-gray-6">Build number</span>
+              <span class="break-all text-right font-semibold text-ink-gray-9">{{ loading ? 'Loading…' : buildNumber }}</span>
+            </div>
           </div>
 
           <p v-if="error" class="mt-3 rounded-6 border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{{ error }}</p>
@@ -34,7 +38,7 @@ import { Button } from 'frappe-ui'
 import { ref, watch } from 'vue'
 import { apiRequest } from '../lib/api'
 
-type AboutInfo = { company_name?: string; app_version?: string; copyright?: string }
+type AboutInfo = { company_name?: string; app_version?: string; build_number?: string; copyright?: string }
 type FrappeResponse<T> = { message: T }
 
 const props = defineProps<{ open: boolean }>()
@@ -43,15 +47,17 @@ const loading = ref(false)
 const error = ref('')
 const companyName = ref('')
 const appVersion = ref('')
+const buildNumber = ref('')
 const copyrightText = ref('Copyright 2026 Webwire Pty Ltd')
 
 async function loadAboutInfo() {
   loading.value = true
   error.value = ''
   try {
-    const response = await apiRequest<FrappeResponse<AboutInfo>>('/api/method/verto.api.mobile.about.get_about_info')
+    const response = await apiRequest<FrappeResponse<AboutInfo>>('/api/method/verto.api.mobile.about.get_about_info', { cache: 'no-store' })
     companyName.value = String(response.message?.company_name || '').trim()
     appVersion.value = String(response.message?.app_version || '').trim()
+    buildNumber.value = String(response.message?.build_number || '').trim()
     copyrightText.value = String(response.message?.copyright || 'Copyright 2026 Webwire Pty Ltd').trim()
   } catch (err) {
     if (err instanceof Error && err.message === 'Login required') return
