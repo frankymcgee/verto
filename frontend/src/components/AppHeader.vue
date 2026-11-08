@@ -92,10 +92,10 @@
                 </p>
 
                 <p
-                  v-if="user"
+                  v-if="employeeId"
                   class="truncate text-xs text-ink-gray-5"
                 >
-                  {{ user }}
+                  {{ employeeId }}
                 </p>
               </div>
             </div>
@@ -221,7 +221,7 @@
 <script setup lang="ts">
 import { Popover, Button, Switch } from 'frappe-ui'
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AboutAppToast from './AboutAppToast.vue'
 import { useMobileBoot } from '../lib/mobileBoot'
 import { openAppBrowser } from '../lib/appBrowser'
@@ -238,12 +238,14 @@ const props = withDefaults(
 )
 
 const route = useRoute()
+const router = useRouter()
 
 const {
   appName,
   appIconUrl,
   user,
   userFullname,
+  employeeId,
   userImageUrl,
   reloadMobileBoot,
 } = useMobileBoot()
@@ -523,10 +525,7 @@ async function reloadApp() {
 
 function openProfile() {
   menuOpen.value = false
-  openAppBrowser({
-    url: '/app/user-profile',
-    title: 'My profile',
-  })
+  void router.push({ name: 'my-profile' })
 }
 
 function openLearning() {

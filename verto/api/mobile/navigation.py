@@ -1,4 +1,5 @@
 import frappe
+from verto.api.mobile.profile import get_user_employee
 
 
 def require_login():
@@ -10,14 +11,9 @@ def require_login():
 def get_navigation_access():
     require_login()
 
-    has_employee_profile = bool(
-        frappe.db.exists("DocType", "Employee")
-        and frappe.db.exists(
-            "Employee",
-            {"user_id": frappe.session.user},
-        )
-    )
+    employee_id = get_user_employee() or ""
 
     return {
-        "has_employee_profile": has_employee_profile,
+        "has_employee_profile": bool(employee_id),
+        "employee_id": employee_id,
     }

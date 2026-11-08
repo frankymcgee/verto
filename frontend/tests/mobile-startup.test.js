@@ -7,7 +7,7 @@ vi.mock('../src/lib/api', () => ({ apiRequest: mocks.api }))
 let wrapper, metadata, serviceWorkerDescriptor
 const bootData = () => ({
   user: 'viewer@example.test', user_fullname: 'Viewer', favicon: '',
-  navigation_access: { has_employee_profile: true },
+  navigation_access: { has_employee_profile: true, employee_id: 'HR-EMP-001' },
   pwa_metadata: { app_name: 'MSS Mobile', short_name: 'MSS', icon: '/icon.png', apple_touch_icon: '/apple.png' },
   push_config: { configured: true, public_key: 'PUBLIC' },
 })
@@ -52,7 +52,8 @@ async function startup() {
 
 describe('Mobile startup request budget', () => {
   it('uses one configuration request for boot, navigation, PWA metadata and push setup', async () => {
-    await startup()
+    const { useMobileBoot } = await startup()
+    expect(useMobileBoot().employeeId.value).toBe('HR-EMP-001')
     expect(mocks.api.mock.calls.map(([url]) => url)).toEqual(['/api/method/verto.api.mobile.boot.get_mobile_boot'])
     expect(wrapper.find('.verto-no-employee-profile').exists()).toBe(false)
     expect(document.querySelector('meta[name="application-name"]').content).toBe('MSS Mobile')

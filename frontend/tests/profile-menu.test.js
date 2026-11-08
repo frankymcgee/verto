@@ -10,9 +10,12 @@ const calls = vi.hoisted(() => ({
   prime: vi.fn(),
   sync: vi.fn(),
   browser: vi.fn(),
+  navigate: vi.fn(),
+  employeeId: 'HR-EMP-001',
 }))
 vi.mock('vue-router', () => ({
   useRoute: () => ({ path: '/', fullPath: '/', meta: {} }),
+  useRouter: () => ({ push: calls.navigate }),
 }))
 vi.mock('../src/lib/mobileBoot', () => ({
   useMobileBoot: () => ({
@@ -20,6 +23,7 @@ vi.mock('../src/lib/mobileBoot', () => ({
     appIconUrl: ref(''),
     user: ref('user@example.test'),
     userFullname: ref('Test User'),
+    employeeId: ref(calls.employeeId),
     userImageUrl: ref(''),
     reloadMobileBoot: vi.fn(),
   }),
@@ -66,8 +70,37 @@ afterEach(() => {
   w?.unmount()
   document.body.innerHTML = ''
   vi.clearAllMocks()
+  calls.employeeId = 'HR-EMP-001'
 })
 describe('Profile menu', () => {
+  it('shows the employee ID beneath the name and opens the native profile page', async () => {
+    w = mount(AppHeader, {
+      attachTo: document.body,
+      global: { stubs: { AboutAppToast: true } },
+    })
+    await w.find('[aria-label="Open profile menu"]').trigger('click')
+    await flushPromises()
+    expect(document.body.textContent).toContain('HR-EMP-001')
+    expect(document.body.textContent).not.toContain('user@example.test')
+    await click('My profile')
+    expect(calls.navigate).toHaveBeenCalledWith({ name: 'my-profile' })
+    expect(calls.browser).not.toHaveBeenCalled()
+  })
+
+  it('keeps My profile available without showing an email when no employee is linked', async () => {
+    calls.employeeId = ''
+    w = mount(AppHeader, {
+      attachTo: document.body,
+      global: { stubs: { AboutAppToast: true } },
+    })
+    await w.find('[aria-label="Open profile menu"]').trigger('click')
+    await flushPromises()
+    expect(document.body.textContent).toContain('Test User')
+    expect(document.body.textContent).not.toContain('user@example.test')
+    await click('My profile')
+    expect(calls.navigate).toHaveBeenCalledOnce()
+  })
+
   it('opens from the avatar and runs offline refresh from a real button', async () => {
     w = mount(AppHeader, {
       attachTo: document.body,
