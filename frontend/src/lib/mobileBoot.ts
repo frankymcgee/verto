@@ -31,7 +31,7 @@ export type MobileBoot = {
   user_fullname: string
   user_image: string
   user_image_url: string
-  navigation_access?: { has_employee_profile?: boolean }
+  navigation_access?: { has_employee_profile?: boolean; employee_id?: string }
   pwa_metadata?: {
     app_name?: string; short_name?: string; description?: string
     manifest_url?: string; apple_touch_icon?: string; icon?: string
@@ -236,6 +236,7 @@ export function useMobileBoot() {
 
     user: computed(() => boot.value.user),
     userFullname: computed(() => boot.value.user_fullname || boot.value.user),
+    employeeId: computed(() => boot.value.navigation_access?.employee_id || ''),
     userImage: computed(() => boot.value.user_image || ''),
     userImageUrl: computed(() => getAbsoluteUrl(boot.value.user_image_url || boot.value.user_image)),
 
