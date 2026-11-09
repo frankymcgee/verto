@@ -35,6 +35,15 @@ bench --site test_site run-tests \
 )
 echo '::endgroup::'
 
+echo '::group::Verify project walkie talkie permissions, floor leases and mobile capture'
+(
+  cd "$VERTO_CI_BENCH"
+./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_walkie_talkie.py' -v
+cd apps/verto/frontend
+yarn test:ui tests/walkie-talkie.test.js
+)
+echo '::endgroup::'
+
 echo '::group::Verify whiteboard pages and access controls'
 (
   cd "$VERTO_CI_BENCH"

@@ -71,6 +71,33 @@ jobs:
           python -m unittest discover -s services/local_voice/tests -v
           python -m unittest discover -s tests -p 'test_local_voice_bridge.py' -v
 
+  walkie-talkie:
+    runs-on: ubuntu-latest
+    name: Project radio permissions and mobile push-to-talk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Verify project access and concurrent floor leases
+        run: python -m unittest discover -s tests -p 'test_walkie_talkie.py' -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - name: Install mobile dependencies
+        working-directory: frontend
+        run: |
+          npm install --global yarn@1.22.22
+          yarn install --frozen-lockfile --non-interactive
+      - name: Verify microphone lifecycle and Project Tools
+        working-directory: frontend
+        run: yarn test:ui tests/walkie-talkie.test.js tests/qr-scanner.test.js
+
   planner-ui:
     runs-on: ubuntu-latest
     name: Planner UI regressions

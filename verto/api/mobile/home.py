@@ -89,6 +89,12 @@ PROJECT_TOOL_DEFAULTS = {
     for tool in DEFAULT_PROJECT_TOOLS
 }
 
+# Available for administrators to select; do not add it to existing menus.
+PROJECT_TOOL_DEFAULTS["walkie talkie"] = {
+    "key": "walkie talkie", "label": "Walkie Talkie",
+    "description": "Join a project push-to-talk channel.",
+}
+
 
 def require_login():
     if frappe.session.user == "Guest":
