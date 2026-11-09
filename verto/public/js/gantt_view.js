@@ -108,24 +108,34 @@ frappe.views.GanttView = class GanttView extends frappe.views.ListView {
 	
 
 	render() {
-		this.load_lib.then(() => {
-			// Create a container for the task names list
-        this.$result.empty();
-        this.$result.addClass("gantt-modern");
+		return this.load_lib
+			.then(() => {
+				if (typeof Gantt !== "function") {
+					throw new Error("The Frappe Gantt library did not load");
+				}
 
-        const $taskColumn = $('<div class="gantt-task-column"></div>');
-        const $ganttContainer = $('<div class="gantt-chart-container"></div>');
+				this.$result.empty();
+				this.$result.addClass("gantt-modern");
 
-        this.$result.append($taskColumn);   // Add task list container
-        this.$result.append($ganttContainer); // Add Gantt chart container
+				const $taskColumn = $('<div class="gantt-task-column"></div>');
+				const $ganttContainer = $('<div class="gantt-chart-container"></div>');
+				this.$result.append($taskColumn);
+				this.$result.append($ganttContainer);
 
-        // Call the method that will render the task names
-        this.render_task_column($taskColumn);
-
-        // Render the Gantt chart
-        this.render_gantt($ganttContainer);
-    });
-}
+				this.render_task_column($taskColumn);
+				this.render_gantt($ganttContainer);
+			})
+			.catch((error) => {
+				console.error("Unable to display the Gantt view", error);
+				frappe.msgprint({
+					title: __("Unable to display Gantt view"),
+					message: __(
+						"Please refresh the page and try again. If the problem continues, ask your administrator to rebuild the site assets."
+					),
+					indicator: "red",
+				});
+			});
+	}
 render_task_column($taskColumn) {
     const me = this;
 
@@ -160,12 +170,23 @@ render_task_column($taskColumn) {
     const date_format = "YYYY-MM-DD HH:mm:ss";
 
     $ganttContainer.empty();
+    $ganttContainer.off("click.verto-gantt").on("click.verto-gantt", ".details-container", function () {
+        const doctype = this.getAttribute("data-doctype");
+        const id = this.getAttribute("data-id");
+        if (doctype && id) {
+            frappe.set_route("Form", doctype, id);
+        }
+    });
 
     this.gantt = new Gantt($ganttContainer[0], this.tasks, {
         bar_height: 35,
         bar_corner_radius: 4,
+        // Keep the chart header aligned with the custom 60px task column header.
+        upper_header_height: 25,
+        lower_header_height: 25,
         view_mode: gantt_view_mode,
         date_format: date_format,
+        readonly: !me.can_write,
         on_click: (task) => {
             frappe.set_route("Form", task.doctype, task.id);
         },
@@ -194,10 +215,10 @@ render_task_column($taskColumn) {
         },
         on_view_change: (mode) => {
             me.save_view_user_settings({
-                gantt_view_mode: mode,
+                gantt_view_mode: typeof mode === "string" ? mode : mode.name,
             });
         },
-        custom_popup_html: (task) => {
+        popup: ({ task }) => {
             var item = me.get_item(task.id);
 
             var html = `<div class="title">${task.name}</div>
@@ -210,18 +231,6 @@ render_task_column($taskColumn) {
                 var ganttobj = task;
                 html = custom(ganttobj, item);
             }
-			setTimeout(() => {
-				const popup = document.querySelector(".details-container");
-				if (popup) {
-					popup.addEventListener("click", function () {
-						const doctype = this.getAttribute("data-doctype");
-						const id = this.getAttribute("data-id");
-						if (doctype && id) {
-							frappe.set_route("Form", doctype, id);
-						}
-					});
-				}
-			}, 10);
 			
             return `
 				<div class="details-container" 
@@ -244,8 +253,11 @@ render_task_column($taskColumn) {
 		let $btn_group = this.$paging_area.find(".gantt-view-mode");
 		if ($btn_group.length > 0) return;
 
-		const view_modes = this.gantt.options.view_modes || [];
-		const active_class = (view_mode) => (this.gantt.view_is(view_mode) ? "btn-info" : "");
+		const view_modes = (this.gantt.options.view_modes || []).map((mode) =>
+			typeof mode === "string" ? mode : mode.name
+		);
+		const current_mode = this.gantt.config.view_mode.name;
+		const active_class = (view_mode) => (current_mode === view_mode ? "btn-info" : "");
 		const html = `<div class="btn-group gantt-view-mode">
 				${view_modes
 					.map(
@@ -310,7 +322,7 @@ render_task_column($taskColumn) {
 	get required_libs() {
 		return [
 			"assets/frappe/node_modules/frappe-gantt/dist/frappe-gantt.css",
-			"assets/frappe/node_modules/frappe-gantt/dist/frappe-gantt.min.js",
+			"assets/frappe/node_modules/frappe-gantt/dist/frappe-gantt.umd.js",
 		];
 	}
 	
