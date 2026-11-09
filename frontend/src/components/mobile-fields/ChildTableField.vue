@@ -26,6 +26,7 @@
         variant="subtle"
         theme="gray"
         size="sm"
+        :disabled="locked"
         @click="openNewRow"
       >
         + Add
@@ -40,6 +41,7 @@
         v-for="(row, index) in rows"
         :key="getRowKey(row, index)"
         type="button"
+        :disabled="locked"
         class="w-full rounded-7 border border-outline-gray-1 bg-surface-base px-3 py-3 text-left shadow-sm transition active:scale-[0.99]"
         @click="openExistingRow(index)"
       >
@@ -77,7 +79,7 @@
       </p>
     </div>
 
-    <MobileSheet :open="Boolean(drawerOpen)" :title="drawerTitle" @update:open="!$event && closeDrawer()">
+    <MobileSheet :open="Boolean(drawerOpen)" :title="drawerTitle" :dismissible="!locked" @update:open="!$event && closeDrawer()">
 <template v-if="drawerOpen">
           <section class="rounded-7 shadow-sm drawer-panel flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-base shadow-xl">
             <div class="shrink-0 border-b border-outline-gray-1 bg-surface-base px-4 py-3">
@@ -95,6 +97,7 @@
                 <Button
                   variant="subtle"
                   theme="gray"
+                  :disabled="locked"
                   @click="closeDrawer"
                 >
                   Close
@@ -236,12 +239,16 @@
         </div>
 
             <div class="shrink-0 border-t border-outline-gray-1 bg-surface-base px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+              <p v-if="saveError" role="alert" class="mb-3 whitespace-pre-wrap text-sm text-red-700">
+                {{ saveError }}
+              </p>
               <div class="flex gap-2">
           <Button
             v-if="!disabled && editingIndex !== null"
             variant="subtle"
             theme="red"
             class="flex-1 justify-center"
+            :disabled="locked"
             @click="deleteRow"
           >
             Delete
@@ -251,7 +258,10 @@
             v-if="!disabled"
             variant="solid"
             theme="gray"
+            type="button"
             class="flex-1 justify-center"
+            :loading="rowSaving"
+            :disabled="locked"
             @click="saveRow"
           >
             Save Row
@@ -262,6 +272,7 @@
                   variant="solid"
                   theme="gray"
                   class="w-full justify-center"
+                  :disabled="locked"
                   @click="closeDrawer"
                 >
                   Done
@@ -326,6 +337,8 @@ const props = defineProps<{
   modelValue?: Record<string, any>[]
   field: MobileField
   disabled?: boolean
+  busy?: boolean
+  saveRows?: (rows: Record<string, any>[]) => Promise<boolean | void>
 }>()
 
 const emit = defineEmits<{
@@ -335,6 +348,9 @@ const emit = defineEmits<{
 const drawerOpen = ref(false)
 const editingIndex = ref<number | null>(null)
 const draftRow = ref<Record<string, any>>({})
+const rowSaving = ref(false)
+const saveError = ref('')
+const locked = computed(() => rowSaving.value || Boolean(props.busy))
 
 const rows = computed(() => {
   return Array.isArray(props.modelValue) ? props.modelValue : []
@@ -554,28 +570,34 @@ function createDraftFromRow(row?: Record<string, any>) {
 }
 
 function openNewRow() {
-  if (props.disabled) {
+  if (props.disabled || locked.value) {
     return
   }
 
   editingIndex.value = null
+  saveError.value = ''
   draftRow.value = createDraftFromRow()
   drawerOpen.value = true
 }
 
 function openExistingRow(index: number) {
+  if (locked.value) return
+  saveError.value = ''
   editingIndex.value = index
   draftRow.value = createDraftFromRow(rows.value[index])
   drawerOpen.value = true
 }
 
 function closeDrawer() {
+  if (locked.value) return
   drawerOpen.value = false
   editingIndex.value = null
   draftRow.value = {}
+  saveError.value = ''
 }
 
-function saveRow() {
+async function saveRow() {
+  if (locked.value) return
   if (props.disabled) {
     closeDrawer()
     return
@@ -608,12 +630,26 @@ function saveRow() {
     }
   }
 
-  emit('update:modelValue', nextRows)
-  closeDrawer()
+  rowSaving.value = true
+  saveError.value = ''
+  try {
+    if (props.saveRows) {
+      // The parent applies the saved document, including server-normalised rows.
+      if (await props.saveRows(nextRows) === false) return
+    } else {
+      emit('update:modelValue', nextRows)
+    }
+    rowSaving.value = false
+    closeDrawer()
+  } catch (err) {
+    saveError.value = err instanceof Error ? err.message : 'Could not save row.'
+  } finally {
+    rowSaving.value = false
+  }
 }
 
 function deleteRow() {
-  if (props.disabled || editingIndex.value === null) {
+  if (props.disabled || locked.value || editingIndex.value === null) {
     return
   }
 
@@ -634,7 +670,7 @@ function getSelectValue(fieldname: string) {
 }
 
 function updateSelectValue(field: MobileField, selected: SelectValue) {
-  if (props.disabled) {
+  if (props.disabled || locked.value) {
     return
   }
 
@@ -709,7 +745,7 @@ function isFieldMandatory(field: MobileField) {
 }
 
 function isFieldReadOnly(field: MobileField) {
-  return Boolean(field.read_only) ||
+  return props.disabled || locked.value || Boolean(field.read_only) ||
     evaluateReadOnlyDependsOn(field.read_only_depends_on, draftRow.value)
 }
 

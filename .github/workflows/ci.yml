@@ -71,6 +71,28 @@ jobs:
           python -m unittest discover -s services/local_voice/tests -v
           python -m unittest discover -s tests -p 'test_local_voice_bridge.py' -v
 
+  mobile-forms:
+    runs-on: ubuntu-latest
+    name: Mobile form row saves and offline updates
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - name: Install mobile dependencies
+        working-directory: frontend
+        run: |
+          npm install --global yarn@1.22.22
+          yarn install --frozen-lockfile --non-interactive
+      - name: Verify one-step row saves and offline persistence
+        working-directory: frontend
+        run: yarn test:ui tests/child-row-save.test.js tests/mobile-ui.test.js tests/form-controls.test.js tests/offline-sync.test.js tests/offline-request-efficiency.test.js
+
   planner-ui:
     runs-on: ubuntu-latest
     name: Planner UI regressions
