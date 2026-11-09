@@ -110,7 +110,7 @@ frappe.views.GanttView = class GanttView extends frappe.views.ListView {
 	render() {
 		return this.load_lib
 			.then(() => {
-				if (typeof Gantt !== "function") {
+				if (typeof this.constructor.Gantt !== "function") {
 					throw new Error("The Frappe Gantt library did not load");
 				}
 
@@ -165,6 +165,7 @@ render_task_column($taskColumn) {
 
 	render_gantt($ganttContainer) {
     const me = this;
+    const Gantt = this.constructor.Gantt;
     const gantt_view_mode = this.view_user_settings.gantt_view_mode || "Day";
     const field_map = this.calendar_settings.field_map;
     const date_format = "YYYY-MM-DD HH:mm:ss";
@@ -320,10 +321,8 @@ render_task_column($taskColumn) {
 	}
 
 	get required_libs() {
-		return [
-			"assets/frappe/node_modules/frappe-gantt/dist/frappe-gantt.css",
-			"assets/frappe/node_modules/frappe-gantt/dist/frappe-gantt.umd.js",
-		];
+		// The Desk bundles already include the constructor and stylesheet.
+		return [];
 	}
 	
 };

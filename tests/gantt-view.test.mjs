@@ -55,7 +55,7 @@ function screen({ canWrite = true, mode = 'Day', loadFailure = false } = {}) {
         require(paths, callback) {
             state.requests.push(...paths);
             finishLoading = () => {
-                if (!loadFailure) state.context.Gantt = Gantt;
+                if (!loadFailure) state.view.constructor.Gantt = Gantt;
                 callback();
             };
         },
@@ -96,17 +96,15 @@ function screen({ canWrite = true, mode = 'Day', loadFailure = false } = {}) {
     return state;
 }
 
-test('cold custom Gantt loads the v16 UMD library and waits before rendering both columns', async () => {
+test('custom Gantt waits for Desk setup and renders without requesting dependency URLs or a global Gantt', async () => {
     const state = screen();
-    assert.deepEqual(state.requests, [
-        'assets/frappe/node_modules/frappe-gantt/dist/frappe-gantt.css',
-        'assets/frappe/node_modules/frappe-gantt/dist/frappe-gantt.umd.js',
-    ]);
+    assert.deepEqual(state.requests, []);
     const pending = state.view.render();
     assert.equal(state.charts.length, 0);
     assert.equal(state.view.$result.children.length, 0);
     state.finishLoading();
     await pending;
+    assert.equal(state.context.Gantt, undefined);
     assert.equal(state.charts.length, 1);
     const [column, chart] = state.view.$result.children;
     assert.match(column.html, /gantt-task-column/);
