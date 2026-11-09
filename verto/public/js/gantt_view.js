@@ -134,10 +134,12 @@ frappe.views.GanttView = class GanttView extends frappe.views.ListView {
 				this.$result.empty();
 				this.$result.addClass("gantt-modern");
 
+				const $layout = $('<div class="verto-gantt-layout"></div>');
 				const $taskColumn = $('<div class="gantt-task-column"></div>');
 				const $ganttContainer = $('<div class="gantt-chart-container"></div>');
-				this.$result.append($taskColumn);
-				this.$result.append($ganttContainer);
+				$layout.append($taskColumn);
+				$layout.append($ganttContainer);
+				this.$result.append($layout);
 
 				this.render_task_column($taskColumn);
 				this.render_gantt($ganttContainer);
@@ -166,7 +168,7 @@ render_task_column($taskColumn) {
         const displayName = task.task || task.name || "Unnamed Task";
 
         // Create task item
-        const $taskItem = $(`<div class="gantt-task-item">${displayName}</div>`);        
+        const $taskItem = $(`<div class="gantt-task-item"><span class="gantt-task-name">${displayName}</span></div>`);
 
         // Optional: Add a click handler to focus on the task in the Gantt chart
         $taskItem.on("click", () => {
@@ -198,6 +200,7 @@ render_task_column($taskColumn) {
 
     this.gantt = new Gantt($ganttContainer[0], this.tasks, {
         bar_height: 35,
+        padding: 18,
         bar_corner_radius: 4,
         // Keep the chart header aligned with the custom 60px task column header.
         upper_header_height: 25,
@@ -382,12 +385,101 @@ render_task_column($taskColumn) {
 
 	const gantt_css = ":root{--g-arrow-color: #1f2937;--g-bar-color: #fff;--g-bar-border: #fff;--g-tick-color-thick: #ededed;--g-tick-color: #f3f3f3;--g-actions-background: #f3f3f3;--g-border-color: #ebeff2;--g-text-muted: #7c7c7c;--g-text-light: #fff;--g-text-dark: #171717;--g-progress-color: #dbdbdb;--g-handle-color: #37352f;--g-weekend-label-color: #dcdce4;--g-expected-progress: #c4c4e9;--g-header-background: #fff;--g-row-color: #fdfdfd;--g-row-border-color: #c7c7c7;--g-today-highlight: #37352f;--g-popup-actions: #ebeff2;--g-weekend-highlight-color: #f7f7f7}.gantt-container{line-height:14.5px;position:relative;overflow:auto;font-size:12px;height:var(--gv-grid-height);width:100%;border-radius:8px;isolation:isolate}.gantt-container .popup-wrapper{position:absolute;top:0;left:0;background:#fff;box-shadow:0 10px 24px -3px #0003;padding:10px;border-radius:5px;width:max-content;z-index:1000}.gantt-container .popup-wrapper .title{margin-bottom:2px;color:var(--g-text-dark);font-size:.85rem;font-weight:650;line-height:15px}.gantt-container .popup-wrapper .subtitle{color:var(--g-text-dark);font-size:.8rem;margin-bottom:5px}.gantt-container .popup-wrapper .details{color:var(--g-text-muted);font-size:.7rem}.gantt-container .popup-wrapper .actions{margin-top:10px;margin-left:3px}.gantt-container .popup-wrapper .action-btn{border:none;padding:5px 8px;background-color:var(--g-popup-actions);border-right:1px solid var(--g-text-light)}.gantt-container .popup-wrapper .action-btn:hover{background-color:brightness(97%)}.gantt-container .popup-wrapper .action-btn:first-child{border-top-left-radius:4px;border-bottom-left-radius:4px}.gantt-container .popup-wrapper .action-btn:last-child{border-right:none;border-top-right-radius:4px;border-bottom-right-radius:4px}.gantt-container .grid-header{height:calc(var(--gv-lower-header-height) + var(--gv-upper-header-height) + 10px);background-color:var(--g-header-background);position:sticky;top:0;left:0;border-bottom:1px solid var(--g-row-border-color);z-index:1000}.gantt-container .lower-text,.gantt-container .upper-text{text-anchor:middle}.gantt-container .upper-header{height:var(--gv-upper-header-height)}.gantt-container .lower-header{height:var(--gv-lower-header-height)}.gantt-container .lower-text{font-size:12px;position:absolute;width:calc(var(--gv-column-width) * .8);height:calc(var(--gv-lower-header-height) * .8);margin:0 calc(var(--gv-column-width) * .1);align-content:center;text-align:center;color:var(--g-text-muted)}.gantt-container .upper-text{position:absolute;width:fit-content;font-weight:500;font-size:14px;color:var(--g-text-dark);height:calc(var(--gv-lower-header-height) * .66)}.gantt-container .current-upper{position:sticky;left:0!important;padding-left:17px;background:#fff}.gantt-container .side-header{position:sticky;top:0;right:0;float:right;z-index:1000;line-height:20px;font-weight:400;width:max-content;margin-left:auto;padding-right:10px;padding-top:10px;background:var(--g-header-background);display:flex}.gantt-container .side-header *{transition-property:background-color;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s;background-color:var(--g-actions-background);border-radius:.5rem;border:none;padding:5px 8px;color:var(--g-text-dark);font-size:14px;letter-spacing:.02em;font-weight:420;box-sizing:content-box;margin-right:5px}.gantt-container .side-header *:last-child{margin-right:0}.gantt-container .side-header *:hover{filter:brightness(97.5%)}.gantt-container .side-header select{width:60px;padding-top:2px;padding-bottom:2px}.gantt-container .side-header select:focus{outline:none}.gantt-container .date-range-highlight{background-color:var(--g-progress-color);border-radius:12px;height:calc(var(--gv-lower-header-height) - 6px);top:calc(var(--gv-upper-header-height) + 5px);position:absolute}.gantt-container .current-highlight{position:absolute;background:var(--g-today-highlight);width:1px;z-index:999}.gantt-container .current-ball-highlight{position:absolute;background:var(--g-today-highlight);z-index:1001;border-radius:50%}.gantt-container .current-date-highlight{background:var(--g-today-highlight);color:var(--g-text-light);border-radius:5px}.gantt-container .holiday-label{position:absolute;top:0;left:0;opacity:0;z-index:1000;background:--g-weekend-label-color;border-radius:5px;padding:2px 5px}.gantt-container .holiday-label.show{opacity:100}.gantt-container .extras{position:sticky;left:0}.gantt-container .extras .adjust{position:absolute;left:8px;top:calc(var(--gv-grid-height) - 60px);background-color:#000000b3;color:#fff;border:none;padding:8px;border-radius:3px}.gantt-container .hide{display:none}.gantt{user-select:none;-webkit-user-select:none;position:absolute}.gantt .grid-background{fill:none}.gantt .grid-row{fill:var(--g-row-color)}.gantt .row-line{stroke:var(--g-border-color)}.gantt .tick{stroke:var(--g-tick-color);stroke-width:.4}.gantt .tick.thick{stroke:var(--g-tick-color-thick);stroke-width:.7}.gantt .arrow{fill:none;stroke:var(--g-arrow-color);stroke-width:1.5}.gantt .bar-wrapper .bar{fill:var(--g-bar-color);stroke:var(--g-bar-border);stroke-width:0;transition:stroke-width .3s ease}.gantt .bar-progress{fill:var(--g-progress-color);border-radius:4px}.gantt .bar-expected-progress{fill:var(--g-expected-progress)}.gantt .bar-invalid{fill:transparent;stroke:var(--g-bar-border);stroke-width:1;stroke-dasharray:5}:is(.gantt .bar-invalid)~.bar-label{fill:var(--g-text-light)}.gantt .bar-label{fill:var(--g-text-dark);dominant-baseline:central;font-family:Helvetica;font-size:13px;font-weight:400}.gantt .bar-label.big{fill:var(--g-text-dark);text-anchor:start}.gantt .handle{fill:var(--g-handle-color);opacity:0;transition:opacity .3s ease}.gantt .handle.active,.gantt .handle.visible{cursor:ew-resize;opacity:1}.gantt .handle.progress{fill:var(--g-text-muted)}.gantt .bar-wrapper{cursor:pointer}.gantt .bar-wrapper .bar{outline:1px solid var(--g-row-border-color);border-radius:3px}.gantt .bar-wrapper:hover .bar{transition:transform .3s ease}.gantt .bar-wrapper:hover .date-range-highlight{display:block}.gantt .grid-column{fill:transparent;pointer-events:all}.gantt .grid-column:hover{fill:#3131310d!important;transition:fill .1s ease}";
 
+	const gantt_layout_css = `
+		.gantt-modern {
+			width: 100%;
+			height: 100%;
+			min-width: 0;
+			overflow: auto;
+			position: relative;
+			font-size: 12px;
+			line-height: 14.5px;
+		}
+		.gantt-modern > .verto-gantt-layout {
+			--verto-gantt-header-height: 60px;
+			--verto-gantt-row-height: 53px;
+			display: grid;
+			grid-template-columns: clamp(180px, 20%, 340px) minmax(0, 1fr);
+			align-items: start;
+			gap: 0;
+			flex: 0 0 auto;
+			width: 100%;
+			min-width: 0;
+			max-width: 100%;
+			box-sizing: border-box;
+		}
+		.verto-gantt-layout > .gantt-task-column {
+			display: block;
+			width: auto;
+			min-width: 0;
+			padding: 0;
+			margin: 0;
+			box-sizing: border-box;
+			background: var(--fg-color, #fff);
+			border-right: 1px solid var(--border-color, #e5e7eb);
+		}
+		.verto-gantt-layout > .gantt-task-column > .gantt-task-header {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			height: var(--verto-gantt-header-height);
+			min-height: var(--verto-gantt-header-height);
+			padding: 0 10px;
+			margin: 0;
+			box-sizing: border-box;
+			color: var(--text-color, #1f2937);
+			background: var(--fg-color, #fff);
+			border-bottom: 1px solid var(--border-color, #e5e7eb);
+		}
+		.verto-gantt-layout > .gantt-task-column > .gantt-task-item {
+			display: flex;
+			align-items: center;
+			height: var(--verto-gantt-row-height);
+			min-height: var(--verto-gantt-row-height);
+			max-height: var(--verto-gantt-row-height);
+			padding: 0 10px;
+			margin: 0;
+			box-sizing: border-box;
+			color: var(--text-color, #1f2937);
+			background: var(--fg-color, #fff);
+			border-bottom: 1px solid var(--border-color, #e5e7eb);
+			border-right: 0;
+			cursor: pointer;
+		}
+		.verto-gantt-layout .gantt-task-name {
+			display: block;
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+		.verto-gantt-layout > .gantt-chart-container {
+			width: auto;
+			min-width: 0;
+			height: auto;
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+		.verto-gantt-layout > .gantt-chart-container > .gantt-container {
+			width: 100%;
+			max-height: none;
+			overflow-x: auto;
+			overflow-y: hidden;
+			border-radius: 0;
+		}
+	`;
+
 	frappe.views.GanttView.Gantt = module.exports;
 	frappe.views.GanttView.ensure_styles = () => {
-		if (document.getElementById("verto-gantt-library-style")) return;
-		const style = document.createElement("style");
-		style.id = "verto-gantt-library-style";
-		style.textContent = gantt_css;
-		document.head.appendChild(style);
+		const css = gantt_css + gantt_layout_css;
+		let style = document.getElementById("verto-gantt-library-style");
+		if (style && style.textContent === css) return;
+		if (!style) {
+			style = document.createElement("style");
+			style.id = "verto-gantt-library-style";
+			document.head.appendChild(style);
+		}
+		style.textContent = css;
 	};
 })();
