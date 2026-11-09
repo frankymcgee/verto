@@ -24,6 +24,7 @@
           variant="subtle"
           theme="gray"
           size="sm"
+          :disabled="saving"
           @click="goBack"
         >
           Back
@@ -117,7 +118,7 @@
           class="rounded-7 shadow-sm border border-green-200 bg-green-50 p-3"
         >
           <p class="text-sm text-green-800">
-            Saved successfully.
+            {{ savedOffline ? 'Saved on this device and waiting to sync.' : 'Saved successfully.' }}
           </p>
         </section>
 
@@ -177,7 +178,7 @@
                     :description="field.description"
                     :placeholder="field.label"
                     :required="isFieldMandatory(field)"
-                    :disabled="isFieldReadOnly(field) || !canWrite"
+                    :disabled="isFieldReadOnly(field) || !canWrite || saving"
                     @update:model-value="handleFieldChange(field)"
                   />
 
@@ -188,7 +189,7 @@
                     :description="field.description"
                     :placeholder="field.label"
                     :required="isFieldMandatory(field)"
-                    :disabled="isFieldReadOnly(field) || !canWrite"
+                    :disabled="isFieldReadOnly(field) || !canWrite || saving"
                     @change="handleFieldChange(field)"
                   />
 
@@ -200,7 +201,7 @@
                     :description="field.description"
                     :placeholder="field.label"
                     :required="isFieldMandatory(field)"
-                    :disabled="isFieldReadOnly(field) || !canWrite"
+                    :disabled="isFieldReadOnly(field) || !canWrite || saving"
                     :rows="4"
                     @update:model-value="handleFieldChange(field)"
                   />
@@ -217,7 +218,7 @@
                     :placeholder="field.label || 'Select option'"
                     :options="getSelectOptions(field.options)"
                     :required="isFieldMandatory(field)"
-                    :disabled="isFieldReadOnly(field) || !canWrite"
+                    :disabled="isFieldReadOnly(field) || !canWrite || saving"
                     @update:model-value="(value) => updateSelectValue(field, value)"
                   >
                     <template #item-label="{ item }">
@@ -233,7 +234,7 @@
                     :label="field.label"
                     :description="field.description"
                     :required="isFieldMandatory(field)"
-                    :disabled="isFieldReadOnly(field) || !canWrite"
+                    :disabled="isFieldReadOnly(field) || !canWrite || saving"
                     @update:model-value="handleFieldChange(field)"
                   />
 
@@ -242,7 +243,7 @@
                     v-model="values[field.fieldname]"
                     :field="field"
                     :required="isFieldMandatory(field)"
-                    :disabled="isFieldReadOnly(field) || !canWrite"
+                    :disabled="isFieldReadOnly(field) || !canWrite || saving"
                     @change="handleFieldChange(field)"
                   />
 
@@ -252,7 +253,7 @@
                     :label="field.label"
                     :description="field.description"
                     :required="isFieldMandatory(field)"
-                    :disabled="isFieldReadOnly(field) || !canWrite"
+                    :disabled="isFieldReadOnly(field) || !canWrite || saving"
                     @change="handleFieldChange(field)"
                   />
 
@@ -265,7 +266,7 @@
                     :description="field.description"
                     :placeholder="`${field.label} (${field.fieldtype})`"
                     :required="isFieldMandatory(field)"
-                    :disabled="isFieldReadOnly(field) || !canWrite"
+                    :disabled="isFieldReadOnly(field) || !canWrite || saving"
                     @update:model-value="handleFieldChange(field)"
                   />
                 </div>
@@ -275,7 +276,10 @@
                   v-else-if="field.fieldtype === 'Table' && isFieldVisible(field)"
                   v-model="values[field.fieldname]"
                   :field="field"
-                  :disabled="!canWrite"
+                  :disabled="!canWrite || isFieldReadOnly(field)"
+                  :busy="saving"
+                  :save-rows="rows => saveTableRows(field, rows)"
+                  @update:model-value="saved = false"
                 />
               </template>
             </div>
@@ -338,6 +342,7 @@
             <input
               type="file"
               multiple
+              :disabled="saving"
               accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
               class="block w-full rounded-4 border border-outline-gray-2 bg-surface-base px-3 py-2 text-sm text-ink-gray-7 file:mr-3 file:rounded-4 file:border-0 file:bg-surface-gray-2 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink-gray-8"
               @change="handleFiles"
@@ -370,7 +375,7 @@
             size="lg"
             class="w-full"
             :loading="saving"
-            :disabled="saving"
+            :disabled="saving || saved"
           >
             Save Changes
           </Button>
@@ -479,6 +484,7 @@ const loading = ref(true)
 let submissionOperationId = createOfflineId('document')
 const saving = ref(false)
 const saved = ref(false)
+const savedOffline = ref(false)
 const error = ref('')
 const schema = ref<FormSchema | null>(null)
 const values = ref<Record<string, any>>({})
@@ -495,6 +501,7 @@ const docname = String(route.params.docname || '')
 
 let fieldChangeTimer: number | undefined
 let fieldChangeRequestId = 0
+let saveNavigationTimer: number | undefined
 
 const formTabs = computed<FormTab[]>(() => {
   const fields = schema.value?.fields || []
@@ -694,7 +701,7 @@ function getSelectValue(fieldname: string) {
 }
 
 function updateSelectValue(field: MobileField, selected: SelectValue) {
-  if (!canWrite.value) {
+  if (!canWrite.value || saving.value) {
     return
   }
 
@@ -777,8 +784,10 @@ function isFieldReadOnly(field: MobileField) {
 }
 
 function handleFiles(event: Event) {
+  if (saving.value) return
   const input = event.target as HTMLInputElement
   files.value = Array.from(input.files || [])
+  saved.value = false
 }
 
 function isBlankValue(value: any) {
@@ -1032,7 +1041,7 @@ async function processFieldChange(changedFieldname: string) {
 }
 
 function handleFieldChange(field: MobileField) {
-  if (!canWrite.value) {
+  if (!canWrite.value || saving.value) {
     return
   }
 
@@ -1101,6 +1110,7 @@ async function loadEditDocument() {
   existingFiles.value = []
   saved.value = false
   canWrite.value = false
+  savedOffline.value = false
   docstatus.value = 0
 
   try {
@@ -1145,12 +1155,13 @@ async function loadEditDocument() {
   }
 }
 
-async function saveDocument() {
+async function saveDocument(overrides: Record<string, any> = {}) {
   const payload = new FormData()
+  const submittedValues = { ...getVisibleValues(), ...overrides }
 
   payload.append('mobile_doctype', mobileDoctype)
   payload.append('docname', docname)
-  payload.append('values', JSON.stringify(getVisibleValues()))
+  payload.append('values', JSON.stringify(submittedValues))
   payload.append('operation_id', submissionOperationId)
   for (const file of files.value) payload.append('attachments', file, file.name)
 
@@ -1164,9 +1175,7 @@ async function saveDocument() {
 
   const message = data.message
 
-  if (message.values) {
-    setLoadedValues(message.values)
-  }
+  setLoadedValues(message.values || submittedValues)
 
   existingFiles.value = message.files || existingFiles.value
   docstatus.value = Number(message.docstatus || docstatus.value || 0)
@@ -1174,16 +1183,18 @@ async function saveDocument() {
   return message
 }
 
-async function saveForm() {
-  if (saving.value || saved.value) return
+async function persistForm(overrides: Record<string, any> = {}, navigateBack = false) {
+  if (saving.value) return false
   if (!canWrite.value) {
-    error.value = 'You do not have permission to save this document.'
-    return
+    throw new Error('You do not have permission to save this document.')
   }
 
   saving.value = true
   error.value = ''
   saved.value = false
+  // A late dependency response must not overwrite the successfully saved form.
+  fieldChangeRequestId += 1
+  window.clearTimeout(fieldChangeTimer)
 
   try {
     if (schema.value?.doctype === 'Daily Timesheet' && values.value.duration) {
@@ -1191,30 +1202,44 @@ async function saveForm() {
       const confirmed = window.confirm(`Your current hours for this shift is ${hours} hours. Is this correct?`)
 
       if (!confirmed) {
-        saving.value = false
-        return
+        return false
       }
     }
 
-    const savedDocument = await saveDocument()
+    const savedDocument = await saveDocument(overrides)
     if (schema.value?.doctype === 'Daily Timesheet' && !savedDocument.offline_operation_id) {
       window.dispatchEvent(new Event('verto:timesheet-saved'))
     }
 
     files.value = []
     saved.value = true
+    savedOffline.value = Boolean(savedDocument.offline_queued || savedDocument.offline_operation_id)
+    submissionOperationId = createOfflineId('document')
 
-    window.setTimeout(() => {
-      goBack()
-    }, 500)
-  } catch (err) {
-    if (err instanceof Error && err.message === 'Login required') {
-      return
+    if (navigateBack) {
+      saveNavigationTimer = window.setTimeout(() => { goBack() }, 500)
     }
-
-    error.value = err instanceof Error ? err.message : 'Could not save document.'
+    return true
   } finally {
     saving.value = false
+  }
+}
+
+async function saveTableRows(field: MobileField, rows: Record<string, any>[]) {
+  try {
+    return await persistForm({ [field.fieldname]: rows })
+  } catch (err) {
+    throw new Error(cleanServerMessage(err instanceof Error ? err.message : 'Could not save row.'))
+  }
+}
+
+async function saveForm() {
+  if (saving.value || saved.value) return
+  try {
+    await persistForm({}, true)
+  } catch (err) {
+    if (err instanceof Error && err.message === 'Login required') return
+    error.value = err instanceof Error ? err.message : 'Could not save document.'
   }
 }
 
@@ -1223,6 +1248,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.clearTimeout(saveNavigationTimer)
   fieldChangeRequestId += 1
   window.clearTimeout(fieldChangeTimer)
 })

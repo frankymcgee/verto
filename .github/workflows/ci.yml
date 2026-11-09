@@ -71,19 +71,14 @@ jobs:
           python -m unittest discover -s services/local_voice/tests -v
           python -m unittest discover -s tests -p 'test_local_voice_bridge.py' -v
 
-  walkie-talkie:
+  mobile-forms:
     runs-on: ubuntu-latest
-    name: Project radio permissions and mobile push-to-talk
+    name: Mobile form row saves and offline updates
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.14'
-      - name: Verify project access and concurrent floor leases
-        run: python -m unittest discover -s tests -p 'test_walkie_talkie.py' -v
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -94,9 +89,9 @@ jobs:
         run: |
           npm install --global yarn@1.22.22
           yarn install --frozen-lockfile --non-interactive
-      - name: Verify microphone lifecycle and Project Tools
+      - name: Verify one-step row saves and offline persistence
         working-directory: frontend
-        run: yarn test:ui tests/walkie-talkie.test.js tests/qr-scanner.test.js
+        run: yarn test:ui tests/child-row-save.test.js tests/mobile-ui.test.js tests/form-controls.test.js tests/offline-sync.test.js tests/offline-request-efficiency.test.js
 
   planner-ui:
     runs-on: ubuntu-latest

@@ -753,7 +753,6 @@ type ScopeGroup = {
 }
 
 type ProjectToolKey =
-  | 'walkie talkie'
   | 'scan qr'
   | 'gantt'
   | 'map'
@@ -957,11 +956,6 @@ async function openProjectTool(tool: ProjectToolKey) {
   }
 
   closeProjectTools()
-
-  if (tool === 'walkie talkie') {
-    await router.push({ name: 'walkie-talkie', params: { project: scope.project } })
-    return
-  }
 
   if (tool === 'scan qr') {
     await router.push('/scan-qr')

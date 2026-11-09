@@ -6,7 +6,7 @@ import vm from 'node:vm';
 const source = readFileSync(new URL('../verto/public/js/gantt_view.js', import.meta.url), 'utf8');
 
 function screen({ canWrite = true, mode = 'Day', loadFailure = false } = {}) {
-    const state = { charts: [], requests: [], routes: [], writes: [], messages: [], errors: [], saved: [] };
+    const state = { charts: [], requests: [], routes: [], writes: [], messages: [], errors: [], saved: [], styles: [] };
     let finishLoading;
 
     function element(html = '') {
@@ -55,7 +55,7 @@ function screen({ canWrite = true, mode = 'Day', loadFailure = false } = {}) {
         require(paths, callback) {
             state.requests.push(...paths);
             finishLoading = () => {
-                if (!loadFailure) state.context.Gantt = Gantt;
+                state.view.constructor.Gantt = loadFailure ? undefined : Gantt;
                 callback();
             };
         },
@@ -65,6 +65,11 @@ function screen({ canWrite = true, mode = 'Day', loadFailure = false } = {}) {
     };
     state.context = vm.createContext({
         frappe, $, setTimeout, __: (value) => value,
+        document: {
+            getElementById: id => state.styles.find(style => style.id === id),
+            createElement: tag => ({ tag }),
+            head: { appendChild: style => state.styles.push(style) },
+        },
         moment: (value) => ({ format: () => String(value), utc() { return this; } }),
         console: { error: (...args) => state.errors.push(args) },
     });
@@ -96,25 +101,58 @@ function screen({ canWrite = true, mode = 'Day', loadFailure = false } = {}) {
     return state;
 }
 
-test('cold custom Gantt loads the v16 UMD library and waits before rendering both columns', async () => {
+test('the standalone script registers its real library before loading other assets', () => {
     const state = screen();
-    assert.deepEqual(state.requests, [
-        'assets/frappe/node_modules/frappe-gantt/dist/frappe-gantt.css',
-        'assets/frappe/node_modules/frappe-gantt/dist/frappe-gantt.umd.js',
-    ]);
+    const Chart = state.view.constructor.Gantt;
+    assert.equal(typeof Chart, 'function');
+    assert.equal(Chart.VIEW_MODE.DAY.name, 'Day');
+    assert.equal(state.context.Gantt, undefined);
+    assert.deepEqual(state.requests, []);
+});
+
+test('the standalone script includes chart styles once across view refreshes', async () => {
+    const state = screen();
+    await state.render();
+    await state.view.render();
+    assert.equal(state.styles.length, 1);
+    assert.equal(state.styles[0].id, 'verto-gantt-library-style');
+    assert.match(state.styles[0].textContent, /\.gantt-container/);
+    assert.match(state.styles[0].textContent, /\.popup-wrapper/);
+    assert.match(state.styles[0].textContent, /\.verto-gantt-layout/);
+    assert.doesNotMatch(state.styles[0].textContent, /@import/);
+    assert.deepEqual(state.requests, []);
+});
+
+test('an existing Gantt style element receives updated standalone layout rules', async () => {
+    const state = screen();
+    const style = { id: 'verto-gantt-library-style', textContent: 'old chart styles' };
+    state.styles.push(style);
+    await state.render();
+    assert.equal(state.styles.length, 1);
+    assert.match(style.textContent, /\.verto-gantt-layout/);
+});
+
+test('custom Gantt waits for Desk setup and renders without requesting dependency URLs or a global Gantt', async () => {
+    const state = screen();
+    assert.deepEqual(state.requests, []);
     const pending = state.view.render();
     assert.equal(state.charts.length, 0);
     assert.equal(state.view.$result.children.length, 0);
     state.finishLoading();
     await pending;
+    assert.equal(state.context.Gantt, undefined);
     assert.equal(state.charts.length, 1);
-    const [column, chart] = state.view.$result.children;
+    assert.equal(state.view.$result.children.length, 1);
+    const layout = state.view.$result.children[0];
+    assert.match(layout.html, /verto-gantt-layout/);
+    const [column, chart] = layout.children;
     assert.match(column.html, /gantt-task-column/);
     assert.match(column.children[1].html, /Inspect equipment/);
     assert.match(chart.html, /gantt-chart-container/);
     assert.equal(state.charts[0].container, chart[0]);
     const options = state.charts[0].options;
     assert.equal(options.upper_header_height + options.lower_header_height + 10, 60);
+    assert.equal(options.bar_height + options.padding, 53);
     assert.equal(state.messages.length, 0);
 });
 
@@ -146,11 +184,11 @@ test('v16 popup callback keeps custom content and navigates to the clicked task'
     const popup = options.popup({ task });
     assert.match(popup, /<strong>TASK-1: Inspect equipment<\/strong>/);
     assert.match(popup, /data-doctype="Task"/);
-    const container = state.view.$result.children[1];
+    const [column, container] = state.view.$result.children[0].children;
     const click = container.events['click.verto-gantt'];
     click.call({ getAttribute: (key) => ({ 'data-doctype': 'Task', 'data-id': 'TASK-2' })[key] });
     assert.deepEqual(state.routes.at(-1), ['Form', 'Task', 'TASK-2']);
-    state.view.$result.children[0].children[1].events.click();
+    column.children[1].events.click();
     assert.deepEqual(state.routes.at(-1), ['Form', 'Task', 'TASK-1']);
 });
 
