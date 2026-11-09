@@ -5,12 +5,8 @@
   "description": "Webwire Verto custom app for ERPNext",
   "dependencies": {
     "@excalidraw/excalidraw": "0.18.1",
-    "frappe-gantt": "1.1.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1"
-  },
-  "devDependencies": {
-    "sass": "^1.63.0"
   },
   "scripts": {
     "build": "git submodule update --init --recursive && yarn install:frontend && yarn install:planner && yarn install:investigations && yarn build:frontend && yarn build:planner && yarn build:investigations",

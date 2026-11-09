@@ -34,7 +34,6 @@ add_to_apps_screen = [
 ]
 
 app_include_css = [
-    "verto_gantt.bundle.css",
     "/assets/verto/css/verto.css",
     "/assets/verto/css/leaflet.css",
     "/assets/verto/css/leaflet.draw.css",
@@ -45,7 +44,7 @@ app_include_css = [
 ]
 
 app_include_js = [
-    "verto_gantt.bundle.js",
+    "/assets/verto/js/gantt_view.js",
     "/assets/verto/js/task_gantt_map.js",
     "/assets/verto/js/map_defaults.js",
     "/assets/verto/js/geolocation.js",

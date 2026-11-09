@@ -82,16 +82,12 @@ jobs:
         with:
           node-version: 24
           cache: yarn
-          cache-dependency-path: |
-            yarn.lock
-            planner/yarn.lock
+          cache-dependency-path: planner/yarn.lock
       - name: Install planner dependencies
         working-directory: planner
         run: |
           npm install --global yarn@1.22.22
           yarn install --frozen-lockfile --non-interactive
-      - name: Install Desk bundle dependencies
-        run: yarn install --frozen-lockfile --non-interactive
       - name: Run planner UI regressions
         working-directory: planner
         run: yarn test:ui

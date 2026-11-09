@@ -6,7 +6,7 @@ import vm from 'node:vm';
 const source = readFileSync(new URL('../verto/public/js/gantt_view.js', import.meta.url), 'utf8');
 
 function screen({ canWrite = true, mode = 'Day', loadFailure = false } = {}) {
-    const state = { charts: [], requests: [], routes: [], writes: [], messages: [], errors: [], saved: [] };
+    const state = { charts: [], requests: [], routes: [], writes: [], messages: [], errors: [], saved: [], styles: [] };
     let finishLoading;
 
     function element(html = '') {
@@ -55,7 +55,7 @@ function screen({ canWrite = true, mode = 'Day', loadFailure = false } = {}) {
         require(paths, callback) {
             state.requests.push(...paths);
             finishLoading = () => {
-                if (!loadFailure) state.view.constructor.Gantt = Gantt;
+                state.view.constructor.Gantt = loadFailure ? undefined : Gantt;
                 callback();
             };
         },
@@ -65,6 +65,11 @@ function screen({ canWrite = true, mode = 'Day', loadFailure = false } = {}) {
     };
     state.context = vm.createContext({
         frappe, $, setTimeout, __: (value) => value,
+        document: {
+            getElementById: id => state.styles.find(style => style.id === id),
+            createElement: tag => ({ tag }),
+            head: { appendChild: style => state.styles.push(style) },
+        },
         moment: (value) => ({ format: () => String(value), utc() { return this; } }),
         console: { error: (...args) => state.errors.push(args) },
     });
@@ -95,6 +100,27 @@ function screen({ canWrite = true, mode = 'Day', loadFailure = false } = {}) {
     state.paging = paging;
     return state;
 }
+
+test('the standalone script registers its real library before loading other assets', () => {
+    const state = screen();
+    const Chart = state.view.constructor.Gantt;
+    assert.equal(typeof Chart, 'function');
+    assert.equal(Chart.VIEW_MODE.DAY.name, 'Day');
+    assert.equal(state.context.Gantt, undefined);
+    assert.deepEqual(state.requests, []);
+});
+
+test('the standalone script includes chart styles once across view refreshes', async () => {
+    const state = screen();
+    await state.render();
+    await state.view.render();
+    assert.equal(state.styles.length, 1);
+    assert.equal(state.styles[0].id, 'verto-gantt-library-style');
+    assert.match(state.styles[0].textContent, /\.gantt-container/);
+    assert.match(state.styles[0].textContent, /\.popup-wrapper/);
+    assert.doesNotMatch(state.styles[0].textContent, /@import/);
+    assert.deepEqual(state.requests, []);
+});
 
 test('custom Gantt waits for Desk setup and renders without requesting dependency URLs or a global Gantt', async () => {
     const state = screen();
