@@ -169,6 +169,86 @@ describe('Durable mobile submission retries', () => {
   })
 })
 
+describe('Discarding failed uploads', () => {
+  it('removes only the selected failed upload and its photos, preserving cached data and other work', async () => {
+    const attachment = queue.makeOfflineAttachment(new Blob(['evidence']), 'photo.jpg')
+    const failed = await queue.queueMobileDocumentAction(input({ attachments: [attachment] }))
+    await queue.updateOfflineQueueItem({ ...failed, status: 'failed', server_result: result })
+    await queue.queueMobileDocumentAction(input({ operationId: 'keep-queued' }))
+    await queue.updateOfflineQueueItem({ ...failed, id: 'keep-failed', status: 'failed' })
+    await queue.updateOfflineQueueItem({ ...failed, id: 'keep-synced', status: 'synced', attachments: [] })
+    await queue.cacheApiResponse('offline-test', { ready: true })
+    const updated = vi.fn()
+    window.addEventListener('verto:offline-queue-updated', updated)
+
+    await queue.discardFailedOfflineQueueItem(failed.id, actor)
+
+    expect(await queue.getOfflineQueueItem(failed.id)).toBeUndefined()
+    expect((await queue.getOfflineQueueItems()).map(item => item.id).sort()).toEqual(['keep-failed', 'keep-queued', 'keep-synced'])
+    expect(await queue.getCachedApiResponse('offline-test')).toEqual({ ready: true })
+    expect(await queue.getOfflineQueueSummary()).toMatchObject({ queued: 1, failed: 1, total: 2 })
+    expect(updated).toHaveBeenCalledOnce()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it.each(['queued', 'syncing', 'synced'])('preserves an upload that changed to %s before confirmation', async status => {
+    const item = await queue.queueMobileDocumentAction(input())
+    await queue.updateOfflineQueueItem({ ...item, status })
+    await expect(queue.discardFailedOfflineQueueItem(item.id, actor)).rejects.toThrow('no longer failed')
+    expect((await queue.getOfflineQueueItem(item.id)).status).toBe(status)
+  })
+
+  it('does not remove or resurrect an upload during an active retry in another window', async () => {
+    const item = await queue.queueMobileDocumentAction(input())
+    await queue.updateOfflineQueueItem({ ...item, status: 'failed' })
+    const pending = deferred()
+    fetch.mockReturnValueOnce(pending.promise)
+    const uploading = queue.syncOfflineQueueItem(item.id)
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce())
+    vi.resetModules()
+    const otherWindow = await import('../src/pwa/offlineQueue')
+    await expect(otherWindow.discardFailedOfflineQueueItem(item.id, actor)).rejects.toThrow('syncing')
+    pending.resolve(response())
+    await uploading
+    expect((await queue.getOfflineQueueItem(item.id)).status).toBe('synced')
+  })
+
+  it('prevents a previously listed item from uploading after it was discarded', async () => {
+    const item = await queue.queueMobileDocumentAction(input())
+    await queue.updateOfflineQueueItem({ ...item, status: 'failed' })
+    await queue.discardFailedOfflineQueueItem(item.id, actor)
+    await expect(queue.syncOfflineQueueItem(item.id)).rejects.toThrow('could not be found')
+    expect(fetch).not.toHaveBeenCalled()
+    expect(await queue.getOfflineQueueItem(item.id)).toBeUndefined()
+  })
+
+  it('protects an unexpired upload lease even if a stale record still says failed', async () => {
+    const item = await queue.queueMobileDocumentAction(input())
+    await queue.updateOfflineQueueItem({ ...item, status: 'failed', sync_owner: 'other-window', sync_expires_at: Date.now() + 120000 })
+    await expect(queue.discardFailedOfflineQueueItem(item.id, actor)).rejects.toThrow('syncing')
+    expect(await queue.getOfflineQueueItem(item.id)).toBeDefined()
+  })
+
+  it('allows old unidentified failures to be removed without requiring a working server connection', async () => {
+    const item = await queue.addOfflineQueueItem({ type: 'old form', url: '/api/method/old', body: {} })
+    await queue.updateOfflineQueueItem({ ...item, status: 'failed' })
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false })
+    await queue.discardFailedOfflineQueueItem(item.id, actor)
+    expect(await queue.getOfflineQueueItem(item.id)).toBeUndefined()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('hides another account’s failures and refuses to discard them', async () => {
+    const item = await queue.queueMobileDocumentAction(input())
+    await queue.updateOfflineQueueItem({ ...item, status: 'failed' })
+    expect(await queue.getFailedOfflineQueueItems('other@example.test')).toEqual([])
+    expect(await queue.getFailedOfflineQueueItems('Guest')).toEqual([])
+    await expect(queue.discardFailedOfflineQueueItem(item.id, 'other@example.test')).rejects.toThrow('another signed-in user')
+    expect(await queue.getFailedOfflineQueueItems(actor)).toHaveLength(1)
+    expect((await queue.getOfflineQueueItem(item.id)).status).toBe('failed')
+  })
+})
+
 describe('Form and photo queue handoff', () => {
   it.each(['create', 'update'])('persists all photos before exposing an offline %s action', async action => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: false })
