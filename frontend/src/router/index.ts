@@ -16,6 +16,7 @@ const routes = [
     path: '/',
     component: MobileShell,
     children: [
+      { path: 'failed-uploads', name: 'failed-uploads', component: () => import('../pages/FailedUploads.vue'), meta: { title: 'Failed uploads' } },
       { path: 'my-profile', name: 'my-profile', component: () => import('../pages/MyProfile.vue'), meta: { title: 'My profile' } },
       { path: 'scan-qr', name: 'scan-qr', component: () => import('../pages/QrScanner.vue'), meta: { title: 'Scan QR code' } },
       { path: 'jha-saved', name: 'jha-saved', component: () => import('../pages/JhaSaved.vue'), meta: { title: 'Offline JHAs' } },

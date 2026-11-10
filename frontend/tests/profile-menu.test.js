@@ -73,6 +73,17 @@ afterEach(() => {
   calls.employeeId = 'HR-EMP-001'
 })
 describe('Profile menu', () => {
+  it('opens the failed uploads page from the offline section', async () => {
+    w = mount(AppHeader, {
+      attachTo: document.body,
+      global: { stubs: { AboutAppToast: true } },
+    })
+    await w.find('[aria-label="Open profile menu"]').trigger('click')
+    await flushPromises()
+    await click('Failed uploads')
+    expect(calls.navigate).toHaveBeenCalledWith({ name: 'failed-uploads' })
+  })
+
   it('shows the employee ID beneath the name and opens the native profile page', async () => {
     w = mount(AppHeader, {
       attachTo: document.body,

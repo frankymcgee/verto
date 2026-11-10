@@ -616,6 +616,36 @@ export async function deleteOfflineQueueItem(id: string) {
   dispatchQueueUpdated()
 }
 
+function queueItemBelongsToUser(item: OfflineQueueItem, user: string) {
+  const owner = item.values?.__verto_offline_user || (item.kind === 'jha_observation' ? item.values?.actor : '')
+  // Older queue entries and standalone attachments have no stored identity.
+  return Boolean(user && user !== 'Guest' && (!owner || owner === user))
+}
+
+export async function getFailedOfflineQueueItems(user: string) {
+  return (await getOfflineQueueItems()).filter((item) => {
+    return item.status === 'failed' && queueItemBelongsToUser(item, user)
+  })
+}
+
+export async function discardFailedOfflineQueueItem(id: string, user: string) {
+  // Re-read and delete in one transaction. Auto-sync can claim a failure at
+  // any time; a stale screen must never delete an upload that is in progress.
+  await withStore(QUEUE_STORE, 'readwrite', async (store) => {
+    const item: OfflineQueueItem | undefined = await requestToPromise(store.get(id))
+    if (!item) return
+    if (!queueItemBelongsToUser(item, user)) {
+      throw new Error('This upload belongs to another signed-in user.')
+    }
+    if (item.status !== 'failed' || (item.sync_owner && (item.sync_expires_at || 0) > Date.now())) {
+      throw new Error('This upload is no longer failed or is syncing. Refresh the list and try again.')
+    }
+    await requestToPromise(store.delete(id))
+  })
+
+  dispatchQueueUpdated()
+}
+
 export async function clearSyncedOfflineQueueItems() {
   const items = await getOfflineQueueItems()
   await Promise.all(

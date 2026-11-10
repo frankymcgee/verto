@@ -151,6 +151,14 @@
               </span>
             </Button>
 
+            <Button variant="ghost"
+              type="button"
+              class="mt-2 w-full justify-start text-xs text-ink-gray-8"
+              @click="openFailedUploads"
+            >
+              Failed uploads<span v-if="offlineSummary.failed > 0"> ({{ offlineSummary.failed }})</span>
+            </Button>
+
             <p
               v-if="offlineRefreshError"
               class="mt-2 text-xs leading-4 text-red-600"
@@ -526,6 +534,11 @@ async function reloadApp() {
 function openProfile() {
   menuOpen.value = false
   void router.push({ name: 'my-profile' })
+}
+
+function openFailedUploads() {
+  menuOpen.value = false
+  void router.push({ name: 'failed-uploads' })
 }
 
 function openLearning() {

@@ -77,7 +77,7 @@ const detailLabel = computed(() => {
   }
 
   if (summary.value.failed > 0) {
-    return lastSyncMessage.value || 'Open the profile menu to retry the failed item.'
+    return 'Open Failed uploads in the profile menu to see errors, retry or remove an item.'
   }
 
   if (summary.value.total > 0) {
