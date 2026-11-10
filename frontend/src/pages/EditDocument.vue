@@ -182,6 +182,16 @@
                     @update:model-value="handleFieldChange(field)"
                   />
 
+                  <RatingField
+                    v-else-if="field.fieldtype === 'Rating'"
+                    v-model="values[field.fieldname]"
+                    :label="field.label"
+                    :description="field.description"
+                    :required="isFieldMandatory(field)"
+                    :disabled="isFieldReadOnly(field) || !canWrite"
+                    @update:model-value="handleFieldChange(field)"
+                  />
+
                   <RichTextEditorField
                     v-else-if="field.fieldtype === 'Text Editor'"
                     v-model="values[field.fieldname]"
@@ -407,6 +417,7 @@ import {
 import LinkField from '../components/mobile-fields/LinkField.vue'
 import ChildTableField from '../components/mobile-fields/ChildTableField.vue'
 import SignatureField from '../components/mobile-fields/SignatureField.vue'
+import RatingField from '../components/mobile-fields/RatingField.vue'
 const RichTextEditorField = defineAsyncComponent(() => import('../components/mobile-fields/RichTextEditorField.vue'))
 import type { MobileField } from './NewDocument.vue'
 

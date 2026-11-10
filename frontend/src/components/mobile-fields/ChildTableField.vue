@@ -145,6 +145,15 @@
                 :disabled="isFieldReadOnly(childField) || disabled"
               />
 
+              <RatingField
+                v-else-if="childField.fieldtype === 'Rating'"
+                v-model="draftRow[childField.fieldname]"
+                :label="childField.label"
+                :description="childField.description"
+                :required="isFieldMandatory(childField)"
+                :disabled="isFieldReadOnly(childField) || disabled || locked"
+              />
+
               <RichTextEditorField v-else-if="childField.fieldtype === 'Text Editor'"
                 v-model="draftRow[childField.fieldname]" :label="childField.label"
                 :description="childField.description" :required="isFieldMandatory(childField)"
@@ -302,6 +311,7 @@ import {
 } from '../../lib/dependencies'
 import LinkField from './LinkField.vue'
 import SignatureField from './SignatureField.vue'
+import RatingField from './RatingField.vue'
 const RichTextEditorField = defineAsyncComponent(() => import('./RichTextEditorField.vue'))
 
 type MobileField = {
