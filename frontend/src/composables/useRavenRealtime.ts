@@ -16,6 +16,7 @@ type RavenRealtimeOptions = {
   onThreadReply?: (channelId: string, event: any) => void
   onAiEvent?: (event: any) => void
   onAiEventClear?: (event: any) => void
+  onAiThreadCreated?: (event: any) => void
 }
 
 declare global {
@@ -505,6 +506,10 @@ export function useRavenRealtime(options: RavenRealtimeOptions) {
     onAll('ai_event_clear', (event) => {
       lastEvent.value = 'ai_event_clear'
       options.onAiEventClear?.(event)
+    })
+    onAll('ai_thread_created', (event) => {
+      lastEvent.value = 'ai_thread_created'
+      options.onAiThreadCreated?.(event)
     })
 
     for (const socket of getSocketCandidates()) {

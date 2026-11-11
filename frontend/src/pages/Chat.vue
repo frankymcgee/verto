@@ -324,6 +324,8 @@
             />
           </div>
 
+          <PeriThinkingIndicator v-if="periThinking" :name="periBotName" />
+
           <div
             ref="messagesBottomEl"
             class="h-px w-full shrink-0"
@@ -679,8 +681,10 @@
               </div>
             </div>
 
+            <PeriThinkingIndicator v-if="periThinkingInThread" :name="periBotName" />
+
             <section
-              v-if="!orderedThreadReplies.length && !threadLoading"
+              v-if="!orderedThreadReplies.length && !threadLoading && !periThinkingInThread"
               class="bg-surface-base rounded-7 shadow-sm p-3"
             >
               <div class="rounded-7 border border-dashed border-outline-gray-2 bg-surface-gray-1 px-4 py-5 text-center">
@@ -733,7 +737,10 @@
 </template>
 
 <script setup lang="ts">
+import DOMPurify from 'dompurify'
+import { marked } from 'marked'
 import MobileSheet from '../components/MobileSheet.vue'
+import PeriThinkingIndicator from '../components/PeriThinkingIndicator.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -756,6 +763,7 @@ import {
 } from '../lib/ravenClient'
 import { useRavenChat } from '../composables/useRavenChat'
 import { useRavenRealtime } from '../composables/useRavenRealtime'
+import { usePeriThinking } from '../composables/usePeriThinking'
 import { CHAT_POLL_INTERVAL_MS, shouldRefreshChat } from '../lib/chatRefreshPolicy'
 import { openAppBrowser } from '../lib/appBrowser'
 
@@ -813,11 +821,46 @@ const chat = useRavenChat({
 const activeChannelLabel = computed(() => getChannelLabel(chat.activeChannel.value))
 const periAssistantLabel = computed(() => `${periBotName.value || 'PERI'} AI assistant`)
 const orderedThreadReplies = computed(() => sortMessagesOldestFirst(threadReplies.value))
+const mainPeriActivity = usePeriThinking()
+const threadPeriActivity = usePeriThinking()
+const periThinking = computed(() => mainPeriActivity.pendingChannelIds.size > 0)
+const periThinkingInThread = computed(() =>
+  Boolean(activeThreadId.value) && (
+    mainPeriActivity.pendingChannelIds.has(activeThreadId.value) ||
+    threadPeriActivity.pendingChannelIds.has(activeThreadId.value)
+  )
+)
 
 const realtime = useRavenRealtime({
   channelId: chat.activeChannelId,
   threadChannelId: activeThreadId,
   currentUser: chat.currentUser,
+  onAiEvent(event) {
+    const channelId = event?.channel_id
+    if (!isAiMode.value || !channelId) return
+
+    if (channelId === activeThreadId.value) {
+      threadPeriActivity.start(channelId)
+    } else if (channelId === chat.activeChannelId.value) {
+      mainPeriActivity.start(channelId)
+    }
+  },
+  onAiEventClear(event) {
+    const channelId = event?.channel_id
+    if (!isAiMode.value || !channelId) return
+
+    if (channelId === activeThreadId.value) threadPeriActivity.stop(channelId)
+    if (channelId === chat.activeChannelId.value) {
+      mainPeriActivity.reset()
+    } else {
+      mainPeriActivity.stop(channelId)
+    }
+  },
+  onAiThreadCreated(event) {
+    if (isAiMode.value && event?.thread_id && event.channel_id === chat.activeChannelId.value) {
+      mainPeriActivity.start(event.thread_id)
+    }
+  },
   onMessageCreated(message) {
     if (message.channel_id === activeThreadId.value) {
       mergeThreadReplies([message])
@@ -861,9 +904,11 @@ const realtime = useRavenRealtime({
       await refreshThreadMessages()
     }
   },
-  async onThreadReply(channelId) {
+  async onThreadReply(channelId, event) {
     if (channelId === activeThreadId.value) {
       await refreshThreadMessages()
+    } else if (isAiMode.value && Number(event?.number_of_replies) > 0) {
+      mainPeriActivity.stop(channelId)
     }
 
     threadCountCheckedAt.delete(channelId)
@@ -914,12 +959,6 @@ function escapeHtml(value: string) {
   const div = document.createElement('div')
   div.textContent = value
   return div.innerHTML
-}
-
-function textToHtml(value: string) {
-  return escapeHtml(value)
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/\n/g, '<br>')
 }
 
 function isSafeUrl(value?: string) {
@@ -1053,111 +1092,31 @@ function tiptapJsonToHtml(value: string) {
 }
 
 function sanitiseMessageHtml(value: string) {
-  if (!value) return ''
+  const content = DOMPurify.sanitize(value, {
+    ALLOWED_TAGS: [
+      'a', 'b', 'blockquote', 'br', 'code', 'del', 'div', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'hr', 'i', 'img', 'li', 'ol', 'p', 'pre', 's', 'span', 'strong', 'table', 'tbody', 'td', 'th',
+      'thead', 'tr', 'u', 'ul',
+    ],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'width', 'height', 'colspan', 'rowspan', 'start'],
+    ALLOW_ARIA_ATTR: false,
+    ALLOW_DATA_ATTR: false,
+    RETURN_DOM_FRAGMENT: true,
+  })
+
+  for (const link of content.querySelectorAll('a')) {
+    if (!isSafeUrl(link.getAttribute('href') || undefined)) link.removeAttribute('href')
+    link.setAttribute('target', '_blank')
+    link.setAttribute('rel', 'noopener noreferrer')
+  }
+
+  for (const image of content.querySelectorAll('img')) {
+    if (!isSafeUrl(image.getAttribute('src') || undefined)) image.removeAttribute('src')
+    image.setAttribute('loading', 'lazy')
+  }
 
   const template = document.createElement('template')
-  template.innerHTML = value
-
-  const allowedTags = new Set([
-    'A',
-    'B',
-    'BLOCKQUOTE',
-    'BR',
-    'CODE',
-    'DIV',
-    'EM',
-    'H1',
-    'H2',
-    'H3',
-    'H4',
-    'H5',
-    'H6',
-    'HR',
-    'I',
-    'IMG',
-    'LI',
-    'OL',
-    'P',
-    'PRE',
-    'S',
-    'SPAN',
-    'STRONG',
-    'TABLE',
-    'TBODY',
-    'TD',
-    'TH',
-    'THEAD',
-    'TR',
-    'U',
-    'UL',
-  ])
-
-  const allowedAttributes: Record<string, Set<string>> = {
-    A: new Set(['href', 'target', 'rel', 'title']),
-    IMG: new Set(['src', 'alt', 'title', 'width', 'height', 'loading']),
-    TD: new Set(['colspan', 'rowspan']),
-    TH: new Set(['colspan', 'rowspan']),
-  }
-
-  function cleanElement(element: HTMLElement) {
-    const tagName = element.tagName.toUpperCase()
-
-    for (const attribute of Array.from(element.attributes)) {
-      const attrName = attribute.name.toLowerCase()
-      const allowedForTag = allowedAttributes[tagName]
-      const isAllowed = allowedForTag?.has(attrName) || false
-
-      if (!isAllowed) {
-        element.removeAttribute(attribute.name)
-        continue
-      }
-
-      if ((tagName === 'A' && attrName === 'href') || (tagName === 'IMG' && attrName === 'src')) {
-        if (!isSafeUrl(attribute.value)) {
-          element.removeAttribute(attribute.name)
-        }
-      }
-    }
-
-    if (tagName === 'A') {
-      element.setAttribute('target', '_blank')
-      element.setAttribute('rel', 'noopener noreferrer')
-    }
-
-    if (tagName === 'IMG') {
-      element.setAttribute('loading', 'lazy')
-    }
-  }
-
-  function cleanNode(node: Node) {
-    const children = Array.from(node.childNodes)
-
-    for (const child of children) {
-      if (child.nodeType === Node.ELEMENT_NODE) {
-        const element = child as HTMLElement
-        const tagName = element.tagName.toUpperCase()
-
-        if (!allowedTags.has(tagName)) {
-          const replacementChildren = Array.from(element.childNodes)
-          element.replaceWith(...replacementChildren)
-
-          for (const replacementChild of replacementChildren) {
-            cleanNode(replacementChild)
-          }
-
-          continue
-        }
-
-        cleanElement(element)
-        cleanNode(element)
-      } else if (child.nodeType === Node.COMMENT_NODE) {
-        child.remove()
-      }
-    }
-  }
-
-  cleanNode(template.content)
-
+  template.content.append(content)
   return template.innerHTML.trim()
 }
 
@@ -1190,10 +1149,13 @@ function getRawDisplayText(message: RavenMessage) {
       continue
     }
 
-    const decoded = decodeHtmlDeep(value)
+    if (containsHtml(value)) {
+      return value
+    }
 
-    if (containsHtml(decoded) || looksLikeEncodedHtml(value)) {
-      return decoded
+    if (looksLikeEncodedHtml(value)) {
+      const decoded = decodeHtmlDeep(value)
+      if (containsHtml(decoded)) return decoded
     }
   }
 
@@ -1370,13 +1332,15 @@ function getVisibleMessageHtml(message: RavenMessage) {
     return cached
   }
 
-  const decoded = decodeHtmlDeep(raw)
-  const tiptapHtml = looksLikeTiptapJson(decoded) ? tiptapJsonToHtml(decoded) : ''
-  const html = tiptapHtml
-    ? sanitiseMessageHtml(tiptapHtml)
-    : containsHtml(decoded)
-      ? sanitiseMessageHtml(decoded)
-      : textToHtml(raw)
+  // Raven can escape the > at the start of Markdown blockquotes.
+  const body = raw.startsWith('<') && containsHtml(raw)
+    ? raw
+    : marked.parse(raw.replace(/^([ \t]*)&(?:amp;)*gt;/gim, '$1>'), {
+        async: false,
+        breaks: true,
+        gfm: true,
+      })
+  const html = sanitiseMessageHtml(body)
 
   if (visibleMessageHtmlCache.size >= VISIBLE_MESSAGE_HTML_CACHE_LIMIT) {
     visibleMessageHtmlCache.clear()
@@ -1577,7 +1541,7 @@ async function hydrateThreadCountsForMessages() {
   }
 
   const missingThreadCounts = chat.messages.value.filter((message) => {
-    return Boolean(message.is_thread)
+    return (message.is_thread || mainPeriActivity.pendingChannelIds.has(message.name))
       && Date.now() - (threadCountCheckedAt.get(message.name) || 0) >= 60_000
   })
 
@@ -1592,6 +1556,12 @@ async function hydrateThreadCountsForMessages() {
     const counts = await getThreadCounts(missingThreadCounts.map((message) => message.name))
     if (channelId !== chat.activeChannelId.value) return
     threadCounts.value = { ...threadCounts.value, ...counts }
+
+    for (const threadId of mainPeriActivity.pendingChannelIds) {
+      if (threadId !== activeThreadId.value && counts[threadId] > 0) {
+        mainPeriActivity.stop(threadId)
+      }
+    }
   } catch (err) {
     console.warn('[verto raven] Could not refresh thread counts', err)
   } finally {
@@ -1691,6 +1661,11 @@ function openFilePicker() {
   fileInputEl.value?.click()
 }
 
+function getPendingPeriThreadId(message: RavenMessage) {
+  // A Raven DM to an AI bot starts a thread with the prompt's message ID.
+  return isAiMode.value && !getThreadCount(message) ? message.name : ''
+}
+
 async function handleFileSelected(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -1710,7 +1685,7 @@ async function sendDraft() {
   const text = draft.value.trim()
   if (!text) return
 
-  const sent = await chat.sendText(text)
+  const sent = await mainPeriActivity.trackSend(() => chat.sendText(text), getPendingPeriThreadId)
 
   if (sent) {
     draft.value = ''
@@ -1818,16 +1793,18 @@ function closeThread() {
 
 async function sendThreadReply() {
   const text = threadDraft.value.trim()
-  if (!text || !activeThreadId.value || threadSending.value) return
+  const threadId = activeThreadId.value
+  if (!text || !threadId || threadSending.value) return
 
   threadSending.value = true
   threadError.value = ''
 
   try {
-    const message = await sendTextMessage({
-      channelId: activeThreadId.value,
-      text,
-    })
+    const message = await threadPeriActivity.trackSend(
+      () => sendTextMessage({ channelId: threadId, text }),
+      () => isAiMode.value ? threadId : ''
+    )
+    if (!message || threadId !== activeThreadId.value) return
 
     mergeThreadReplies([message])
     threadDraft.value = ''
@@ -1963,6 +1940,34 @@ async function reloadChat() {
   await scrollToBottom()
 }
 
+watch([isAiMode, chat.activeChannelId], () => {
+  mainPeriActivity.reset()
+  threadPeriActivity.reset()
+}, { flush: 'sync' })
+watch(activeThreadId, threadPeriActivity.reset, { flush: 'sync' })
+watch(
+  () => chat.orderedMessages.value.filter(isBotMessage).at(-1)?.name,
+  (messageName) => {
+    if (messageName && isAiMode.value) mainPeriActivity.reset()
+  },
+  { flush: 'sync' }
+)
+watch(
+  [activeThreadId, () => orderedThreadReplies.value.filter(isBotMessage).at(-1)?.name],
+  ([threadId, messageName]) => {
+    if (!messageName || !isAiMode.value || !threadId) return
+    threadPeriActivity.stop(threadId)
+    mainPeriActivity.stop(threadId)
+  },
+  { flush: 'sync' }
+)
+watch(periThinking, (visible) => {
+  if (visible && isNearBottom(messagesEl.value)) void scrollToBottom()
+})
+watch(periThinkingInThread, (visible) => {
+  if (visible && isNearBottom(threadMessagesEl.value)) void scrollThreadToBottom()
+})
+
 watch(
   () => route.fullPath,
   async () => {
@@ -1999,6 +2004,11 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.rich-message-html {
+  overflow-wrap: anywhere;
+  overflow-x: auto;
+}
+
 .rich-message-html :deep(p) {
   margin: 0 0 0.35rem;
 }
@@ -2011,6 +2021,14 @@ onBeforeUnmount(() => {
 .rich-message-html :deep(ol) {
   margin: 0.35rem 0 0.35rem 1rem;
   padding: 0;
+}
+
+.rich-message-html :deep(ul) {
+  list-style-type: disc;
+}
+
+.rich-message-html :deep(ol) {
+  list-style-type: decimal;
 }
 
 .rich-message-html :deep(li) {
@@ -2079,7 +2097,6 @@ onBeforeUnmount(() => {
   padding: 0.05rem 0.25rem;
   background: rgba(0, 0, 0, 0.08);
 }
-
 
 .drawer-fade-slide-enter-active,
 .drawer-fade-slide-leave-active {

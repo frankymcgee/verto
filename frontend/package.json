@@ -11,8 +11,10 @@
   },
   "dependencies": {
     "@lucide/vue": "latest",
+    "dompurify": "^3.4.0",
     "frappe-ui": "file:../frappe-ui",
     "jsqr": "1.4.0",
+    "marked": "^15.0.12",
     "socket.io-client": "4.7.1",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0",
