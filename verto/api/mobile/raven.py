@@ -479,8 +479,9 @@ def _normalise_message(message):
 
     owner = message.get("owner") or ""
     sender = message.get("sender") or owner
+    # Raven stores the formatted body in text and its plain preview in content.
     content = message.get("content")
-    text = content if content is not None else message.get("text") or ""
+    text = message.get("text") or content or ""
 
     link_doctype = message.get("link_doctype")
     link_document = message.get("link_document")

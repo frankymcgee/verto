@@ -89,9 +89,9 @@ jobs:
         run: |
           npm install --global yarn@1.22.22
           yarn install --frozen-lockfile --non-interactive
-      - name: Verify one-step row saves and offline persistence
+      - name: Verify mobile forms, offline persistence and chat
         working-directory: frontend
-        run: yarn test:ui tests/child-row-save.test.js tests/mobile-ui.test.js tests/form-controls.test.js tests/rating-fields.test.js tests/offline-sync.test.js tests/offline-request-efficiency.test.js tests/failed-uploads.test.js tests/profile-menu.test.js
+        run: yarn test:ui tests/child-row-save.test.js tests/mobile-ui.test.js tests/form-controls.test.js tests/rating-fields.test.js tests/offline-sync.test.js tests/offline-request-efficiency.test.js tests/failed-uploads.test.js tests/profile-menu.test.js tests/chat-view.test.js
 
   planner-ui:
     runs-on: ubuntu-latest
