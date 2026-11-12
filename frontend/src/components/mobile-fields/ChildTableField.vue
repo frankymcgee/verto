@@ -48,14 +48,14 @@
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <p class="truncate text-sm-semibold text-ink-gray-9">
-              {{ getRowTitle(row, index) }}
+              {{ rowSummaries[index].title }}
             </p>
 
             <p
-              v-if="getRowSubtitle(row)"
+              v-if="rowSummaries[index].subtitle"
               class="mt-1 line-clamp-2 text-xs text-ink-gray-5"
             >
-              {{ getRowSubtitle(row) }}
+              {{ rowSummaries[index].subtitle }}
             </p>
           </div>
 
@@ -308,6 +308,7 @@ import {
   evaluateDependsOn,
   evaluateMandatoryDependsOn,
   evaluateReadOnlyDependsOn,
+  getVisibleFormFields,
 } from '../../lib/dependencies'
 import LinkField from './LinkField.vue'
 import SignatureField from './SignatureField.vue'
@@ -380,19 +381,23 @@ const childFields = computed(() => {
     .sort((a, b) => Number(a.idx || 0) - Number(b.idx || 0))
 })
 
-const visibleChildFields = computed(() => {
-  return childFields.value.filter((field) => {
-    if (field.fieldtype === 'Tab Break' || field.fieldtype === 'Column Break') {
-      return false
-    }
+const visibleChildFields = computed(() => getVisibleFormFields(childFields.value, draftRow.value))
 
-    if (field.fieldtype === 'Section Break') {
-      return true
-    }
+const rowSummaries = computed(() => rows.value.map((row, index) => {
+  const summaryFields = getVisibleFormFields(childFields.value, createDraftFromRow(row))
+    .filter((field) => {
+      const value = row[field.fieldname]
+      return !isLayoutField(field) && value !== undefined && value !== null && String(value).trim() !== ''
+    })
+  const titleField = summaryFields[0]
 
-    return isFieldVisible(field)
-  })
-})
+  return {
+    title: titleField ? String(row[titleField.fieldname]) : `Row ${index + 1}`,
+    subtitle: summaryFields.slice(1, 4)
+      .map((field) => `${field.label || field.fieldname}: ${row[field.fieldname]}`)
+      .join(' • '),
+  }
+}))
 
 const drawerTitle = computed(() => {
   if (editingIndex.value === null) {
@@ -613,6 +618,7 @@ async function saveRow() {
     return
   }
 
+  // The parent saves the full row, including any hidden field values.
   const cleaned: Record<string, any> = {
     ...draftRow.value,
   }
@@ -622,7 +628,7 @@ async function saveRow() {
       continue
     }
 
-    if (!isFieldVisible(field)) {
+    if (!evaluateDependsOn(field.depends_on, draftRow.value)) {
       continue
     }
 
@@ -743,10 +749,6 @@ function getFieldRenderKey(field: MobileField) {
   ].join('::')
 }
 
-function isFieldVisible(field: MobileField) {
-  return evaluateDependsOn(field.depends_on, draftRow.value)
-}
-
 function isFieldMandatory(field: MobileField) {
   return Boolean(field.required) || evaluateMandatoryDependsOn(
     field.mandatory_depends_on,
@@ -761,33 +763,6 @@ function isFieldReadOnly(field: MobileField) {
 
 function getRowKey(row: Record<string, any>, index: number) {
   return row.name || row.idx || `${props.field.fieldname}-${index}`
-}
-
-function getSummaryFields(row: Record<string, any>) {
-  return childFields.value
-    .filter((field) => !isLayoutField(field))
-    .filter((field) => {
-      const value = row[field.fieldname]
-
-      return value !== undefined && value !== null && String(value).trim() !== ''
-    })
-}
-
-function getRowTitle(row: Record<string, any>, index: number) {
-  const firstField = getSummaryFields(row)[0]
-
-  if (firstField) {
-    return String(row[firstField.fieldname])
-  }
-
-  return `Row ${index + 1}`
-}
-
-function getRowSubtitle(row: Record<string, any>) {
-  return getSummaryFields(row)
-    .slice(1, 4)
-    .map((field) => `${field.label || field.fieldname}: ${row[field.fieldname]}`)
-    .join(' • ')
 }
 </script>
 

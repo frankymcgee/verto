@@ -166,7 +166,7 @@
 
                 <!-- Non-table Fields -->
                 <div
-                  v-else-if="field.fieldtype !== 'Table' && isFieldVisible(field)"
+                  v-else-if="field.fieldtype !== 'Table'"
                   class="space-y-1"
                 >
                   <FormControl
@@ -283,7 +283,7 @@
 
                 <!-- Child Table -->
                 <ChildTableField
-                  v-else-if="field.fieldtype === 'Table' && isFieldVisible(field)"
+                  v-else
                   v-model="values[field.fieldname]"
                   :field="field"
                   :disabled="!canWrite || isFieldReadOnly(field)"
@@ -410,9 +410,9 @@ import {
 import { apiRequest } from '../lib/api'
 import { createOfflineId } from '../pwa/offlineQueue'
 import {
-  evaluateDependsOn,
   evaluateMandatoryDependsOn,
   evaluateReadOnlyDependsOn,
+  getVisibleFormFields,
 } from '../lib/dependencies'
 import LinkField from '../components/mobile-fields/LinkField.vue'
 import ChildTableField from '../components/mobile-fields/ChildTableField.vue'
@@ -514,6 +514,10 @@ let fieldChangeTimer: number | undefined
 let fieldChangeRequestId = 0
 let saveNavigationTimer: number | undefined
 
+const visibleFields = computed(() => new Set(
+  getVisibleFormFields(schema.value?.fields || [], values.value)
+))
+
 const formTabs = computed<FormTab[]>(() => {
   const fields = schema.value?.fields || []
   const tabs: FormTab[] = []
@@ -548,17 +552,11 @@ const formTabs = computed<FormTab[]>(() => {
 
   tabs.push(currentTab)
 
-  if (!hasExplicitTabs) {
-    return [
-      {
-        id: 'main',
-        label: 'Details',
-        fields: fields.filter((field) => field.fieldtype !== 'Tab Break'),
-      },
-    ]
-  }
-
-  return tabs.filter((tab) => tab.fields.length > 0)
+  const layoutTabs = hasExplicitTabs ? tabs.filter((tab) => tab.fields.length > 0) : tabs
+  return layoutTabs.map((tab) => ({
+    ...tab,
+    fields: tab.fields.filter((field) => visibleFields.value.has(field)),
+  }))
 })
 
 function goBack() {
@@ -566,7 +564,7 @@ function goBack() {
 }
 
 function isLayoutField(field: MobileField) {
-  return ['Section Break', 'Tab Break'].includes(field.fieldtype)
+  return ['Section Break', 'Column Break', 'Tab Break'].includes(field.fieldtype)
 }
 
 function isTextInput(fieldtype: string) {
@@ -778,10 +776,6 @@ function getFieldRenderKey(field: MobileField) {
   ].join('::')
 }
 
-function isFieldVisible(field: MobileField) {
-  return evaluateDependsOn(field.depends_on, values.value)
-}
-
 function isFieldMandatory(field: MobileField) {
   return Boolean(field.required) || evaluateMandatoryDependsOn(
     field.mandatory_depends_on,
@@ -914,8 +908,8 @@ function applyDefaultsForVisibleFields() {
 
   let hasChanges = false
 
-  for (const field of schema.value?.fields || []) {
-    if (isLayoutField(field) || !isFieldVisible(field)) {
+  for (const field of visibleFields.value) {
+    if (isLayoutField(field)) {
       continue
     }
 
@@ -1009,12 +1003,8 @@ function getAllValuesForFieldChange() {
 function getVisibleValues() {
   const cleaned: Record<string, any> = {}
 
-  for (const field of schema.value?.fields || []) {
+  for (const field of visibleFields.value) {
     if (isLayoutField(field)) {
-      continue
-    }
-
-    if (!isFieldVisible(field)) {
       continue
     }
 
@@ -1185,8 +1175,10 @@ async function saveDocument(overrides: Record<string, any> = {}) {
   )
 
   const message = data.message
+  const savedValues = message.values || submittedValues
 
-  setLoadedValues(message.values || submittedValues)
+  // Offline acknowledgements contain only the values queued for sync.
+  setLoadedValues(message.offline_queued ? { ...values.value, ...savedValues } : savedValues)
 
   existingFiles.value = message.files || existingFiles.value
   docstatus.value = Number(message.docstatus || docstatus.value || 0)
