@@ -16,18 +16,16 @@
           </div>
 
           <div class="grid grid-cols-2 gap-3 sm:grid-cols-2">
-            <FormControl
+            <DateTimeField
               v-model="startDate"
-              type="date"
+              fieldtype="Date"
               label="Start date"
-              placeholder="Start date"
             />
 
-            <FormControl
+            <DateTimeField
               v-model="endDate"
-              type="date"
+              fieldtype="Date"
               label="End date"
-              placeholder="End date"
             />
           </div>
 
@@ -261,10 +259,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  Button,
-  FormControl,
-} from 'frappe-ui'
+import { Button } from 'frappe-ui'
+import DateTimeField from '../components/mobile-fields/DateTimeField.vue'
 import { apiRequest } from '../lib/api'
 import { withCsrfHeaders } from '../lib/csrf'
 

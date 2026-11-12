@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Button } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
 import JhaPhotoMarkers from './JhaPhotoMarkers.vue'
+import DateTimeField from './mobile-fields/DateTimeField.vue'
 
 const props = defineProps<{ jha: Record<string, any>; busy?: boolean }>()
 const emit = defineEmits<{ updated: [value: Record<string, any>]; requestChange: [] }>()
@@ -80,7 +81,10 @@ onBeforeUnmount(() => { alive = false; generation++; window.removeEventListener(
         <label v-if="kind !== 'Photo'" class="block text-sm">{{ kind === 'Isolation' ? 'Isolation record number' : kind === 'Permit' ? 'Permit number' : 'Document reference' }}<input v-model="reference" :required="['Permit', 'Isolation'].includes(kind) && !permit" maxlength="140" class="mt-1 block w-full rounded-7 border p-2" /></label>
         <label v-if="kind === 'Permit'" class="block text-sm">Existing EHS Permit (optional)<input v-model="permit" maxlength="140" placeholder="PRM-00001" class="mt-1 block w-full rounded-7 border p-2" /></label>
         <label class="block text-sm">{{ kind === 'Photo' ? 'Photo description / what this shows' : 'Scope, confirmation needed or change reason' }}<textarea v-model="details" required maxlength="4000" rows="3" class="mt-1 block w-full rounded-7 border p-2" /></label>
-        <template v-if="kind !== 'Photo'"><label class="block text-sm">Expiry (site date and time)<input v-model="expiry" type="datetime-local" class="mt-1 block w-full rounded-7 border p-2" /></label><label class="block text-sm">Confirmation state<select v-model="status" class="mt-1 block w-full rounded-7 border p-2"><option>Pending</option><option>Confirmed</option><option v-if="replacing">Withdrawn</option></select></label></template>
+        <template v-if="kind !== 'Photo'">
+          <DateTimeField v-model="expiry" fieldtype="Datetime" label="Expiry (site date and time)" />
+          <label class="block text-sm">Confirmation state<select v-model="status" class="mt-1 block w-full rounded-7 border p-2"><option>Pending</option><option>Confirmed</option><option v-if="replacing">Withdrawn</option></select></label>
+        </template>
         <label class="block text-sm">{{ kind === 'Photo' ? 'Capture or select a photo' : 'Supporting document (optional for permits and isolations)' }}<input type="file" :accept="kind === 'Photo' ? 'image/jpeg,image/png,image/webp' : undefined" :disabled="saving" class="mt-1 block w-full text-sm" @change="upload" /></label>
         <JhaPhotoMarkers v-if="kind === 'Photo' && evidence" :src="evidence" v-model:markers="markers" editable />
         <a v-else-if="evidence" :href="evidence" target="_blank" rel="noopener" class="block text-sm text-blue-700 underline">View uploaded file</a>

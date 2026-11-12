@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
-import { FormControl, BottomSheet } from 'frappe-ui'
+import { FormControl, BottomSheet, TimePicker } from 'frappe-ui'
 import EditDocument from '../src/pages/EditDocument.vue'
 import NewDocument from '../src/pages/NewDocument.vue'
 import ChildTableField from '../src/components/mobile-fields/ChildTableField.vue'
@@ -89,15 +89,20 @@ describe('Save Row persists the existing form', () => {
     Object.defineProperty(picker.element, 'files', { configurable: true, value: [file] })
     await picker.trigger('change')
     await addRow(' New entry ')
-    const time = table().findAllComponents(FormControl).find(field => field.props('label') === 'At')
-    time.vm.$emit('update:modelValue', '07:15')
+    const time = table().findComponent(TimePicker).find('input')
+    expect(time.element.readOnly).toBe(true)
+    await time.trigger('click')
+    const option = document.querySelector('[role="option"][data-value="07:17"]')
+    expect(option).toBeTruthy()
+    option.click()
+    await flushPromises()
     await click('Save Row')
 
     expect(updates()).toHaveLength(1)
     const payload = updates()[0][1].body
     expect(payload.get('docname')).toBe('FORM-1')
     expect(JSON.parse(payload.get('values'))).toMatchObject({ notes: 'Updated notes', rows: [
-      { entry: 'Original entry' }, { entry: ' New entry ', at: '07:15:00' },
+      { entry: 'Original entry' }, { entry: ' New entry ', at: '07:17:00' },
     ] })
     expect(payload.getAll('attachments')).toHaveLength(1)
     expect(table().props('modelValue')[1].entry).toBe('New entry')

@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Button } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
+import DateTimeField from './mobile-fields/DateTimeField.vue'
 
 const props = defineProps<{ jha: Record<string, any>; voiceReview?: Record<string, any> | null; busy?: boolean }>()
 const emit = defineEmits<{
@@ -131,7 +132,10 @@ onBeforeUnmount(() => { alive = false; generation++ })
       <div class="space-y-3 px-3 pb-3">
         <p class="text-xs text-ink-gray-6">PERI checks changes to crew, equipment, environment, method and controls. A person confirms the final review. This does not renew permits or authorise work.</p>
         <form v-if="state.can_revalidate" class="space-y-3" @submit.prevent="emit('startReview', { shift_date: shiftDate, shift })">
-          <div class="grid grid-cols-2 gap-2"><label class="text-sm">Shift start date<input v-model="shiftDate" type="date" required :max="state.today" class="mt-1 block w-full rounded-7 border p-2" /></label><label class="text-sm">Shift<select v-model="shift" class="mt-1 block w-full rounded-7 border p-2"><option>Day</option><option>Night</option></select></label></div>
+          <div class="grid grid-cols-2 gap-2">
+            <DateTimeField v-model="shiftDate" fieldtype="Date" label="Shift start date" required :max="state.today" />
+            <label class="text-sm">Shift<select v-model="shift" class="mt-1 block w-full rounded-7 border p-2"><option>Day</option><option>Night</option></select></label>
+          </div>
           <Button type="submit" variant="solid" :disabled="busy || Boolean(saving)">Review Shift with PERI</Button>
         </form>
         <article v-for="review in reviews" :key="review.name" class="rounded-7 bg-surface-gray-1 p-3">
