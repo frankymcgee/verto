@@ -149,6 +149,27 @@ export function evaluateDependsOn(expression?: string, values: Values = {}) {
   return evaluateNonEvalExpression(dependsOn, values)
 }
 
+export function getVisibleFormFields<Field extends { fieldtype: string; depends_on?: string }>(
+  fields: Field[],
+  values: Values
+) {
+  let sectionVisible = true
+
+  return fields.filter(({ fieldtype, depends_on }) => {
+    if (fieldtype === 'Tab Break') {
+      sectionVisible = true
+      return false
+    }
+
+    if (fieldtype === 'Section Break') {
+      sectionVisible = evaluateDependsOn(depends_on, values)
+      return sectionVisible
+    }
+
+    return sectionVisible && fieldtype !== 'Column Break' && evaluateDependsOn(depends_on, values)
+  })
+}
+
 export function evaluateMandatoryDependsOn(expression?: string, values: Values = {}) {
   const dependsOn = normaliseExpression(expression)
 
