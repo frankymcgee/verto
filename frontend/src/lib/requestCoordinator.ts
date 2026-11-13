@@ -11,6 +11,7 @@ const coordinatedMethods = new Set([
   'verto.api.mobile.documents.get_form_schema',
   'verto.api.mobile.documents.get_mobile_doc_for_edit',
   'verto.api.mobile.documents.search_link',
+  'verto.api.mobile.gantt.get_schedule',
   'verto.api.mobile.shifts.get_shift_calendar',
   'verto.api.mobile.offline.get_offline_bootstrap',
   'verto.api.mobile.project_personnel.get_project_personnel',
