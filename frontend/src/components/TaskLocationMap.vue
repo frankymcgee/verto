@@ -88,6 +88,7 @@ function renderLocations() {
     } else if (layer instanceof L.LayerGroup) {
       layer.eachLayer((child) => addLayer(child, location))
     } else if (layer instanceof L.Path) {
+      if (layer instanceof L.Polyline && !layer.getBounds().isValid()) return
       bindTaskPopup(layer, [location])
       taskLayers?.addLayer(layer)
     }
@@ -97,6 +98,15 @@ function renderLocations() {
     for (const feature of readFeatures(location.location)) {
       try {
         const layers = L.geoJSON(feature, {
+          pointToLayer: ({ properties }, point) => {
+            // Frappe saves circles as GeoJSON points with their original radius.
+            const radius = properties?.radius
+            if (typeof radius === 'number' && Number.isFinite(radius) && radius > 0) {
+              if (properties.point_type === 'circle') return L.circle(point, { radius })
+              if (properties.point_type === 'circlemarker') return L.circleMarker(point, { radius })
+            }
+            return L.marker(point)
+          },
           coordsToLatLng: ([lng, lat]) => {
             if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
               throw new Error('Invalid task location')
@@ -104,7 +114,7 @@ function renderLocations() {
             return L.latLng(lat, lng)
           },
         })
-        if (layers.getBounds().isValid()) addLayer(layers, location)
+        addLayer(layers, location)
       } catch {
         // A malformed feature should leave the other task locations usable.
         continue

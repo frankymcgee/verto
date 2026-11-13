@@ -120,7 +120,7 @@ export function handleAppBrowserLinkClick(event: MouseEvent) {
 
   const rawHref = anchor.getAttribute('href') || ''
 
-  if (!rawHref || rawHref === '#') {
+  if (!rawHref || rawHref.startsWith('#')) {
     return
   }
 
