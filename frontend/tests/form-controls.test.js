@@ -198,6 +198,45 @@ describe('Mobile date and time pickers', () => {
     expect(w.emitted('update:modelValue')).toBeUndefined()
   })
 
+  it('commits a tapped time when the trigger blurs before the option click', async () => {
+    w = mount(DateTimeField, {
+      attachTo: document.body,
+      props: { fieldtype: 'Time', label: 'Start Time' },
+    })
+    const input = w.findComponent(TimePicker).find('input')
+    input.element.focus()
+    await input.trigger('click')
+    input.element.blur()
+    await flushPromises()
+
+    const option = document.querySelector('[role="option"][data-value="06:15"]')
+    expect(option).toBeTruthy()
+    option.click()
+    await flushPromises()
+    expect(input.element.value).toBe('06:15')
+    expect(w.emitted('update:modelValue')).toEqual([['06:15']])
+    expect(document.querySelector('[role="listbox"]')).toBeNull()
+  })
+
+  it('dismisses the time picker when focus moves to another control', async () => {
+    w = mount(DateTimeField, {
+      attachTo: document.body,
+      props: { fieldtype: 'Time', label: 'Start Time', modelValue: '18:07' },
+    })
+    const input = w.findComponent(TimePicker).find('input')
+    const outside = document.createElement('button')
+    document.body.append(outside)
+    input.element.focus()
+    await input.trigger('click')
+    expect(document.querySelector('[role="listbox"]')).toBeTruthy()
+    outside.focus()
+    await flushPromises()
+
+    expect(document.querySelector('[role="listbox"]')).toBeNull()
+    expect(input.element.value).toBe('18:07')
+    expect(w.emitted('update:modelValue')).toBeUndefined()
+  })
+
   it('preserves local date and minute values and clears an optional datetime', async () => {
     w = mount(DateTimeField, {
       attachTo: document.body,
