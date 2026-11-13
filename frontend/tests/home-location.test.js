@@ -4,6 +4,7 @@ import Home from '../src/pages/Home.vue'
 import ProjectGantt from '../src/pages/ProjectGantt.vue'
 import ProjectGanttTimeline from '../src/components/ProjectGanttTimeline.vue'
 import ProjectMap from '../src/pages/ProjectMap.vue'
+import { APP_BROWSER_OPEN_EVENT, handleAppBrowserLinkClick } from '../src/lib/appBrowser'
 
 const mocks = vi.hoisted(() => ({ api: vi.fn(), navigate: vi.fn(), route: vi.fn() }))
 vi.mock('../src/lib/api', () => ({ apiRequest: mocks.api }))
@@ -104,12 +105,8 @@ describe('Mobile location expansion', () => {
 })
 
 describe('Project map task forms', () => {
-  it('keeps each task selectable when two Work Summaries share a pin', async () => {
+  async function mountMap(tasks) {
     mocks.route.mockReturnValue({ params: { project: 'PROJ-1' } })
-    const location = JSON.stringify({
-      type: 'FeatureCollection',
-      features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [115.72, -32.53] } }],
-    })
     mocks.api.mockResolvedValue({ message: {
       project_name: 'Shutdown',
       map_settings: {
@@ -117,16 +114,24 @@ describe('Project map task forms', () => {
         default_tile_url: '/tiles/{z}/{x}/{y}.png', default_attribution: 'Street',
         satellite_tile_url: '/satellite/{z}/{x}/{y}.png', satellite_attribution: 'Satellite',
       },
-      tasks: [
-        { name: 'TASK-1', subject: 'Inspect pump', location, responsible_contractor: 'West Pumps', exp_start_date: '2026-11-05', exp_end_date: '2026-11-06' },
-        { name: 'TASK-2', subject: 'Check crane', location },
-        { name: 'TASK-3', subject: 'Invalid location', location: '{invalid' },
-      ],
+      tasks,
       task_forms: [{ label: 'Field Interaction', doctype: 'Field Interaction', mobile_doctype: 'field-interaction' }],
       ccv_forms: [{ label: 'Lifting Operations', doctype: 'CCV - Lifting Operations', mobile_doctype: 'ccv-lifting-operations' }],
     } })
     wrapper = mount(ProjectMap, { attachTo: document.body })
     await flushPromises()
+  }
+
+  it('keeps each task selectable when two Work Summaries share a pin', async () => {
+    const location = JSON.stringify({
+      type: 'FeatureCollection',
+      features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [115.72, -32.53] } }],
+    })
+    await mountMap([
+      { name: 'TASK-1', subject: 'Inspect pump', location, responsible_contractor: 'West Pumps', exp_start_date: '2026-11-05', exp_end_date: '2026-11-06' },
+      { name: 'TASK-2', subject: 'Check crane', location },
+      { name: 'TASK-3', subject: 'Invalid location', location: '{invalid' },
+    ])
 
     expect(mocks.api.mock.calls[0][0]).toBe('/api/method/verto.api.mobile.project_map.get_locations?project=PROJ-1')
     const pins = wrapper.findAll('.leaflet-marker-icon')
@@ -137,6 +142,19 @@ describe('Project map task forms', () => {
     expect(popup.text()).toContain('5 Nov 2026 – 6 Nov 2026')
     expect(popup.text()).not.toContain('TASK-1')
     expect(popup.text()).not.toContain('Invalid location')
+
+    const openBrowser = vi.fn()
+    wrapper.element.addEventListener('click', handleAppBrowserLinkClick, true)
+    window.addEventListener(APP_BROWSER_OPEN_EVENT, openBrowser, { once: true })
+    try {
+      await wrapper.get('.leaflet-popup-close-button span').trigger('click')
+      expect(wrapper.find('.leaflet-popup-content').exists()).toBe(false)
+      expect(openBrowser).not.toHaveBeenCalled()
+    } finally {
+      window.removeEventListener(APP_BROWSER_OPEN_EVENT, openBrowser)
+      wrapper.element.removeEventListener('click', handleAppBrowserLinkClick, true)
+    }
+    await pins[0].trigger('click')
 
     await clickButton('Inspect pump')
     await clickButton('+ Form')
@@ -154,6 +172,42 @@ describe('Project map task forms', () => {
       path: '/new/ccv-lifting-operations',
       query: { link_task: 'TASK-2', project: 'PROJ-1' },
     })
+  })
+
+  it('draws saved boundaries, lines, and circles for a task without a pin', async () => {
+    const location = JSON.stringify({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: { type: 'Polygon', coordinates: [[[115.72, -32.53], [115.73, -32.53], [115.73, -32.54], [115.72, -32.53]]] },
+        },
+        {
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: [[115.72, -32.54], [115.73, -32.54]] },
+        },
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [115.73, -32.53] },
+          properties: { point_type: 'circle', radius: 125 },
+        },
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [115.72, -32.53] },
+          properties: { point_type: 'circlemarker', radius: 12 },
+        },
+      ],
+    })
+    await mountMap([{ name: 'TASK-4', subject: 'Inspect exclusion zone', location }])
+
+    expect(wrapper.findAll('.leaflet-marker-icon')).toHaveLength(0)
+    const shapes = wrapper.findAll('.leaflet-overlay-pane path.leaflet-interactive')
+    expect(shapes).toHaveLength(4)
+    for (const shape of shapes) {
+      await shape.trigger('click')
+      expect(wrapper.get('.leaflet-popup-content').text()).toContain('Inspect exclusion zone')
+      await wrapper.get('.leaflet-popup-close-button').trigger('click')
+    }
   })
 })
 
