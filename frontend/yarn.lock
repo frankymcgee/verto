@@ -3818,6 +3818,11 @@ fraction.js@^5.3.4:
   resolved "https://registry.npmjs.org/fraction.js/-/fraction.js-5.3.4.tgz"
   integrity sha512-1X1NTtiJphryn/uLQz3whtY6jK3fTqoE3ohKs0tT+Ujr1W59oopxmoEh7Lu5p6vBaPbgoM0bzveAW4Qi5RyWDQ==
 
+frappe-gantt@1.2.2:
+  version "1.2.2"
+  resolved "https://registry.npmjs.org/frappe-gantt/-/frappe-gantt-1.2.2.tgz#36bf15e74e179ac707341b663a49493a05a7fdf5"
+  integrity sha512-1+uPNRa92LBIeKiZCVhJMiGIifJk5ONaoerXI8eBREXWRZGGoTJR5ATpMpsnAQcyBA6Gnq5wIht4eL+e4eHMBA==
+
 "frappe-ui@file:../frappe-ui":
   version "1.0.0-beta.64"
   resolved "file:../frappe-ui"

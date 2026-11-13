@@ -150,10 +150,11 @@
                 class="space-y-3 border-t border-outline-gray-1 bg-surface-base p-2"
               >
                 <Button
+                  v-if="parent.project && parent.parent_task"
                   variant="subtle"
                   theme="gray"
                   class="w-full justify-center"
-                  @click.stop="openInternalUrl(getAreaGanttUrl(parent), 'Area Gantt')"
+                  @click.stop="openGantt(parent.project, parent.parent_task)"
                 >
                   Area Gantt
                 </Button>
@@ -676,6 +677,7 @@ import {
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
 import { openAppBrowser } from '../lib/appBrowser'
+import { parseFrappeTime } from '../lib/dateTimeFields'
 
 type HomeButton = {
   label: string
@@ -963,7 +965,7 @@ async function openProjectTool(tool: ProjectToolKey) {
   }
 
   if (tool === 'gantt') {
-    openInternalUrl(getProjectGanttUrl(scope), 'Gantt')
+    await openGantt(scope.project)
     return
   }
 
@@ -1370,24 +1372,10 @@ function formatDate(value?: string) {
 }
 
 function formatTime(value: unknown) {
-  let hours: number
-  let minutes: number
-
-  // Frappe serialises database Time/timedelta values as seconds since midnight.
-  // Cached responses and other database drivers can also supply clock strings.
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value) || value < 0 || value >= 86400) return ''
-    hours = Math.floor(value / 3600)
-    minutes = Math.floor(value / 60) % 60
-  } else if (typeof value === 'string') {
-    const match = /^(\d{1,2}):([0-5]\d)(?::[0-5]\d(?:\.\d+)?)?$/.exec(value.trim())
-    if (!match || Number(match[1]) > 23) return ''
-    hours = Number(match[1])
-    minutes = Number(match[2])
-  } else {
-    return ''
-  }
-
+  const seconds = parseFrappeTime(value)
+  if (seconds === null) return ''
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor(seconds / 60) % 60
   const ampm = hours >= 12 ? 'pm' : 'am'
   return `${hours % 12 || 12}:${String(minutes).padStart(2, '0')}${ampm}`
 }
@@ -1605,16 +1593,17 @@ async function analyseProjectWithPeri(scope: ScopeGroup) {
   }
 }
 
-function getProjectGanttUrl(scope: ScopeGroup) {
-  return `/app/task/view/gantt?status=%5B%22not%20in%22%2C%5B%22Completed%22%2C%22Cancelled%22%5D%5D&type=%5B%22not%20in%22%2C%5B%22Task%20Step%22%2C%22Outline%22%5D%5D&project=${encodeURIComponent(scope.project || '')}`
+function openGantt(project: string, area?: string) {
+  if (!project) {
+    error.value = 'Could not open Gantt. No project is linked to this work.'
+    return
+  }
+
+  return router.push({ name: 'project-gantt', params: { project }, query: area ? { area } : {} })
 }
 
 function getProjectMapUrl(scope: ScopeGroup) {
   return `/app/task/view/map?status=%5B%22not%20in%22%2C%5B%22Completed%22%2C%22Cancelled%22%5D%5D&type=Work%20Summary&project=${encodeURIComponent(scope.project || '')}`
-}
-
-function getAreaGanttUrl(parent: ParentGroup) {
-  return `/app/task/view/gantt?status=%5B%22not%20in%22%2C%5B%22Completed%22%2C%22Cancelled%22%5D%5D&type=%5B%22not%20in%22%2C%5B%22Task%20Step%22%2C%22Outline%22%5D%5D&name=%5B%22descendants%20of%20%28inclusive%29%22%2C%22${encodeURIComponent(parent.parent_task || '')}%22%5D&project=${encodeURIComponent(parent.project || '')}`
 }
 
 function getShareFolder(scope: ScopeGroup) {

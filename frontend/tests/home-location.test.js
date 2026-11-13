@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import Home from '../src/pages/Home.vue'
 
-const mocks = vi.hoisted(() => ({ api: vi.fn() }))
+const mocks = vi.hoisted(() => ({ api: vi.fn(), navigate: vi.fn() }))
 vi.mock('../src/lib/api', () => ({ apiRequest: mocks.api }))
-vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+vi.mock('vue-router', () => ({ useRouter: () => ({ push: mocks.navigate }) }))
 
 let wrapper
 afterEach(() => {
@@ -22,13 +22,13 @@ async function clickButton(label) {
   await flushPromises()
 }
 
-async function openLocation(start, end) {
+async function openLocation(start, end, projectTools = []) {
   const errors = []
   mocks.api.mockResolvedValue({ message: {
     grouped_tasks: [{
       scope_name: 'Shutdown', project: 'PROJ-1', project_details: {},
       parent_groups: [{
-        parent_task_name: 'Plant Room', parent_task: 'AREA-1', progress: 25,
+        parent_task_name: 'Plant Room', parent_task: 'AREA-1', project: 'PROJ-1', progress: 25,
         tasks: [{
           name: 'TASK-1', subject: 'Inspect pump', status: 'Open',
           exp_start_date: '2026-11-05', exp_end_date: '2026-11-06',
@@ -36,7 +36,7 @@ async function openLocation(start, end) {
         }],
       }],
     }],
-    generic_forms: [], project_tools: [],
+    generic_forms: [], project_tools: projectTools,
     task_forms: [{ label: 'Field Interaction', mobile_doctype: 'field-interaction' }],
     ccv_forms: [{ label: 'CCV - Lifting Operations', mobile_doctype: 'ccv-lifting-operations' }],
   } })
@@ -54,6 +54,15 @@ async function openLocation(start, end) {
 }
 
 describe('Mobile location expansion', () => {
+  it('opens project and area schedules in the native route', async () => {
+    await openLocation(null, null, [{ key: 'gantt', label: 'Gantt', description: 'View the project schedule.' }])
+    await clickButton('Area Gantt')
+    expect(mocks.navigate).toHaveBeenLastCalledWith({ name: 'project-gantt', params: { project: 'PROJ-1' }, query: { area: 'AREA-1' } })
+    await clickButton('Project Tools')
+    await clickButton('View the project schedule.')
+    expect(mocks.navigate).toHaveBeenLastCalledWith({ name: 'project-gantt', params: { project: 'PROJ-1' }, query: {} })
+  })
+
   it.each([
     ['seconds from Frappe Time fields', 28800, 64800, '8:00am', '6:00pm'],
     ['midnight in seconds', 0, 23400, '12:00am', '6:30am'],

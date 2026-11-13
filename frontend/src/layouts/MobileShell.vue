@@ -15,6 +15,7 @@
         <main
           ref="mainEl"
           class="mobile-shell-main min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+          :class="{ 'mobile-shell-main--gantt': route.name === 'project-gantt' }"
         >
           <div class="mobile-shell-page mx-auto h-full w-full max-w-[var(--verto-shell-max-width,28rem)]">
             <router-view />
@@ -146,6 +147,10 @@ watch(
   touch-action: pan-y;
   overscroll-behavior-y: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+.mobile-shell-main--gantt {
+  touch-action: auto;
 }
 
 @media (min-width: 480px) {
