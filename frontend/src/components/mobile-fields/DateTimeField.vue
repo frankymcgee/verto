@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { DatePicker, TimePicker } from 'frappe-ui'
+import { useTimePickerTouch } from '../../lib/useTimePickerTouch'
 import type { DateTimeFieldType } from '../../lib/dateTimeFields'
 
 const props = defineProps<{
@@ -23,6 +24,7 @@ const time = computed(() => combined.value ? value.value.slice(11, 16) : value.v
 const timeDisabled = computed(() => props.disabled || (combined.value && !date.value))
 const datePickerOpen = ref(false)
 const timePickerOpen = ref(false)
+const { handleTimePickerBlur } = useTimePickerTouch(timePickerOpen)
 
 watch(value, () => { pendingDate.value = '' })
 
@@ -42,12 +44,6 @@ function updateTime(next: string) {
   if (timeDisabled.value || next === time.value) return
   const updated = combined.value ? `${date.value}T${next}` : next
   if (updated !== value.value) emit('update:modelValue', updated)
-}
-
-function handleTimePickerBlur(event: FocusEvent) {
-  // A tap can blur the trigger without focusing the option before its click.
-  // Leave outside dismissal to the popover so that tap can finish.
-  if (timePickerOpen.value && !event.relatedTarget) event.stopPropagation()
 }
 
 function openRequiredPicker() {

@@ -218,6 +218,45 @@ describe('Mobile date and time pickers', () => {
     expect(document.querySelector('[role="listbox"]')).toBeNull()
   })
 
+  it('commits a touch selection without a mouse click and leaves swipes alone', async () => {
+    await render(NewDocument, [
+      fields[0],
+      { fieldname: 'start_time', fieldtype: 'Time', label: 'Start Time' },
+    ])
+    const input = w.findComponent(TimePicker).find('input')
+    await input.trigger('click')
+    const option = document.querySelector('[role="option"][data-value="06:15"]')
+    expect(option).toBeTruthy()
+
+    function touch(type, clientY) {
+      const point = { identifier: 1, target: option, clientX: 12, clientY }
+      const event = new TouchEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        touches: type === 'touchend' ? [] : [point],
+        changedTouches: [point],
+      })
+      option.dispatchEvent(event)
+      return event
+    }
+
+    touch('touchstart', 25)
+    touch('touchmove', 60)
+    expect(touch('touchend', 60).defaultPrevented).toBe(false)
+    expect(input.element.value).toBe('')
+
+    touch('touchstart', 25)
+    expect(touch('touchend', 27).defaultPrevented).toBe(true)
+    await flushPromises()
+    expect(input.element.value).toBe('06:15')
+    expect(document.querySelector('[role="listbox"]')).toBeNull()
+
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    const request = mocked.api.mock.calls.find(([url]) => url.includes('create_mobile_doc'))
+    expect(JSON.parse(request[1].body.get('values')).start_time).toBe('06:15:00')
+  })
+
   it('dismisses the time picker when focus moves to another control', async () => {
     w = mount(DateTimeField, {
       attachTo: document.body,
