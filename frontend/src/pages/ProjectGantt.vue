@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Badge, Button } from 'frappe-ui'
-import MobileFormPicker, { type MobileFormOption } from '../components/MobileFormPicker.vue'
-import MobileSheet from '../components/MobileSheet.vue'
+import { Button } from 'frappe-ui'
+import type { MobileFormOption } from '../components/MobileFormPicker.vue'
+import TaskDetailsSheet from '../components/TaskDetailsSheet.vue'
 import ProjectGanttTimeline from '../components/ProjectGanttTimeline.vue'
 import { apiRequest } from '../lib/api'
-import { formatScheduleDate, hasTimelineDates, scheduleRange, scheduleTask } from '../lib/ganttSchedule'
+import { hasTimelineDates, scheduleRange, scheduleTask } from '../lib/ganttSchedule'
 import type { ScheduleTask, ScheduleTaskRecord } from '../lib/ganttSchedule'
 
 type SchedulePage = {
@@ -32,9 +32,7 @@ const view = ref<'Day' | 'Week' | 'Month' | 'List'>('Day')
 const timeline = ref<InstanceType<typeof ProjectGanttTimeline> | null>(null)
 const todayAvailable = ref(false)
 const selectedTask = shallowRef<ScheduleTask | null>(null)
-const picker = ref<'form' | 'ccv' | null>(null)
 const formOptions = shallowRef({ form: [] as MobileFormOption[], ccv: [] as MobileFormOption[] })
-const pickerTitle = computed(() => picker.value === 'ccv' ? 'Select CCV to Create' : 'Select Form to Create')
 const datedTasks = computed(() => tasks.value.filter(hasTimelineDates))
 const tasksWithoutBars = computed(() => tasks.value.length - datedTasks.value.length)
 const titlesByName = computed(() => new Map(tasks.value.map((task) => [task.name, task.title])))
@@ -79,26 +77,12 @@ watch([project, area], () => {
   nextStart.value = null
   projectTitle.value = ''
   areaTitle.value = ''
-  closeTask()
+  selectedTask.value = null
   todayAvailable.value = false
   void loadSchedule()
 }, { immediate: true })
 
 onBeforeUnmount(() => pending?.abort())
-
-function closeTask() {
-  selectedTask.value = null
-  picker.value = null
-}
-
-function createFromPicker(option: MobileFormOption) {
-  if (!selectedTask.value) return
-
-  void router.push({
-    path: `/new/${encodeURIComponent(option.mobile_doctype)}`,
-    query: { link_task: selectedTask.value.name, project: project.value },
-  })
-}
 </script>
 
 <template>
@@ -181,60 +165,12 @@ function createFromPicker(option: MobileFormOption) {
       <p v-if="error" class="text-sm text-ink-red-4" role="alert">{{ error }}</p>
     </template>
 
-    <MobileSheet :open="Boolean(selectedTask)" :title="picker ? pickerTitle : 'Task details'" @update:open="!$event && closeTask()">
-      <MobileFormPicker
-        v-if="selectedTask && picker"
-        :title="pickerTitle"
-        :task-title="selectedTask.title"
-        :options="formOptions[picker]"
-        close-label="Back"
-        @close="picker = null"
-        @select="createFromPicker"
-      />
-      <section v-else-if="selectedTask" class="drawer-panel w-full overflow-y-auto bg-surface-base px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-        <div class="mx-auto max-w-2xl space-y-4">
-          <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <h2 class="break-words text-lg-semibold text-ink-gray-9">{{ selectedTask.title }}</h2>
-              <p class="mt-1 break-words text-sm text-ink-gray-6">{{ selectedTask.name }}</p>
-            </div>
-            <Button class="min-h-11 shrink-0" variant="subtle" @click="closeTask">Close</Button>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <Badge v-if="selectedTask.status">{{ selectedTask.status }}</Badge>
-            <Badge v-if="selectedTask.type">{{ selectedTask.type }}</Badge>
-            <Badge v-if="selectedTask.isMilestone">Milestone</Badge>
-          </div>
-          <dl class="grid grid-cols-2 gap-3 rounded-7 border border-outline-gray-1 p-3 text-sm">
-            <div>
-              <dt class="text-ink-gray-6">Expected start</dt>
-              <dd class="mt-1 text-ink-gray-9">{{ formatScheduleDate(selectedTask.start) }}</dd>
-            </div>
-            <div>
-              <dt class="text-ink-gray-6">Expected end</dt>
-              <dd class="mt-1 text-ink-gray-9">{{ formatScheduleDate(selectedTask.end) }}</dd>
-            </div>
-            <div>
-              <dt class="text-ink-gray-6">Progress</dt>
-              <dd class="mt-1 text-ink-gray-9">{{ selectedTask.progress }}%</dd>
-            </div>
-            <div v-if="selectedTask.parent" class="min-w-0">
-              <dt class="text-ink-gray-6">Parent task</dt>
-              <dd class="mt-1 break-words text-ink-gray-9">{{ selectedTask.parent }}</dd>
-            </div>
-            <div v-if="selectedTask.dependencies.length" class="col-span-2 min-w-0">
-              <dt class="text-ink-gray-6">Depends on</dt>
-              <dd class="mt-1 break-words text-ink-gray-9">
-                {{ selectedTask.dependencies.map((id) => titlesByName.get(id) || id).join(', ') }}
-              </dd>
-            </div>
-          </dl>
-          <div class="grid grid-cols-2 gap-2">
-            <Button class="min-h-11" variant="solid" theme="gray" @click="picker = 'form'">+ Form</Button>
-            <Button class="min-h-11" variant="subtle" theme="gray" @click="picker = 'ccv'">+ CCV</Button>
-          </div>
-        </div>
-      </section>
-    </MobileSheet>
+    <TaskDetailsSheet
+      :task="selectedTask"
+      :project="project"
+      :options="formOptions"
+      :titles-by-name="titlesByName"
+      @close="selectedTask = null"
+    />
   </section>
 </template>

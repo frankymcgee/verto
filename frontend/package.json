@@ -15,6 +15,7 @@
     "frappe-gantt": "1.2.2",
     "frappe-ui": "file:../frappe-ui",
     "jsqr": "1.4.0",
+    "leaflet": "1.9.4",
     "marked": "^15.0.12",
     "socket.io-client": "4.7.1",
     "vue": "^3.5.13",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "fake-indexeddb": "6.2.7",
     "@iconify/json": "^2.2.300",
+    "@types/leaflet": "1.9.22",
     "@types/node": "^22.10.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/tsconfig": "^0.7.0",

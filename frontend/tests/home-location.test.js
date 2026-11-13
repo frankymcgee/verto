@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import Home from '../src/pages/Home.vue'
 import ProjectGantt from '../src/pages/ProjectGantt.vue'
 import ProjectGanttTimeline from '../src/components/ProjectGanttTimeline.vue'
+import ProjectMap from '../src/pages/ProjectMap.vue'
 
 const mocks = vi.hoisted(() => ({ api: vi.fn(), navigate: vi.fn(), route: vi.fn() }))
 vi.mock('../src/lib/api', () => ({ apiRequest: mocks.api }))
@@ -59,6 +60,13 @@ async function openLocation(start, end, projectTools = []) {
 }
 
 describe('Mobile location expansion', () => {
+  it('opens the native map for the selected project from Project Tools', async () => {
+    await openLocation(null, null, [{ key: 'map', label: 'Map', description: 'View Work Summary locations.' }])
+    await clickButton('Project Tools')
+    await clickButton('View Work Summary locations.')
+    expect(mocks.navigate).toHaveBeenLastCalledWith({ name: 'project-map', params: { project: 'PROJ-1' } })
+  })
+
   it('opens project and area schedules in the native route', async () => {
     await openLocation(null, null, [{ key: 'gantt', label: 'Gantt', description: 'View the project schedule.' }])
     await clickButton('Area Gantt')
@@ -93,6 +101,60 @@ describe('Mobile location expansion', () => {
       expect(wrapper.text()).toContain('Inspect pump')
     }
   )
+})
+
+describe('Project map task forms', () => {
+  it('keeps each task selectable when two Work Summaries share a pin', async () => {
+    mocks.route.mockReturnValue({ params: { project: 'PROJ-1' } })
+    const location = JSON.stringify({
+      type: 'FeatureCollection',
+      features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [115.72, -32.53] } }],
+    })
+    mocks.api.mockResolvedValue({ message: {
+      project_name: 'Shutdown',
+      map_settings: {
+        center_latitude: -32.53, center_longitude: 115.72, default_zoom: 6, min_zoom: 0, max_zoom: 19,
+        default_tile_url: '/tiles/{z}/{x}/{y}.png', default_attribution: 'Street',
+        satellite_tile_url: '/satellite/{z}/{x}/{y}.png', satellite_attribution: 'Satellite',
+      },
+      tasks: [
+        { name: 'TASK-1', subject: 'Inspect pump', location, responsible_contractor: 'West Pumps', exp_start_date: '2026-11-05', exp_end_date: '2026-11-06' },
+        { name: 'TASK-2', subject: 'Check crane', location },
+        { name: 'TASK-3', subject: 'Invalid location', location: '{invalid' },
+      ],
+      task_forms: [{ label: 'Field Interaction', doctype: 'Field Interaction', mobile_doctype: 'field-interaction' }],
+      ccv_forms: [{ label: 'Lifting Operations', doctype: 'CCV - Lifting Operations', mobile_doctype: 'ccv-lifting-operations' }],
+    } })
+    wrapper = mount(ProjectMap, { attachTo: document.body })
+    await flushPromises()
+
+    expect(mocks.api.mock.calls[0][0]).toBe('/api/method/verto.api.mobile.project_map.get_locations?project=PROJ-1')
+    const pins = wrapper.findAll('.leaflet-marker-icon')
+    expect(pins).toHaveLength(1)
+    await pins[0].trigger('click')
+    const popup = wrapper.get('.leaflet-popup-content')
+    expect(popup.text()).toContain('West Pumps')
+    expect(popup.text()).toContain('5 Nov 2026 – 6 Nov 2026')
+    expect(popup.text()).not.toContain('TASK-1')
+    expect(popup.text()).not.toContain('Invalid location')
+
+    await clickButton('Inspect pump')
+    await clickButton('+ Form')
+    await clickButton('Field Interaction')
+    expect(mocks.navigate).toHaveBeenLastCalledWith({
+      path: '/new/field-interaction',
+      query: { link_task: 'TASK-1', project: 'PROJ-1' },
+    })
+    await clickButton('Back')
+    await clickButton('Close')
+    await clickButton('Check crane')
+    await clickButton('+ CCV')
+    await clickButton('Lifting Operations')
+    expect(mocks.navigate).toHaveBeenLastCalledWith({
+      path: '/new/ccv-lifting-operations',
+      query: { link_task: 'TASK-2', project: 'PROJ-1' },
+    })
+  })
 })
 
 describe('Gantt task forms', () => {

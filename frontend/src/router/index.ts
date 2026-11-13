@@ -19,6 +19,7 @@ const routes = [
       { path: 'failed-uploads', name: 'failed-uploads', component: () => import('../pages/FailedUploads.vue'), meta: { title: 'Failed uploads' } },
       { path: 'my-profile', name: 'my-profile', component: () => import('../pages/MyProfile.vue'), meta: { title: 'My profile' } },
       { path: 'gantt/:project', name: 'project-gantt', component: () => import('../pages/ProjectGantt.vue'), meta: { title: 'Gantt' } },
+      { path: 'map/:project', name: 'project-map', component: () => import('../pages/ProjectMap.vue'), meta: { title: 'Map' } },
       { path: 'scan-qr', name: 'scan-qr', component: () => import('../pages/QrScanner.vue'), meta: { title: 'Scan QR code' } },
       { path: 'jha-saved', name: 'jha-saved', component: () => import('../pages/JhaSaved.vue'), meta: { title: 'Offline JHAs' } },
       {

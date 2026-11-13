@@ -916,7 +916,11 @@ async function openProjectTool(tool: ProjectToolKey) {
   }
 
   if (tool === 'map') {
-    openInternalUrl(getProjectMapUrl(scope), 'Map')
+    if (!scope.project) {
+      error.value = 'Could not open Map. No project is linked to this work.'
+      return
+    }
+    await router.push({ name: 'project-map', params: { project: scope.project } })
     return
   }
 
@@ -1413,20 +1417,6 @@ function isUsableUrl(url?: string) {
   return Boolean(value) && value !== '#'
 }
 
-function openInternalUrl(url?: string, label = 'link') {
-  const value = String(url || '').trim()
-
-  if (!isUsableUrl(value)) {
-    error.value = `Could not open ${label}. The URL is not configured for this project.`
-    return
-  }
-
-  openAppBrowser({
-    url: value,
-    title: label,
-  })
-}
-
 function openExternalUrl(url?: string, label = 'link') {
   const value = String(url || '').trim()
 
@@ -1546,10 +1536,6 @@ function openGantt(project: string, area?: string) {
   }
 
   return router.push({ name: 'project-gantt', params: { project }, query: area ? { area } : {} })
-}
-
-function getProjectMapUrl(scope: ScopeGroup) {
-  return `/app/task/view/map?status=%5B%22not%20in%22%2C%5B%22Completed%22%2C%22Cancelled%22%5D%5D&type=Work%20Summary&project=${encodeURIComponent(scope.project || '')}`
 }
 
 function getShareFolder(scope: ScopeGroup) {
