@@ -93,7 +93,9 @@ class TestMobileGantt(TestCase):
             "project": "PROJ-1", "status": ["not in", ["Completed", "Cancelled"]],
             "type": ["not in", ["Task Step", "Outline"]], "lft": [">=", 10], "rgt": ["<=", 30],
         })
-        self.assertEqual(query["order_by"], "exp_start_date asc, name asc")
+        self.assertEqual(query["order_by"], "lft asc, name asc")
+        self.assertIn("lft", query["fields"])
+        self.assertIn("rgt", query["fields"])
         self.assertEqual(query["offset"], 50)
         self.assertEqual(query["limit"], 51)
         self.assertIn("exp_start_time", query["fields"])
