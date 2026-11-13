@@ -4,6 +4,8 @@ type TaskClock = string | number | null
 
 export type ScheduleTaskRecord = {
   name: string
+  lft?: number | null
+  rgt?: number | null
   subject?: string | null
   status?: string | null
   type?: string | null
@@ -23,6 +25,8 @@ export type ScheduleTaskRecord = {
 export type ScheduleTask = {
   id: string
   name: string
+  left: number
+  right: number
   title: string
   status: string
   type: string
@@ -61,6 +65,8 @@ export function scheduleTask(row: ScheduleTaskRecord): ScheduleTask {
     // Frappe Gantt uses IDs in CSS selectors. Encode code points without collisions.
     id: `task-${Array.from(row.name, (character) => character.codePointAt(0)!.toString(16)).join('-')}`,
     name: row.name,
+    left: row.lft ?? 0,
+    right: row.rgt ?? 0,
     title: row.subject || row.name,
     status: row.status || '',
     type: row.type || '',
@@ -75,7 +81,7 @@ export function scheduleTask(row: ScheduleTaskRecord): ScheduleTask {
   }
 }
 
-export type TimelineTask = ScheduleTask & { start: TaskDate; end: TaskDate }
+type TimelineTask = ScheduleTask & { start: TaskDate; end: TaskDate }
 
 export function hasTimelineDates(task: ScheduleTask): task is TimelineTask {
   if (!task.start || !task.end) return false
@@ -85,6 +91,35 @@ export function hasTimelineDates(task: ScheduleTask): task is TimelineTask {
   const lastDay = new Date(start)
   lastDay.setFullYear(start.getFullYear() + 10)
   return start <= end && end < lastDay
+}
+
+export type ScheduleRow = { task: ScheduleTask; depth: number }
+
+export function scheduleRows(tasks: ScheduleTask[]): ScheduleRow[] {
+  const ancestors: ScheduleTask[] = []
+  return tasks.map((task) => {
+    if (task.left <= 0 || task.right <= task.left) return { task, depth: 0 }
+
+    // The API returns nested-set order. Use the closest visible ancestor if a
+    // parent is filtered out or sits outside this area.
+    while (ancestors.length && ancestors[ancestors.length - 1].right <= task.right) {
+      ancestors.pop()
+    }
+
+    const depth = ancestors.length
+    ancestors.push(task)
+    return { task, depth }
+  })
+}
+
+export function timelineRows(rows: ScheduleRow[]): ScheduleRow[] {
+  const visible: ScheduleRow[] = []
+  for (let index = rows.length - 1; index >= 0; index--) {
+    const row = rows[index]
+    // Keep undated ancestors of dated rows, with an empty timeline cell.
+    if (hasTimelineDates(row.task) || row.depth < (visible.at(-1)?.depth ?? 0)) visible.push(row)
+  }
+  return visible.reverse()
 }
 
 const dateLabel = new Intl.DateTimeFormat('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })

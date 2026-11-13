@@ -6,7 +6,7 @@ import type { MobileFormOption } from '../components/MobileFormPicker.vue'
 import TaskDetailsSheet from '../components/TaskDetailsSheet.vue'
 import ProjectGanttTimeline from '../components/ProjectGanttTimeline.vue'
 import { apiRequest } from '../lib/api'
-import { hasTimelineDates, scheduleRange, scheduleTask } from '../lib/ganttSchedule'
+import { scheduleRange, scheduleRows, scheduleTask, timelineRows } from '../lib/ganttSchedule'
 import type { ScheduleTask, ScheduleTaskRecord } from '../lib/ganttSchedule'
 
 type SchedulePage = {
@@ -33,8 +33,9 @@ const timeline = ref<InstanceType<typeof ProjectGanttTimeline> | null>(null)
 const todayAvailable = ref(false)
 const selectedTask = shallowRef<ScheduleTask | null>(null)
 const formOptions = shallowRef({ form: [] as MobileFormOption[], ccv: [] as MobileFormOption[] })
-const datedTasks = computed(() => tasks.value.filter(hasTimelineDates))
-const tasksWithoutBars = computed(() => tasks.value.length - datedTasks.value.length)
+const rows = computed(() => scheduleRows(tasks.value))
+const chartRows = computed(() => timelineRows(rows.value))
+const listOnlyCount = computed(() => rows.value.length - chartRows.value.length)
 const titlesByName = computed(() => new Map(tasks.value.map((task) => [task.name, task.title])))
 
 let pending: AbortController | undefined
@@ -118,7 +119,7 @@ onBeforeUnmount(() => pending?.abort())
             <option value="List">Task list</option>
           </select>
           <Button
-            v-if="view !== 'List' && datedTasks.length"
+            v-if="view !== 'List' && chartRows.length"
             class="min-h-11"
             variant="outline"
             :disabled="!todayAvailable"
@@ -134,24 +135,29 @@ onBeforeUnmount(() => pending?.abort())
       </div>
 
       <ProjectGanttTimeline
-        v-if="view !== 'List' && datedTasks.length"
+        v-if="view !== 'List' && chartRows.length"
         ref="timeline"
-        :tasks="datedTasks"
+        :rows="chartRows"
         :scale="view"
         @select="selectedTask = $event"
         @today-available="todayAvailable = $event"
       />
       <template v-if="view !== 'List'">
-        <p v-if="!datedTasks.length" class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 text-sm text-ink-gray-6">
+        <p v-if="!chartRows.length" class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 text-sm text-ink-gray-6">
           No tasks with dates that can be shown on the timeline. View them in the task list.
         </p>
-        <p v-else-if="tasksWithoutBars" class="text-sm text-ink-gray-6">
-          {{ tasksWithoutBars }} {{ tasksWithoutBars === 1 ? 'task is' : 'tasks are' }} only shown in the task list.
+        <p v-else-if="listOnlyCount" class="text-sm text-ink-gray-6">
+          {{ listOnlyCount }} {{ listOnlyCount === 1 ? 'task is' : 'tasks are' }} only shown in the task list.
         </p>
       </template>
       <ul v-else class="divide-y divide-outline-gray-1 rounded-7 border border-outline-gray-2 bg-surface-base">
-        <li v-for="task in tasks" :key="task.name">
-          <button type="button" class="flex w-full items-center justify-between gap-3 px-3 py-3 text-left hover:bg-surface-gray-1" @click="selectedTask = task">
+        <li v-for="{ task, depth } in rows" :key="task.name">
+          <button
+            type="button"
+            class="flex w-full items-center justify-between gap-3 px-3 py-3 text-left hover:bg-surface-gray-1"
+            :style="{ paddingInlineStart: `${0.75 + Math.min(depth, 6) * 0.75}rem` }"
+            @click="selectedTask = task"
+          >
             <span class="min-w-0">
               <span class="block break-words text-sm-semibold text-ink-gray-9">{{ task.title }}</span>
               <span class="mt-1 block text-xs text-ink-gray-6">{{ scheduleRange(task) }}</span>

@@ -212,13 +212,13 @@ describe('Project map task forms', () => {
 })
 
 describe('Gantt task forms', () => {
-  async function mountSchedule(query) {
+  async function mountSchedule(query, { tasks, nextStart = null, stubTimeline = true } = {}) {
     mocks.route.mockReturnValue({ params: { project: 'PROJ-1' }, query })
     mocks.api.mockResolvedValue({ message: {
       project_name: 'Shutdown',
       area_name: query.area ? 'Plant Room' : null,
-      next_start: null,
-      tasks: [
+      next_start: nextStart,
+      tasks: tasks ?? [
         { name: 'TASK-1', subject: 'Inspect pump', exp_start_date: '2026-11-05', exp_end_date: '2026-11-06' },
         { name: 'TASK-2', subject: 'Check crane' },
       ],
@@ -227,15 +227,84 @@ describe('Gantt task forms', () => {
     } })
     wrapper = mount(ProjectGantt, {
       attachTo: document.body,
-      global: { stubs: { ProjectGanttTimeline: true } },
+      global: { stubs: { ProjectGanttTimeline: stubTimeline } },
     })
     await flushPromises()
   }
 
+  it('keeps the task tree across pages and keeps undated parents above dated children', async () => {
+    const dated = { exp_start_date: '2026-11-05', exp_end_date: '2026-11-06' }
+    await mountSchedule({ area: 'AREA-1' }, {
+      tasks: [
+        { name: 'AREA-1', subject: 'Plant Room', lft: 10, rgt: 21, is_group: 1 },
+        { name: 'TASK-1', subject: 'Inspect pump', lft: 11, rgt: 16, ...dated },
+      ],
+      nextStart: 50,
+    })
+    mocks.api.mockResolvedValueOnce({ message: {
+      project_name: 'Shutdown',
+      area_name: 'Plant Room',
+      next_start: null,
+      tasks: [
+        { name: 'TASK-2', subject: 'Check seal', lft: 12, rgt: 13, exp_start_date: '2026-11-01', exp_end_date: '2026-11-02' },
+        { name: 'TASK-3', subject: 'Check crane', lft: 17, rgt: 18, ...dated },
+        { name: 'TASK-4', subject: 'Review records', lft: 19, rgt: 20 },
+      ],
+    } })
+    await clickButton('Load more')
+
+    const timeline = wrapper.getComponent(ProjectGanttTimeline)
+    expect(timeline.props('rows').map(({ task, depth }) => [task.name, depth])).toEqual([
+      ['AREA-1', 0], ['TASK-1', 1], ['TASK-2', 2], ['TASK-3', 1],
+    ])
+    expect(wrapper.text()).toContain('1 task is only shown in the task list')
+
+    await wrapper.get('select').setValue('List')
+    const buttons = wrapper.findAll('li button')
+    expect(buttons.map((button) => button.get('span span').text())).toEqual([
+      'Plant Room', 'Inspect pump', 'Check seal', 'Check crane', 'Review records',
+    ])
+    expect(buttons.map((button) => button.element.style.paddingInlineStart)).toEqual([
+      '0.75rem', '1.5rem', '2.25rem', '1.5rem', '1.5rem',
+    ])
+  })
+
+  it('aligns chart bars with the task labels and leaves the undated parent bar hidden', async () => {
+    // Happy DOM does not implement SVG text measurement used by Frappe Gantt.
+    const svgPrototype = window.SVGElement.prototype
+    const getBBox = svgPrototype.getBBox
+    svgPrototype.getBBox = () => ({ x: 0, y: 0, width: 0, height: 0 })
+    try {
+      await mountSchedule({}, {
+        stubTimeline: false,
+        tasks: [
+          { name: 'AREA-1', subject: 'Plant Room', lft: 10, rgt: 15 },
+          { name: 'TASK-1', subject: 'Inspect pump', lft: 11, rgt: 12, exp_start_date: '2026-11-05', exp_end_date: '2026-11-06' },
+          { name: 'TASK-2', subject: 'Check crane', lft: 13, rgt: 14, exp_start_date: '2026-11-01', exp_end_date: '2026-11-02' },
+          { name: 'TASK-3', subject: 'Review records', lft: 16, rgt: 17, exp_start_date: '2026-11-03', exp_end_date: '2026-11-04' },
+        ],
+      })
+
+      expect(wrapper.findAll('.project-gantt-name').map((button) => button.get('.project-gantt-name-label').text())).toEqual([
+        'Plant Room', 'Inspect pump', 'Check crane', 'Review records',
+      ])
+      const bars = wrapper.findAll('.bar-wrapper')
+      expect(bars[0].classes()).toContain('verto-gantt-undated')
+      expect(bars.slice(1).map((bar) => bar.get('rect.bar').attributes('y')).map(Number)).toEqual([119, 167, 215])
+      expect(Number(bars[2].get('rect.bar').attributes('x'))).toBeLessThan(Number(bars[1].get('rect.bar').attributes('x')))
+      await bars[2].get('rect.bar').trigger('click')
+      expect([...document.body.querySelectorAll('[role="dialog"] h2')].map((heading) => heading.textContent)).toContain('Check crane')
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    } finally {
+      if (getBBox) svgPrototype.getBBox = getBBox
+      else delete svgPrototype.getBBox
+    }
+  })
+
   it('opens a new form with the task selected on the project timeline', async () => {
     await mountSchedule({})
     const timeline = wrapper.getComponent(ProjectGanttTimeline)
-    timeline.vm.$emit('select', timeline.props('tasks')[0])
+    timeline.vm.$emit('select', timeline.props('rows')[0].task)
     await flushPromises()
     await clickButton('+ Form')
     expect(document.body.textContent).toContain('Select Form to Create')

@@ -1,22 +1,22 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import Gantt, { type GanttOptions } from 'frappe-gantt'
-import type { TimelineTask } from '../lib/ganttSchedule'
+import { hasTimelineDates, type ScheduleRow, type ScheduleTask } from '../lib/ganttSchedule'
 // The 1.2.2 package exposes the JS entry, with its stylesheet beside it.
 import '../../node_modules/frappe-gantt/dist/frappe-gantt.css'
 
 const props = defineProps<{
-  tasks: TimelineTask[]
+  rows: ScheduleRow[]
   scale: GanttOptions['view_mode']
 }>()
-const emit = defineEmits<{ select: [task: TimelineTask]; 'today-available': [available: boolean] }>()
+const emit = defineEmits<{ select: [task: ScheduleTask]; 'today-available': [available: boolean] }>()
 
 const headerHeight = 60
 const rowHeight = 48
 const surface = ref<HTMLElement | null>(null)
 const chartHost = ref<HTMLElement | null>(null)
 const period = ref('')
-const taskById = computed(() => new Map(props.tasks.map((task) => [task.id, task])))
+const taskById = computed(() => new Map(props.rows.map(({ task }) => [task.id, task])))
 
 // A viewing-only chart needs no document-level drag listeners. Frappe Gantt
 // 1.2.2 installs them even in readonly mode and has no teardown for them.
@@ -25,7 +25,7 @@ class ReadonlyGantt extends Gantt {
 }
 
 let gantt: Gantt | undefined
-let renderedTasks: TimelineTask[] | undefined
+let renderedRows: ScheduleRow[] | undefined
 let renderedScale: GanttOptions['view_mode'] | undefined
 let periodMarkers: { left: number; label: string }[] = []
 
@@ -35,11 +35,18 @@ function updatePeriod() {
   period.value = (marker || periodMarkers.at(-1))?.label || ''
 }
 
-function chartTasks(tasks: TimelineTask[]) {
-  const idByName = new Map(tasks.map((task) => [task.name, task.id]))
-  return tasks.map((task) => {
-    const start = new Date(task.start.date)
-    const end = new Date(task.end.date)
+function chartTasks(rows: ScheduleRow[]) {
+  const dated = rows.map(({ task }) => task).filter(hasTimelineDates)
+  const firstDated = dated[0]
+  if (!firstDated) return []
+
+  const idByName = new Map(dated.map((task) => [task.name, task.id]))
+  return rows.map(({ task }) => {
+    const hasDates = hasTimelineDates(task)
+    // Frappe Gantt needs dates for each row. A hidden bar anchored to an
+    // existing date reserves the parent's row without extending the timeline.
+    const start = new Date(hasDates ? task.start.date : firstDated.start.date)
+    const end = new Date(hasDates ? task.end.date : firstDated.start.date)
     // The chart displays calendar days, while task details show the recorded times.
     start.setHours(0, 0, 0, 0)
     end.setHours(23, 59, 59, 0)
@@ -50,21 +57,22 @@ function chartTasks(tasks: TimelineTask[]) {
       start,
       end,
       progress: task.progress,
-      dependencies: task.dependencies.flatMap((name) => {
+      dependencies: hasDates ? task.dependencies.flatMap((name) => {
         const id = idByName.get(name)
         return id && id !== task.id ? [id] : []
-      }),
-      custom_class: task.isMilestone ? 'verto-gantt-milestone' : 'verto-gantt-task',
+      }) : [],
+      custom_class: !hasDates ? 'verto-gantt-undated' : task.isMilestone ? 'verto-gantt-milestone' : 'verto-gantt-task',
       color: task.color,
       color_progress: task.color ? 'rgb(0 0 0 / 0.22)' : undefined,
     }
   })
 }
 
-function scrollToFirstTask() {
-  const firstBar = chartHost.value?.querySelector('.bar-wrapper rect.bar')
-  const x = Number(firstBar?.getAttribute('x'))
-  if (surface.value) surface.value.scrollLeft = Math.max(0, x - 16)
+function scrollToEarliestTask() {
+  if (!surface.value || !chartHost.value) return
+  const bars = chartHost.value.querySelectorAll('.bar-wrapper:not(.verto-gantt-undated) rect.bar')
+  const left = Math.min(...Array.from(bars, (bar) => Number(bar.getAttribute('x'))))
+  if (Number.isFinite(left)) surface.value.scrollLeft = Math.max(0, left - 16)
 }
 
 function scrollToToday() {
@@ -84,13 +92,13 @@ function selectBar(event: MouseEvent) {
   if (task) emit('select', task)
 }
 
-watch([chartHost, () => props.tasks, () => props.scale], ([host, tasks, scale]) => {
+watch([chartHost, () => props.rows, () => props.scale], ([host, rows, scale]) => {
   if (!host) return
 
   const previousLeft = surface.value?.scrollLeft || 0
   const scaleChanged = renderedScale !== scale
   if (!gantt) {
-    gantt = new ReadonlyGantt(host, chartTasks(tasks), {
+    gantt = new ReadonlyGantt(host, chartTasks(rows), {
       view_mode: scale,
       upper_header_height: 25,
       lower_header_height: 25,
@@ -104,10 +112,10 @@ watch([chartHost, () => props.tasks, () => props.scale], ([host, tasks, scale]) 
       popup: false,
     })
   } else {
-    if (renderedTasks !== tasks) gantt.refresh(chartTasks(tasks))
+    if (renderedRows !== rows) gantt.refresh(chartTasks(rows))
     if (scaleChanged) gantt.change_view_mode(scale)
   }
-  renderedTasks = tasks
+  renderedRows = rows
   renderedScale = scale
 
   const header = host.querySelector<HTMLElement>('.grid-header')
@@ -121,7 +129,7 @@ watch([chartHost, () => props.tasks, () => props.scale], ([host, tasks, scale]) 
   emit('today-available', todayAvailable)
   if (scaleChanged) {
     if (todayAvailable) scrollToToday()
-    else scrollToFirstTask()
+    else scrollToEarliestTask()
   } else if (surface.value) {
     surface.value.scrollLeft = previousLeft
   }
@@ -146,17 +154,19 @@ watch([chartHost, () => props.tasks, () => props.scale], ([host, tasks, scale]) 
           <span v-if="period" class="text-xs font-normal text-ink-gray-6">{{ period }}</span>
         </div>
         <button
-          v-for="task in tasks"
+          v-for="{ task, depth } in rows"
           :key="task.id"
           type="button"
-          class="project-gantt-name w-full border-b border-outline-gray-1 px-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1 sm:px-3"
+          class="project-gantt-name w-full border-b border-outline-gray-1 pe-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1"
           :title="task.title"
+          :style="{ paddingInlineStart: `${0.5 + Math.min(depth, 4) * 0.5}rem` }"
           @click="emit('select', task)"
         >
           <span class="project-gantt-name-label" :class="{ 'font-semibold': task.isGroup }">
             {{ task.title }}
           </span>
-          <span class="block text-xs text-ink-gray-5">{{ task.isMilestone ? 'Milestone · ' : '' }}{{ task.progress }}%</span>
+          <span v-if="hasTimelineDates(task)" class="block text-xs text-ink-gray-5">{{ task.isMilestone ? 'Milestone · ' : '' }}{{ task.progress }}%</span>
+          <span v-else class="block text-xs text-ink-gray-5">No timeline dates</span>
         </button>
       </div>
       <div ref="chartHost" class="project-gantt-chart" aria-hidden="true" @click="selectBar" />
@@ -247,7 +257,8 @@ watch([chartHost, () => props.tasks, () => props.scale], ([host, tasks, scale]) 
 
 .project-gantt-chart :deep(.side-header),
 .project-gantt-chart :deep(.extras .adjust),
-.project-gantt-chart :deep(.bar-label) {
+.project-gantt-chart :deep(.bar-label),
+.project-gantt-chart :deep(.verto-gantt-undated) {
   display: none;
 }
 

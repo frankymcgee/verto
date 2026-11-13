@@ -10,7 +10,7 @@ from verto.api.mobile.home import get_mobile_form_buttons, require_login
 PAGE_SIZE = 50
 TASK_FIELDS = (
     "name", "subject", "status", "type", "progress", "is_group", "is_milestone",
-    "exp_start_date", "exp_end_date", "depends_on_tasks", "color",
+    "exp_start_date", "exp_end_date", "depends_on_tasks", "color", "lft", "rgt",
 )
 OPTIONAL_TASK_FIELDS = ("exp_start_time", "exp_end_time", "parent_task_name", "color_label")
 
@@ -61,7 +61,8 @@ def get_schedule(project: str, area: str | None = None, start: int = 0):
         "Task",
         filters=filters,
         fields=[*TASK_FIELDS, *(field for field in OPTIONAL_TASK_FIELDS if meta.has_field(field))],
-        order_by="exp_start_date asc, name asc",
+        # The nested-set order keeps descendants together across page boundaries.
+        order_by="lft asc, name asc",
         offset=start,
         limit=PAGE_SIZE + 1,
     )
