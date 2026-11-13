@@ -44,6 +44,12 @@ function updateTime(next: string) {
   if (updated !== value.value) emit('update:modelValue', updated)
 }
 
+function handleTimePickerBlur(event: FocusEvent) {
+  // A tap can blur the trigger without focusing the option before its click.
+  // Leave outside dismissal to the popover so that tap can finish.
+  if (timePickerOpen.value && !event.relatedTarget) event.stopPropagation()
+}
+
 function openRequiredPicker() {
   if (props.fieldtype === 'Time' || pendingDate.value) timePickerOpen.value = true
   else datePickerOpen.value = true
@@ -109,6 +115,7 @@ function clearTime() {
         :required="required"
         :disabled="timeDisabled"
         @update:model-value="updateTime"
+        @blur.capture="handleTimePickerBlur"
       >
         <template #suffix>
           <button
