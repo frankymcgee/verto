@@ -92,7 +92,7 @@ describe('Save Row persists the existing form', () => {
     const time = table().findComponent(TimePicker).find('input')
     expect(time.element.readOnly).toBe(true)
     await time.trigger('click')
-    const option = document.querySelector('[role="option"][data-value="07:17"]')
+    const option = document.querySelector('[role="option"][data-value="07:15"]')
     expect(option).toBeTruthy()
     option.click()
     await flushPromises()
@@ -102,7 +102,7 @@ describe('Save Row persists the existing form', () => {
     const payload = updates()[0][1].body
     expect(payload.get('docname')).toBe('FORM-1')
     expect(JSON.parse(payload.get('values'))).toMatchObject({ notes: 'Updated notes', rows: [
-      { entry: 'Original entry' }, { entry: ' New entry ', at: '07:17:00' },
+      { entry: 'Original entry' }, { entry: ' New entry ', at: '07:15:00' },
     ] })
     expect(payload.getAll('attachments')).toHaveLength(1)
     expect(table().props('modelValue')[1].entry).toBe('New entry')

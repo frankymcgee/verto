@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { DatePicker, TimePicker } from 'frappe-ui'
-import { minuteTimeOptions, type DateTimeFieldType } from '../../lib/dateTimeFields'
+import type { DateTimeFieldType } from '../../lib/dateTimeFields'
 
 const props = defineProps<{
   modelValue?: string | null
@@ -99,7 +99,7 @@ function clearTime() {
         v-if="fieldtype !== 'Date'"
         v-model:open="timePickerOpen"
         :model-value="time"
-        :options="minuteTimeOptions"
+        :interval="15"
         :typeable="false"
         open-on-click
         size="lg"
