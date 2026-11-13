@@ -24,10 +24,17 @@ class TestMobileGantt(TestCase):
 
         self.frappe.throw = throw
         self.require_login = Mock()
+        self.form_buttons = Mock(return_value={
+            "generic_forms": [{"mobile_doctype": "take-5"}],
+            "task_forms": [{"mobile_doctype": "field-interaction"}],
+            "ccv_forms": [{"mobile_doctype": "ccv-lifting-operations"}],
+        })
         modules = {
             "frappe": self.frappe,
             "frappe.utils": SimpleNamespace(cint=lambda value: int(value or 0)),
-            "verto.api.mobile.home": SimpleNamespace(require_login=self.require_login),
+            "verto.api.mobile.home": SimpleNamespace(
+                require_login=self.require_login, get_mobile_form_buttons=self.form_buttons,
+            ),
         }
         spec = importlib.util.spec_from_file_location(
             "mobile_gantt_under_test", Path(__file__).parents[1] / "verto/api/mobile/gantt.py",
@@ -49,6 +56,7 @@ class TestMobileGantt(TestCase):
             self.gantt.get_schedule("PROJ-1")
         self.frappe.has_permission.assert_called_once_with("Task", "read")
         self.frappe.get_list.assert_not_called()
+        self.form_buttons.assert_not_called()
 
     def test_inaccessible_project_or_area_stops_before_querying_schedule_rows(self):
         self.frappe.get_list.side_effect = [[]]
@@ -76,6 +84,9 @@ class TestMobileGantt(TestCase):
         self.assertEqual(result["area_name"], "Plant room")
         self.assertEqual(result["tasks"], rows[:-1])
         self.assertEqual(result["next_start"], 100)
+        self.assertNotIn("task_forms", result)
+        self.assertNotIn("ccv_forms", result)
+        self.form_buttons.assert_not_called()
         self.assertEqual(self.frappe.local.response_headers["Cache-Control"], "no-store")
         query = self.frappe.get_list.call_args.kwargs
         self.assertEqual(query["filters"], {
@@ -95,3 +106,13 @@ class TestMobileGantt(TestCase):
         self.assertIsNone(result["next_start"])
         self.assertEqual(result["area_name"], "AREA-1")
         self.assertEqual(self.frappe.get_list.call_args.kwargs["filters"]["name"], "AREA-1")
+
+    def test_first_schedule_page_includes_the_allowed_task_form_and_ccv_options(self):
+        self.frappe.get_list.side_effect = [[self.project], [{"name": "TASK-1"}]]
+
+        result = self.gantt.get_schedule("PROJ-1")
+
+        self.form_buttons.assert_called_once_with()
+        self.assertEqual(result["task_forms"], [{"mobile_doctype": "field-interaction"}])
+        self.assertEqual(result["ccv_forms"], [{"mobile_doctype": "ccv-lifting-operations"}])
+        self.assertNotIn("generic_forms", result)

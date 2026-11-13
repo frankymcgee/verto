@@ -4,7 +4,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
-from verto.api.mobile.home import require_login
+from verto.api.mobile.home import get_mobile_form_buttons, require_login
 
 
 PAGE_SIZE = 50
@@ -65,9 +65,14 @@ def get_schedule(project: str, area: str | None = None, start: int = 0):
         offset=start,
         limit=PAGE_SIZE + 1,
     )
-    return {
+    schedule = {
         "project_name": projects[0].get("project_name") or projects[0]["name"],
         "area_name": area_name,
         "tasks": tasks[:PAGE_SIZE],
         "next_start": start + PAGE_SIZE if len(tasks) > PAGE_SIZE else None,
     }
+    if not start:
+        buttons = get_mobile_form_buttons()
+        schedule["task_forms"] = buttons["task_forms"]
+        schedule["ccv_forms"] = buttons["ccv_forms"]
+    return schedule

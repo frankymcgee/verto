@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import Home from '../src/pages/Home.vue'
+import ProjectGantt from '../src/pages/ProjectGantt.vue'
+import ProjectGanttTimeline from '../src/components/ProjectGanttTimeline.vue'
 
-const mocks = vi.hoisted(() => ({ api: vi.fn(), navigate: vi.fn() }))
+const mocks = vi.hoisted(() => ({ api: vi.fn(), navigate: vi.fn(), route: vi.fn() }))
 vi.mock('../src/lib/api', () => ({ apiRequest: mocks.api }))
-vi.mock('vue-router', () => ({ useRouter: () => ({ push: mocks.navigate }) }))
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ push: mocks.navigate }),
+  useRoute: mocks.route,
+}))
 
 let wrapper
 afterEach(() => {
@@ -88,4 +93,59 @@ describe('Mobile location expansion', () => {
       expect(wrapper.text()).toContain('Inspect pump')
     }
   )
+})
+
+describe('Gantt task forms', () => {
+  async function mountSchedule(query) {
+    mocks.route.mockReturnValue({ params: { project: 'PROJ-1' }, query })
+    mocks.api.mockResolvedValue({ message: {
+      project_name: 'Shutdown',
+      area_name: query.area ? 'Plant Room' : null,
+      next_start: null,
+      tasks: [
+        { name: 'TASK-1', subject: 'Inspect pump', exp_start_date: '2026-11-05', exp_end_date: '2026-11-06' },
+        { name: 'TASK-2', subject: 'Check crane' },
+      ],
+      task_forms: [{ label: 'Field Interaction', doctype: 'Field Interaction', mobile_doctype: 'field-interaction' }],
+      ccv_forms: [{ label: 'Lifting Operations', doctype: 'CCV - Lifting Operations', mobile_doctype: 'ccv-lifting-operations' }],
+    } })
+    wrapper = mount(ProjectGantt, {
+      attachTo: document.body,
+      global: { stubs: { ProjectGanttTimeline: true } },
+    })
+    await flushPromises()
+  }
+
+  it('opens a new form with the task selected on the project timeline', async () => {
+    await mountSchedule({})
+    const timeline = wrapper.getComponent(ProjectGanttTimeline)
+    timeline.vm.$emit('select', timeline.props('tasks')[0])
+    await flushPromises()
+    await clickButton('+ Form')
+    expect(document.body.textContent).toContain('Select Form to Create')
+    expect(document.body.textContent).not.toContain('Lifting Operations')
+    await clickButton('Field Interaction')
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      path: '/new/field-interaction',
+      query: { link_task: 'TASK-1', project: 'PROJ-1' },
+    })
+  })
+
+  it('opens a CCV for the newly selected task in an area task list', async () => {
+    await mountSchedule({ area: 'AREA-1' })
+    await wrapper.get('select').setValue('List')
+    await clickButton('Inspect pump')
+    await clickButton('+ Form')
+    await clickButton('Back')
+    await clickButton('Close')
+    await clickButton('Check crane')
+    await clickButton('+ CCV')
+    expect(document.body.textContent).toContain('Select CCV to Create')
+    expect(document.body.textContent).not.toContain('Field Interaction')
+    await clickButton('Lifting Operations')
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      path: '/new/ccv-lifting-operations',
+      query: { link_task: 'TASK-2', project: 'PROJ-1' },
+    })
+  })
 })
