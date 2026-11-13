@@ -133,8 +133,18 @@
               v-else-if="!isLayoutField(childField)"
               class="space-y-1"
             >
+              <DateTimeField
+                v-if="isDateTimeField(childField.fieldtype)"
+                v-model="draftRow[childField.fieldname]"
+                :fieldtype="childField.fieldtype"
+                :label="childField.label"
+                :description="childField.description"
+                :required="isFieldMandatory(childField)"
+                :disabled="isFieldReadOnly(childField) || disabled || locked"
+              />
+
               <FormControl
-                v-if="isTextInput(childField.fieldtype)"
+                v-else-if="isTextInput(childField.fieldtype)"
                 v-model="draftRow[childField.fieldname]"
                 class="w-full"
                 :type="getInputType(childField.fieldtype)"
@@ -310,6 +320,8 @@ import {
   evaluateReadOnlyDependsOn,
   getVisibleFormFields,
 } from '../../lib/dependencies'
+import { isDateTimeField } from '../../lib/dateTimeFields'
+import DateTimeField from './DateTimeField.vue'
 import LinkField from './LinkField.vue'
 import SignatureField from './SignatureField.vue'
 import RatingField from './RatingField.vue'
@@ -427,9 +439,6 @@ function isTextInput(fieldtype: string) {
     'Phone',
     'Email',
     'Password',
-    'Date',
-    'Datetime',
-    'Time',
     'Int',
     'Float',
     'Currency',
@@ -450,9 +459,6 @@ function isTextArea(fieldtype: string) {
 }
 
 function getInputType(fieldtype: string) {
-  if (fieldtype === 'Date') return 'date'
-  if (fieldtype === 'Datetime') return 'datetime-local'
-  if (fieldtype === 'Time') return 'time'
   if (fieldtype === 'Int') return 'number'
 
   if (['Float', 'Currency', 'Percent', 'Duration'].includes(fieldtype)) {

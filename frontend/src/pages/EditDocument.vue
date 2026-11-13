@@ -169,8 +169,19 @@
                   v-else-if="field.fieldtype !== 'Table'"
                   class="space-y-1"
                 >
+                  <DateTimeField
+                    v-if="isDateTimeField(field.fieldtype)"
+                    v-model="values[field.fieldname]"
+                    :fieldtype="field.fieldtype"
+                    :label="field.label"
+                    :description="field.description"
+                    :required="isFieldMandatory(field)"
+                    :disabled="isFieldReadOnly(field) || !canWrite || saving"
+                    @update:model-value="handleFieldChange(field)"
+                  />
+
                   <FormControl
-                    v-if="isTextInput(field.fieldtype)"
+                    v-else-if="isTextInput(field.fieldtype)"
                     v-model="values[field.fieldname]"
                     class="w-full"
                     :type="getInputType(field.fieldtype)"
@@ -414,6 +425,8 @@ import {
   evaluateReadOnlyDependsOn,
   getVisibleFormFields,
 } from '../lib/dependencies'
+import { isDateTimeField } from '../lib/dateTimeFields'
+import DateTimeField from '../components/mobile-fields/DateTimeField.vue'
 import LinkField from '../components/mobile-fields/LinkField.vue'
 import ChildTableField from '../components/mobile-fields/ChildTableField.vue'
 import SignatureField from '../components/mobile-fields/SignatureField.vue'
@@ -573,9 +586,6 @@ function isTextInput(fieldtype: string) {
     'Phone',
     'Email',
     'Password',
-    'Date',
-    'Datetime',
-    'Time',
     'Int',
     'Float',
     'Currency',
@@ -595,9 +605,6 @@ function isTextArea(fieldtype: string) {
 }
 
 function getInputType(fieldtype: string) {
-  if (fieldtype === 'Date') return 'date'
-  if (fieldtype === 'Datetime') return 'datetime-local'
-  if (fieldtype === 'Time') return 'time'
   if (fieldtype === 'Int') return 'number'
 
   if (['Float', 'Currency', 'Percent', 'Duration'].includes(fieldtype)) {

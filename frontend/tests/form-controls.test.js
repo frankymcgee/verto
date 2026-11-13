@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
-import { TabButtons, Select, DatePicker, Checkbox, FormControl } from 'frappe-ui'
+import { TabButtons, Select, DatePicker, TimePicker, Checkbox, FormControl } from 'frappe-ui'
 import ChildTableField from '../src/components/mobile-fields/ChildTableField.vue'
+import DateTimeField from '../src/components/mobile-fields/DateTimeField.vue'
 import EditDocument from '../src/pages/EditDocument.vue'
 import NewDocument from '../src/pages/NewDocument.vue'
 const mocked = vi.hoisted(() => ({ api: vi.fn(), push: vi.fn(), back: vi.fn() }))
@@ -133,6 +134,92 @@ describe('Dynamic mobile forms', () => {
     const requests = mocked.api.mock.calls.filter(([url]) => url.includes('create_mobile_doc'))
     expect(requests[1][1].body.get('operation_id')).toBe(first)
     expect(first).toBeTruthy()
+  })
+})
+
+describe('Mobile date and time pickers', () => {
+  const timesheetFields = [
+    fields[0],
+    { fieldname: 'start_time', fieldtype: 'Time', label: 'Start Time', default: '18:07:00' },
+    { fieldname: 'end_time', fieldtype: 'Time', label: 'End Time', read_only: true, default: '06:29:00' },
+    { fieldname: 'review_at', fieldtype: 'Datetime', label: 'Review at' },
+  ]
+
+  async function choose(picker, selector) {
+    const input = picker.find('input')
+    expect(input.element.readOnly).toBe(true)
+    await input.trigger('click')
+    const option = document.querySelector(selector)
+    expect(option, selector).toBeTruthy()
+    option.click()
+    await flushPromises()
+    return input.element.value
+  }
+
+  it.each([
+    ['new', NewDocument, 'create_mobile_doc'],
+    ['existing', EditDocument, 'update_mobile_doc'],
+  ])('opens Frappe pickers from the value in the %s timesheet and saves exact minutes', async (_, component, method) => {
+    await render(component, timesheetFields, {
+      date: '2026-09-14', start_time: '18:07:00', end_time: '06:29:00', review_at: '2026-09-14 13:37:00',
+    })
+    const startTime = w.findAllComponents(TimePicker).find(picker => picker.props('label') === 'Start Time')
+    const endTime = w.findAllComponents(TimePicker).find(picker => picker.props('label') === 'End Time')
+    expect(startTime.find('input').element.value).toBe('18:07')
+    expect(endTime.find('input').element.disabled).toBe(true)
+    expect(await choose(startTime, '[role="option"][data-value="18:08"]')).toBe('18:08')
+    expect(await choose(w.findComponent(DatePicker), '[role="gridcell"][data-value="2026-09-15"]')).toBe('2026-09-15')
+
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    const request = mocked.api.mock.calls.find(([url]) => url.includes(method))
+    expect(JSON.parse(request[1].body.get('values'))).toMatchObject({
+      date: '2026-09-15', start_time: '18:08:00', end_time: '06:29:00',
+    })
+  })
+
+  it('preserves local date and minute values and clears an optional datetime', async () => {
+    w = mount(DateTimeField, {
+      attachTo: document.body,
+      props: { fieldtype: 'Datetime', label: 'Review at', modelValue: '2026-09-14 13:37:00' },
+    })
+    const date = w.findComponent(DatePicker)
+    const time = w.findComponent(TimePicker)
+    expect(date.find('input').element.value).toBe('2026-09-14')
+    expect(time.find('input').element.value).toBe('13:37')
+
+    await choose(date, '[role="gridcell"][data-value="2026-09-15"]')
+    expect(w.emitted('update:modelValue').at(-1)).toEqual(['2026-09-15T13:37'])
+    await w.setProps({ modelValue: '2026-09-15T13:37' })
+    await choose(time, '[role="option"][data-value="13:39"]')
+    expect(w.emitted('update:modelValue').at(-1)).toEqual(['2026-09-15T13:39'])
+    await w.find('button[aria-label="Clear Review at"]').trigger('click')
+    expect(w.emitted('update:modelValue').at(-1)).toEqual([''])
+  })
+
+  it('keeps required validation for a picker-only input', async () => {
+    w = mount(DateTimeField, { props: { fieldtype: 'Time', label: 'Start Time', required: true } })
+    const validation = w.find('select[required]').element
+    expect(validation.validity.valueMissing).toBe(true)
+    expect(w.findComponent(TimePicker).find('input').element.readOnly).toBe(true)
+    await w.setProps({ modelValue: '00:00' })
+    expect(validation.checkValidity()).toBe(true)
+    await w.setProps({ modelValue: '', disabled: true })
+    expect(validation.checkValidity()).toBe(true)
+  })
+
+  it('waits for an explicit time before saving a newly selected datetime', async () => {
+    w = mount(DateTimeField, { attachTo: document.body, props: { fieldtype: 'Datetime', label: 'Review at' } })
+    await w.findComponent(DatePicker).find('input').trigger('click')
+    const today = [...document.querySelectorAll('button')].find(button => button.textContent.trim() === 'Today')
+    today.click()
+    await flushPromises()
+    const date = w.findComponent(DatePicker).find('input').element.value
+    expect(date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(w.emitted('update:modelValue')).toBeUndefined()
+    expect(w.find('select[required]').element.validity.valueMissing).toBe(true)
+    await choose(w.findComponent(TimePicker), '[role="option"][data-value="00:07"]')
+    expect(w.emitted('update:modelValue').at(-1)).toEqual([`${date}T00:07`])
   })
 })
 
