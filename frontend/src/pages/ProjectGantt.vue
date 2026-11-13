@@ -2,10 +2,10 @@
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Badge, Button } from 'frappe-ui'
+import MobileFormPicker, { type MobileFormOption } from '../components/MobileFormPicker.vue'
 import MobileSheet from '../components/MobileSheet.vue'
 import ProjectGanttTimeline from '../components/ProjectGanttTimeline.vue'
 import { apiRequest } from '../lib/api'
-import { openAppBrowser } from '../lib/appBrowser'
 import { formatScheduleDate, hasTimelineDates, scheduleRange, scheduleTask } from '../lib/ganttSchedule'
 import type { ScheduleTask, ScheduleTaskRecord } from '../lib/ganttSchedule'
 
@@ -14,6 +14,8 @@ type SchedulePage = {
   area_name: string | null
   tasks: ScheduleTaskRecord[]
   next_start: number | null
+  task_forms?: MobileFormOption[]
+  ccv_forms?: MobileFormOption[]
 }
 
 const route = useRoute()
@@ -30,6 +32,9 @@ const view = ref<'Day' | 'Week' | 'Month' | 'List'>('Day')
 const timeline = ref<InstanceType<typeof ProjectGanttTimeline> | null>(null)
 const todayAvailable = ref(false)
 const selectedTask = shallowRef<ScheduleTask | null>(null)
+const picker = ref<'form' | 'ccv' | null>(null)
+const formOptions = shallowRef({ form: [] as MobileFormOption[], ccv: [] as MobileFormOption[] })
+const pickerTitle = computed(() => picker.value === 'ccv' ? 'Select CCV to Create' : 'Select Form to Create')
 const datedTasks = computed(() => tasks.value.filter(hasTimelineDates))
 const tasksWithoutBars = computed(() => tasks.value.length - datedTasks.value.length)
 const titlesByName = computed(() => new Map(tasks.value.map((task) => [task.name, task.title])))
@@ -59,6 +64,7 @@ async function loadSchedule(start = 0) {
     projectTitle.value = message.project_name
     areaTitle.value = message.area_name || ''
     nextStart.value = message.next_start
+    if (!start) formOptions.value = { form: message.task_forms || [], ccv: message.ccv_forms || [] }
   } catch {
     if (request.signal.aborted) return
     if (!navigator.onLine) error.value = 'Connect to the internet to load the schedule.'
@@ -73,16 +79,25 @@ watch([project, area], () => {
   nextStart.value = null
   projectTitle.value = ''
   areaTitle.value = ''
-  selectedTask.value = null
+  closeTask()
   todayAvailable.value = false
   void loadSchedule()
 }, { immediate: true })
 
 onBeforeUnmount(() => pending?.abort())
 
-function openTaskRecord(task: ScheduleTask) {
+function closeTask() {
   selectedTask.value = null
-  openAppBrowser({ url: `/app/task/${encodeURIComponent(task.name)}`, title: task.title })
+  picker.value = null
+}
+
+function createFromPicker(option: MobileFormOption) {
+  if (!selectedTask.value) return
+
+  void router.push({
+    path: `/new/${encodeURIComponent(option.mobile_doctype)}`,
+    query: { link_task: selectedTask.value.name, project: project.value },
+  })
 }
 </script>
 
@@ -166,15 +181,24 @@ function openTaskRecord(task: ScheduleTask) {
       <p v-if="error" class="text-sm text-ink-red-4" role="alert">{{ error }}</p>
     </template>
 
-    <MobileSheet :open="Boolean(selectedTask)" title="Task details" @update:open="!$event && (selectedTask = null)">
-      <section v-if="selectedTask" class="drawer-panel w-full overflow-y-auto bg-surface-base px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+    <MobileSheet :open="Boolean(selectedTask)" :title="picker ? pickerTitle : 'Task details'" @update:open="!$event && closeTask()">
+      <MobileFormPicker
+        v-if="selectedTask && picker"
+        :title="pickerTitle"
+        :task-title="selectedTask.title"
+        :options="formOptions[picker]"
+        close-label="Back"
+        @close="picker = null"
+        @select="createFromPicker"
+      />
+      <section v-else-if="selectedTask" class="drawer-panel w-full overflow-y-auto bg-surface-base px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
         <div class="mx-auto max-w-2xl space-y-4">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <h2 class="break-words text-lg-semibold text-ink-gray-9">{{ selectedTask.title }}</h2>
               <p class="mt-1 break-words text-sm text-ink-gray-6">{{ selectedTask.name }}</p>
             </div>
-            <Button class="min-h-11 shrink-0" variant="subtle" @click="selectedTask = null">Close</Button>
+            <Button class="min-h-11 shrink-0" variant="subtle" @click="closeTask">Close</Button>
           </div>
           <div class="flex flex-wrap gap-2">
             <Badge v-if="selectedTask.status">{{ selectedTask.status }}</Badge>
@@ -205,7 +229,10 @@ function openTaskRecord(task: ScheduleTask) {
               </dd>
             </div>
           </dl>
-          <Button class="min-h-11" variant="outline" @click="openTaskRecord(selectedTask)">Open Task record</Button>
+          <div class="grid grid-cols-2 gap-2">
+            <Button class="min-h-11" variant="solid" theme="gray" @click="picker = 'form'">+ Form</Button>
+            <Button class="min-h-11" variant="subtle" theme="gray" @click="picker = 'ccv'">+ CCV</Button>
+          </div>
         </div>
       </section>
     </MobileSheet>
