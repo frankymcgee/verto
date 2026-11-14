@@ -159,6 +159,25 @@ class TestOfflineSync(unittest.TestCase):
         self.documents.create_mobile_doc.assert_not_called()
         self.documents.update_mobile_doc.assert_called_once()
 
+    def test_incomplete_attachment_requests_return_validation_errors_before_receipt_lookup(self):
+        fields = {
+            "operation_id": "operation-1",
+            "attachment_id": "photo-1",
+            "target_doctype": "Daily Timesheet",
+            "target_name": "TS-1",
+        }
+        with self.assertRaisesRegex(ValidationError, "offline attachment upload is incomplete"):
+            self.offline.upload_attachment()
+
+        for field in fields:
+            with self.subTest(missing=field):
+                request_fields = {key: value for key, value in fields.items() if key != field}
+                with self.assertRaisesRegex(ValidationError, "offline attachment upload is incomplete"):
+                    self.offline.upload_attachment(**request_fields)
+
+        self.frappe.db.exists.assert_not_called()
+        self.frappe.db.commit.assert_not_called()
+
     def test_attachment_race_reserves_its_receipt_before_writing_a_file(self):
         parent = {"target_doctype": "Daily Timesheet", "target_name": "TS-1", "result": self.result}
         uploaded = SimpleNamespace(filename="photo.jpg", stream=Mock())

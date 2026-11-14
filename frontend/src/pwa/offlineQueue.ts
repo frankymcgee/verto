@@ -775,7 +775,10 @@ async function uploadQueuedAttachment(input: {
   formData.append('attachment_id', input.attachment.id)
   formData.append('target_doctype', input.targetDoctype)
   formData.append('target_name', input.targetName)
-  formData.append('file', input.attachment.blob, input.attachment.name)
+  const { blob, name } = input.attachment
+  // WebKit can drop the entire multipart body for a disk-backed File from IndexedDB.
+  // Slicing gives FormData a plain Blob while preserving the file bytes and media type.
+  formData.append('file', blob.slice(0, blob.size, blob.type), name)
 
   const response = await fetch('/api/method/verto.api.mobile.offline.upload_attachment', {
     method: 'POST',
