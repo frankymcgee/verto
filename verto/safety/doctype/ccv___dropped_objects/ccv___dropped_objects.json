@@ -121,7 +121,6 @@
    "label": "Work Area"
   },
   {
-   "depends_on": "eval:doc.link_task !==\"\";",
    "fieldname": "section_break_nfxsd",
    "fieldtype": "Section Break",
    "label": "Vendor Information"
@@ -304,8 +303,8 @@
  "index_web_pages_for_search": 1,
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-07-26 16:57:43.388937",
- "modified_by": "sean@minesitesupport.com.au",
+ "modified": "2026-11-14 14:04:21.161313",
+ "modified_by": "sean@webwire.com.au",
  "module": "Safety",
  "name": "CCV - Dropped Objects",
  "naming_rule": "By \"Naming Series\" field",

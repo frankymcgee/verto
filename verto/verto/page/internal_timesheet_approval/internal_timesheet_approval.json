@@ -1,11 +1,15 @@
 {
+ "content": null,
+ "creation": "2026-11-14 13:38:57.606725",
+ "docstatus": 0,
  "doctype": "Page",
- "name": "internal-timesheet-approval",
- "page_name": "internal-timesheet-approval",
- "title": "Internal Timesheet Approval",
+ "idx": 0,
+ "modified": "2026-11-14 13:40:13.394688",
+ "modified_by": "Administrator",
  "module": "Verto",
- "standard": "Yes",
- "system_page": 0,
+ "name": "internal-timesheet-approval",
+ "owner": "Administrator",
+ "page_name": "internal-timesheet-approval",
  "roles": [
   {
    "role": "System Manager"
@@ -18,6 +22,14 @@
   },
   {
    "role": "Projects Manager"
+  },
+  {
+   "role": "Verto Planner Manager"
   }
- ]
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Internal Timesheet Approval"
 }
