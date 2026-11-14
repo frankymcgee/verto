@@ -498,7 +498,8 @@ self.addEventListener('fetch', (event) => {
 
   if (
     request.method === 'POST' &&
-    url.pathname === '/api/method/upload_file'
+    url.pathname === '/api/method/upload_file' &&
+    url.searchParams.get('method') !== 'verto.api.mobile.offline.upload_attachment'
   ) {
     event.respondWith(handleUploadRequest(request))
     return

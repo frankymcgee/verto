@@ -9,6 +9,9 @@ vi.mock('../src/lib/csrf', () => ({ withCsrfHeaders: (headers) => new Headers(he
 const actor = 'worker@example.test'
 const result = { doctype: 'Daily Timesheet', name: 'TS-1', route: '/shifts' }
 const response = (value = { ok: true, result }) => new Response(JSON.stringify({ message: value }))
+const attachmentUploads = () => fetch.mock.calls.filter(([url]) =>
+  url === '/api/method/upload_file?method=verto.api.mobile.offline.upload_attachment')
+const attachmentMetadata = (options) => JSON.parse(decodeURIComponent(options.headers.get('X-Verto-Attachment')))
 const deferred = () => {
   let resolve
   const promise = new Promise(done => { resolve = done })
@@ -119,30 +122,34 @@ describe('Durable mobile submission retries', () => {
   })
 
   it('sends a restored photo as a Blob with its original name, type and bytes', async () => {
-    const photo = new File(['photo evidence'], 'site photo.jpg', { type: 'image/jpeg' })
+    const photo = new File(['photo evidence'], 'site photo café.jpg', { type: 'image/jpeg' })
     const attachment = queue.makeOfflineAttachment(photo)
     const item = await queue.queueMobileDocumentAction(input({ attachments: [attachment] }))
-    const append = vi.spyOn(FormData.prototype, 'append')
 
-    try {
-      await queue.syncOfflineQueueItem(item.id)
-      const [, part] = append.mock.calls.find(([key]) => key === 'file')
-      expect(part).toBeInstanceOf(Blob)
-      expect(part).not.toBeInstanceOf(File)
+    await queue.syncOfflineQueueItem(item.id)
+    const [[url, options]] = attachmentUploads()
+    expect(options.body).toBeInstanceOf(Blob)
+    expect(options.body).not.toBeInstanceOf(File)
+    expect(options.body.type).toBe(photo.type)
+    expect(attachmentMetadata(options)).toEqual({
+      operation_id: item.id, attachment_id: attachment.id, target_doctype: result.doctype,
+      target_name: result.name, file_name: photo.name,
+    })
+    const request = new Request(new URL(url, window.location.origin), options)
+    expect(request.headers.get('Content-Type')).toBe('application/octet-stream')
+    expect(await request.text()).toBe('photo evidence')
+    expect(fetch.mock.calls.at(-1)[0]).toContain('queue_submitted_form_review')
+  })
 
-      const [url, options] = fetch.mock.calls.find(([url]) => url.endsWith('upload_attachment'))
-      const form = await new Request(new URL(url, window.location.origin), options).formData()
-      expect(form.get('operation_id')).toBe(item.id)
-      expect(form.get('attachment_id')).toBe(attachment.id)
-      expect(form.get('target_doctype')).toBe(result.doctype)
-      expect(form.get('target_name')).toBe(result.name)
-      const file = form.get('file')
-      expect(file).toMatchObject({ name: photo.name, type: photo.type })
-      expect(await file.text()).toBe('photo evidence')
-      expect(fetch.mock.calls.at(-1)[0]).toContain('queue_submitted_form_review')
-    } finally {
-      append.mockRestore()
-    }
+  it('reports an oversized photo and retains it after the form has synced', async () => {
+    const attachment = queue.makeOfflineAttachment(new Blob(['photo']), 'site photo.jpg')
+    const item = await queue.queueMobileDocumentAction(input({ attachments: [attachment] }))
+    fetch.mockResolvedValueOnce(response()).mockResolvedValueOnce(new Response('Too large', { status: 413 }))
+
+    await expect(queue.syncOfflineQueueItem(item.id)).rejects.toThrow('site photo.jpg exceeds the server')
+    const retained = await queue.getOfflineQueueItem(item.id)
+    expect(retained.server_result).toEqual(result)
+    expect(retained.attachments[0].id).toBe(attachment.id)
   })
 
   it('resumes photos after failure without saving the document again or dropping files', async () => {
@@ -155,8 +162,8 @@ describe('Durable mobile submission retries', () => {
     expect(retained.attachments[0].blob.size).toBe(5)
     await queue.syncOfflineQueueItem('document-stable')
     expect(fetch.mock.calls.filter(([url]) => url.endsWith('sync_action'))).toHaveLength(1)
-    const uploads = fetch.mock.calls.filter(([url]) => url.endsWith('upload_attachment'))
-    expect(uploads.map(([, options]) => options.body.get('attachment_id'))).toEqual([attachment.id, attachment.id])
+    expect(attachmentUploads().map(([, options]) => attachmentMetadata(options).attachment_id))
+      .toEqual([attachment.id, attachment.id])
     expect((await queue.getOfflineQueueItem('document-stable')).attachments).toEqual([])
   })
 
@@ -171,12 +178,9 @@ describe('Durable mobile submission retries', () => {
     const writes = fetch.mock.calls.filter(([url]) => url.endsWith('sync_action'))
     expect(writes).toHaveLength(1)
     expect(JSON.parse(writes[0][1].body.get('values'))).toMatchObject(values)
-    const uploads = fetch.mock.calls.filter(([url]) => url.endsWith('upload_attachment'))
-    expect(uploads.map(([, options]) => options.body.get('target_name'))).toEqual([
-      result.name, result.name, result.name,
-    ])
-    expect(uploads.map(([, options]) => options.body.get('attachment_id')))
-      .toEqual([attachments[0].id, attachments[1].id, attachments[1].id])
+    const uploads = attachmentUploads().map(([, options]) => attachmentMetadata(options))
+    expect(uploads.map((upload) => upload.target_name)).toEqual([result.name, result.name, result.name])
+    expect(uploads.map((upload) => upload.attachment_id)).toEqual([attachments[0].id, attachments[1].id, attachments[1].id])
   })
 
   it('does not reuse a submission for a different person or silently discard changed hours', async () => {
