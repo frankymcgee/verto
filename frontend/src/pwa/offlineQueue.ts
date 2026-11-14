@@ -67,12 +67,14 @@ export type OfflineApiCacheEntry<T = any> = {
 export class OfflineSyncError extends Error {
   retryable: boolean
   auth: boolean
+  busy: boolean
 
-  constructor(message: string, options: { retryable?: boolean; auth?: boolean } = {}) {
+  constructor(message: string, options: { retryable?: boolean; auth?: boolean; busy?: boolean } = {}) {
     super(message)
     this.name = 'OfflineSyncError'
     this.retryable = Boolean(options.retryable)
     this.auth = Boolean(options.auth)
+    this.busy = Boolean(options.busy)
   }
 }
 
@@ -581,16 +583,15 @@ export async function getOfflineQueueItems() {
   return (items || []).sort((a, b) => a.created_at.localeCompare(b.created_at))
 }
 
-export async function getOfflineQueueSummary(): Promise<OfflineQueueSummary> {
-  const items = await getOfflineQueueItems()
-  const active = items.filter((item) => item.status !== 'synced')
-
-  return {
-    queued: active.filter((item) => item.status === 'queued').length,
-    syncing: active.filter((item) => item.status === 'syncing').length,
-    failed: active.filter((item) => item.status === 'failed').length,
-    total: active.length,
+export async function getOfflineQueueSummary(user: string): Promise<OfflineQueueSummary> {
+  const items = await getPendingOfflineQueueItems(user)
+  const counts = { queued: 0, syncing: 0, failed: 0, total: items.length }
+  for (const item of items) {
+    if (hasActiveSyncLease(item)) counts.syncing += 1
+    else if (item.status === 'failed') counts.failed += 1
+    else counts.queued += 1
   }
+  return counts
 }
 
 export async function putOfflineQueueItem(item: OfflineQueueItem) {
@@ -622,10 +623,15 @@ function queueItemBelongsToUser(item: OfflineQueueItem, user: string) {
   return Boolean(user && user !== 'Guest' && (!owner || owner === user))
 }
 
-export async function getFailedOfflineQueueItems(user: string) {
+export async function getPendingOfflineQueueItems(user: string) {
+  if (!user || user === 'Guest') return []
   return (await getOfflineQueueItems()).filter((item) => {
-    return item.status === 'failed' && queueItemBelongsToUser(item, user)
+    return item.status !== 'synced' && queueItemBelongsToUser(item, user)
   })
+}
+
+export function hasActiveSyncLease(item: OfflineQueueItem) {
+  return Boolean(item.sync_owner && (item.sync_expires_at || 0) > Date.now())
 }
 
 export async function discardFailedOfflineQueueItem(id: string, user: string) {
@@ -637,7 +643,7 @@ export async function discardFailedOfflineQueueItem(id: string, user: string) {
     if (!queueItemBelongsToUser(item, user)) {
       throw new Error('This upload belongs to another signed-in user.')
     }
-    if (item.status !== 'failed' || (item.sync_owner && (item.sync_expires_at || 0) > Date.now())) {
+    if (item.status !== 'failed' || hasActiveSyncLease(item)) {
       throw new Error('This upload is no longer failed or is syncing. Refresh the list and try again.')
     }
     await requestToPromise(store.delete(id))
@@ -699,13 +705,18 @@ async function readJsonResponse(response: Response) {
   }
 }
 
+function isLoginRedirect(response: Response) {
+  return response.redirected && new URL(response.url).pathname === '/login'
+}
+
 async function ensureSyncResponse(response: Response, fallbackMessage = `Sync failed with HTTP ${response.status}.`) {
   const data = await readJsonResponse(response)
   const serverMessage = extractServerError(data, fallbackMessage)
   const normalisedMessage = String(serverMessage || '').toLowerCase()
-  const isAuthFailure = response.status === 401 || (
+  const isAuthFailure = response.status === 401 || isLoginRedirect(response) || (
     response.status === 403 && [
       'login required',
+      'not permitted in guest mode',
       'session expired',
       'session has expired',
       'not logged in',
@@ -761,6 +772,30 @@ async function ensureSyncResponse(response: Response, fallbackMessage = `Sync fa
   return data?.message ?? data
 }
 
+async function sendSyncRequest(
+  url: string,
+  options: RequestInit,
+  { attachmentName, legacy = false }: { attachmentName?: string; legacy?: boolean } = {},
+) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), attachmentName ? 600_000 : 120_000)
+  try {
+    const response = await fetch(url, { ...options, credentials: 'include', signal: controller.signal })
+    if (legacy && response.ok && !isLoginRedirect(response)) return response
+    const fallback = attachmentName && response.status === 413
+      ? `${attachmentName} exceeds the server's upload size limit.`
+      : undefined
+    return await ensureSyncResponse(response, fallback)
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new OfflineSyncError('The server took too long to confirm this upload. You can try again.', { retryable: true })
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 async function uploadQueuedAttachment(input: {
   operationId: string
   attachment: OfflineAttachment
@@ -778,18 +813,14 @@ async function uploadQueuedAttachment(input: {
 
   // Frappe applies System Settings to this route's entire request body.
   // Send a plain Blob so multipart overhead and restored WebKit Files cannot interfere.
-  const response = await fetch('/api/method/upload_file?method=verto.api.mobile.offline.upload_attachment', {
+  return sendSyncRequest('/api/method/upload_file?method=verto.api.mobile.offline.upload_attachment', {
     method: 'POST',
-    credentials: 'include',
     headers: withCsrfHeaders({
       'Content-Type': 'application/octet-stream',
       'X-Verto-Attachment': metadata,
     }, 'POST'),
     body: blob.slice(0, blob.size, blob.type),
-  })
-
-  const fallback = response.status === 413 ? `${name} exceeds the server's upload size limit.` : undefined
-  return ensureSyncResponse(response, fallback)
+  }, { attachmentName: name })
 }
 
 async function queuePhotoAnalysis(targetDoctype: string, targetName: string) {
@@ -797,20 +828,17 @@ async function queuePhotoAnalysis(targetDoctype: string, targetName: string) {
   formData.append('doctype', targetDoctype)
   formData.append('docname', targetName)
 
-  const response = await fetch(
+  return sendSyncRequest(
     '/api/method/verto.api.mobile.ai_photo_analysis.queue_submitted_form_review',
     {
       method: 'POST',
-      credentials: 'include',
       headers: withCsrfHeaders(undefined, 'POST'),
       body: formData,
     }
   )
-
-  return ensureSyncResponse(response)
 }
 
-async function syncMobileDocumentItem(item: OfflineQueueItem) {
+async function syncMobileDocumentItem(item: OfflineQueueItem, owner: string) {
   if (!item.action_type || !item.mobile_doctype) {
     throw new Error('Offline document action is incomplete.')
   }
@@ -828,14 +856,12 @@ async function syncMobileDocumentItem(item: OfflineQueueItem) {
 
   let result: Record<string, any> = item.server_result || {}
   if (!result?.doctype || !result?.name) {
-    const response = await fetch('/api/method/verto.api.mobile.offline.sync_action', {
+    const message = await sendSyncRequest('/api/method/verto.api.mobile.offline.sync_action', {
       method: 'POST',
-      credentials: 'include',
       headers: withCsrfHeaders(undefined, 'POST'),
       body: formData,
     })
 
-    const message = await ensureSyncResponse(response)
     result = message?.result || message || {}
   }
   const targetDoctype = String(result.doctype || item.server_result?.doctype || '')
@@ -846,7 +872,7 @@ async function syncMobileDocumentItem(item: OfflineQueueItem) {
   }
 
   item.server_result = result
-  await putOfflineQueueItem(item)
+  await updateClaimedItem(item.id, owner, () => ({ server_result: result }))
 
   for (const attachment of item.attachments || []) {
     if (item.uploaded_attachment_ids?.includes(attachment.id)) continue
@@ -857,7 +883,7 @@ async function syncMobileDocumentItem(item: OfflineQueueItem) {
       targetName,
     })
     item.uploaded_attachment_ids = [...(item.uploaded_attachment_ids || []), attachment.id]
-    await putOfflineQueueItem(item)
+    await updateClaimedItem(item.id, owner, () => ({ uploaded_attachment_ids: item.uploaded_attachment_ids }))
   }
 
   if ((item.attachments || []).length) {
@@ -901,31 +927,23 @@ async function replayLegacyQueueItem(item: OfflineQueueItem) {
     body = typeof item.body === 'string' ? item.body : JSON.stringify(item.body)
   }
 
-  const response = await fetch(item.url, {
+  return sendSyncRequest(item.url, {
     method: item.method || 'POST',
-    credentials: 'include',
     headers,
     body,
-  })
-
-  if (!response.ok) {
-    throw new Error(`Sync failed with HTTP ${response.status}.`)
-  }
-
-  return response
+  }, { legacy: true })
 }
 
-async function replayQueueItem(item: OfflineQueueItem) {
+async function replayQueueItem(item: OfflineQueueItem, owner: string) {
   if (item.kind === 'jha_observation') {
-    const response = await fetch('/api/method/verto.api.mobile.voice_jha_workpack.record_jha_observation', {
-      method: 'POST', credentials: 'include',
+    return sendSyncRequest('/api/method/verto.api.mobile.voice_jha_workpack.record_jha_observation', {
+      method: 'POST',
       headers: withCsrfHeaders({ 'Content-Type': 'application/json' }, 'POST'),
       body: JSON.stringify(item.values),
     })
-    return ensureSyncResponse(response)
   }
   if (item.kind === 'mobile_document') {
-    return syncMobileDocumentItem(item)
+    return syncMobileDocumentItem(item, owner)
   }
 
   if (item.kind === 'attachment_upload') {
@@ -938,33 +956,59 @@ async function replayQueueItem(item: OfflineQueueItem) {
 const activeItemSyncs = new Map<string, Promise<any>>()
 const SYNC_LEASE_MS = 120_000
 
-export function syncOfflineQueueItem(
+type SyncItemOptions = { deleteOnPermanentFailure?: boolean; user?: string }
+
+function itemBusyError() {
+  return new OfflineSyncError('This item is already syncing in another window.', { retryable: true, busy: true })
+}
+
+async function updateClaimedItem(
   id: string,
-  options: { deleteOnPermanentFailure?: boolean } = {}
+  owner: string,
+  update: (current: OfflineQueueItem) => Partial<OfflineQueueItem> | null,
 ) {
+  await withStore(QUEUE_STORE, 'readwrite', async (store) => {
+    const current: OfflineQueueItem | undefined = await requestToPromise(store.get(id))
+    if (current?.sync_owner !== owner) throw itemBusyError()
+    const changes = update(current)
+    if (changes) {
+      await requestToPromise(store.put({ ...current, ...changes, updated_at: nowIso() }))
+    } else {
+      await requestToPromise(store.delete(id))
+    }
+  })
+  dispatchQueueUpdated()
+}
+
+export function syncOfflineQueueItem(id: string, options: SyncItemOptions = {}) {
   const active = activeItemSyncs.get(id)
   if (active) return active
   const run = () => performItemSync(id, options)
   const pending = (typeof navigator !== 'undefined' && navigator.locks
-    ? navigator.locks.request(`verto:offline-sync:${id}`, run)
+    ? navigator.locks.request(`verto:offline-sync:${id}`, { ifAvailable: true }, (lock) => {
+        if (!lock) throw itemBusyError()
+        return run()
+      })
     : run()).finally(() => { activeItemSyncs.delete(id) })
   activeItemSyncs.set(id, pending)
   return pending
 }
 
-async function performItemSync(id: string, options: { deleteOnPermanentFailure?: boolean }) {
+async function performItemSync(id: string, options: SyncItemOptions) {
   const owner = createOfflineId('sync')
   const item = await withStore<OfflineQueueItem | undefined>(QUEUE_STORE, 'readwrite', async (store) => {
     const current: OfflineQueueItem | undefined = await requestToPromise(store.get(id))
-    if (!current || current.status === 'synced') return current
-    if (current.sync_owner && (current.sync_expires_at || 0) > Date.now()) {
-      throw new OfflineSyncError('This item is already syncing in another window.', { retryable: true })
+    if (current && options.user !== undefined && !queueItemBelongsToUser(current, options.user)) {
+      throw new Error('This upload belongs to another signed-in user.')
     }
+    if (!current || current.status === 'synced') return current
+    if (hasActiveSyncLease(current)) throw itemBusyError()
     current.sync_owner = owner
     current.sync_expires_at = Date.now() + SYNC_LEASE_MS
     current.status = 'syncing'
-    current.attempts += 1
+    current.attempts = (current.attempts || 0) + 1
     current.last_error = ''
+    current.updated_at = nowIso()
     await requestToPromise(store.put(current))
     return current
   })
@@ -985,33 +1029,37 @@ async function performItemSync(id: string, options: { deleteOnPermanentFailure?:
   }, SYNC_LEASE_MS / 4)
 
   try {
-    const result = await replayQueueItem(item)
-    if (item.kind === 'mobile_document') {
-      // Keep the result so retrying the same form cannot recreate the item.
-      await putOfflineQueueItem({ ...item, status: 'synced', server_result: result,
-        attachments: [], uploaded_attachment_ids: [], sync_owner: undefined, sync_expires_at: undefined })
-    } else {
-      await deleteOfflineQueueItem(item.id)
-    }
+    const result = await replayQueueItem(item, owner)
+    await updateClaimedItem(id, owner, (current) => {
+      if (item.kind !== 'mobile_document') return null
+      const hasNewAttachments = current.attachments?.some(
+        attachment => !current.uploaded_attachment_ids?.includes(attachment.id)
+      )
+      // Keep the receipt result for a retry, including photos added while a sync was running.
+      return {
+        status: hasNewAttachments ? 'queued' : 'synced',
+        server_result: result,
+        attachments: hasNewAttachments ? current.attachments : [],
+        uploaded_attachment_ids: hasNewAttachments ? current.uploaded_attachment_ids : [],
+        sync_owner: undefined,
+        sync_expires_at: undefined,
+      }
+    })
     return result
   } catch (error) {
+    if (error instanceof OfflineSyncError && error.busy) throw error
     const shouldDelete = Boolean(options.deleteOnPermanentFailure) &&
       !item.server_result &&
       !isRetryableOfflineSyncError(error) &&
       !isOfflineSyncAuthError(error)
 
-    if (shouldDelete) {
-      await deleteOfflineQueueItem(item.id)
-    } else {
-      await putOfflineQueueItem({
-        ...item,
-        status: 'failed',
-        sync_owner: undefined,
-        sync_expires_at: undefined,
-        last_error: error instanceof Error ? error.message : 'Sync failed.',
-        last_error_retryable: isRetryableOfflineSyncError(error) || isOfflineSyncAuthError(error),
-      })
-    }
+    await updateClaimedItem(id, owner, () => shouldDelete ? null : ({
+      status: 'failed',
+      sync_owner: undefined,
+      sync_expires_at: undefined,
+      last_error: error instanceof Error ? error.message : 'Sync failed.',
+      last_error_retryable: isRetryableOfflineSyncError(error) || isOfflineSyncAuthError(error),
+    }))
 
     throw error
   } finally {
@@ -1021,13 +1069,13 @@ async function performItemSync(id: string, options: { deleteOnPermanentFailure?:
 
 let queueSyncPromise: Promise<{ synced: number; failed: number; skipped: boolean }> | null = null
 
-export function syncOfflineQueue() {
+export function syncOfflineQueue(user: string) {
   if (queueSyncPromise) return queueSyncPromise
-  queueSyncPromise = performQueueSync().finally(() => { queueSyncPromise = null })
+  queueSyncPromise = performQueueSync(user).finally(() => { queueSyncPromise = null })
   return queueSyncPromise
 }
 
-async function performQueueSync() {
+async function performQueueSync(user: string) {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     return {
       synced: 0,
@@ -1036,19 +1084,17 @@ async function performQueueSync() {
     }
   }
 
-  const items = await getOfflineQueueItems()
-  const pending = items.filter((item) => {
-    return item.status === 'queued' || item.status === 'failed' || item.status === 'syncing'
-  })
+  const pending = await getPendingOfflineQueueItems(user)
 
   let synced = 0
   let failed = 0
 
   for (const item of pending) {
     try {
-      await syncOfflineQueueItem(item.id)
+      await syncOfflineQueueItem(item.id, { user })
       synced += 1
     } catch (err) {
+      if (err instanceof OfflineSyncError && err.busy) continue
       failed += 1
 
       if (isOfflineSyncAuthError(err)) {
