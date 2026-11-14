@@ -118,6 +118,33 @@ describe('Durable mobile submission retries', () => {
     expect((await queue.getOfflineQueueItem('document-stable')).status).toBe('failed')
   })
 
+  it('sends a restored photo as a Blob with its original name, type and bytes', async () => {
+    const photo = new File(['photo evidence'], 'site photo.jpg', { type: 'image/jpeg' })
+    const attachment = queue.makeOfflineAttachment(photo)
+    const item = await queue.queueMobileDocumentAction(input({ attachments: [attachment] }))
+    const append = vi.spyOn(FormData.prototype, 'append')
+
+    try {
+      await queue.syncOfflineQueueItem(item.id)
+      const [, part] = append.mock.calls.find(([key]) => key === 'file')
+      expect(part).toBeInstanceOf(Blob)
+      expect(part).not.toBeInstanceOf(File)
+
+      const [url, options] = fetch.mock.calls.find(([url]) => url.endsWith('upload_attachment'))
+      const form = await new Request(new URL(url, window.location.origin), options).formData()
+      expect(form.get('operation_id')).toBe(item.id)
+      expect(form.get('attachment_id')).toBe(attachment.id)
+      expect(form.get('target_doctype')).toBe(result.doctype)
+      expect(form.get('target_name')).toBe(result.name)
+      const file = form.get('file')
+      expect(file).toMatchObject({ name: photo.name, type: photo.type })
+      expect(await file.text()).toBe('photo evidence')
+      expect(fetch.mock.calls.at(-1)[0]).toContain('queue_submitted_form_review')
+    } finally {
+      append.mockRestore()
+    }
+  })
+
   it('resumes photos after failure without saving the document again or dropping files', async () => {
     const attachment = queue.makeOfflineAttachment(new Blob(['photo']), 'photo.jpg')
     await queue.queueMobileDocumentAction(input({ attachments: [attachment] }))

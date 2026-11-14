@@ -366,15 +366,22 @@ def _execute_document_action(action_type, mobile_doctype, values, docname):
 
 @frappe.whitelist(methods=["POST"])
 def upload_attachment(
-    operation_id,
-    attachment_id,
-    target_doctype,
-    target_name,
+    operation_id=None,
+    attachment_id=None,
+    target_doctype=None,
+    target_name=None,
 ):
     """Upload one attachment for a previously replayed offline document action."""
     require_login()
 
     operation_id = _receipt_name(operation_id)
+    attachment_id = _receipt_name(attachment_id)
+    if not all((operation_id, attachment_id, target_doctype, target_name)):
+        frappe.throw(
+            "The offline attachment upload is incomplete. Refresh Verto Mobile and retry the upload.",
+            frappe.ValidationError,
+        )
+
     parent_receipt = _get_receipt(operation_id)
 
     if not parent_receipt:
@@ -392,7 +399,7 @@ def upload_attachment(
             frappe.PermissionError,
         )
 
-    receipt_id = f"{operation_id}::{_receipt_name(attachment_id)}"
+    receipt_id = f"{operation_id}::{attachment_id}"
     existing = _get_receipt(receipt_id)
 
     if existing:
@@ -401,9 +408,6 @@ def upload_attachment(
             "duplicate": True,
             "result": existing.get("result") or {},
         }
-
-    if not target_doctype or not target_name:
-        frappe.throw("Attachment target is required.", frappe.ValidationError)
 
     if not frappe.db.exists(target_doctype, target_name):
         frappe.throw("Attachment target no longer exists.", frappe.DoesNotExistError)
