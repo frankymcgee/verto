@@ -426,6 +426,7 @@ import {
   getVisibleFormFields,
 } from '../lib/dependencies'
 import { isDateTimeField } from '../lib/dateTimeFields'
+import { preserveWorkOrderTask } from '../lib/formSubmission'
 import DateTimeField from '../components/mobile-fields/DateTimeField.vue'
 import LinkField from '../components/mobile-fields/LinkField.vue'
 import ChildTableField from '../components/mobile-fields/ChildTableField.vue'
@@ -1018,6 +1019,7 @@ function getVisibleValues() {
     cleaned[field.fieldname] = getValueForSave(field)
   }
 
+  preserveWorkOrderTask(cleaned, values.value)
   return cleaned
 }
 

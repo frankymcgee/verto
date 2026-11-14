@@ -135,12 +135,19 @@ describe('Durable mobile submission retries', () => {
 
   it('does not re-upload an acknowledged photo when a later photo fails', async () => {
     const attachments = ['one.jpg', 'two.jpg'].map(name => queue.makeOfflineAttachment(new Blob([name]), name))
-    await queue.queueMobileDocumentAction(input({ attachments }))
+    const values = { ...input().values, link_task: 'TASK-2', link_project: 'PROJECT-1' }
+    await queue.queueMobileDocumentAction(input({ attachments, values }))
     fetch.mockResolvedValueOnce(response()).mockResolvedValueOnce(response())
       .mockRejectedValueOnce(new TypeError('Network failure'))
     await expect(queue.syncOfflineQueueItem('document-stable')).rejects.toThrow('Network')
     await queue.syncOfflineQueueItem('document-stable')
+    const writes = fetch.mock.calls.filter(([url]) => url.endsWith('sync_action'))
+    expect(writes).toHaveLength(1)
+    expect(JSON.parse(writes[0][1].body.get('values'))).toMatchObject(values)
     const uploads = fetch.mock.calls.filter(([url]) => url.endsWith('upload_attachment'))
+    expect(uploads.map(([, options]) => options.body.get('target_name'))).toEqual([
+      result.name, result.name, result.name,
+    ])
     expect(uploads.map(([, options]) => options.body.get('attachment_id')))
       .toEqual([attachments[0].id, attachments[1].id, attachments[1].id])
   })

@@ -28,27 +28,6 @@ SHARED_RULE_SETS = {
             "clear_if_empty": ["work_order_number"],
             "warning_if_empty": "No Work Order Number was found for the selected task.",
         },
-        {
-            "name": "Set Task from Work Order Number",
-            "trigger_fields": ["work_order_number", "scope_or_wo"],
-            "required_fields": ["scope_or_wo", "link_task", "work_order_number"],
-            "conditions": {
-                "scope_or_wo": "Work Order Number",
-                "work_order_number": {"not_empty": True},
-            },
-            "lookup": {
-                "doctype": "Task",
-                "filters": {
-                    "work_order_number": "{work_order_number}",
-                },
-                "fieldname": "name",
-            },
-            "set": {
-                "link_task": "{lookup_value}",
-            },
-            "clear_if_empty": ["link_task"],
-            "warning_if_empty": "No Task was found for the entered Work Order Number.",
-        },
     ],
 }
 

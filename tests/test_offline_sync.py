@@ -21,6 +21,8 @@ class UniqueValidationError(Exception):
 
 def load_apis():
     frappe = ModuleType("frappe")
+    frappe._ = lambda message: message
+    frappe.get_list = Mock(return_value=[])
     frappe.whitelist = lambda **kwargs: lambda function: function
     frappe.session = SimpleNamespace(user="worker@example.test")
     frappe.PermissionError = PermissionError
@@ -65,7 +67,13 @@ def load_apis():
         return module
 
     with patch.dict("sys.modules", modules):
-        documents = load("documents")
+        work_order_task = load("work_order_task", "verto/safety/work_order_task.py")
+        modules["verto.safety.work_order_task"] = work_order_task
+        with patch.dict("sys.modules", modules):
+            documents = load("documents")
+            documents.field_interaction = load(
+                "field_interaction", "verto/safety/doctype/field_interaction/field_interaction.py",
+            )
         mobile.documents = documents
         mobile.shifts = Mock()
         offline = load("offline")
@@ -219,3 +227,113 @@ class TestWeeklyTimesheetReplay(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestWorkOrderTask(unittest.TestCase):
+    def setUp(self):
+        self.offline, self.documents, self.frappe, _ = load_apis()
+        self.fields = {
+            name: SimpleNamespace(fieldname=name, fieldtype=fieldtype, get={"fetch_from": fetch_from}.get)
+            for name, fieldtype, fetch_from in (
+                ("scope_or_wo", "Select", None),
+                ("link_task", "Link", None),
+                ("link_project", "Link", "link_task.project"),
+                ("work_order_number", "Data", "link_task.work_order_number"),
+                ("work_scope", "Data", "link_task.subject"),
+                ("work_area", "Data", "link_task.parent_task_name"),
+            )
+        }
+        self.meta = SimpleNamespace(
+            has_field=self.fields.__contains__,
+            get_field=self.fields.get,
+            fields=list(self.fields.values()),
+        )
+        self.tasks = [
+            {"name": "WRONG", "project": "OTHER-PROJECT", "work_order_number": "WO-1"},
+            {"name": "FIRST", "project": "PROJ-1", "work_order_number": "WO-1",
+             "subject": "Inspect conveyor", "parent_task_name": "Conveyor Area"},
+            {"name": "SELECTED", "project": "PROJ-1", "work_order_number": "WO-1",
+             "subject": "Inspect pump", "parent_task_name": "Pump Room"},
+            {"name": "REPLACEMENT", "project": "PROJ-1", "work_order_number": "WO-2",
+             "subject": "Inspect chute", "parent_task_name": "Chute Area"},
+        ]
+        self.frappe.get_list.side_effect = lambda doctype, filters, fields, limit: [
+            {key: row.get(key) for key in fields}
+            for row in self.tasks if all(row.get(key) == value for key, value in filters.items())
+        ][:limit]
+
+    def form(self, task=None, work_order="WO-1", project="PROJ-1"):
+        form = self.documents.field_interaction.FieldInteraction()
+        values = {
+            "scope_or_wo": "Work Order Number", "work_order_number": work_order,
+            "link_task": task, "link_project": project,
+            "work_scope": "Inspect pump", "work_area": "Pump Room",
+        }
+        form.get = values.get
+        form.set = values.__setitem__
+        form.update = values.update
+        form.meta = self.meta
+        form.doctype = "Field Interaction"
+        form.name = "FI-1"
+        form.set_compliance_percentage = Mock()
+        return form
+
+    def test_validate_preserves_the_exact_task_with_duplicate_work_orders(self):
+        form = self.form(task="SELECTED")
+        form.validate()
+        self.assertEqual(form.get("link_task"), "SELECTED")
+        self.assertEqual(form.get("link_project"), "PROJ-1")
+        self.frappe.get_list.assert_called_once_with(
+            "Task", filters={"project": "PROJ-1", "work_order_number": "WO-1", "name": "SELECTED"},
+            fields=["name", "subject", "parent_task_name"], limit=1,
+        )
+
+    def test_ambiguous_work_order_warns_while_editing_and_blocks_save(self):
+        form = self.form()
+        change = form.mobile_field_change("work_order_number")
+        self.assertIn("multiple tasks", change["warnings"][0])
+        self.assertIsNone(form.get("link_task"))
+        with self.assertRaisesRegex(ValidationError, "multiple tasks"):
+            form.validate()
+        self.assertIsNone(form.get("link_task"))
+
+    def test_work_order_from_another_project_cannot_relink_the_form(self):
+        form = self.form(task="WRONG", project="PROJ-3")
+        change = form.mobile_field_change("link_project")
+        self.assertIn("selected project", change["warnings"][0])
+        self.assertEqual(change["values"], {"link_task": "", "work_scope": "", "work_area": ""})
+        form.validate()
+        self.assertEqual(form.get("link_project"), "PROJ-3")
+        self.assertEqual(form.get("link_task"), "")
+
+    def test_editing_the_work_order_can_resolve_a_unique_task_in_the_same_project(self):
+        form = self.form(task="SELECTED", work_order="WO-2")
+        change = form.mobile_field_change("work_order_number")
+        self.assertEqual(change["values"], {
+            "link_task": "REPLACEMENT", "work_scope": "Inspect chute", "work_area": "Chute Area",
+        })
+        form.validate()
+        self.assertEqual(form.get("link_task"), "REPLACEMENT")
+
+    def test_mobile_work_scope_rejects_a_task_from_another_project(self):
+        form = self.form(task="WRONG")
+        form.set("scope_or_wo", "Work Scope")
+        with self.assertRaisesRegex(ValidationError, "does not belong"):
+            self.documents.prepare_mobile_task_link(form)
+
+    def test_mobile_replay_saves_the_exact_task_before_any_photos_are_uploaded(self):
+        form = self.form()
+        form.insert = Mock(side_effect=form.validate)
+        self.documents.get_allowed_doctype = Mock(return_value=form.doctype)
+        self.documents.apply_fetch_from = Mock(return_value={"values": {}})
+        self.frappe.get_meta.return_value = self.meta
+        self.frappe.new_doc.return_value = form
+
+        result = self.offline._execute_document_action("create", "field-interaction", {
+            "link_task": "SELECTED", "link_project": "PROJ-1", "work_order_number": "WO-1",
+            "scope_or_wo": "Work Order Number",
+        }, None)
+
+        self.assertEqual(result["name"], "FI-1")
+        self.assertEqual(form.get("link_task"), "SELECTED")
+        form.insert.assert_called_once()

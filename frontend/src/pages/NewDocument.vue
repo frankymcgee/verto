@@ -441,6 +441,7 @@ import {
   getVisibleFormFields,
 } from '../lib/dependencies'
 import { isDateTimeField } from '../lib/dateTimeFields'
+import { preserveWorkOrderTask } from '../lib/formSubmission'
 import DateTimeField from '../components/mobile-fields/DateTimeField.vue'
 import LinkField from '../components/mobile-fields/LinkField.vue'
 import ChildTableField from '../components/mobile-fields/ChildTableField.vue'
@@ -1162,6 +1163,7 @@ function getVisibleValues() {
     cleaned[field.fieldname] = getValueForSave(field)
   }
 
+  preserveWorkOrderTask(cleaned, values.value)
   return cleaned
 }
 
@@ -1343,6 +1345,10 @@ async function createDocument() {
 async function submitForm() {
   if (submitting.value) return
   submitting.value = true
+  // The queued payload is a snapshot. Ignore dependency responses from
+  // before submission so they cannot change the form during a photo upload.
+  fieldChangeRequestId += 1
+  window.clearTimeout(fieldChangeTimer)
   closeErrorDrawer()
   saveDraftNow()
 
