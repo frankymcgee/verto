@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 
 import frappe
 from frappe.utils import cint, getdate, now_datetime, today
-from frappe.utils.file_manager import save_file
 
 from verto.safety.work_order_task import apply_work_order_task, validate_work_scope_project
 
@@ -440,10 +439,7 @@ def upload_mobile_attachment(doctype=None, docname=None, file_name=None, is_priv
         frappe.throw("Attachment filename was not received.", frappe.ValidationError)
 
     content = uploaded.stream.read()
-    if not content:
-        frappe.throw("Attachment file is empty.", frappe.ValidationError)
-
-    file_doc = save_file(
+    file_doc = save_mobile_attachment_file(
         filename,
         content,
         allowed_doctype,
@@ -460,6 +456,32 @@ def upload_mobile_attachment(doctype=None, docname=None, file_name=None, is_priv
         "doctype": allowed_doctype,
         "docname": docname,
     }
+
+
+def save_mobile_attachment_file(filename, content, doctype, docname, is_private=1):
+    from frappe.core.api.file import get_max_file_size
+    from frappe.core.doctype.file.exceptions import MaxFileSizeReachedError
+
+    if not isinstance(filename, str) or not filename.strip():
+        frappe.throw("Attachment filename was not received.", frappe.ValidationError)
+    if not content:
+        frappe.throw("Attachment file is empty.", frappe.ValidationError)
+
+    max_size = get_max_file_size()
+    if len(content) > max_size:
+        frappe.throw(
+            frappe._("File size exceeded the maximum allowed size of {0} MB").format(max_size / (1024 * 1024)),
+            MaxFileSizeReachedError,
+        )
+
+    return frappe.get_doc({
+        "doctype": "File",
+        "file_name": filename.strip(),
+        "content": content,
+        "attached_to_doctype": doctype,
+        "attached_to_name": docname,
+        "is_private": is_private,
+    }).insert(ignore_permissions=True)
 
 
 def set_doc_values_from_mobile(doc, values):

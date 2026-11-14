@@ -1,4 +1,5 @@
 import json
+from urllib.parse import unquote
 
 import frappe
 from frappe.utils import add_days, getdate, now_datetime, today
@@ -374,6 +375,21 @@ def upload_attachment(
     """Upload one attachment for a previously replayed offline document action."""
     require_login()
 
+    # Called without arguments by Frappe's upload_file method callback. Keep the
+    # metadata out of the body so the request size is exactly the file size.
+    metadata = None
+    if frappe.request.mimetype == "application/octet-stream":
+        try:
+            metadata = json.loads(unquote(frappe.request.headers.get("X-Verto-Attachment", ""), errors="strict"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+        if not isinstance(metadata, dict):
+            frappe.throw("Invalid offline attachment details.", frappe.ValidationError)
+        operation_id = metadata.get("operation_id")
+        attachment_id = metadata.get("attachment_id")
+        target_doctype = metadata.get("target_doctype")
+        target_name = metadata.get("target_name")
+
     operation_id = _receipt_name(operation_id)
     attachment_id = _receipt_name(attachment_id)
     if not all((operation_id, attachment_id, target_doctype, target_name)):
@@ -417,27 +433,24 @@ def upload_attachment(
     if not documents.has_desk_write_permission(target_doc):
         frappe.throw("You do not have permission to attach files to this document.", frappe.PermissionError)
 
-    uploaded = frappe.request.files.get("file")
-
-    if not uploaded:
-        frappe.throw("Attachment file is required.", frappe.ValidationError)
+    if metadata is None:
+        uploaded = frappe.request.files.get("file")
+        if not uploaded:
+            frappe.throw("Attachment file is required.", frappe.ValidationError)
+        filename = uploaded.filename
+        read_content = uploaded.stream.read
+    else:
+        filename = metadata.get("file_name")
+        read_content = frappe.request.get_data
 
     return _run_receipted_operation(
         receipt_id, "attachment",
-        lambda: _save_uploaded_attachment(uploaded, target_doctype, target_name),
+        lambda: _save_uploaded_attachment(filename, read_content(), target_doctype, target_name),
     )
 
 
-def _save_uploaded_attachment(uploaded, target_doctype, target_name):
-    from frappe.utils.file_manager import save_file
-
-    file_doc = save_file(
-        uploaded.filename,
-        uploaded.stream.read(),
-        target_doctype,
-        target_name,
-        is_private=1,
-    )
+def _save_uploaded_attachment(filename, content, target_doctype, target_name):
+    file_doc = documents.save_mobile_attachment_file(filename, content, target_doctype, target_name)
 
     return {
         "name": file_doc.name,

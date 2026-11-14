@@ -699,12 +699,9 @@ async function readJsonResponse(response: Response) {
   }
 }
 
-async function ensureSyncResponse(response: Response) {
+async function ensureSyncResponse(response: Response, fallbackMessage = `Sync failed with HTTP ${response.status}.`) {
   const data = await readJsonResponse(response)
-  const serverMessage = extractServerError(
-    data,
-    `Sync failed with HTTP ${response.status}.`
-  )
+  const serverMessage = extractServerError(data, fallbackMessage)
   const normalisedMessage = String(serverMessage || '').toLowerCase()
   const isAuthFailure = response.status === 401 || (
     response.status === 403 && [
@@ -770,24 +767,29 @@ async function uploadQueuedAttachment(input: {
   targetDoctype: string
   targetName: string
 }) {
-  const formData = new FormData()
-  formData.append('operation_id', input.operationId)
-  formData.append('attachment_id', input.attachment.id)
-  formData.append('target_doctype', input.targetDoctype)
-  formData.append('target_name', input.targetName)
   const { blob, name } = input.attachment
-  // WebKit can drop the entire multipart body for a disk-backed File from IndexedDB.
-  // Slicing gives FormData a plain Blob while preserving the file bytes and media type.
-  formData.append('file', blob.slice(0, blob.size, blob.type), name)
+  const metadata = encodeURIComponent(JSON.stringify({
+    operation_id: input.operationId,
+    attachment_id: input.attachment.id,
+    target_doctype: input.targetDoctype,
+    target_name: input.targetName,
+    file_name: name,
+  }))
 
-  const response = await fetch('/api/method/verto.api.mobile.offline.upload_attachment', {
+  // Frappe applies System Settings to this route's entire request body.
+  // Send a plain Blob so multipart overhead and restored WebKit Files cannot interfere.
+  const response = await fetch('/api/method/upload_file?method=verto.api.mobile.offline.upload_attachment', {
     method: 'POST',
     credentials: 'include',
-    headers: withCsrfHeaders(undefined, 'POST'),
-    body: formData,
+    headers: withCsrfHeaders({
+      'Content-Type': 'application/octet-stream',
+      'X-Verto-Attachment': metadata,
+    }, 'POST'),
+    body: blob.slice(0, blob.size, blob.type),
   })
 
-  return ensureSyncResponse(response)
+  const fallback = response.status === 413 ? `${name} exceeds the server's upload size limit.` : undefined
+  return ensureSyncResponse(response, fallback)
 }
 
 async function queuePhotoAnalysis(targetDoctype: string, targetName: string) {

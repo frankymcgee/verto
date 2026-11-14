@@ -3,6 +3,7 @@ import importlib.util
 import json
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from urllib.parse import quote
 import unittest
 from unittest.mock import Mock, patch
 
@@ -42,7 +43,7 @@ def load_apis():
     frappe.new_doc = Mock()
     frappe.get_meta = Mock(return_value=SimpleNamespace(fields=[]))
     frappe.has_permission = Mock(return_value=True)
-    frappe.request = SimpleNamespace(files={})
+    frappe.request = SimpleNamespace(mimetype="multipart/form-data", files={})
     utils = ModuleType("frappe.utils")
     for name in ("cint", "getdate", "get_datetime", "now_datetime", "today", "add_days", "add_to_date"):
         setattr(utils, name, Mock(return_value="2026-11-05"))
@@ -50,12 +51,10 @@ def load_apis():
     document.Document = object
     jobs = ModuleType("frappe.utils.background_jobs")
     jobs.enqueue = Mock()
-    files = ModuleType("frappe.utils.file_manager")
-    files.save_file = Mock()
     mobile = ModuleType("verto.api.mobile")
     api = ModuleType("verto.api")
     api.fetch_records = Mock()
-    modules = {"frappe": frappe, "frappe.utils": utils, "frappe.utils.file_manager": files,
+    modules = {"frappe": frappe, "frappe.utils": utils,
         "verto.api.mobile": mobile, "verto.api": api,
         "frappe.model.document": document, "frappe.utils.background_jobs": jobs}
 
@@ -78,12 +77,12 @@ def load_apis():
         mobile.shifts = Mock()
         offline = load("offline")
         documents.daily_timesheet = load("daily_timesheet", "verto/verto/doctype/daily_timesheet/daily_timesheet.py")
-    return offline, documents, frappe, files
+    return offline, documents, frappe
 
 
 class TestOfflineSync(unittest.TestCase):
     def setUp(self):
-        self.offline, self.documents, self.frappe, self.files = load_apis()
+        self.offline, self.documents, self.frappe = load_apis()
         self.result = {"doctype": "Daily Timesheet", "name": "TS-1", "route": "/shifts"}
         self.receipt = SimpleNamespace(name="operation-1", user=self.frappe.session.user,
             receipt_type="document_create", target_doctype="Daily Timesheet", target_name="TS-1",
@@ -195,10 +194,57 @@ class TestOfflineSync(unittest.TestCase):
         self.assertEqual(self.frappe.db.set_value.call_args.args[2]["target_name"], "TS-1")
         execute.assert_called_once()
 
+    def test_binary_attachment_uses_the_system_limit_and_retries_without_a_second_receipt(self):
+        class MaxFileSizeReachedError(ValidationError):
+            pass
+
+        filename = "café photo.jpg"
+        metadata = {
+            "operation_id": "operation-1", "attachment_id": "photo-1",
+            "target_doctype": "Daily Timesheet", "target_name": "TS-1", "file_name": filename,
+        }
+        parent = {"target_doctype": "Daily Timesheet", "target_name": "TS-1"}
+        self.frappe.request = SimpleNamespace(
+            mimetype="application/octet-stream",
+            headers={"X-Verto-Attachment": quote(json.dumps(metadata, ensure_ascii=False))},
+            get_data=Mock(side_effect=[b"123456", b"12345"]),
+        )
+        self.frappe.db.exists.return_value = True
+        self.documents.has_desk_write_permission = Mock(return_value=True)
+        file = SimpleNamespace(name="FILE-1", file_name=filename, file_url="/private/files/photo.jpg")
+        file.insert = Mock(return_value=file)
+        self.frappe.get_doc.side_effect = lambda value, *args: (
+            file if isinstance(value, dict) and value["doctype"] == "File" else self.receipt
+        )
+        file_api = ModuleType("frappe.core.api.file")
+        file_api.get_max_file_size = Mock(return_value=5)
+        file_errors = ModuleType("frappe.core.doctype.file.exceptions")
+        file_errors.MaxFileSizeReachedError = MaxFileSizeReachedError
+        with patch.dict("sys.modules", {file_api.__name__: file_api, file_errors.__name__: file_errors}), \
+             patch.object(self.offline, "_get_receipt", side_effect=[parent, None, None, parent, None, None]) as lookup:
+            with self.assertRaisesRegex(MaxFileSizeReachedError, "maximum allowed size"):
+                self.offline.upload_attachment()
+            self.frappe.db.rollback.assert_called_once()
+            self.frappe.db.commit.assert_not_called()
+            file.insert.assert_not_called()
+
+            result = self.offline.upload_attachment()
+            lookup.side_effect = [parent, result]
+            self.assertEqual(self.offline.upload_attachment(), {**result, "duplicate": True})
+
+        self.assertEqual(result["result"]["name"], "FILE-1")
+        self.frappe.get_doc.assert_called_with({
+            "doctype": "File", "file_name": filename, "content": b"12345",
+            "attached_to_doctype": "Daily Timesheet", "attached_to_name": "TS-1", "is_private": 1,
+        })
+        file.insert.assert_called_once_with(ignore_permissions=True)
+        self.assertEqual(self.frappe.request.get_data.call_count, 2)
+        self.frappe.db.commit.assert_called_once()
+
 
 class TestDailyTimesheetDuplicates(unittest.TestCase):
     def setUp(self):
-        _, self.documents, self.frappe, _ = load_apis()
+        _, self.documents, self.frappe = load_apis()
         self.values = {"current_user": "Worker", "date": "2026-11-05", "shift_allocation": "SHIFT-1"}
         self.doc = Mock(shift_allocation="SHIFT-1")
         self.doc.get.side_effect = self.values.get
@@ -226,7 +272,7 @@ class TestDailyTimesheetDuplicates(unittest.TestCase):
 
 class TestWeeklyTimesheetReplay(unittest.TestCase):
     def test_competing_jobs_lock_the_employee_before_looking_for_a_weekly_sheet(self):
-        _, documents, frappe, _ = load_apis()
+        _, documents, frappe = load_apis()
         frappe.db.get_value.side_effect = ["EMP-1", "WEEK-1"]
         doc = {"current_user": "Worker", "date": "2026-11-05", "project_id": "PROJ-1"}
         result = documents.daily_timesheet.get_weekly_timesheet_for_update("EMP-1", doc)
@@ -239,7 +285,7 @@ class TestWeeklyTimesheetReplay(unittest.TestCase):
         self.assertTrue(all(call.kwargs["for_update"] for call in calls))
 
     def test_existing_user_fallback_is_also_serialised(self):
-        _, documents, frappe, _ = load_apis()
+        _, documents, frappe = load_apis()
         documents.daily_timesheet.get_weekly_timesheet_for_update(None, {"owner": "worker@example.test"})
         self.assertEqual(frappe.db.get_value.call_args_list[0].args[:2], ("User", "worker@example.test"))
 
@@ -250,7 +296,7 @@ if __name__ == "__main__":
 
 class TestWorkOrderTask(unittest.TestCase):
     def setUp(self):
-        self.offline, self.documents, self.frappe, _ = load_apis()
+        self.offline, self.documents, self.frappe = load_apis()
         self.fields = {
             name: SimpleNamespace(fieldname=name, fieldtype=fieldtype, get={"fetch_from": fetch_from}.get)
             for name, fieldtype, fetch_from in (
