@@ -77,11 +77,11 @@ const detailLabel = computed(() => {
   }
 
   if (summary.value.failed > 0) {
-    return 'Open Failed uploads in the profile menu to see errors, retry or remove an item.'
+    return 'Open Upload queue in the profile menu to see errors, retry or remove a failed upload.'
   }
 
   if (summary.value.total > 0) {
-    return lastSyncMessage.value || 'Saved securely on this device until it can sync.'
+    return lastSyncMessage.value || 'Open Upload queue in the profile menu to see what is waiting.'
   }
 
   if (showReadyConfirmation.value && formattedRefreshTime.value) {

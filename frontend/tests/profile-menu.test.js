@@ -12,6 +12,7 @@ const calls = vi.hoisted(() => ({
   browser: vi.fn(),
   navigate: vi.fn(),
   employeeId: 'HR-EMP-001',
+  queued: 0,
 }))
 vi.mock('vue-router', () => ({
   useRoute: () => ({ path: '/', fullPath: '/', meta: {} }),
@@ -51,7 +52,7 @@ vi.mock('../src/pwa/useOfflineSync', () => ({
     isPriming: ref(false),
     lastOfflineRefreshAt: ref(''),
     offlineRefreshError: ref(''),
-    summary: ref({ total: 0, failed: 0 }),
+    summary: ref({ total: calls.queued, queued: calls.queued, failed: 0 }),
     primeNow: calls.prime,
     syncNow: calls.sync,
   }),
@@ -71,16 +72,18 @@ afterEach(() => {
   document.body.innerHTML = ''
   vi.clearAllMocks()
   calls.employeeId = 'HR-EMP-001'
+  calls.queued = 0
 })
 describe('Profile menu', () => {
-  it('opens the failed uploads page from the offline section', async () => {
+  it('shows the waiting count and opens the upload queue from the offline section', async () => {
+    calls.queued = 2
     w = mount(AppHeader, {
       attachTo: document.body,
       global: { stubs: { AboutAppToast: true } },
     })
     await w.find('[aria-label="Open profile menu"]').trigger('click')
     await flushPromises()
-    await click('Failed uploads')
+    await click('Upload queue (2)')
     expect(calls.navigate).toHaveBeenCalledWith({ name: 'failed-uploads' })
   })
 

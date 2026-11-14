@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Button, Dialog } from 'frappe-ui'
 import { DialogDescription } from 'reka-ui'
@@ -7,7 +7,8 @@ import { useMobileBoot } from '../lib/mobileBoot'
 import { useOfflineSync } from '../pwa/useOfflineSync'
 import {
   discardFailedOfflineQueueItem,
-  getFailedOfflineQueueItems,
+  getPendingOfflineQueueItems,
+  hasActiveSyncLease,
   syncOfflineQueueItem,
   type OfflineQueueItem,
 } from '../pwa/offlineQueue'
@@ -23,7 +24,7 @@ const busyId = ref('')
 const removal = ref<OfflineQueueItem | null>(null)
 const confirmOpen = ref(false)
 let refreshTimer: number | undefined
-let loadPromise: Promise<void> | null = null
+let listRequest = 0
 
 function title(item: OfflineQueueItem) {
   if (item.kind === 'jha_observation') return 'JHA observation'
@@ -46,18 +47,34 @@ function savedAt(item: OfflineQueueItem) {
   return Number.isNaN(date.getTime()) ? item.created_at : date.toLocaleString()
 }
 
-function refreshList() {
-  if (loadPromise) return loadPromise
-  loadPromise = getFailedOfflineQueueItems(user.value).then((rows) => {
-    items.value = rows
-  }).catch(() => {
-    error.value = 'Could not read failed uploads on this device. Try refreshing the list.'
-  }).finally(() => {
-    loading.value = false
-    loadPromise = null
-  })
-  return loadPromise
+function uploadStatus(item: OfflineQueueItem) {
+  if (hasActiveSyncLease(item)) return 'Syncing'
+  if (item.status === 'failed') return 'Failed'
+  if (item.status === 'syncing') return 'Waiting to retry'
+  return 'Waiting to sync'
 }
+
+async function refreshList() {
+  const request = ++listRequest
+  try {
+    const rows = await getPendingOfflineQueueItems(user.value)
+    if (request === listRequest) items.value = rows
+  } catch {
+    if (request === listRequest) {
+      error.value = 'Could not read the upload queue on this device. Try refreshing the list.'
+    }
+  } finally {
+    if (request === listRequest) loading.value = false
+  }
+}
+
+watch(user, () => {
+  items.value = []
+  error.value = ''
+  notice.value = ''
+  loading.value = true
+  void refreshList()
+})
 
 async function refresh() {
   error.value = ''
@@ -65,12 +82,12 @@ async function refresh() {
 }
 
 async function retry(item: OfflineQueueItem) {
-  if (busyId.value || !isOnline.value) return
+  if (busyId.value || !isOnline.value || hasActiveSyncLease(item)) return
   busyId.value = item.id
   error.value = ''
   notice.value = ''
   try {
-    await syncOfflineQueueItem(item.id)
+    await syncOfflineQueueItem(item.id, { user: user.value })
     notice.value = `${title(item)} uploaded successfully.`
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'The upload failed. Your saved work is still on this device.'
@@ -94,7 +111,7 @@ async function remove() {
   notice.value = ''
   try {
     await discardFailedOfflineQueueItem(item.id, user.value)
-    notice.value = `${title(item)} removed from failed uploads.`
+    notice.value = `${title(item)} removed from the upload queue.`
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Could not remove this upload. Try again.'
   } finally {
@@ -132,28 +149,36 @@ onBeforeUnmount(() => {
 <template>
   <section class="mx-auto max-w-3xl space-y-4 px-[var(--verto-page-x,0.75rem)] py-[var(--verto-page-y,0.75rem)] pb-8" :aria-busy="loading">
     <div class="flex items-center justify-between gap-3">
-      <h1 class="text-xl-semibold text-ink-gray-9">Failed uploads</h1>
+      <h1 class="text-xl-semibold text-ink-gray-9">Upload queue</h1>
       <Button variant="subtle" :disabled="Boolean(busyId)" @click="refresh">Refresh list</Button>
     </div>
-    <p class="text-sm text-ink-gray-6">Review uploads that failed on this device. Retry an upload or remove it if it is no longer needed.</p>
     <p v-if="!isOnline" class="text-sm text-ink-gray-6">Connect to retry uploads. You can remove failed uploads while offline.</p>
     <p v-if="error" role="alert" class="whitespace-pre-wrap break-words text-sm text-red-700">{{ error }}</p>
     <p v-if="notice" role="status" class="text-sm text-ink-gray-7">{{ notice }}</p>
-    <p v-if="loading" role="status" class="py-6 text-sm text-ink-gray-6">Loading failed uploads…</p>
-    <p v-else-if="!items.length && !error" class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 text-sm text-ink-gray-6">No failed uploads for your account on this device.</p>
+    <p v-if="loading" role="status" class="py-6 text-sm text-ink-gray-6">Loading uploads…</p>
+    <p v-else-if="!items.length && !error" class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 text-sm text-ink-gray-6">No pending uploads for your account on this device.</p>
 
     <article v-for="item in items" :key="item.id" class="space-y-3 rounded-7 border border-outline-gray-1 bg-surface-base p-4">
       <div>
-        <h2 class="text-base-semibold text-ink-gray-9">{{ title(item) }}</h2>
+        <div class="flex items-start justify-between gap-2">
+          <h2 class="min-w-0 break-words text-base-semibold text-ink-gray-9">{{ title(item) }}</h2>
+          <span class="shrink-0 rounded-5 px-2 py-1 text-xs-medium"
+            :class="item.status === 'failed' && !hasActiveSyncLease(item) ? 'bg-red-50 text-red-800' : 'bg-surface-gray-2 text-ink-gray-7'">
+            {{ uploadStatus(item) }}
+          </span>
+        </div>
         <p v-if="reference(item)" class="break-words text-sm text-ink-gray-7">{{ reference(item) }}</p>
-        <p class="mt-1 text-xs text-ink-gray-5">Saved {{ savedAt(item) }} · {{ item.attempts }} upload attempts</p>
+        <p class="mt-1 text-xs text-ink-gray-5">Saved {{ savedAt(item) }} · {{ item.attempts || 0 }} upload attempts</p>
       </div>
-      <p class="whitespace-pre-wrap break-words rounded-6 bg-red-50 p-3 text-sm text-red-800">{{ item.last_error || 'No error details were recorded.' }}</p>
+      <p v-if="item.status === 'failed' && !hasActiveSyncLease(item)"
+        class="whitespace-pre-wrap break-words rounded-6 bg-red-50 p-3 text-sm text-red-800">{{ item.last_error || 'No error details were recorded.' }}</p>
       <p v-if="item.server_result?.name" class="text-sm text-ink-gray-6">The document was saved to the server. Photos or other work may still be waiting to upload.</p>
       <p v-else-if="savedDocument(item)" class="text-sm text-ink-gray-6">This upload contains pending changes or photos for an existing document.</p>
       <div class="flex flex-wrap gap-2">
-        <Button variant="subtle" :disabled="!isOnline || Boolean(busyId)" @click="retry(item)">Retry upload</Button>
-        <Button variant="subtle" theme="red" :disabled="Boolean(busyId)" @click="askToRemove(item)">Remove upload</Button>
+        <Button variant="subtle" :disabled="!isOnline || Boolean(busyId) || hasActiveSyncLease(item)" @click="retry(item)">
+          {{ item.status === 'queued' ? 'Sync now' : 'Retry upload' }}
+        </Button>
+        <Button v-if="item.status === 'failed' && !hasActiveSyncLease(item)" variant="subtle" theme="red" :disabled="Boolean(busyId)" @click="askToRemove(item)">Remove upload</Button>
       </div>
     </article>
     <Button variant="ghost" @click="router.push('/')">Home</Button>

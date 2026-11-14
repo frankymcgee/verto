@@ -9,8 +9,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: mocks.navigate }) }))
 vi.mock('../src/lib/mobileBoot', () => ({ useMobileBoot: () => ({ user: ref('worker@example.test') }) }))
 vi.mock('../src/pwa/useOfflineSync', () => ({ useOfflineSync: () => ({ isOnline: ref(mocks.online), refreshSummary: mocks.summary }) }))
-vi.mock('../src/pwa/offlineQueue', () => ({
-  getFailedOfflineQueueItems: mocks.list,
+vi.mock('../src/pwa/offlineQueue', async importOriginal => ({
+  ...await importOriginal(),
+  getPendingOfflineQueueItems: mocks.list,
   discardFailedOfflineQueueItem: mocks.discard,
   syncOfflineQueueItem: mocks.sync,
 }))
@@ -41,7 +42,26 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-describe('Failed uploads page', () => {
+describe('Upload queue page', () => {
+  it('shows waiting forms and lets the user sync one while protecting an active upload', async () => {
+    mocks.list.mockResolvedValue([
+      upload({ id: 'waiting', status: 'queued', attempts: 0, last_error: '' }),
+      upload({ id: 'interrupted', status: 'syncing', sync_owner: 'closed', sync_expires_at: Date.now() - 1 }),
+      upload({ id: 'active', status: 'syncing', sync_owner: 'open', sync_expires_at: Date.now() + 120_000 }),
+    ])
+    await openPage()
+    const [waiting, interrupted, active] = wrapper.findAll('article')
+    expect(waiting.text()).toContain('Waiting to sync')
+    expect(interrupted.text()).toContain('Waiting to retry')
+    expect(active.text()).toContain('Syncing')
+    expect(active.get('button').attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).not.toContain('Remove upload')
+
+    await click('Sync now')
+    expect(mocks.sync).toHaveBeenCalledWith('waiting', { user: 'worker@example.test' })
+    expect(wrapper.text()).toContain('uploaded successfully')
+  })
+
   it('shows the BATB error as text and preserves the item when removal is cancelled', async () => {
     await openPage()
     expect(mocks.list).toHaveBeenCalledWith('worker@example.test')
@@ -65,7 +85,7 @@ describe('Failed uploads page', () => {
     expect(mocks.discard).toHaveBeenCalledWith('batb-1', 'worker@example.test')
     expect(mocks.sync).not.toHaveBeenCalled()
     expect(mocks.summary).toHaveBeenCalledOnce()
-    expect(wrapper.text()).toContain('No failed uploads')
+    expect(wrapper.text()).toContain('No pending uploads')
   })
 
   it('explains partial success and keeps server documents when discarding pending photos', async () => {
@@ -81,7 +101,7 @@ describe('Failed uploads page', () => {
     mocks.sync.mockRejectedValueOnce(new Error('Upload rejected'))
     await openPage()
     await click('Retry upload')
-    expect(mocks.sync).toHaveBeenCalledWith('batb-1')
+    expect(mocks.sync).toHaveBeenCalledWith('batb-1', { user: 'worker@example.test' })
     expect(wrapper.get('[role="alert"]').text()).toBe('Upload rejected')
     expect(wrapper.findAll('article')).toHaveLength(1)
     expect(mocks.discard).not.toHaveBeenCalled()
@@ -93,7 +113,7 @@ describe('Failed uploads page', () => {
     await click('Remove upload')
     await click('Remove permanently')
     expect(wrapper.get('[role="alert"]').text()).toContain('syncing')
-    expect(wrapper.text()).not.toContain('removed from failed uploads')
+    expect(wrapper.text()).not.toContain('removed from the upload queue')
     expect(wrapper.findAll('article')).toHaveLength(1)
   })
 })

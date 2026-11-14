@@ -154,9 +154,9 @@
             <Button variant="ghost"
               type="button"
               class="mt-2 w-full justify-start text-xs text-ink-gray-8"
-              @click="openFailedUploads"
+              @click="openUploadQueue"
             >
-              Failed uploads<span v-if="offlineSummary.failed > 0"> ({{ offlineSummary.failed }})</span>
+              Upload queue<span v-if="offlineSummary.total > 0"> ({{ offlineSummary.total }})</span>
             </Button>
 
             <p
@@ -408,8 +408,12 @@ const offlineDataStatus = computed(() => {
     return `${offlineSummary.value.failed} item${offlineSummary.value.failed === 1 ? '' : 's'} failed to sync`
   }
 
-  if (offlineSummary.value.total > 0) {
-    return `${offlineSummary.value.total} item${offlineSummary.value.total === 1 ? '' : 's'} waiting to sync`
+  if (offlineSummary.value.queued > 0) {
+    return `${offlineSummary.value.queued} item${offlineSummary.value.queued === 1 ? '' : 's'} waiting to sync`
+  }
+
+  if (offlineSummary.value.syncing > 0) {
+    return 'Syncing saved work…'
   }
 
   if (!lastOfflineRefreshAt.value) {
@@ -536,7 +540,7 @@ function openProfile() {
   void router.push({ name: 'my-profile' })
 }
 
-function openFailedUploads() {
+function openUploadQueue() {
   menuOpen.value = false
   void router.push({ name: 'failed-uploads' })
 }

@@ -64,13 +64,13 @@ describe('Durable mobile submission retries', () => {
     const direct = queue.syncOfflineQueueItem('document-stable')
     const repeat = queue.syncOfflineQueueItem('document-stable')
     expect(repeat).toBe(direct)
-    const automatic = queue.syncOfflineQueue()
-    expect(queue.syncOfflineQueue()).toBe(automatic)
+    const automatic = queue.syncOfflineQueue(actor)
+    expect(queue.syncOfflineQueue(actor)).toBe(automatic)
     await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce())
     pending.resolve(response())
     await Promise.all([direct, repeat, automatic])
     expect(fetch).toHaveBeenCalledOnce()
-    expect(await queue.getOfflineQueueSummary()).toMatchObject({ total: 0 })
+    expect(await queue.getOfflineQueueSummary(actor)).toMatchObject({ total: 0 })
   })
 
   it('prevents a second window from replaying a live item without Web Locks', async () => {
@@ -90,10 +90,91 @@ describe('Durable mobile submission retries', () => {
   it('uses a browser lock when available and recovers an expired syncing item', async () => {
     const item = await queue.queueMobileDocumentAction(input())
     await queue.updateOfflineQueueItem({ ...item, status: 'syncing', sync_owner: 'closed-window', sync_expires_at: Date.now() - 1 })
-    const lock = vi.fn(async (_name, run) => run())
+    const lock = vi.fn(async (name, _options, run) => run({ name }))
     Object.defineProperty(navigator, 'locks', { configurable: true, value: { request: lock } })
+    expect(await queue.getOfflineQueueSummary(actor)).toMatchObject({ queued: 1, syncing: 0 })
     await queue.syncOfflineQueueItem(item.id)
-    expect(lock).toHaveBeenCalledWith(`verto:offline-sync:${item.id}`, expect.any(Function))
+    expect(lock).toHaveBeenCalledWith(`verto:offline-sync:${item.id}`, { ifAvailable: true }, expect.any(Function))
+    expect(fetch).toHaveBeenCalledOnce()
+  })
+
+  it('syncs the next form when an earlier form is locked by another window', async () => {
+    const first = await queue.queueMobileDocumentAction(input())
+    await queue.updateOfflineQueueItem({
+      ...first, status: 'syncing', sync_owner: 'another-window', sync_expires_at: Date.now() + 120_000,
+    })
+    const next = await queue.queueMobileDocumentAction(input({ operationId: 'next-form' }))
+    const request = vi.fn(async (name, options, run) => {
+      expect(options).toEqual({ ifAvailable: true })
+      return run(name.endsWith(first.id) ? null : { name })
+    })
+    Object.defineProperty(navigator, 'locks', { configurable: true, value: { request } })
+
+    expect(await queue.syncOfflineQueue(actor)).toEqual({ synced: 1, failed: 0, skipped: false })
+    expect((await queue.getOfflineQueueItem(first.id)).status).toBe('syncing')
+    expect((await queue.getOfflineQueueItem(next.id)).status).toBe('synced')
+    expect(fetch.mock.calls.map(([, options]) => options.body.get('operation_id'))).toEqual([next.id])
+  })
+
+  it('retains a timed-out form and its photos and continues with the next upload', async () => {
+    const attachment = queue.makeOfflineAttachment(new Blob(['photo']), 'photo.jpg')
+    const first = await queue.queueMobileDocumentAction(input({ attachments: [attachment] }))
+    const next = await queue.queueMobileDocumentAction(input({ operationId: 'next-form' }))
+    const started = deferred()
+    fetch.mockImplementationOnce((_url, { signal }) => {
+      started.resolve(signal)
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
+      })
+    })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const sync = queue.syncOfflineQueue(actor)
+      const signal = await started.promise
+      await vi.advanceTimersByTimeAsync(120_000)
+      expect(signal.aborted).toBe(true)
+      expect(await sync).toEqual({ synced: 1, failed: 1, skipped: false })
+    } finally {
+      vi.useRealTimers()
+    }
+
+    const failed = await queue.getOfflineQueueItem(first.id)
+    expect(failed).toMatchObject({ status: 'failed', last_error_retryable: true, last_error: expect.stringContaining('too long') })
+    expect(failed.attachments[0].id).toBe(attachment.id)
+    expect((await queue.getOfflineQueueItem(next.id)).status).toBe('synced')
+    await queue.syncOfflineQueueItem(first.id, { user: actor })
+    const operationIds = fetch.mock.calls.filter(([url]) => url.endsWith('sync_action'))
+      .map(([, options]) => options.body.get('operation_id'))
+    expect(operationIds).toEqual([first.id, next.id, first.id])
+  })
+
+  it('preserves the current attempt when a previous window receives a late response', async () => {
+    const item = await queue.queueMobileDocumentAction(input())
+    const pending = deferred()
+    fetch.mockReturnValueOnce(pending.promise)
+    const oldAttempt = queue.syncOfflineQueueItem(item.id)
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce())
+    const current = await queue.getOfflineQueueItem(item.id)
+    await queue.updateOfflineQueueItem({
+      ...current, sync_owner: 'new-window', sync_expires_at: Date.now() + 120_000,
+    })
+    pending.resolve(response())
+    await expect(oldAttempt).rejects.toThrow('already syncing')
+    expect(await queue.getOfflineQueueItem(item.id)).toMatchObject({
+      status: 'syncing', sync_owner: 'new-window', server_result: null,
+    })
+  })
+
+  it('shows and syncs work for the signed-in account only', async () => {
+    const mine = await queue.queueMobileDocumentAction(input())
+    const other = await queue.queueMobileDocumentAction(input({
+      operationId: 'other-form', values: { __verto_offline_user: 'other@example.test' },
+    }))
+    expect(await queue.getOfflineQueueSummary(actor)).toMatchObject({ total: 1, queued: 1 })
+    expect((await queue.getPendingOfflineQueueItems(actor)).map(item => item.id)).toEqual([mine.id])
+    await expect(queue.syncOfflineQueueItem(other.id, { user: actor })).rejects.toThrow('another signed-in user')
+    expect(await queue.syncOfflineQueue(actor)).toMatchObject({ synced: 1, failed: 0 })
+    expect((await queue.getOfflineQueueItem(other.id)).status).toBe('queued')
     expect(fetch).toHaveBeenCalledOnce()
   })
 
@@ -224,7 +305,7 @@ describe('Discarding failed uploads', () => {
     expect(await queue.getOfflineQueueItem(failed.id)).toBeUndefined()
     expect((await queue.getOfflineQueueItems()).map(item => item.id).sort()).toEqual(['keep-failed', 'keep-queued', 'keep-synced'])
     expect(await queue.getCachedApiResponse('offline-test')).toEqual({ ready: true })
-    expect(await queue.getOfflineQueueSummary()).toMatchObject({ queued: 1, failed: 1, total: 2 })
+    expect(await queue.getOfflineQueueSummary(actor)).toMatchObject({ queued: 1, failed: 1, total: 2 })
     expect(updated).toHaveBeenCalledOnce()
     expect(fetch).not.toHaveBeenCalled()
   })
@@ -279,10 +360,10 @@ describe('Discarding failed uploads', () => {
   it('hides another account’s failures and refuses to discard them', async () => {
     const item = await queue.queueMobileDocumentAction(input())
     await queue.updateOfflineQueueItem({ ...item, status: 'failed' })
-    expect(await queue.getFailedOfflineQueueItems('other@example.test')).toEqual([])
-    expect(await queue.getFailedOfflineQueueItems('Guest')).toEqual([])
+    expect(await queue.getPendingOfflineQueueItems('other@example.test')).toEqual([])
+    expect(await queue.getPendingOfflineQueueItems('Guest')).toEqual([])
     await expect(queue.discardFailedOfflineQueueItem(item.id, 'other@example.test')).rejects.toThrow('another signed-in user')
-    expect(await queue.getFailedOfflineQueueItems(actor)).toHaveLength(1)
+    expect(await queue.getPendingOfflineQueueItems(actor)).toHaveLength(1)
     expect((await queue.getOfflineQueueItem(item.id)).status).toBe('failed')
   })
 })
