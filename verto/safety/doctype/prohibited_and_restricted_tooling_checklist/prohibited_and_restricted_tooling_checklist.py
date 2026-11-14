@@ -4,6 +4,8 @@
 import frappe
 from frappe.model.document import Document
 
+from verto.safety.work_order_task import apply_work_order_task
+
 
 RATING_MAP = {
     "Compliant": 1,
@@ -43,15 +45,11 @@ class ProhibitedandRestrictedToolingChecklist(Document):
             if self.get("work_order_number") != before:
                 updates["work_order_number"] = self.get("work_order_number")
 
-        if changed_fieldname in ("work_order_number", "scope_or_wo"):
-            before = self.get("link_task")
-            warning = self.set_task_from_work_order_number()
-
+        if changed_fieldname in ("work_order_number", "scope_or_wo", "link_project"):
+            task_updates, warning = self.set_task_from_work_order_number(strict=False)
+            updates.update(task_updates)
             if warning:
                 warnings.append(warning)
-
-            if self.get("link_task") != before:
-                updates["link_task"] = self.get("link_task")
 
         if self.is_compliance_trigger_field(changed_fieldname):
             before = self.get("compliance_percentage")
@@ -88,31 +86,8 @@ class ProhibitedandRestrictedToolingChecklist(Document):
 
         return "No Work Order Number found for this Task."
 
-    def set_task_from_work_order_number(self):
-        if self.get("scope_or_wo") != "Work Order Number":
-            return None
-
-        if not self.get("work_order_number"):
-            return None
-
-        if not self.meta.has_field("link_task"):
-            return None
-
-        task_name = frappe.db.get_value(
-            "Task",
-            {
-                "work_order_number": self.get("work_order_number"),
-            },
-            "name",
-        )
-
-        if task_name:
-            self.set("link_task", task_name)
-            return None
-
-        self.set("link_task", "")
-
-        return "No task found for this Work Order Number."
+    def set_task_from_work_order_number(self, *, strict=True):
+        return apply_work_order_task(self, strict=strict)
 
     def is_compliance_trigger_field(self, fieldname):
         if not fieldname:

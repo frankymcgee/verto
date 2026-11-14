@@ -46,7 +46,7 @@ const fields = [
     read_only: true,
   },
 ]
-async function render(component = NewDocument, formFields = fields, savedValues = {}) {
+async function render(component = NewDocument, formFields = fields, savedValues = {}, prefillValues = {}) {
   const schema = {
     mobile_doctype: 'Daily Timesheet',
     doctype: 'Daily Timesheet',
@@ -56,7 +56,7 @@ async function render(component = NewDocument, formFields = fields, savedValues 
   mocked.api.mockImplementation(async (url, options) => {
     if (url.includes('get_form_schema'))
       return { message: schema }
-    if (url.includes('get_prefill_values')) return { message: { values: {} } }
+    if (url.includes('get_prefill_values')) return { message: { values: prefillValues } }
     if (url.includes('get_mobile_doc_for_edit'))
       return { message: { schema, can_write: true, values: savedValues } }
     if (url.includes('create_mobile_doc'))
@@ -108,6 +108,38 @@ describe('Dynamic mobile forms', () => {
       shift: 'NS',
       approved: true,
     })
+  })
+
+  it.each([
+    [NewDocument, 'create_mobile_doc'],
+    [EditDocument, 'update_mobile_doc'],
+  ])('keeps the hidden work-order Task when submitting multiple photos via %s', async (component, endpoint) => {
+    const formFields = [
+      { fieldname: 'scope_or_wo', label: 'Mode', fieldtype: 'Select', options: 'Work Scope\nWork Order Number' },
+      {
+        fieldname: 'link_task', label: 'Work Scope', fieldtype: 'Link', options: 'Task',
+        depends_on: 'eval:doc.scope_or_wo == "Work Scope"',
+      },
+      { fieldname: 'link_project', label: 'Project', fieldtype: 'Link', options: 'Project' },
+      { fieldname: 'work_order_number', label: 'Work Order Number', fieldtype: 'Data' },
+    ]
+    const taskValues = {
+      scope_or_wo: 'Work Order Number', link_task: 'TASK-2',
+      link_project: 'PROJECT-1', work_order_number: 'WO-1',
+    }
+    await render(component, formFields, taskValues, taskValues)
+    expect(w.text()).not.toContain('Work Scope')
+
+    const input = w.get('input[type="file"]')
+    const photos = ['first.jpg', 'second.jpg', 'third.jpg'].map((name) => new File([name], name))
+    Object.defineProperty(input.element, 'files', { value: photos })
+    await input.trigger('change')
+    await w.get('form').trigger('submit')
+    await flushPromises()
+
+    const request = mocked.api.mock.calls.find(([url]) => url.includes(endpoint))
+    expect(JSON.parse(request[1].body.get('values'))).toMatchObject(taskValues)
+    expect(request[1].body.getAll('attachments').map((file) => file.name)).toEqual(photos.map((file) => file.name))
   })
 
   it('ignores a second submit while the first is still saving', async () => {

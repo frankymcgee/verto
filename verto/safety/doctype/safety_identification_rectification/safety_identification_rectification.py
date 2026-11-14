@@ -4,6 +4,8 @@
 import frappe
 from frappe.model.document import Document
 
+from verto.safety.work_order_task import apply_work_order_task
+
 
 class SafetyIdentificationRectification(Document):
     def validate(self):
@@ -18,6 +20,7 @@ class SafetyIdentificationRectification(Document):
         rules to the in-memory document and returns changed values for Vue.
         """
         updates = {}
+        warnings = []
 
         if changed_fieldname in ("link_task", "scope_or_wo"):
             before = self.get("work_order_number")
@@ -26,17 +29,16 @@ class SafetyIdentificationRectification(Document):
             if self.get("work_order_number") != before:
                 updates["work_order_number"] = self.get("work_order_number")
 
-        if changed_fieldname in ("work_order_number", "scope_or_wo"):
-            before = self.get("link_task")
-            self.set_task_from_work_order_number()
-
-            if self.get("link_task") != before:
-                updates["link_task"] = self.get("link_task")
+        if changed_fieldname in ("work_order_number", "scope_or_wo", "link_project"):
+            task_updates, warning = self.set_task_from_work_order_number(strict=False)
+            updates.update(task_updates)
+            if warning:
+                warnings.append(warning)
 
         return {
             "values": updates,
             "messages": [],
-            "warnings": [],
+            "warnings": warnings,
         }
 
     def set_work_order_number_from_task(self):
@@ -58,23 +60,5 @@ class SafetyIdentificationRectification(Document):
         if work_order_number:
             self.set("work_order_number", work_order_number)
 
-    def set_task_from_work_order_number(self):
-        if self.get("scope_or_wo") != "Work Order Number":
-            return
-
-        if not self.get("work_order_number"):
-            return
-
-        if not self.meta.has_field("link_task"):
-            return
-
-        task_name = frappe.db.get_value(
-            "Task",
-            {
-                "work_order_number": self.get("work_order_number"),
-            },
-            "name",
-        )
-
-        if task_name:
-            self.set("link_task", task_name)
+    def set_task_from_work_order_number(self, *, strict=True):
+        return apply_work_order_task(self, strict=strict)

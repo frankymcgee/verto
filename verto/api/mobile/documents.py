@@ -5,6 +5,8 @@ import frappe
 from frappe.utils import cint, getdate, now_datetime, today
 from frappe.utils.file_manager import save_file
 
+from verto.safety.work_order_task import apply_work_order_task, validate_work_scope_project
+
 
 MOBILE_SETTINGS_DOCTYPE = "Verto Mobile Settings"
 MOBILE_FORM_TABLES = (
@@ -867,6 +869,12 @@ def build_mobile_doc_for_rules(doctype, values=None, docname=None):
     return doc
 
 
+def prepare_mobile_task_link(doc):
+    validate_work_scope_project(doc)
+    if not hasattr(doc, "set_task_from_work_order_number"):
+        apply_work_order_task(doc)
+
+
 @frappe.whitelist()
 def update_mobile_doc(mobile_doctype, docname, values=None):
     require_login()
@@ -891,6 +899,7 @@ def update_mobile_doc(mobile_doctype, docname, values=None):
         values = apply_daily_timesheet_defaults(values)
 
     set_doc_values_from_mobile(doc, values)
+    prepare_mobile_task_link(doc)
 
     doc.save()
 
@@ -942,6 +951,7 @@ def create_mobile_doc(mobile_doctype, values=None):
     if "date_created" in fieldnames and not doc.get("date_created"):
         doc.set("date_created", now_datetime())
 
+    prepare_mobile_task_link(doc)
     doc.insert()
 
     if doctype == "Daily Timesheet":
@@ -1317,13 +1327,19 @@ def run_field_change(mobile_doctype, changed_fieldname, values=None, docname=Non
         user=frappe.session.user,
     )
 
-    if not result:
-        result = {}
+    result = result or {}
+    updates = result.get("values", {})
+    warnings = result.get("warnings", [])
+    if changed_fieldname in ("work_order_number", "scope_or_wo", "link_project"):
+        task_updates, warning = apply_work_order_task(doc, strict=False)
+        updates.update(task_updates)
+        if warning:
+            warnings.append(warning)
 
     return {
-        "values": result.get("values", {}),
+        "values": updates,
         "messages": result.get("messages", []),
-        "warnings": result.get("warnings", []),
+        "warnings": warnings,
     }
 
 
