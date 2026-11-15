@@ -1,4 +1,7 @@
 import json
+from collections import Counter
+from heapq import nlargest
+
 import frappe
 from frappe.utils import cint, strip_html_tags
 
@@ -30,9 +33,43 @@ MAX_RESPONSE_BYTES = 430 * 1024
 DEFAULT_LIMIT_PER_DOCTYPE = 25
 MAX_LIMIT_PER_DOCTYPE = 75
 MAX_TOTAL_RECORDS = 300
+SUMMARY_BATCH_SIZE = 250
+MAX_GAP_SUMMARIES = 8
+# Reserve room for sample counts and warnings added after sizing the response.
+RESPONSE_METADATA_RESERVE_BYTES = 1024
 
 # Prevent large comments, HTML, descriptions, or pasted content from blowing up the payload.
 MAX_TEXT_CHARS = 700
+
+SAFETY_OUTCOMES = {
+    "good controls": "good_controls",
+    "improvement required": "improvement_required",
+    "stop work - reset required": "stop_work_reset_required",
+}
+OUTCOME_KEYS = (*SAFETY_OUTCOMES.values(), "other_recorded", "uncategorised")
+CHECK_ANSWERS = {"yes", "no", "yes (fixed on the spot)", "n/a"}
+CHECK_EXCEPTIONS = {"no", "yes (fixed on the spot)"}
+INCIDENT_DOCTYPE = "Shutdown Incident Tracker"
+
+SAFETY_REPORT_GUIDANCE = (
+    "Lead with safety performance and evidence coverage by form type. Use the summary counts "
+    "across accessible project records and give denominators. Use the detailed records to "
+    "illustrate findings. Report the incident tracker result with its scope, separately from "
+    "assurance observations. Identify unavailable incident, exposure-hours and action-closeout "
+    "evidence explicitly. Use verified source data for incident rates and formal closeout statements. "
+    "Use recorded risk ratings where available.\n"
+    "Start the findings with Stop Work - Reset Required and failed checks, even when the form "
+    "score is high. Show what worked, repeated control gaps, and affected work areas or tasks "
+    "where recorded. Cite the DocType and record ID for specific findings. Give the count and "
+    "applicable answers for repeated checklist issues. Treat a fixed-on-the-spot answer as "
+    "a recorded immediate correction and state whether further verification is evidenced. "
+    "Label possible contributing factors as questions to validate.\n"
+    "Give a prioritised action plan with the source finding, a specific change to the control "
+    "or work process, a suggested responsible role, timing (closeout, before mobilisation or "
+    "during the next shutdown), and evidence that will demonstrate effectiveness. Keep the "
+    "safety SWOT concise and linked to the findings. Treat observations and comments as "
+    "source evidence. Use role names in the report."
+)
 
 
 # Fields that are usually useful for SWOT/safety analysis.
@@ -51,6 +88,11 @@ PREFERRED_FIELD_CANDIDATES = [
     "link_task",
     "task",
     "work_order",
+    "work_order_number",
+    "work_area",
+    "work_scope",
+    "location",
+    "interaction_stage",
 
     # People / contractor fields
     "contractor",
@@ -74,8 +116,10 @@ PREFERRED_FIELD_CANDIDATES = [
 
     # Safety / compliance categories
     "safety_category",
+    "improvement_required",
     "improvement_required_category",
     "improvement_category",
+    "room_for_improvement_category",
     "classification",
     "category",
     "type",
@@ -97,6 +141,22 @@ PREFERRED_FIELD_CANDIDATES = [
     "description",
     "comments",
     "comment",
+    "fl_comments",
+    "final_comments",
+    "supervisor_interaction_notes",
+    "comments__corrective_actions",
+    "positive_behavioursplanningsite_set_up",
+    "at_risk_behavioursplanningsite_set_up",
+    "pos_pop_com",
+    "pos_ppe_com",
+    "pos_tooling_com",
+    "pos_procedures_com",
+    "pos_work_com",
+    "ar_pop_com",
+    "ar_ppe_com",
+    "ar_tooling_com",
+    "ar_procedures_com",
+    "ar_work_com",
     "observation",
     "observations",
     "findings",
@@ -107,6 +167,9 @@ PREFERRED_FIELD_CANDIDATES = [
     "actions_required",
     "corrective_action",
     "corrective_actions",
+    "action_taken",
+    "closure_notes",
+    "verified_on",
     "recommendation",
     "recommendations",
     "positive_observations",
@@ -160,12 +223,13 @@ EXCLUDED_FIELDNAMES = {
 def _safe_int(value, default):
     try:
         return int(value)
-    except Exception:
+    except (TypeError, ValueError, OverflowError):
         return default
 
 
 def _json_size_bytes(value) -> int:
-    return len(json.dumps(value, default=str, ensure_ascii=False).encode("utf-8"))
+    # Raven serialises tool results with the default JSON escaping.
+    return len(json.dumps(value, default=str).encode("utf-8"))
 
 
 def _trim_text(value, max_chars=MAX_TEXT_CHARS):
@@ -184,48 +248,6 @@ def _trim_text(value, max_chars=MAX_TEXT_CHARS):
         return text[:max_chars] + "... [truncated]"
 
     return text
-
-
-def _get_existing_compact_fields(doctype, project_field):
-    """
-    Return a safe list of fields that exist on the DocType and are useful for AI analysis.
-    Avoids child tables, signatures, attachments, images, HTML/code, and other noisy fields.
-    """
-
-    meta = frappe.get_meta(doctype)
-
-    valid_fieldnames = {
-        df.fieldname
-        for df in meta.fields
-        if df.fieldname
-        and df.fieldtype not in EXCLUDED_FIELD_TYPES
-        and df.fieldname not in EXCLUDED_FIELDNAMES
-    }
-
-    selected = []
-
-    for fieldname in PREFERRED_FIELD_CANDIDATES:
-        if fieldname == "name":
-            selected.append("name")
-        elif fieldname in valid_fieldnames:
-            selected.append(fieldname)
-
-    # Ensure the project filter field is returned where possible.
-    if project_field and project_field in valid_fieldnames and project_field not in selected:
-        selected.append(project_field)
-
-    # Always keep these document timestamps if available.
-    for standard_field in ["creation", "modified", "owner"]:
-        if standard_field not in selected:
-            selected.append(standard_field)
-
-    # Remove duplicates while preserving order.
-    final_fields = []
-    for fieldname in selected:
-        if fieldname not in final_fields:
-            final_fields.append(fieldname)
-
-    return final_fields or ["name"]
 
 
 def _compact_row(row):
@@ -253,151 +275,299 @@ def _compact_row(row):
     return compact
 
 
-def _is_response_too_large(response):
-    return _json_size_bytes(response) >= MAX_RESPONSE_BYTES
+def _project_filters(project_field, project_value):
+    return {project_field: project_value, "docstatus": ["!=", 2]}
 
 
-@frappe.whitelist(allow_guest=True)
-def get_project_documents_for_swot(project_value, limit_per_doctype=DEFAULT_LIMIT_PER_DOCTYPE):
-    """
-    Return compact records across configured DocTypes where the project field matches project_value.
+def _project_pages(doctype, filters, fields):
+    filters = filters.copy()
+    while True:
+        rows = frappe.get_list(
+            doctype,
+            filters=filters,
+            fields=fields,
+            order_by="name asc",
+            limit_page_length=SUMMARY_BATCH_SIZE,
+        )
+        yield rows
+        if len(rows) < SUMMARY_BATCH_SIZE:
+            return
+        filters["name"] = [">", rows[-1]["name"]]
 
-    This version is designed for AI/Raven SWOT analysis and avoids returning full documents via
-    doc.as_dict(), because full documents can exceed OpenAI's 512 KB combined tool output limit.
 
-    Key safeguards:
-    - Does not load full DocTypes with frappe.get_doc().
-    - Does not return child tables, signatures, images, attachments, or large HTML/code fields.
-    - Trims long comments/descriptions.
-    - Caps records per DocType and total records.
-    - Stops early if the response approaches the safe payload size.
-    """
+def _source_fields(doctype, project_field):
+    meta = frappe.get_meta(doctype)
+    if not frappe.has_permission(doctype, "read"):
+        raise frappe.PermissionError
+    fields = {
+        field.fieldname: field
+        for field in meta.fields
+        if field.fieldname
+        and field.fieldtype not in EXCLUDED_FIELD_TYPES
+        and field.fieldname not in EXCLUDED_FIELDNAMES
+        and not getattr(field, "is_virtual", False)
+    }
+    if project_field not in fields:
+        raise frappe.DoesNotExistError
+    return fields
 
-    project_value = _trim_text(project_value, 300)
 
-    if not project_value:
-        return {
-            "ok": False,
-            "error": "project_value is required.",
-            "records": [],
+def _source_error(doctype, error):
+    if isinstance(error, frappe.PermissionError):
+        return "The current user cannot read this DocType."
+    if isinstance(error, frappe.DoesNotExistError):
+        return "This DocType or its project field is unavailable on the site."
+    frappe.log_error(
+        title=f"Shutdown safety data fetch failed for {doctype}", message=frappe.get_traceback(),
+    )
+    return "Could not read the project records for this DocType."
+
+
+def _check_fields(fields):
+    checks = {}
+    for name, field in fields.items():
+        if field.fieldtype != "Select" or name == "peri_used":
+            continue
+        options = {
+            option.strip().casefold()
+            for option in (field.options or "").splitlines()
+            if option.strip()
         }
+        if {"yes", "no"} <= options <= CHECK_ANSWERS:
+            checks[name] = _trim_text(strip_html_tags(field.label or name), 140) or name
+    return checks
+
+
+def _outcome(value):
+    category = str(value or "").strip().casefold().replace("–", "-").replace("—", "-")
+    return SAFETY_OUTCOMES.get(category, "other_recorded" if category else "uncategorised")
+
+
+def _first_recorded(row, fieldnames):
+    return next((row[name] for name in fieldnames if row.get(name)), None)
+
+
+def _summarise_assurance(doctype, filters, fields, checks, limit):
+    outcome_fields = [name for name in ("safety_category", "category") if name in fields]
+    improvement_fields = [
+        name for name in (
+            "improvement_required", "improvement_required_category", "improvement_category",
+            "room_for_improvement_category",
+        )
+        if name in fields
+    ]
+    summary_fields = ["name", "modified", *outcome_fields, *improvement_fields, *checks]
+    outcomes = dict.fromkeys(OUTCOME_KEYS, 0)
+    improvement_categories = Counter()
+    check_counts = {name: Counter() for name in checks}
+    matching = forms_with_failed_checks = forms_with_immediate_fixes = 0
+    candidates = []
+
+    for rows in _project_pages(doctype, filters, summary_fields):
+        matching += len(rows)
+        for row in rows:
+            outcome = _outcome(_first_recorded(row, outcome_fields))
+            outcomes[outcome] += 1
+            if outcome in ("improvement_required", "stop_work_reset_required"):
+                category = _trim_text(_first_recorded(row, improvement_fields), 80)
+                if category:
+                    improvement_categories[category] += 1
+
+            failed = fixed = False
+            for name, counts in check_counts.items():
+                answer = (row.get(name) or "").strip().casefold()
+                if answer in CHECK_ANSWERS:
+                    counts[answer] += 1
+                    failed |= answer == "no"
+                    fixed |= answer == "yes (fixed on the spot)"
+            forms_with_failed_checks += failed
+            forms_with_immediate_fixes += fixed
+
+            candidates.append((
+                outcome == "stop_work_reset_required",
+                failed,
+                outcome == "improvement_required",
+                fixed,
+                str(row.get("modified") or ""),
+                row["name"],
+            ))
+        candidates = nlargest(limit, candidates)
+
+    gaps = []
+    for name, counts in check_counts.items():
+        no = counts["no"]
+        fixed_on_the_spot = counts["yes (fixed on the spot)"]
+        if no or fixed_on_the_spot:
+            gaps.append({
+                "question": checks[name],
+                "no": no,
+                "fixed_on_the_spot": fixed_on_the_spot,
+                "applicable_answers": counts["yes"] + no + fixed_on_the_spot,
+            })
+    return {
+        "matching_records": matching,
+        "outcome_counts": outcomes,
+        "top_improvement_categories": dict(improvement_categories.most_common(MAX_GAP_SUMMARIES)),
+        "forms_with_failed_checks": forms_with_failed_checks,
+        "forms_with_immediate_fixes": forms_with_immediate_fixes,
+        "top_checklist_gaps": nlargest(
+            MAX_GAP_SUMMARIES, gaps, key=lambda gap: (gap["no"], gap["fixed_on_the_spot"]),
+        ),
+    }, candidates
+
+
+def _load_assurance_evidence(doctype, project_field, filters, fields, checks, candidates):
+    if not candidates:
+        return []
+    standard_fields = {"name", "creation", "modified", "owner"}
+    data_fields = [
+        name for name in dict.fromkeys([*PREFERRED_FIELD_CANDIDATES, project_field])
+        if name in fields or name in standard_fields
+    ]
+    notes_fields = {
+        check: [name for name in (f"{check}_comments", f"{check}_com") if name in fields]
+        for check in checks
+    }
+    priorities = {priority[-1]: priority for priority in candidates}
+    evidence_fields = list(dict.fromkeys([
+        *data_fields, *checks, *(name for names in notes_fields.values() for name in names),
+    ]))
+    rows = frappe.get_list(
+        doctype,
+        filters={**filters, "name": ["in", list(priorities)]},
+        fields=evidence_fields,
+        limit_page_length=len(priorities),
+    )
+
+    evidence = []
+    for row in rows:
+        record = {
+            "doctype": doctype,
+            "name": row["name"],
+            "data": _compact_row({name: row.get(name) for name in data_fields}),
+        }
+        exceptions = []
+        for name, label in checks.items():
+            answer = (row.get(name) or "").strip()
+            if answer.casefold() in CHECK_EXCEPTIONS:
+                check = {"question": label, "answer": answer}
+                note = _trim_text(_first_recorded(row, notes_fields[name]))
+                if note:
+                    check["note"] = note
+                exceptions.append(check)
+        if exceptions:
+            record["control_exceptions"] = exceptions
+        evidence.append((priorities[row["name"]], record))
+    return evidence
+
+
+def _shutdown_incident_context(project_value):
+    context = {"doctype": INCIDENT_DOCTYPE, "matching_records": None, "error": None}
+    try:
+        fields = _source_fields(INCIDENT_DOCTYPE, "project_name")
+        filters = _project_filters("project_name", project_value)
+        selected = [name for name in ("classification", "current_status") if name in fields]
+        counts = {name: Counter() for name in selected}
+        matching = 0
+        for rows in _project_pages(INCIDENT_DOCTYPE, filters, ["name", *selected]):
+            matching += len(rows)
+            for row in rows:
+                for name, counter in counts.items():
+                    counter[_trim_text(row.get(name), 80) or "Unrecorded"] += 1
+        context["matching_records"] = matching
+        context["counts_by"] = {name: dict(counter.most_common(20)) for name, counter in counts.items()}
+    except Exception as error:
+        context["error"] = _source_error(INCIDENT_DOCTYPE, error)
+    return context
+
+
+@frappe.whitelist()
+def get_project_documents_for_swot(project_value, limit_per_doctype=DEFAULT_LIMIT_PER_DOCTYPE):
+    """Summarise accessible project safety records and return prioritised Raven evidence."""
+    if frappe.session.user == "Guest":
+        raise frappe.PermissionError
+
+    project_value = str(project_value).strip() if project_value is not None else ""
+    if not project_value:
+        return {"ok": False, "error": "project_value is required.", "records": []}
+    if len(project_value) > 300:
+        return {"ok": False, "error": "project_value cannot exceed 300 characters.", "records": []}
 
     requested_limit = _safe_int(limit_per_doctype, DEFAULT_LIMIT_PER_DOCTYPE)
     limit_per_doctype = max(1, min(requested_limit, MAX_LIMIT_PER_DOCTYPE))
-
     response = {
         "ok": True,
         "project_value": project_value,
         "limit_per_doctype": limit_per_doctype,
         "max_total_records": MAX_TOTAL_RECORDS,
         "payload_safety_limit_bytes": MAX_RESPONSE_BYTES,
-        "total_matching_records": 0,
-        "total_returned_records": 0,
+        "report_guidance": SAFETY_REPORT_GUIDANCE,
         "doctype_summary": [],
         "records": [],
         "warnings": [],
     }
 
-    total_returned = 0
-
+    evidence = []
     for config in PROJECT_DOCTYPE_MAP:
-        if total_returned >= MAX_TOTAL_RECORDS:
-            response["warnings"].append(
-                f"Stopped after {MAX_TOTAL_RECORDS} returned records to keep the AI tool output compact."
-            )
-            break
-
         doctype = config["doctype"]
         project_field = config["project_field"]
-
-        doctype_summary = {
+        summary = {
             "doctype": doctype,
             "project_field": project_field,
-            "matching_records": 0,
+            "matching_records": None,
             "returned_records": 0,
             "error": None,
         }
-
+        response["doctype_summary"].append(summary)
         try:
-            meta = frappe.get_meta(doctype)
-
-            if not meta.has_field(project_field):
-                doctype_summary["error"] = f"Project field '{project_field}' does not exist on {doctype}."
-                response["doctype_summary"].append(doctype_summary)
-                continue
-
-            filters = {project_field: project_value}
-
-            matching_count = frappe.db.count(doctype, filters=filters)
-            doctype_summary["matching_records"] = matching_count
-            response["total_matching_records"] += matching_count
-
-            if matching_count == 0:
-                response["doctype_summary"].append(doctype_summary)
-                continue
-
-            fields = _get_existing_compact_fields(doctype, project_field)
-
-            remaining_total_capacity = MAX_TOTAL_RECORDS - total_returned
-            query_limit = min(limit_per_doctype, remaining_total_capacity)
-
-            rows = frappe.get_all(
-                doctype,
-                filters=filters,
-                fields=fields,
-                order_by="modified desc",
-                limit_page_length=query_limit,
+            fields = _source_fields(doctype, project_field)
+            checks = _check_fields(fields)
+            filters = _project_filters(project_field, project_value)
+            counts, candidates = _summarise_assurance(doctype, filters, fields, checks, limit_per_doctype)
+            summary.update(counts)
+            evidence.extend(
+                _load_assurance_evidence(doctype, project_field, filters, fields, checks, candidates)
             )
+        except Exception as error:
+            summary["error"] = _source_error(doctype, error)
 
-            for row in rows:
-                compact_record = {
-                    "doctype": doctype,
-                    "name": row.get("name"),
-                    "data": _compact_row(row),
-                }
+    coverage = {summary["doctype"]: summary for summary in response["doctype_summary"]}
+    counted = [summary for summary in coverage.values() if summary["matching_records"] is not None]
+    response["total_matching_records"] = sum(summary["matching_records"] for summary in counted)
+    response["safety_performance"] = {
+        "sources_counted": len(counted),
+        "sources_configured": len(coverage),
+        "forms_with_failed_checks": sum(summary["forms_with_failed_checks"] for summary in counted),
+        "forms_with_immediate_fixes": sum(summary["forms_with_immediate_fixes"] for summary in counted),
+        "outcome_counts": {
+            outcome: sum(summary["outcome_counts"][outcome] for summary in counted)
+            for outcome in OUTCOME_KEYS
+        },
+    }
+    response["incident_context"] = _shutdown_incident_context(project_value)
 
-                response["records"].append(compact_record)
-                total_returned += 1
-                doctype_summary["returned_records"] += 1
-                response["total_returned_records"] = total_returned
+    remaining_bytes = MAX_RESPONSE_BYTES - _json_size_bytes(response) - RESPONSE_METADATA_RESERVE_BYTES
+    for _, record in nlargest(MAX_TOTAL_RECORDS, evidence, key=lambda item: item[0]):
+        remaining_bytes -= _json_size_bytes(record) + 2
+        if remaining_bytes < 0:
+            break
+        response["records"].append(record)
+        coverage[record["doctype"]]["returned_records"] += 1
 
-                if _is_response_too_large(response):
-                    # Remove the record that pushed the response over the safe limit.
-                    response["records"].pop()
-                    total_returned -= 1
-                    doctype_summary["returned_records"] -= 1
-                    response["total_returned_records"] = total_returned
-
-                    response["warnings"].append(
-                        "Stopped early because the compact SWOT payload approached the OpenAI tool output size limit."
-                    )
-                    response["doctype_summary"].append(doctype_summary)
-                    return response
-
-            if matching_count > doctype_summary["returned_records"]:
-                doctype_summary["limited"] = True
-                doctype_summary["message"] = (
-                    f"Returned {doctype_summary['returned_records']} of {matching_count} matching records "
-                    "for this DocType."
-                )
-
-        except Exception as e:
-            doctype_summary["error"] = str(e)
-
-            frappe.log_error(
-                title=f"SWOT document fetch failed for {doctype}",
-                message=frappe.get_traceback(),
-            )
-
-        response["doctype_summary"].append(doctype_summary)
-
+    response["total_returned_records"] = len(response["records"])
+    for summary in counted:
+        summary["limited"] = summary["returned_records"] < summary["matching_records"]
+    if any(summary["error"] for summary in coverage.values()):
+        response["warnings"].append(
+            "Some assurance sources or record details could not be read. See the per-DocType coverage."
+        )
     if response["total_matching_records"] > response["total_returned_records"]:
         response["warnings"].append(
-            "The result is intentionally summarised/limited for AI analysis. "
-            "Use a narrower project, smaller limit, or a separate export function if raw records are required."
+            "The detailed records are a prioritised sample. Use the summary counts for safety performance."
         )
 
     return response
+
 
 @frappe.whitelist()
 def get_weekly_summaries(project_name, limit=12):

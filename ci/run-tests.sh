@@ -100,9 +100,10 @@ yarn test:ui tests/jha-incident-learning.test.js tests/jha-voice-protocol.test.j
 )
 echo '::endgroup::'
 
-echo '::group::Verify Investigations app, approvals and evidence privacy'
+echo '::group::Verify shutdown safety reporting, investigations, approvals and evidence privacy'
 (
   cd "$VERTO_CI_BENCH"
+./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_shutdown_safety_report.py'
 ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_investigation_rules.py'
 ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_investigation_report.py'
 bench --site test_site run-tests --app verto --module verto.api.test_investigations --skip-before-tests
