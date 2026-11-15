@@ -17,6 +17,7 @@ const routes = [
     component: MobileShell,
     children: [
       { path: 'failed-uploads', name: 'failed-uploads', component: () => import('../pages/FailedUploads.vue'), meta: { title: 'Upload queue' } },
+      { path: 'notifications', name: 'notifications', component: () => import('../pages/Notifications.vue'), meta: { title: 'Notifications' } },
       { path: 'my-profile', name: 'my-profile', component: () => import('../pages/MyProfile.vue'), meta: { title: 'My profile' } },
       { path: 'gantt/:project', name: 'project-gantt', component: () => import('../pages/ProjectGantt.vue'), meta: { title: 'Gantt' } },
       { path: 'map/:project', name: 'project-map', component: () => import('../pages/ProjectMap.vue'), meta: { title: 'Map' } },
