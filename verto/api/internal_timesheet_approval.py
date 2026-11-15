@@ -50,6 +50,8 @@ def _number(value):
 
 def shift_kind(value, config=None):
     code = str(value or "").strip().upper().replace("_", "-").replace(" ", "-")
+    if re.search(r"(?:^|-)(?:SD|STAND-?DOWN)$", code):
+        return "SD"
     if "NIGHT" in code or re.search(r"(?:^|-)NS$", code):
         return "NS"
     if "DAY" in code or re.search(r"(?:^|-)DS$", code):
@@ -193,7 +195,8 @@ def inspect_time_log(doc, log, index, context):
         pass
     actual_kind = "NS" if start and start.time() >= DAY_SHIFT_CUTOFF else "DS" if start else ""
     declared = str(log.get("shift_type") or log.get("shift") or "").strip()
-    declared_kind = shift_kind(declared, context["types"].get(declared)) or actual_kind
+    declared_type = shift_kind(declared, context["types"].get(declared))
+    declared_kind = declared_type or actual_kind
     elapsed = (end - start).total_seconds() / 3600 if start and end else None
     if not start or not end or end <= start:
         flag("invalid_times", "Start and end times are missing or the end is not after the start.")
@@ -205,7 +208,7 @@ def inspect_time_log(doc, log, index, context):
         flag("duration_mismatch", f"{hours:g} hours claimed, but the start/end period is {elapsed:.2f} hours.")
     if declared_kind in {"DS", "NS"} and actual_kind and declared_kind != actual_kind:
         flag("declared_shift_mismatch", f"Recorded as {declared_kind}, but the start time falls in {actual_kind}.")
-    if declared and not shift_kind(declared, context["types"].get(declared)):
+    if declared and not declared_type:
         flag("unknown_shift", f"Check the recorded shift label: {declared}.")
 
     project = log.get("project") or doc.get("parent_project") or ""
@@ -269,6 +272,8 @@ def inspect_time_log(doc, log, index, context):
     elif allocated_kind == "Fly" and declared and declared_kind != "Fly":
         flag("fly_label_mismatch", "Allocated a fly day, but the recorded shift is not a fly shift.")
     limit_kind = allocated_kind if allocated_kind in {"DS", "NS", "Fly"} else declared_kind
+    if limit_kind == "SD":
+        limit_kind = actual_kind
     limit_field = {"DS": "max_ds_hrs", "NS": "max_ns_hrs", "Fly": "max_fly_hrs"}.get(limit_kind)
     maximum = _number((context["projects"].get(project) or {}).get(limit_field)) if limit_field else None
     return {"idx": log.get("idx") or index, "date": str(work_date), "from_time": str(start or log.get("from_time") or ""),
@@ -333,7 +338,7 @@ def _missing_days(rows, context):
                 if not _covers(shift, date, row["employee"], row["project"]):
                     continue
                 kind = shift_kind(shift.shift_type, context["types"].get(shift.shift_type))
-                if kind not in {"DS", "NS", "Fly"}:
+                if kind not in {"DS", "NS", "SD", "Fly"}:
                     continue
                 due = shift_reminder_due_at(date, context["types"].get(shift.shift_type) or {})
                 if due and due <= current:
