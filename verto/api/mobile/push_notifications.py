@@ -7,6 +7,8 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, cint, getdate, now_datetime, nowdate
 
+from verto.api.mobile.notifications import record_deliveries
+
 
 SUBSCRIPTION_DOCTYPE = "Verto Push Subscription"
 SETTINGS_DOCTYPE = "Verto Mobile Settings"
@@ -391,7 +393,7 @@ def send_push_to_users(users, payload=None, notification_type="general"):
             "user": ["in", users],
             "enabled": 1,
         },
-        fields=["name", "endpoint", "p256dh", "auth"],
+        fields=["name", "user", "endpoint", "p256dh", "auth"],
         ignore_permissions=True,
         limit_page_length=1000,
     )
@@ -399,6 +401,7 @@ def send_push_to_users(users, payload=None, notification_type="general"):
     sent = 0
     failed = 0
 
+    delivered_to = set()
     for subscription in subscriptions:
         subscription_info = {
             "endpoint": subscription.endpoint,
@@ -417,6 +420,7 @@ def send_push_to_users(users, payload=None, notification_type="general"):
                 ttl=3600,
                 headers={"Urgency": "normal"},
             )
+            delivered_to.add(subscription.user)
             _record_delivery_success(subscription.name)
             sent += 1
         except WebPushException as error:
@@ -426,6 +430,12 @@ def send_push_to_users(users, payload=None, notification_type="general"):
         except Exception as error:
             _record_delivery_failure(subscription.name, error)
             failed += 1
+
+    if delivered_to:
+        try:
+            record_deliveries(delivered_to, payload)
+        except Exception:
+            frappe.log_error(title="Could not record Verto mobile notifications")
 
     return {
         "sent": sent,

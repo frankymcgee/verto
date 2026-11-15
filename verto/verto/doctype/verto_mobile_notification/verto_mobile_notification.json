@@ -1,0 +1,18 @@
+{
+ "autoname": "hash",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": ["recipient", "title", "body", "target_url", "is_read"],
+ "fields": [
+  {"fieldname": "recipient", "fieldtype": "Link", "label": "Recipient", "options": "User", "reqd": 1, "search_index": 1},
+  {"fieldname": "title", "fieldtype": "Small Text", "label": "Title"},
+  {"fieldname": "body", "fieldtype": "Small Text", "label": "Body"},
+  {"fieldname": "target_url", "fieldtype": "Small Text", "label": "Target URL"},
+  {"default": "0", "fieldname": "is_read", "fieldtype": "Check", "label": "Read"}
+ ],
+ "module": "Verto",
+ "name": "Verto Mobile Notification",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC"
+}

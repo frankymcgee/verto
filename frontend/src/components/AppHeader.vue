@@ -102,7 +102,14 @@
           </div>
 
           <div class="border-b border-outline-gray-1 px-3 py-2.5">
-            <Switch :model-value="subscribed" label="Notifications" :description="notificationStatus"
+            <Button variant="ghost"
+              type="button"
+              class="mb-2 w-full justify-start px-0 text-left"
+              @click="openNotifications"
+            >
+              Notifications
+            </Button>
+            <Switch :model-value="subscribed" label="Push notifications" :description="notificationStatus"
               :disabled="notificationToggleDisabled" @update:model-value="handleNotificationToggle" />
 
             <p
@@ -533,6 +540,11 @@ async function reloadApp() {
   } finally {
     window.location.reload()
   }
+}
+
+function openNotifications() {
+  menuOpen.value = false
+  void router.push({ name: 'notifications' })
 }
 
 function openProfile() {

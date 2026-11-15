@@ -44,6 +44,7 @@ import PwaUpdatePrompt from '../components/PwaUpdatePrompt.vue'
 import PwaInstallPrompt from '../components/PwaInstallPrompt.vue'
 import { handleAppBrowserLinkClick } from '../lib/appBrowser'
 import { isAndroidDevice, isStandalonePwa } from '../pwa/displayMode'
+import { clearNotificationIndicators } from '../pwa/clearNotificationIndicators'
 import { usePushNotifications } from '../pwa/usePushNotifications'
 
 const route = useRoute()
@@ -88,12 +89,21 @@ function removeAndroidBrowserViewportSync() {
   document.documentElement.style.removeProperty('--verto-viewport-height')
 }
 
+function clearForegroundNotifications() {
+  void clearNotificationIndicators()
+}
+
 onMounted(() => {
+  clearForegroundNotifications()
+  document.addEventListener('visibilitychange', clearForegroundNotifications)
+  window.addEventListener('focus', clearForegroundNotifications)
   installAndroidBrowserViewportSync()
   void initialisePushNotifications()
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', clearForegroundNotifications)
+  window.removeEventListener('focus', clearForegroundNotifications)
   removeAndroidBrowserViewportSync()
 })
 
