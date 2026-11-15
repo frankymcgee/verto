@@ -77,6 +77,30 @@ class TestInternalValidation(TestCase):
         self.assertEqual(row["days"]["2026-10-05"]["ns"], 12)
         self.assertEqual(row["entries"][0]["daily_comments"], "Job complete")
 
+    def test_stand_down_uses_entry_times_for_weekly_columns_and_limits(self):
+        for label in ("SD", "FG-SD", "Stand Down"):
+            for kind, start, end, maximum in (("DS", "06:00:00", "18:00:00", 12), ("NS", "18:00:00", "06:00:00", 13)):
+                with self.subTest(label=label, kind=kind):
+                    doc = timesheet(shift=f"FG-{kind}", start=start, end=end)
+                    doc.time_logs[0].shift_type = label
+                    loaded = context([doc])
+                    # The shared SD type may be configured with the opposite shift's times.
+                    loaded["types"][label].update(start_time=end, end_time=start)
+                    row = internal.build_review([doc], loaded)["groups"][0]["rows"][0]
+                    day = row["days"]["2026-10-05"]
+                    entry = row["entries"][0]
+                    self.assertEqual((day["ds"], day["ns"]), (12, 0) if kind == "DS" else (0, 12))
+                    self.assertEqual(entry["declared_shift"], label)
+                    self.assertEqual(entry["limit_kind"], kind)
+                    self.assertEqual(entry["maximum"], maximum)
+                    self.assertEqual(row["flag_count"], 0)
+
+    def test_stand_down_still_checks_the_start_time_against_an_explicit_allocation(self):
+        self.doc.time_logs[0].shift_type = "SD"
+        self.context["shifts"][0].shift_type = "FG-NS"
+        self.assertEqual(self.codes(), {"allocation_time_mismatch"})
+        self.assertEqual(self.row()["days"]["2026-10-05"]["ds"], 12)
+
     def test_document_time_logs_classify_day_and_overnight_hours(self):
         for shift, start, end, expected in (("FG-DS", "06:00:00", "18:00:00", "DS"), ("FG-NS", "18:00:00", "06:00:00", "NS")):
             with self.subTest(shift=shift):
