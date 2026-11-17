@@ -6,6 +6,7 @@ from unittest import TestCase
 from unittest.mock import Mock, patch
 
 import frappe
+from frappe.tests import IntegrationTestCase
 
 from verto.api import planner, planner_leave
 
@@ -143,7 +144,7 @@ class TestPlannerLeaveDialog(TestCase):
 		return planner_leave.update(self.doc.name, kwargs.pop("expected_modified", self.doc.modified), **kwargs)
 
 	def assert_no_write(self):
-		for method in (self.doc.save, self.doc.submit, self.doc.cancel):
+		for method in (self.doc.save, self.doc.submit, self.doc.cancel, self.doc.delete):
 			method.assert_not_called()
 
 	def enable_workflow(self, role="Leave Approver"):
@@ -246,6 +247,45 @@ class TestPlannerLeaveDialog(TestCase):
 				self.update(action=action)
 		self.assert_no_write()
 
+	def test_delete_requires_a_cancelled_document_permission_and_current_revision(self):
+		self.permissions.add("delete")
+		self.doc.status = "Cancelled"
+		with patch.object(frappe.db, "get_values") as linked_attendance:
+			for docstatus in (0, 1):
+				with self.subTest(docstatus=docstatus):
+					self.doc.docstatus = docstatus
+					self.assertFalse(planner_leave.get_details("LEAVE-1")["can_delete"])
+					with self.assertRaises(frappe.ValidationError):
+						self.update(action="delete")
+			self.doc.docstatus = 2
+			self.doc.status = "Approved"
+			self.assertTrue(planner_leave.get_details("LEAVE-1")["can_delete"])
+			with self.assertRaises(frappe.TimestampMismatchError):
+				self.update(action="delete", expected_modified="older revision")
+			self.permissions.remove("delete")
+			self.assertFalse(planner_leave.get_details("LEAVE-1")["can_delete"])
+			with self.assertRaises(frappe.PermissionError):
+				self.update(action="delete")
+			linked_attendance.assert_not_called()
+		self.assert_no_write()
+
+	def test_attendance_permissions_are_required_for_linked_record_cleanup(self):
+		self.permissions.add("delete")
+		self.doc.docstatus = 2
+		for denied in ("delete", "cancel"):
+			with self.subTest(permission=denied), patch.object(frappe.db, "get_values", return_value=["ATT-1"]):
+				attendance = Mock(docstatus=1)
+				def check_permission(permission):
+					if permission == denied:
+						raise frappe.PermissionError(permission)
+				attendance.check_permission.side_effect = check_permission
+				self.get_doc.side_effect = [self.doc, attendance]
+				with self.assertRaises(frappe.PermissionError):
+					self.update(action="delete")
+				attendance.cancel.assert_not_called()
+				attendance.delete.assert_not_called()
+				self.assert_no_write()
+
 	def test_workflow_state_roles_and_actions_cannot_be_bypassed(self):
 		self.enable_workflow(role="HR Manager")
 		with patch.object(planner_leave, "get_transitions", return_value=[]):
@@ -289,3 +329,37 @@ class TestPlannerLeaveDialog(TestCase):
 		self.doc.docstatus = 1
 		with self.assertRaises(frappe.PermissionError):
 			planner_leave.check_link_field_permission("LEAVE-1", "employee", "Employee")
+
+
+class TestPlannerLeaveDeleteIntegration(IntegrationTestCase):
+	def test_delete_leave_cleans_up_linked_attendance_and_preserves_replacement_attendance(self):
+		suffix = frappe.generate_hash(length=8)
+
+		def record(doctype, label, **values):
+			doc = frappe.get_doc(dict(doctype=doctype, name=f"LEAVE-DELETE-{label}-{suffix}", **values))
+			doc.db_insert()
+			return doc
+
+		company = record("Company", "CO", company_name=f"Planner leave delete {suffix}", abbr=suffix, default_currency="AUD")
+		employee = record("Employee", "EMP", employee_name="Test employee", first_name="Test", company=company.name, status="Active")
+		leave_type = record("Leave Type", "TYPE", leave_type_name=f"Planner leave {suffix}")
+		leave = record("Leave Application", "APP", employee=employee.name, company=company.name,
+			leave_type=leave_type.name, from_date="2026-09-10", to_date="2026-09-12", status="Cancelled", docstatus=2)
+		linked_fields = dict(employee=employee.name, company=company.name,
+			leave_type=leave_type.name, leave_application=leave.name, status="On Leave")
+		draft = record("Attendance", "DRAFT", attendance_date="2026-09-10", docstatus=0, **linked_fields)
+		submitted = record("Attendance", "SUBMITTED", attendance_date="2026-09-11", docstatus=1, **linked_fields)
+		cancelled = record("Attendance", "CANCELLED", attendance_date="2026-09-12", docstatus=2, **linked_fields)
+		checkin = record("Employee Checkin", "CHECKIN", employee=employee.name, attendance=cancelled.name,
+			time="2026-09-12 06:00:00")
+		replacement = record("Attendance", "REPLACEMENT", employee=employee.name, company=company.name,
+			attendance_date="2026-09-12", status="Present", docstatus=1)
+
+		response = planner_leave.update(leave.name, str(leave.modified), action="delete")
+
+		self.assertEqual(response, {"name": leave.name, "deleted": True})
+		for doc in (leave, draft, submitted, cancelled):
+			self.assertFalse(frappe.db.exists(doc.doctype, doc.name))
+		self.assertEqual(frappe.db.get_value("Attendance", replacement.name, "docstatus"), 1)
+		self.assertTrue(frappe.db.exists("Employee Checkin", checkin.name))
+		self.assertFalse(frappe.db.get_value("Employee Checkin", checkin.name, "attendance"))

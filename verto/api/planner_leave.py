@@ -1,4 +1,4 @@
-"""Permission-aware viewing and editing of leave from the Planner."""
+"""Permission-aware management of leave from the Planner."""
 
 import frappe
 from frappe import _
@@ -97,6 +97,7 @@ def get_details(name: str) -> dict:
 		"can_write": bool(_editable_fields(doc, workflow)),
 		"can_submit": bool(not workflow and doc.docstatus == 0 and _can_edit(doc, workflow) and doc.has_permission("submit")),
 		"can_cancel": bool(not workflow and doc.docstatus == 1 and doc.has_permission("cancel")),
+		"can_delete": bool(doc.docstatus == 2 and doc.has_permission("delete")),
 		"workflow_actions": actions,
 	}
 	doc.apply_fieldlevel_read_permissions()
@@ -109,13 +110,37 @@ def get_details(name: str) -> dict:
 	return response
 
 
+def _delete_linked_attendance(leave_application: str) -> None:
+	attendance_names = frappe.db.get_values(
+		"Attendance", {"leave_application": leave_application}, "name",
+		order_by="name", for_update=True, pluck=True,
+	)
+	for name in attendance_names:
+		attendance = frappe.get_doc("Attendance", name, for_update=True)
+		attendance.check_permission("delete")
+		if attendance.docstatus == 1:
+			attendance.check_permission("cancel")
+			attendance.cancel()
+		elif attendance.docstatus == 2:
+			# HRMS can cancel leave attendance directly, leaving its check-ins linked.
+			attendance.unlink_attendance_from_checkins()
+		attendance.delete()
+
+
 @frappe.whitelist(methods=["POST"])
 def update(name: str, expected_modified: str | None = None, values=None, action: str = "save", workflow_action: str | None = None):
 	# Lock while checking the revision and applying document/workflow actions.
 	doc = frappe.get_doc("Leave Application", name, for_update=True)
 	doc.check_permission("read")
 	if not expected_modified or str(doc.modified) != str(expected_modified):
-		frappe.throw(_("This Leave Application changed elsewhere. Reload it before saving."), frappe.TimestampMismatchError)
+		frappe.throw(_("This Leave Application changed elsewhere. Reload it and try again."), frappe.TimestampMismatchError)
+	if action == "delete":
+		if doc.docstatus != 2:
+			frappe.throw(_("Only cancelled Leave Applications can be deleted from the Planner."))
+		doc.check_permission("delete")
+		_delete_linked_attendance(doc.name)
+		doc.delete()
+		return {"name": doc.name, "deleted": True}
 	if doc.docstatus == 2:
 		frappe.throw(_("Cancelled Leave Applications are read-only."))
 	if action not in ("save", "submit", "cancel", "workflow"):
