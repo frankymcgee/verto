@@ -4,10 +4,10 @@ import { nextTick } from 'vue'
 import { Combobox, setConfig } from 'frappe-ui'
 import LeaveApplicationDialog from '../src/components/LeaveApplicationDialog.vue'
 import MonthViewTable from '../src/components/MonthViewTable.vue'
-import { dayjs } from '../src/utils'
+import { dayjs, raiseToast } from '../src/utils'
 
 vi.mock('../src/utils', async original => ({ ...await original(), raiseToast: vi.fn() }))
-let wrapper, details, requests, failSave
+let wrapper, details, requests, failSave, failDelete
 const settle = async () => { await flushPromises(); await nextTick() }
 const button = label => new DOMWrapper([...document.querySelectorAll('button')].find(el => el.textContent.trim() === label))
 const field = label => new DOMWrapper(document.querySelector(`[aria-label="${label}"]`))
@@ -22,7 +22,7 @@ const fields = [
   { fieldname: 'total_leave_days', fieldtype: 'Float', label: 'Total Leave Days', read_only: true },
 ]
 beforeEach(() => {
-  requests = []; failSave = false
+  requests = []; failSave = false; failDelete = false
   details = {
     name: 'LEAVE-1', modified: 'revision-one', docstatus: 0, status: 'Open',
     can_write: true, can_submit: true, can_cancel: false, workflow_actions: [], fields: structuredClone(fields),
@@ -35,7 +35,11 @@ beforeEach(() => {
     if (url.endsWith('get_leave_application_create_meta')) return { fields: structuredClone(fields.filter(f => !f.read_only)), can_submit: false }
     if (url.endsWith('search_leave_application_link_options')) return [{ value: 'EMP-1', label: 'Alex' }]
     if (url.endsWith('planner_leave.update')) {
-      if (failSave) throw new Error('This Leave Application changed elsewhere. Reload it before saving.')
+      if (params.action === 'delete') {
+        if (failDelete) throw new Error('Permission to delete linked Attendance is required.')
+        return { name: 'LEAVE-1', deleted: true }
+      }
+      if (failSave) throw new Error('This Leave Application changed elsewhere. Reload it and try again.')
       return { name: 'LEAVE-1' }
     }
     if (url.endsWith('create_planner_leave_application')) return { name: 'LEAVE-NEW' }
@@ -86,6 +90,7 @@ describe('Planner Leave Application dialog', () => {
     await open()
     expect(field('From Date').attributes('disabled')).toBeDefined()
     expect(field('Reason').attributes('disabled')).toBeDefined()
+    expect(document.body.textContent).not.toContain('Delete Leave Application')
     if (docstatus === 2) {
       expect(document.body.textContent).not.toContain('Save Changes')
       expect(document.body.textContent).not.toContain('Cancel Leave Application')
@@ -95,6 +100,34 @@ describe('Planner Leave Application dialog', () => {
       await button('Confirm Cancellation').trigger('click'); await settle()
       expect(requests.find(r => r.url.endsWith('planner_leave.update')).params).toMatchObject({ name: 'LEAVE-1', action: 'cancel', values: {} })
     }
+  })
+  it('confirms deletion and refreshes the roster for a cancelled application', async () => {
+    Object.assign(details, { docstatus: 2, status: 'Cancelled', can_write: false, can_submit: false, can_delete: true })
+    details.fields.forEach(field => { field.read_only = true })
+    details.values.from_date = '2026-09-14'
+    await open()
+    await button('Delete Leave Application').trigger('click'); await settle()
+    expect(document.body.textContent).toContain('Any linked Attendance records will also be deleted.')
+    await button('Go back').trigger('click'); await settle()
+    expect(requests.some(r => r.url.endsWith('planner_leave.update'))).toBe(false)
+    await button('Delete Leave Application').trigger('click'); await settle()
+    await button('Confirm Deletion').trigger('click'); await settle()
+    expect(requests.find(r => r.url.endsWith('planner_leave.update')).params).toMatchObject({
+      name: 'LEAVE-1', expected_modified: 'revision-one', action: 'delete', values: {},
+    })
+    expect(raiseToast).toHaveBeenCalledWith('success', 'Leave Application deleted.')
+    expect(wrapper.emitted('fetchEvents')).toHaveLength(1)
+    expect(wrapper.emitted('update:modelValue').at(-1)).toEqual([false])
+  })
+  it('keeps the record open when linked Attendance blocks deletion', async () => {
+    Object.assign(details, { docstatus: 2, status: 'Cancelled', can_write: false, can_submit: false, can_delete: true })
+    failDelete = true
+    await open()
+    await button('Delete Leave Application').trigger('click'); await settle()
+    await button('Confirm Deletion').trigger('click'); await settle()
+    expect(document.body.textContent).toContain('Permission to delete linked Attendance is required.')
+    expect(wrapper.emitted('fetchEvents')).toBeUndefined()
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
   })
   it('uses workflow actions supplied by the server', async () => {
     details.workflow_actions = ['Approve request']; details.can_submit = false; details.can_write = false

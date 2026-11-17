@@ -43,15 +43,19 @@
     <template #actions>
       <div class="rounded-b-6 border-t bg-gray-50 px-6 py-4">
         <div v-if="confirmation" class="mb-3 space-y-2" role="alert">
-          <p class="text-sm">{{ confirmation.action === 'cancel' ? 'Cancel this Leave Application?' : `Apply ${confirmation.label} to this Leave Application?` }}</p>
+          <p v-if="confirmation.action === 'delete'" class="text-sm">
+            Delete this Leave Application from ERPNext? Any linked Attendance records will also be deleted.
+          </p>
+          <p v-else class="text-sm">{{ confirmation.action === 'cancel' ? 'Cancel this Leave Application?' : `Apply ${confirmation.label} to this Leave Application?` }}</p>
           <div class="flex justify-end gap-2">
             <Button :disabled="busy" @click="confirmation = null">Go back</Button>
-            <Button variant="solid" :loading="updateLeave.loading" @click="confirmAction">Confirm {{ confirmation.label }}</Button>
+            <Button variant="solid" :theme="confirmation.action === 'delete' ? 'red' : 'gray'" :loading="updateLeave.loading" :disabled="busy" @click="confirmAction">Confirm {{ confirmation.label }}</Button>
           </div>
         </div>
         <div v-else class="flex flex-wrap items-center justify-end gap-2">
           <Button variant="subtle" :disabled="saving" @click="closeDialog">Close</Button>
           <template v-if="metadata && !loading && !loadError">
+            <Button v-if="isEditing && metadata.can_delete" variant="outline" theme="red" :disabled="busy" @click="confirmation = { action: 'delete', label: 'Deletion' }">Delete Leave Application</Button>
             <Button v-if="isEditing && metadata.can_cancel" :disabled="busy" @click="confirmation = { action: 'cancel', label: 'Cancellation' }">Cancel Leave Application</Button>
             <Button v-for="action in metadata.workflow_actions || []" :key="action" :disabled="busy" @click="confirmation = { action: 'workflow', label: action }">{{ action }}</Button>
             <Button v-if="isEditing && metadata.can_write" variant="solid" :loading="updateLeave.loading" :disabled="busy || !isDirty" @click="submitLeave('save')">Save Changes</Button>
@@ -78,11 +82,11 @@ type LeaveField = {
 }
 type LeaveDetails = {
   fields: LeaveField[]; name?: string; modified?: string; docstatus?: number; status?: string;
-  values?: Record<string, any>; can_write?: boolean; can_submit?: boolean; can_cancel?: boolean;
+  values?: Record<string, any>; can_write?: boolean; can_submit?: boolean; can_cancel?: boolean; can_delete?: boolean;
   workflow_actions?: string[];
 }
 type LinkOption = { value: string; label?: string; description?: string }
-type Action = 'save' | 'submit' | 'cancel' | 'workflow'
+type Action = 'save' | 'submit' | 'cancel' | 'workflow' | 'delete'
 const props = defineProps<{ modelValue?: boolean; isDialogOpen: boolean; company?: string; leaveApplicationName?: string }>()
 const emit = defineEmits<{ (event: 'update:modelValue', value: boolean): void; (event: 'fetchEvents'): void }>()
 const dialogOpen = computed(() => props.modelValue ?? props.isDialogOpen)
@@ -126,7 +130,7 @@ const createLeave = createResource({
 })
 const updateLeave = createResource({
   url: 'verto.api.planner_leave.update', auto: false,
-  onSuccess() { saved('Leave Application updated.') },
+  onSuccess(result: { deleted?: boolean }) { saved(result?.deleted ? 'Leave Application deleted.' : 'Leave Application updated.') },
   onError(error: any) { writeError.value = errorMessage(error); confirmation.value = null },
 })
 
@@ -219,11 +223,12 @@ function validForm() {
 async function submitLeave(action: Action, workflowAction?: string) {
   if (busy.value || !metadata.value || loadError.value) return
   writeError.value = ''
-  if (action !== 'cancel' && !validForm()) { confirmation.value = null; return }
+  const updatesFields = action !== 'cancel' && action !== 'delete'
+  if (updatesFields && !validForm()) { confirmation.value = null; return }
   try {
     if (isEditing.value) {
       await updateLeave.submit({ name: metadata.value.name, expected_modified: metadata.value.modified,
-        values: action === 'cancel' ? {} : buildSubmitValues(), action, workflow_action: workflowAction })
+        values: updatesFields ? buildSubmitValues() : {}, action, workflow_action: workflowAction })
     } else await createLeave.submit({ values: buildSubmitValues() })
   } catch { /* Resource error handler keeps the form and the user's edits visible. */ }
 }
