@@ -1,6 +1,7 @@
 """Read saved Insights dashboard charts for quantitative analysis in Raven."""
 
 import math
+from importlib import import_module
 from decimal import Decimal
 from statistics import fmean
 
@@ -16,10 +17,15 @@ def get_dashboard_context(dashboard=None, filters=None):
     Filters are keyed by the dashboard's saved filter names. Each value is
     an Insights filter state with an operator and (where required) a value.
     """
-    from insights.api import view
-
     if frappe.session.user == "Guest":
         frappe.throw("Sign in to analyse Insights dashboards.", frappe.PermissionError)
+
+    try:
+        view = import_module("insights.api.view")
+    except ModuleNotFoundError as error:
+        if error.name != "insights.api.view":
+            raise
+        from verto.api.peri import insights_legacy as view
 
     dashboard = (dashboard or "").strip()
     available = [
@@ -114,12 +120,25 @@ def read_chart(view, dashboard, chart, readings, filters):
     if result.get("errors") or "rows" not in result:
         return {**context, "status": "unavailable"}
 
-    rows = result["rows"] or []
+    columns = result.get("columns") or []
+    hidden = {
+        column["name"]
+        for column in columns
+        if isinstance(column, dict) and column.get("hidden")
+    }
+    columns = [
+        column for column in columns
+        if not isinstance(column, dict) or column.get("name") not in hidden
+    ]
+    rows = [
+        {key: value for key, value in row.items() if key not in hidden}
+        for row in result["rows"] or []
+    ]
     return {
         **context,
         "status": "ok" if rows else "no_data",
         "config": (result.get("chart") or chart).get("config"),
-        "columns": result.get("columns"),
+        "columns": columns,
         "granularity": result.get("granularity"),
         "comparison_rows": result.get("comparison_rows"),
         "returned_row_count": len(rows),
