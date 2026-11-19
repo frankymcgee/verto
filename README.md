@@ -71,6 +71,15 @@ The app was originally created to enhance ERPNext for operational and project-ba
 - Positive and at-risk behaviour visualizations
 - Project scope filtering across dashboards
 
+Register `verto.api.peri.insights_context.get_dashboard_context` as a Raven AI
+function on the PERI bot. Give it an optional string `dashboard` and an optional
+object `filters`. In the function description, instruct PERI to call it without
+a dashboard to discover readable Insights dashboards, or with an exact title,
+ID or route to analyse each chart. A filter is keyed by its saved dashboard
+filter name and takes the Insights operator and value. Ask for clarification
+when the requested filter or dashboard cannot be resolved. The tool uses the
+Raven execution user's Insights access and the dashboard's saved defaults.
+
 ### Raven and PERI AI Integration
 
 - Raven chat integration

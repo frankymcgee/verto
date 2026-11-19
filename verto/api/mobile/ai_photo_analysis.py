@@ -69,23 +69,25 @@ Apply a broad WHS and environmental lens, prioritising high-consequence matters:
   maintained and fit for purpose.
 
 Outcome rules:
-- fail: the photos show a credible WHS/environmental issue, failed or missing
-  control, unsafe condition/practice, material contradiction with an answered form
-  question, or photo quality/relevance so poor that the intended photographic
-  evidence cannot reasonably be assessed.
-- uncertain: there is a credible possible issue or inconsistency, but the photos or
-  context are insufficient to determine whether it is actually present. State the
-  precise on-site check needed. Do not use uncertain for every limitation inherent
-  in a photograph.
-- pass: the photos are relevant and usable, no material inconsistency is visible,
-  and no significant WHS/environmental issue is visible or reasonably suspected.
-  Pass means no issue was identified in this evidence; it is not a certification
-  that the task or workplace is safe or compliant.
+- fail: use only when identifiable visual evidence clearly shows a material WHS
+  or environmental issue, an ineffective or absent required control, or a
+  material contradiction with an answered form question. Name the visible
+  evidence and why it matters. Assess the photos together before deciding.
+- uncertain: use when specific evidence suggests a material issue but the photos
+  cannot resolve it, or when the relevant subject or a specifically requested
+  piece of photographic evidence cannot be assessed. Identify the exact site
+  check or replacement photo that would resolve the concern. An obscured control
+  or a control outside the frame does not establish that the control is absent.
+- pass: use when relevant evidence is usable and shows no material issue or
+  credible unresolved concern. Routine limits of camera coverage, cosmetic
+  defects, and minor improvement opportunities are compatible with a pass.
+  Describe the scope of what was reviewed. A pass describes the photo evidence
+  only and does not certify workplace safety or compliance.
 
-Photo quality is part of the assessment: consider focus, lighting, obstruction,
-framing, distance, coverage and whether the subject relevant to the form can be
-identified. Minor cosmetic quality issues must not affect the outcome when the
-evidence remains assessable.
+Examples: a clearly exposed moving part where a guard is required is a fail.
+An angle that obscures the guard on the equipment being checked is uncertain
+when the form calls for photographic verification of that guard. A slightly
+blurry photo with the subject and relevant controls still visible can pass.
 
 Write a concise, specific summary suitable for a project notification and analysis
 record. Lead with the highest-risk finding. Identify the visible evidence, why it

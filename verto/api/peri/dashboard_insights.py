@@ -3,10 +3,13 @@ import frappe
 
 
 @frappe.whitelist()
-def get_shutdown_safety_dashboard_context(project_scope_name=None, project_name=None):
+def get_shutdown_safety_dashboard_context(project_scope_name=None, project_name=None, dashboard=None, filters=None):
     """
     Returns structured Shutdown Safety Metrics and Shutdown Incident Tracker
     dashboard data for PERI/Raven AI.
+
+    With a dashboard title, ID or route, read the saved Insights dashboard
+    instead. Named dashboards accept filters keyed by their saved filter names.
 
     Filters:
     - project_scope_name: used for the existing Safety Metrics charts through
@@ -20,6 +23,13 @@ def get_shutdown_safety_dashboard_context(project_scope_name=None, project_name=
     project-name value. If neither value is supplied, the incident section
     returns no incident rows instead of returning every project's incidents.
     """
+
+    if dashboard or filters:
+        from verto.api.peri.insights_context import get_dashboard_context
+
+        if clean_optional_value(project_scope_name) or clean_optional_value(project_name):
+            frappe.throw("For a named dashboard, pass project filters using its saved filter names.")
+        return get_dashboard_context(dashboard=dashboard, filters=filters)
 
     project_scope_name = clean_optional_value(project_scope_name)
     project_name = clean_optional_value(project_name)
