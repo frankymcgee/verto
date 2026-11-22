@@ -125,9 +125,10 @@ yarn test:ui tests/offline-sync.test.js tests/offline-request-efficiency.test.js
 )
 echo '::endgroup::'
 
-echo '::group::Verify weekly Timesheet client rejection'
+echo '::group::Verify weekly Timesheet reporting and client rejection'
 (
   cd "$VERTO_CI_BENCH"
+bench --site test_site run-tests --app verto --module verto.verto.report.weekly_timesheet_v2.test_weekly_timesheet_v2 --skip-before-tests
 bench --site test_site run-tests --app verto --module verto.api.test_timesheet_approval --skip-before-tests
 cd apps/verto/frontend
 yarn test:ui tests/weekly-timesheet-approval.test.js
