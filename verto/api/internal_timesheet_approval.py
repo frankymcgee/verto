@@ -79,6 +79,19 @@ def _clock(value):
     return value if isinstance(value, time) else time.fromisoformat(str(value))
 
 
+def shift_from_start_time(value):
+    try:
+        return "NS" if _clock(value) >= DAY_SHIFT_CUTOFF else "DS"
+    except (TypeError, ValueError):
+        return ""
+
+
+def last_completed_week():
+    today = getdate(nowdate())
+    sunday = today - timedelta(days=today.weekday() + 1)
+    return sunday - timedelta(days=6), sunday
+
+
 def _week(doc):
     monday = getdate(doc.get("custom_monday_date") or doc.get("start_date") or nowdate())
     monday -= timedelta(days=monday.weekday())
@@ -193,7 +206,7 @@ def inspect_time_log(doc, log, index, context):
             start, end = get_datetime(log.get("from_time")), get_datetime(log.get("to_time"))
     except (TypeError, ValueError):
         pass
-    actual_kind = "NS" if start and start.time() >= DAY_SHIFT_CUTOFF else "DS" if start else ""
+    actual_kind = shift_from_start_time(start.time()) if start else ""
     declared = str(log.get("shift_type") or log.get("shift") or "").strip()
     declared_type = shift_kind(declared, context["types"].get(declared))
     declared_kind = declared_type or actual_kind
@@ -413,11 +426,12 @@ def get_internal_timesheet_review(week_start=None, project=None, timesheets=None
     if timesheets:
         names = _names(timesheets)
     else:
-        monday = getdate(week_start or nowdate())
-        if week_start and monday.weekday() != 0:
-            frappe.throw("Choose a Monday for the week beginning date.")
-        if not week_start:
-            monday -= timedelta(days=monday.weekday() + 7)
+        if week_start:
+            monday = getdate(week_start)
+            if monday.weekday() != 0:
+                frappe.throw("Choose a Monday for the week beginning date.")
+        else:
+            monday, _ = last_completed_week()
         filters = {"custom_monday_date": monday, "docstatus": ["!=", 2]}
         if project:
             filters["parent_project"] = project

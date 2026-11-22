@@ -106,6 +106,7 @@ before_job = ["verto.runtime_config.apply_runtime_job_config"]
 on_session_creation = "verto.default_apps.configure_default_apps"
 
 extend_doctype_class = {
+    "Auto Email Report": ["verto.verto.report.weekly_timesheet_v2.weekly_timesheet_v2.WeeklyTimesheetEmailMixin"],
     "File": ["verto.api.investigations.InvestigationFileMixin"],
     "User": ["verto.default_apps.VertoDefaultAppMixin"],
 }
