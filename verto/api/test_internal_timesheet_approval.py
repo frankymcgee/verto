@@ -4,7 +4,7 @@ import copy
 from datetime import datetime
 from types import SimpleNamespace
 from unittest import TestCase
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import frappe
 from frappe.tests import IntegrationTestCase
@@ -399,7 +399,16 @@ class TestInternalApprovalInvalidation(TestCase):
 
 
 class TestInternalApprovalIntegration(IntegrationTestCase):
-    def test_verification_email_consolidates_pending_drafts_for_the_scheduled_week(self):
+    def test_verification_email_attaches_pending_draft_pdfs_for_the_scheduled_week(self):
+        employee = frappe.get_doc({
+            "doctype": "Employee",
+            "name": f"IV-EMP-{frappe.generate_hash(length=10)}",
+            "first_name": "Internal",
+            "employee_name": "Internal Verification Tester",
+            "status": "Active",
+        })
+        employee.db_insert()
+
         def make_project(day):
             project = frappe.get_doc({
                 "doctype": "Project",
@@ -415,8 +424,11 @@ class TestInternalApprovalIntegration(IntegrationTestCase):
             doc = frappe.get_doc({
                 "doctype": "Timesheet",
                 "name": f"IV-TS-{frappe.generate_hash(length=10)}",
-                "employee_name": "Employee name omitted from email",
+                "employee": employee.name,
+                "employee_name": employee.employee_name,
                 "parent_project": project,
+                "project_name": "Internal review job",
+                "customer_abbreviation": "TEST",
                 "custom_monday_date": "2030-11-18",
                 "custom_sunday_date": "2030-11-24",
                 "docstatus": 0,
@@ -441,10 +453,15 @@ class TestInternalApprovalIntegration(IntegrationTestCase):
             bcc_email_list=["audit@example.test"],
             reply_to_email="accounts@example.test",
         )
+
+        def pdf_for(name):
+            return b"%PDF-1.7\n" + name.encode()
+
         with (
             patch.object(automate, "nowdate", return_value="2030-11-22"),
             patch.object(automate, "get_verto_mobile_email_settings", return_value=settings),
             patch.object(frappe.utils, "get_url", side_effect=lambda path: f"https://verto.example.test{path}"),
+            patch.object(frappe, "get_print", side_effect=lambda doctype, name, **options: pdf_for(name)) as get_print,
             patch.object(frappe, "sendmail") as sendmail,
         ):
             automate.send_weekly_timesheet_verification()
@@ -453,18 +470,47 @@ class TestInternalApprovalIntegration(IntegrationTestCase):
             self.assertEqual(mail["recipients"], settings.email_recipients)
             self.assertEqual(mail["bcc"], settings.bcc_email_list)
             self.assertEqual(mail["reply_to"], settings.reply_to_email)
-            self.assertNotIn("attachments", mail)
-            self.assertNotIn("Employee name omitted from email", mail["message"])
+            self.assertCountEqual(
+                [(attachment["fname"], attachment["fcontent"]) for attachment in mail["attachments"]],
+                [
+                    (f"20301124_Internalreviewjob_TEST_MSS_I_VerificationTester_{name}.pdf", pdf_for(name))
+                    for name in pending
+                ],
+            )
+            self.assertCountEqual(
+                get_print.call_args_list,
+                [call("Timesheet", name, print_format="Weekly Timesheet", as_pdf=True) for name in pending],
+            )
+            self.assertNotIn(employee.employee_name, mail["message"])
             self.assertIn(
                 'href="https://verto.example.test/app/internal-timesheet-approval?week_start=2030-11-18"',
                 mail["message"],
             )
 
+            sendmail.reset_mock()
+            get_print.side_effect = lambda doctype, name, **options: (
+                b"<html>Print failed</html>" if name == pending[0] else pdf_for(name)
+            )
+            with patch.object(frappe, "log_error") as log_error:
+                automate.send_weekly_timesheet_verification()
+            log_error.assert_called_once()
+            self.assertIn(pending[0], log_error.call_args.kwargs["title"])
+            sendmail.assert_called_once()
+            partial_mail = sendmail.call_args.kwargs
+            self.assertCountEqual(
+                [attachment["fcontent"] for attachment in partial_mail["attachments"]],
+                [pdf_for(name) for name in pending[1:]],
+            )
+            self.assertIn("includes 2 of 3 timesheet PDFs", partial_mail["message"])
+            self.assertIn("Open Internal Timesheet Review", partial_mail["message"])
+
             for name in pending:
                 frappe.db.set_value("Timesheet", name, "internal_approved", 1)
             sendmail.reset_mock()
+            get_print.reset_mock()
             automate.send_weekly_timesheet_verification()
             sendmail.assert_not_called()
+            get_print.assert_not_called()
 
     def test_real_review_with_null_parent_project_retains_stale_limit_protection(self):
         suffix = frappe.generate_hash(length=10)

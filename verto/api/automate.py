@@ -13,6 +13,7 @@ import json
 
 
 SETTINGS_DOCTYPE = "Verto Mobile Settings"
+WEEKLY_TIMESHEET_PRINT_FORMAT = "Weekly Timesheet"
 
 GROUPED_TIMESHEET_ROUTE = "/weekly-timesheet-approval"
 GROUPED_TIMESHEET_TOKEN_SALT = "verto-grouped-weekly-timesheet-approval-v1"
@@ -222,7 +223,7 @@ def generate_attachment(ts, file_name):
     return frappe.attach_print(
         doctype="Timesheet",
         name=ts.name,
-        print_format="Weekly Timesheet",
+        print_format=WEEKLY_TIMESHEET_PRINT_FORMAT,
         file_name=file_name,
     )
 
@@ -407,7 +408,13 @@ def send_weekly_timesheet_verification():
         frappe.qb.from_(timesheet)
         .join(project)
         .on(timesheet.parent_project == project.name)
-        .select(timesheet.name)
+        .select(
+            timesheet.name,
+            timesheet.employee,
+            timesheet.project_name,
+            timesheet.customer_abbreviation,
+            timesheet.custom_sunday_date,
+        )
         .where(
             (timesheet.docstatus == 0)
             & (timesheet.internal_approved == 0)
@@ -415,8 +422,8 @@ def send_weekly_timesheet_verification():
             & (timesheet.custom_sunday_date == end_date)
             & project.day_of_the_week.isin(allowed_days)
         )
-        .limit(1)
-        .run()
+        .orderby(timesheet.project_name, timesheet.employee_name, timesheet.name)
+        .run(as_dict=True)
     )
     if not pending:
         return
@@ -432,12 +439,36 @@ def send_weekly_timesheet_verification():
         <p><a href="{html.escape(review_url, quote=True)}">Open Internal Timesheet Review</a></p>
     """
 
+    attachments = []
+    for ts in pending:
+        try:
+            file_name = generate_attachment_name(ts, get_employee_doc(ts), include_project=True)
+            file_name = f"{file_name}_{ts.name}".replace(" ", "").replace("/", "-")
+            pdf = frappe.get_print(
+                "Timesheet", ts.name, print_format=WEEKLY_TIMESHEET_PRINT_FORMAT, as_pdf=True
+            )
+            if not isinstance(pdf, bytes) or not pdf.startswith(b"%PDF-"):
+                raise ValueError("Weekly Timesheet print did not return PDF content.")
+            attachments.append({"fname": f"{file_name}.pdf", "fcontent": pdf})
+        except Exception:
+            frappe.log_error(
+                title=f"Failed to attach PDF for Timesheet {ts.name}",
+                message=frappe.get_traceback(),
+            )
+
+    if len(attachments) < len(pending):
+        content_html += (
+            f"<p>This email includes {len(attachments)} of {len(pending)} timesheet PDFs. "
+            "Open Internal Timesheet Review to see the full week.</p>"
+        )
+
     try:
         frappe.sendmail(
             recipients=email_settings.email_recipients,
             subject=f"Weekly Timesheets for Internal Review - {week_range}",
             message=build_email_body(content_html, email_settings),
             delayed=False,
+            attachments=attachments,
             **get_sendmail_options(email_settings),
         )
     except Exception:
