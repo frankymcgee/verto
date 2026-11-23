@@ -79,13 +79,31 @@ afterEach(() => {
   calls.queued = 0
 })
 describe('Profile menu', () => {
-  it('offers the shared theme choices from the avatar menu', async () => {
-    w = mount(AppHeader, { attachTo: document.body, global: { stubs: { AboutAppToast: true } } })
+  it.each([false, true])('expands theme choices only on request (compact=%s)', async compact => {
+    w = mount(AppHeader, { props: { compact }, attachTo: document.body, global: { stubs: { AboutAppToast: true } } })
+    const id = compact ? 'desktop-user-theme' : 'mobile-user-theme'
+    expect(document.querySelector(`#${id}`)).toBeNull()
     await w.find('[aria-label="Open profile menu"]').trigger('click'); await flushPromises()
-    const control = document.querySelector('#mobile-user-theme')
-    expect([...control.options].map(option => option.value)).toEqual(['Light', 'Dark', 'Automatic'])
-    control.value = 'Dark'; control.dispatchEvent(new Event('change', { bubbles: true }))
+    expect(document.querySelector(`#${id}`)).toBeNull()
+    const trigger = document.querySelector(`button[aria-controls="${id}"]`)
+    expect(trigger.textContent).toContain('Light')
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    trigger.click(); await flushPromises()
+    const choices = [...document.querySelectorAll(`#${id} button`)]
+    expect(choices.map(choice => choice.textContent.replace('✓', '').trim())).toEqual(['Light', 'Dark', 'Automatic'])
+    choices[1].click(); await flushPromises()
     expect(calls.setTheme).toHaveBeenCalledWith('Dark')
+    expect(document.querySelector(`#${id}`)).toBeNull()
+  })
+  it('collapses the theme choices when the profile menu is closed and reopened', async () => {
+    w = mount(AppHeader, { attachTo: document.body, global: { stubs: { AboutAppToast: true } } })
+    const avatar = w.find('[aria-label="Open profile menu"]')
+    await avatar.trigger('click'); await flushPromises()
+    document.querySelector('button[aria-controls="mobile-user-theme"]').click(); await flushPromises()
+    expect(document.querySelector('#mobile-user-theme')).not.toBeNull()
+    await avatar.trigger('click'); await flushPromises()
+    await avatar.trigger('click'); await flushPromises()
+    expect(document.querySelector('#mobile-user-theme')).toBeNull()
   })
   it('shows the waiting count and opens the upload queue from the offline section', async () => {
     calls.queued = 2

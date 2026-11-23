@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import { inject } from 'vue'
 
 const mocks = vi.hoisted(() => ({ api: vi.fn(), raven: vi.fn() }))
 vi.mock('../src/lib/api', () => ({ apiRequest: mocks.api }))
@@ -206,8 +207,12 @@ describe('Embedded Flow viewport sizing', () => {
     Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport })
     try {
       const shell = (await import('../src/layouts/MobileShell.vue')).default
+      const { flowEditingKey } = await import('../src/lib/flowFrame')
       const router = createRouter({ history: createMemoryHistory(), routes: [
-        { path: '/chat/peri', component: { template: '<div>Flow</div>' } },
+        { path: '/chat/peri', component: {
+          setup() { return { setEditing: inject(flowEditingKey) } },
+          template: '<textarea @focus="setEditing(true)" @blur="setEditing(false)" />',
+        } },
         { path: '/', component: { template: '<div>Home</div>' } },
       ] })
       await router.push('/chat/peri'); await router.isReady()
@@ -217,10 +222,17 @@ describe('Embedded Flow viewport sizing', () => {
       } } })
       await flushPromises()
       expect(document.documentElement.classList.contains('verto-flow-active')).toBe(true)
-      expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('844px')
+      // At rest, Flow fills CSS's dynamic viewport rather than leaving a gap
+      // when Safari's visual viewport differs from its browser-toolbar layout.
+      expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('')
+      viewport.height = 800
+      viewport.dispatchEvent(new Event('resize'))
+      expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('')
+      await wrapper.get('textarea').trigger('focus')
       viewport.height = 480
       viewport.dispatchEvent(new Event('resize'))
       expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('480px')
+      expect(document.documentElement.style.getPropertyValue('--verto-flow-footer-safe-bottom')).toBe('0px')
       viewport.offsetTop = 168
       viewport.dispatchEvent(new Event('scroll'))
       expect(document.documentElement.style.getPropertyValue('--verto-viewport-top')).toBe('168px')
@@ -231,6 +243,16 @@ describe('Embedded Flow viewport sizing', () => {
       viewport.dispatchEvent(new Event('resize'))
       expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('480px')
       expect(document.documentElement.style.getPropertyValue('--verto-viewport-top')).toBe('168px')
+      viewport.scale = 1
+      viewport.height = 844
+      viewport.offsetTop = 0
+      viewport.dispatchEvent(new Event('resize'))
+      expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('')
+      expect(document.documentElement.style.getPropertyValue('--verto-flow-footer-safe-bottom')).toBe('')
+      await wrapper.get('textarea').trigger('blur')
+      viewport.height = 600
+      viewport.dispatchEvent(new Event('resize'))
+      expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('')
       await router.push('/'); await flushPromises()
       expect(document.documentElement.classList.contains('verto-flow-active')).toBe(false)
       expect(document.documentElement.style.getPropertyValue('--verto-viewport-top')).toBe('')
@@ -259,6 +281,30 @@ describe('Flow iframe and shadow DOM integration', () => {
     doc = document.implementation.createHTMLDocument('Flow')
     dispose = installEmbeddedFlowStyles(doc)
   }
+
+  it('reports editing in a shadow composer and clears it on blur and cleanup', async () => {
+    const { installEmbeddedFlowStyles } = await import('../src/lib/flowFrame')
+    const editing = vi.fn()
+    const host = document.createElement('div')
+    document.body.append(host)
+    const shadow = host.attachShadow({ mode: 'open' })
+    shadow.innerHTML = '<textarea></textarea>'
+    try {
+      dispose = installEmbeddedFlowStyles(document, editing)
+      expect(editing).toHaveBeenLastCalledWith(false)
+      const field = shadow.querySelector('textarea')
+      field.focus(); await flushPromises()
+      expect(editing).toHaveBeenLastCalledWith(true)
+      field.blur(); await flushPromises()
+      expect(editing).toHaveBeenLastCalledWith(false)
+      field.focus(); await flushPromises()
+      dispose()
+      expect(editing).toHaveBeenLastCalledWith(false)
+      editing.mockClear()
+      field.blur(); field.focus(); await flushPromises()
+      expect(editing).not.toHaveBeenCalled()
+    } finally { dispose?.(); host.remove() }
+  })
 
   it('raises a phone shadow editor and its formatted text to 16px without changing viewport zoom', async () => {
     const { installEmbeddedFlowStyles } = await import('../src/lib/flowFrame')

@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import BottomTabs from '../components/BottomTabs.vue'
@@ -51,6 +51,7 @@ import { isAndroidDevice, isStandalonePwa } from '../pwa/displayMode'
 import { clearNotificationIndicators } from '../pwa/clearNotificationIndicators'
 import { usePushNotifications } from '../pwa/usePushNotifications'
 import { useMobileBoot } from '../lib/mobileBoot'
+import { flowEditingKey } from '../lib/flowFrame'
 
 const route = useRoute()
 const mainEl = ref<HTMLElement | null>(null)
@@ -59,6 +60,13 @@ const useAndroidBrowserViewport = isAndroidDevice() && !isStandalonePwa()
 const { periChatVersion } = useMobileBoot()
 const isFlowPeriPage = computed(() => route.path === '/chat/peri' && periChatVersion.value === 'Flow')
 let viewportSyncInstalled = false
+let flowEditing = false
+let flowIdleHeight = 0
+let flowViewportWidth = 0
+provide(flowEditingKey, editing => {
+  flowEditing = editing
+  syncAndroidBrowserViewport()
+})
 
 function syncAndroidBrowserViewport() {
   if (!useAndroidBrowserViewport && !isFlowPeriPage.value) {
@@ -70,6 +78,25 @@ function syncAndroidBrowserViewport() {
   // unzoomed size, instead of squeezing it into the magnified screen.
   const scale = isFlowPeriPage.value ? viewport?.scale || 1 : 1
   const viewportHeight = viewport ? viewport.height * scale : window.innerHeight
+
+  if (isFlowPeriPage.value) {
+    const root = document.documentElement
+    if (!flowIdleHeight || !flowEditing) flowIdleHeight = viewportHeight
+    if (flowViewportWidth && flowViewportWidth !== window.innerWidth) {
+      flowIdleHeight = Math.max(viewportHeight, window.innerHeight)
+    }
+    flowViewportWidth = window.innerWidth
+    const keyboardVisible = flowEditing && flowIdleHeight - viewportHeight > 100
+    if (!keyboardVisible) {
+      // At rest, CSS's dynamic viewport fills the app reliably. A fixed pixel
+      // height from visualViewport can leave Safari's toolbar-sized gap below it.
+      root.style.removeProperty('--verto-viewport-height')
+      root.style.removeProperty('--verto-viewport-top')
+      root.style.removeProperty('--verto-flow-footer-safe-bottom')
+      return
+    }
+    root.style.setProperty('--verto-flow-footer-safe-bottom', '0px')
+  }
 
   if (viewportHeight > 0) {
     document.documentElement.style.setProperty(
@@ -106,6 +133,10 @@ function removeAndroidBrowserViewportSync() {
   window.visualViewport?.removeEventListener('scroll', syncAndroidBrowserViewport)
   document.documentElement.style.removeProperty('--verto-viewport-height')
   document.documentElement.style.removeProperty('--verto-viewport-top')
+  document.documentElement.style.removeProperty('--verto-flow-footer-safe-bottom')
+  flowEditing = false
+  flowIdleHeight = 0
+  flowViewportWidth = 0
 }
 
 function clearForegroundNotifications() {
@@ -168,6 +199,7 @@ watch(
 }
 
 .mobile-shell--flow {
+  --verto-footer-safe-bottom: var(--verto-flow-footer-safe-bottom, env(safe-area-inset-bottom, 0px));
   position: fixed;
   top: var(--verto-viewport-top, 0px);
   right: 0;
