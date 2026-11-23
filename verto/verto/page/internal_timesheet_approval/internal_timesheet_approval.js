@@ -140,9 +140,15 @@ frappe.InternalTimesheetReview = class {
         const options = frappe.route_options || {};
         const query = new URLSearchParams(window.location.search);
         let names = options.timesheets || query.get("timesheets");
+        const weekStart = options.week_start || query.get("week_start");
         if (typeof names === "string") { try { names = JSON.parse(names); } catch { names = null; } }
-        if (Array.isArray(names) && names.length) this.explicitNames = names;
-        if (options.timesheets) frappe.route_options = null;
+        if (Array.isArray(names) && names.length) {
+            this.explicitNames = names;
+        } else if (weekStart) {
+            this.explicitNames = null;
+            this.find("week").value = weekStart;
+        }
+        if (options.timesheets || options.week_start) frappe.route_options = null;
         if (!this.find("week").value) {
             const today = new Date(`${frappe.datetime.get_today()}T12:00:00`);
             today.setDate(today.getDate() - ((today.getDay() + 6) % 7) - 7);

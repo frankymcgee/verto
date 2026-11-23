@@ -388,7 +388,6 @@ def send_weekly_timesheets(timesheet_name=None):
 
 def send_weekly_timesheet_verification():
     email_settings = get_verto_mobile_email_settings()
-    sendmail_options = get_sendmail_options(email_settings)
 
     if not email_settings.email_recipients:
         frappe.log_error(
@@ -402,66 +401,50 @@ def send_weekly_timesheet_verification():
 
     start_date, end_date, allowed_days = get_timesheet_date_range()
 
-    timesheets = frappe.get_all(
-        "Timesheet",
-        filters={
-            "docstatus": 0,
-            "custom_monday_date": ["=", start_date],
-            "custom_sunday_date": ["=", end_date],
-        },
-        fields=[
-            "name",
-            "employee",
-            "parent_project",
-            "project_name",
-            "total_hours",
-            "role",
-            "custom_monday_date",
-            "custom_sunday_date",
-            "customer_abbreviation",
-        ],
+    timesheet = frappe.qb.DocType("Timesheet")
+    project = frappe.qb.DocType("Project")
+    pending = (
+        frappe.qb.from_(timesheet)
+        .join(project)
+        .on(timesheet.parent_project == project.name)
+        .select(timesheet.name)
+        .where(
+            (timesheet.docstatus == 0)
+            & (timesheet.internal_approved == 0)
+            & (timesheet.custom_monday_date == start_date)
+            & (timesheet.custom_sunday_date == end_date)
+            & project.day_of_the_week.isin(allowed_days)
+        )
+        .limit(1)
+        .run()
     )
+    if not pending:
+        return
 
-    for ts in timesheets:
-        if not ts.parent_project:
-            continue
+    week_range = " to ".join(
+        frappe.utils.formatdate(day, "dd-MMM-yyyy") for day in (start_date, end_date)
+    )
+    review_url = frappe.utils.get_url(
+        f"/app/internal-timesheet-approval?{urlencode({'week_start': start_date})}"
+    )
+    content_html = f"""
+        <p>Weekly timesheets for <strong>{week_range}</strong> are ready for internal review.</p>
+        <p><a href="{html.escape(review_url, quote=True)}">Open Internal Timesheet Review</a></p>
+    """
 
-        try:
-            project = frappe.get_doc("Project", ts.parent_project)
-
-            if project.day_of_the_week not in allowed_days:
-                continue
-
-            employee_doc = get_employee_doc(ts)
-            employee_name = employee_doc.employee_name
-            file_name = generate_attachment_name(ts, employee_doc, include_project=True)
-            attachment = generate_attachment(ts, file_name)
-            start_fmt, end_fmt = format_date_range(ts)
-
-            content_html = f"""
-                <p>Please find attached the weekly timesheet for <strong>{employee_name}</strong> for verification:</p>
-                <p><strong>Project:</strong> {ts.project_name}</p>
-                <p><strong>Role:</strong> {ts.role}</p>
-                <p><strong>Week Range:</strong> {start_fmt} → {end_fmt}</p>
-                <p><strong>Total Hours:</strong> {ts.total_hours} Hours</p>
-            """
-
-            frappe.sendmail(
-                recipients=email_settings.email_recipients,
-                subject=f"Timesheet for {employee_name} - {ts.project_name}",
-                message=build_email_body(content_html, email_settings),
-                delayed=False,
-                attachments=[attachment],
-                **sendmail_options,
-            )
-
-            time.sleep(1)
-
-        except Exception:
-            frappe.log_error(
-                title=f"Failed to send Timesheet {ts.name}",
-                message=frappe.get_traceback(),
-            )
+    try:
+        frappe.sendmail(
+            recipients=email_settings.email_recipients,
+            subject=f"Weekly Timesheets for Internal Review - {week_range}",
+            message=build_email_body(content_html, email_settings),
+            delayed=False,
+            **get_sendmail_options(email_settings),
+        )
+    except Exception:
+        frappe.log_error(
+            title=f"Failed to send weekly Timesheet verification for {start_date}",
+            message=frappe.get_traceback(),
+        )
 
 
 def send_timesheet_followup_reminders(timesheet_name=None):

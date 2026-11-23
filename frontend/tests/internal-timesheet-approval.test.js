@@ -131,6 +131,22 @@ describe('Consolidated internal Timesheet review', () => {
     expect(calls[2].args.timesheets).toBeUndefined()
     expect(calls[2].args.week_start).toBe('2026-10-05')
   })
+
+  it('opens the week in the validation email even after reviewing an employee selection', () => {
+    load()
+    frappe.route_options = { timesheets: ['CLEAN'] }
+    view.show()
+    load()
+
+    const previousUrl = window.location.href
+    try {
+      window.history.replaceState(null, '', '/app/internal-timesheet-approval?week_start=2026-10-12')
+      view.show()
+      expect(calls.at(-1).args).toEqual({ week_start: '2026-10-12', project: '', include_approved: 0 })
+    } finally {
+      window.history.replaceState(null, '', previousUrl)
+    }
+  })
 })
 
 describe('Existing Timesheet list actions', () => {
