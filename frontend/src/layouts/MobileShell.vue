@@ -27,11 +27,11 @@
         </main>
       </div>
 
+      <PwaUpdatePrompt />
       <BottomTabs />
     </div>
 
     <AppBrowserDrawer />
-    <PwaUpdatePrompt />
     <PwaInstallPrompt />
   </div>
 </template>
@@ -203,10 +203,21 @@ watch(
   position: fixed;
   top: var(--verto-viewport-top, 0px);
   right: 0;
+  bottom: 0;
   left: 0;
-  height: var(--verto-viewport-height, 100dvh);
+  height: var(--verto-viewport-height, auto);
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: clip;
+}
+
+/* Fill the fixed inset box. A second 100dvh height can end above its bottom
+   in an installed iOS app, leaving the page background below the tab bar. */
+.mobile-shell--flow > .mobile-shell-frame {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
 }
 
 .mobile-shell-content {
@@ -266,6 +277,11 @@ watch(
 }
 
 @media (min-width: 1024px) {
+  .mobile-shell--flow :deep(.bottom-tabs) {
+    height: auto;
+    min-height: 0;
+  }
+
   .mobile-shell-header {
     display: none;
   }

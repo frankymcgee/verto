@@ -4,6 +4,7 @@
 *.swp
 tags
 node_modules
+frontend/test-results/
 __pycache__
 
 # Planner build output
