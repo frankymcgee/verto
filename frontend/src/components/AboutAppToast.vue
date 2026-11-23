@@ -26,6 +26,13 @@
           </div>
 
           <p v-if="error" class="mt-3 rounded-6 border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{{ error }}</p>
+          <details class="mt-4 text-sm text-ink-gray-7">
+            <summary class="cursor-pointer">Layout troubleshooting</summary>
+            <p class="my-3 text-xs">Captures screen and layout measurements from before this panel opened. No conversation, form contents or account details are included. Nothing is sent automatically.</p>
+            <Button :disabled="!layoutReport" @click="copyLayoutReport">Copy layout report</Button>
+            <p v-if="copyStatus" role="status" class="mt-2 text-xs">{{ copyStatus }}</p>
+            <textarea v-if="manualReport" :value="manualReport" readonly aria-label="Layout report" class="mt-2 h-48 w-full rounded border border-outline-gray-2 bg-surface-gray-1 p-2 text-base" @focus="($event.target as HTMLTextAreaElement).select()" />
+          </details>
           <p class="mt-4 text-center text-xs text-ink-gray-5">{{ copyrightText || 'Copyright 2026 Webwire Pty Ltd' }}</p>
         </div>
       </div>
@@ -37,11 +44,12 @@ import MobileSheet from './MobileSheet.vue'
 import { Button } from 'frappe-ui'
 import { ref, watch } from 'vue'
 import { apiRequest } from '../lib/api'
+import type { captureLayoutDiagnostics } from '../lib/layoutDiagnostics'
 
 type AboutInfo = { company_name?: string; app_version?: string; build_number?: string; copyright?: string }
 type FrappeResponse<T> = { message: T }
 
-const props = defineProps<{ open: boolean }>()
+const props = defineProps<{ open: boolean; layoutReport?: ReturnType<typeof captureLayoutDiagnostics> | null }>()
 const emit = defineEmits<{ close: [] }>()
 const loading = ref(false)
 const error = ref('')
@@ -49,6 +57,21 @@ const companyName = ref('')
 const appVersion = ref('')
 const buildNumber = ref('')
 const copyrightText = ref('Copyright 2026 Webwire Pty Ltd')
+const copyStatus = ref('')
+const manualReport = ref('')
+
+async function copyLayoutReport() {
+  if (!props.layoutReport) return
+  const report = JSON.stringify({ ...props.layoutReport, appVersion: appVersion.value, buildNumber: buildNumber.value }, null, 2)
+  try {
+    await navigator.clipboard.writeText(report)
+    manualReport.value = ''
+    copyStatus.value = 'Copied. Paste the report into your support conversation.'
+  } catch {
+    manualReport.value = report
+    copyStatus.value = 'Clipboard unavailable. Select and copy the report below.'
+  }
+}
 
 async function loadAboutInfo() {
   loading.value = true
@@ -68,6 +91,8 @@ async function loadAboutInfo() {
 }
 
 watch(() => props.open, (isOpen) => {
+  copyStatus.value = ''
+  manualReport.value = ''
   if (isOpen) void loadAboutInfo()
 })
 </script>

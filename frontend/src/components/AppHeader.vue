@@ -255,6 +255,7 @@
 
   <AboutAppToast
     :open="aboutOpen"
+    :layout-report="layoutReport"
     @close="aboutOpen = false"
   />
 </template>
@@ -264,6 +265,7 @@ import { Popover, Button, Switch } from 'frappe-ui'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AboutAppToast from './AboutAppToast.vue'
+import { captureLayoutDiagnostics } from '../lib/layoutDiagnostics'
 import { useMobileBoot } from '../lib/mobileBoot'
 import { useMobileTheme } from '../lib/mobileTheme'
 import { openAppBrowser } from '../lib/appBrowser'
@@ -608,7 +610,10 @@ function openAppList() {
   })
 }
 
+const layoutReport = ref<ReturnType<typeof captureLayoutDiagnostics> | null>(null)
 function openAbout() {
+  // Capture before the sheet's scroll lock can change the page geometry.
+  layoutReport.value = captureLayoutDiagnostics()
   menuOpen.value = false
   aboutOpen.value = true
 }
