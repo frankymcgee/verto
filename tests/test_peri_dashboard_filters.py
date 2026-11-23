@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import sys
 from copy import deepcopy
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -22,6 +23,8 @@ def load_module(name, path):
 
 class TestDashboardFilters(unittest.TestCase):
     def setUp(self):
+        # The real fallback imports Verto's package; CI invokes this from frontend/.
+        self.enterContext(patch.object(sys, "path", [str(ROOT), *sys.path]))
         self.frappe = ModuleType("frappe")
         self.frappe.whitelist = lambda **kwargs: lambda function: function
         self.frappe.session = SimpleNamespace(user="advisor@example.test")
