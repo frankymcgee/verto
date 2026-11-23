@@ -3,6 +3,7 @@
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
+import re
 from pathlib import Path
 from threading import Thread
 from urllib.parse import urlparse
@@ -68,14 +69,28 @@ def mock_api(route):
     route.fulfill(content_type="application/json", body=json.dumps({"message": message}))
 
 
-def check_layout(browser, origin, engine, width, height, shortfall):
+def check_layout(browser, origin, engine, width, height, shortfall, ios_standalone=False):
     mobile = width < 1024
     context = browser.new_context(
         viewport={"width": width, "height": height},
         is_mobile=mobile, has_touch=mobile, service_workers="block", locale="en-AU",
+        **({"user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 Version/27.0.1 Mobile/15E148 Safari/604.1"} if ios_standalone else {}),
     )
+    if ios_standalone:
+        # Model the measured phone: lvh=956 but innerHeight/visualViewport=894.
+        # This is a regression model, not a claim to run an installed iOS app.
+        context.add_init_script("""(() => {
+          Object.defineProperty(navigator, 'standalone', {value:true});
+          const viewport=window.visualViewport;
+          const nativeHeight=Object.getOwnPropertyDescriptor(VisualViewport.prototype, 'height').get;
+          const reportedHeight=() => {const h=nativeHeight.call(viewport); return h>600 ? h-62 : h};
+          Object.defineProperty(viewport, 'height', {get:reportedHeight});
+          Object.defineProperty(window, 'innerHeight', {get:reportedHeight});
+        })()""")
     page = context.new_page()
     label = f"{engine}-{'phone' if mobile else 'desktop'}-dvh-shortfall-{shortfall}"
+    if ios_standalone:
+        label += "-ios-standalone"
     page.route("**/api/method/**", mock_api)
     page.route("**/socket.io/**", lambda route: route.abort())
     page.route("**/verto-mobile.webmanifest", lambda route: route.fulfill(content_type="application/manifest+json", body="{}"))
@@ -106,6 +121,22 @@ def check_layout(browser, origin, engine, width, height, shortfall):
               return {viewport:innerHeight,shell:box('.mobile-shell'),frame:box('.mobile-shell-frame'),nav:box('.bottom-tabs')};
             }""")
 
+        if ios_standalone:
+            # Model the shorter native fixed containing block using a transformed
+            # body. Removing the fix must reproduce the measured 62px gap.
+            page.add_style_tag(content="""
+              body {transform:translate(0);}
+              html.verto-flow-active:not(.verto-flow-standalone-ios),
+              html.verto-flow-active:not(.verto-flow-standalone-ios) body {
+                height:calc(100vh - 62px) !important;
+              }
+            """)
+            expect(page.locator('html')).to_have_class(re.compile(r'\bverto-flow-standalone-ios\b'))
+            page.evaluate("document.documentElement.classList.remove('verto-flow-standalone-ios')")
+            assert abs(measure()["nav"]["bottom"] - (height - 62)) <= 1, (label, "unpatched model", measure())
+            page.evaluate("document.documentElement.classList.add('verto-flow-standalone-ios')")
+            expect(page.locator('body')).to_have_css('position', 'relative')
+
         geometry = measure()
         for key in ("shell", "frame", "nav"):
             assert abs(geometry[key]["bottom"] - height) <= 1, (label, key, geometry)
@@ -128,6 +159,10 @@ def check_layout(browser, origin, engine, width, height, shortfall):
             geometry = measure()
             assert abs(geometry["frame"]["bottom"] - 480) <= 1, (label, geometry)
             assert abs(geometry["nav"]["bottom"] - 480) <= 1, (label, geometry)
+            # Restore the idle app after the keyboard closes.
+            page.set_viewport_size({"width": width, "height": height})
+            expect(page.locator(".mobile-shell")).to_have_css("height", f"{height}px")
+            assert abs(measure()["nav"]["bottom"] - height) <= 1, (label, "keyboard closed", measure())
     finally:
         page.screenshot(path=str(RESULTS / f"{label}-last-state.png"))
         context.close()
@@ -145,6 +180,7 @@ def main():
                     for width, height in ((440, 956), (1440, 900)):
                         for shortfall in (0, 62):
                             check_layout(browser, f"http://127.0.0.1:{server.server_port}", engine, width, height, shortfall)
+                    check_layout(browser, f"http://127.0.0.1:{server.server_port}", engine, 440, 956, 62, ios_standalone=True)
                 finally:
                     browser.close()
     finally:

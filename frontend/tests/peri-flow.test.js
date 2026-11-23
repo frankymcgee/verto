@@ -197,7 +197,12 @@ describe('Flow errors and recall', () => {
 })
 
 describe('Embedded Flow viewport sizing', () => {
-  it('resizes with the keyboard viewport and restores the normal shell on leaving Flow', async () => {
+  it.each(['browser', 'ios-browser', 'ios-standalone'])(
+    'resizes with the keyboard and restores the normal shell on leaving Flow (%s)', async mode => {
+    const ios = mode.startsWith('ios')
+    const userAgent = vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(ios ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X)' : 'Desktop test browser')
+    const standalone = Object.getOwnPropertyDescriptor(navigator, 'standalone')
+    Object.defineProperty(navigator, 'standalone', { configurable: true, value: mode === 'ios-standalone' })
     await navigation()
     const viewport = new EventTarget()
     viewport.height = 844
@@ -222,6 +227,7 @@ describe('Embedded Flow viewport sizing', () => {
       } } })
       await flushPromises()
       expect(document.documentElement.classList.contains('verto-flow-active')).toBe(true)
+      expect(document.documentElement.classList.contains('verto-flow-standalone-ios')).toBe(mode === 'ios-standalone')
       // At rest, Flow fills CSS's dynamic viewport rather than leaving a gap
       // when Safari's visual viewport differs from its browser-toolbar layout.
       expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('')
@@ -255,6 +261,7 @@ describe('Embedded Flow viewport sizing', () => {
       expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('')
       await router.push('/'); await flushPromises()
       expect(document.documentElement.classList.contains('verto-flow-active')).toBe(false)
+      expect(document.documentElement.classList.contains('verto-flow-standalone-ios')).toBe(false)
       expect(document.documentElement.style.getPropertyValue('--verto-viewport-top')).toBe('')
       expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('')
       viewport.height = 600
@@ -262,6 +269,10 @@ describe('Embedded Flow viewport sizing', () => {
       expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('')
     } finally {
       wrapper?.unmount(); wrapper = undefined
+      expect(document.documentElement.classList.contains('verto-flow-standalone-ios')).toBe(false)
+      userAgent.mockRestore()
+      if (standalone) Object.defineProperty(navigator, 'standalone', standalone)
+      else delete navigator.standalone
       if (original) Object.defineProperty(window, 'visualViewport', original)
       else delete window.visualViewport
     }
