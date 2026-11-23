@@ -53,7 +53,7 @@ const routes = [
       },
       {
         path: 'chat/peri',
-        component: Chat,
+        component: () => import('../pages/AskPeri.vue'),
         meta: {
           title: 'Ask PERI',
           mode: 'peri',

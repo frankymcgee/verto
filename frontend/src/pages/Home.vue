@@ -628,6 +628,7 @@ import {
   Checkbox,
 } from 'frappe-ui'
 import { apiRequest } from '../lib/api'
+import { preparePeriChatRoute } from '../lib/periChat'
 import { openAppBrowser } from '../lib/appBrowser'
 import { parseFrappeTime } from '../lib/dateTimeFields'
 
@@ -734,14 +735,6 @@ type HomePayload = {
 
 type FrappeResponse<T> = {
   message: T
-}
-
-type PeriChannelResponse = {
-  channel?: string | Record<string, any>
-  name?: string
-  channel_id?: string
-  channel_name?: string
-  message?: string | Record<string, any>
 }
 
 type ProjectHandoverResponse = {
@@ -1458,37 +1451,7 @@ async function openProjectChat(scope: ScopeGroup) {
   })
 }
 
-function getPeriChannelIdFromResponse(value: any) {
-  const channel = value?.channel || value?.message || value
-
-  if (typeof channel === 'string') {
-    return channel
-  }
-
-  return (
-    channel?.name ||
-    channel?.channel_id ||
-    value?.name ||
-    value?.channel_id ||
-    ''
-  )
-}
-
-async function getOrCreatePeriChannelId() {
-  const data = await apiRequest<FrappeResponse<PeriChannelResponse>>(
-    '/api/method/verto.api.mobile.raven.get_or_create_peri_channel'
-  )
-
-  const channelId = getPeriChannelIdFromResponse(data.message)
-
-  if (!channelId) {
-    throw new Error('Could not determine the Ask PERI channel.')
-  }
-
-  return channelId
-}
-
-// Analyse with PERI: resolve the dedicated user <-> PERI DM channel before routing.
+// Open the project analysis in the configured Ask PERI version.
 async function analyseProjectWithPeri(scope: ScopeGroup) {
   const projectName =
     scope.scope_name ||
@@ -1505,23 +1468,7 @@ async function analyseProjectWithPeri(scope: ScopeGroup) {
   }
 
   try {
-    const channel = await getOrCreatePeriChannelId()
-
-    sessionStorage.setItem(
-      'verto_peri_autosend_message',
-      `Analyse the dashboard for ${projectName}`
-    )
-
-    sessionStorage.setItem('verto_peri_source_project', projectName)
-
-    await router.push({
-      path: '/chat/peri',
-      query: {
-        channel,
-        mode: 'ai',
-        auto: 'analyse',
-      },
-    })
+    await router.push(await preparePeriChatRoute(projectName))
   } catch (err) {
     error.value = err instanceof Error
       ? err.message

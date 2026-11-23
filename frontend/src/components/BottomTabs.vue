@@ -176,25 +176,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { apiRequest } from '../lib/api'
+import { preparePeriChatRoute } from '../lib/periChat'
 import { useMobileBoot } from '../lib/mobileBoot'
 import AppHeader from './AppHeader.vue'
-
-type FrappeResponse<T> = {
-  message: T
-}
-
-type PeriChannelResponse = {
-  channel?: string
-  channel_id?: string
-  channel_name?: string
-  name?: string
-  url?: string
-  peri_bot_name?: string
-  peri_bot_user?: string
-  peri_bot_image?: string
-  peri_bot_image_url?: string
-}
 
 const route = useRoute()
 const router = useRouter()
@@ -319,16 +303,6 @@ function getInitials(value: string) {
   return `${words[0][0]}${words[1][0]}`.toUpperCase()
 }
 
-function getPeriChannelName(message: PeriChannelResponse) {
-  return (
-    message.channel ||
-    message.channel_id ||
-    message.channel_name ||
-    message.name ||
-    ''
-  )
-}
-
 async function openPeriChat() {
   if (periLoading.value) {
     return
@@ -337,25 +311,7 @@ async function openPeriChat() {
   periLoading.value = true
 
   try {
-    await loadMobileBoot()
-
-    const data = await apiRequest<FrappeResponse<PeriChannelResponse>>(
-      '/api/method/verto.api.mobile.raven.get_or_create_peri_channel'
-    )
-
-    const channel = getPeriChannelName(data.message || {})
-
-    if (!channel) {
-      throw new Error(`Could not resolve the ${periBotName.value || 'PERI'} channel.`)
-    }
-
-    await router.push({
-      path: '/chat/peri',
-      query: {
-        channel,
-        mode: 'ai',
-      },
-    })
+    await router.push(await preparePeriChatRoute())
   } catch (err) {
     if (err instanceof Error && err.message === 'Login required') {
       return
