@@ -52,7 +52,10 @@ origins. An expired login returns to the normal sign-in page in the same tab.
 
 ## Keyboard and theme
 
-On the Flow route, the mobile shell uses the normal dynamic viewport at rest.
+On the Flow route, the mobile shell is fixed to all four viewport edges at rest,
+with its inner frame filling the available height using flex layout. Neither
+box uses an independent `100dvh` height, which can leave a strip below the tabs
+when an installed browser reports a shorter dynamic viewport.
 While a text field is focused and the keyboard reduces the visible viewport,
 the shell follows its height and vertical offset without reserving another
 home-indicator gap above the keyboard. Its outer document stays fixed; only
@@ -73,3 +76,9 @@ Embedded Flow follows the app's active theme without reloading its conversation.
 The iframe mirrors the document theme that Flow's own island observes. Mobile
 surfaces, text and navigation use Frappe UI's theme colours; signature canvases
 and project-specific colours retain their purpose.
+
+The PR browser checks build the actual app and measure the shell, frame and
+navigation bottom edges in Chromium and WebKit at phone and desktop sizes.
+They include a simulated 62px dynamic-viewport shortfall and a smaller viewport
+with the shadow composer focused. Flow and APIs use local fixtures; these
+checks do not replace testing the installed app on a physical phone.
