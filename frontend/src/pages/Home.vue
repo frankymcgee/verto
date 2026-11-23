@@ -1325,13 +1325,13 @@ function formatTime(value: unknown) {
 
 function getPriorityColor(priority?: string) {
   const map: Record<string, string> = {
-    Low: '#dcfce7',
-    Medium: '#fef9c3',
-    High: '#ffedd5',
-    Urgent: '#fee2e2',
+    Low: 'var(--surface-green-2)',
+    Medium: 'var(--surface-yellow-2)',
+    High: 'var(--surface-orange-2)',
+    Urgent: 'var(--surface-red-2)',
   }
 
-  return map[priority || ''] || '#f3f4f6'
+  return map[priority || ''] || 'var(--surface-gray-2)'
 }
 
 function slugifyRavenChannelName(value?: string) {

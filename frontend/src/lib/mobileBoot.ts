@@ -30,6 +30,7 @@ export type MobileBoot = {
   api_resource_base: string
 
   user: string
+  theme_preference: 'Light' | 'Dark' | 'Automatic'
   user_fullname: string
   user_image: string
   user_image_url: string
@@ -75,6 +76,7 @@ const defaultBoot: MobileBoot = {
   api_resource_base: '/api/resource',
 
   user: '',
+  theme_preference: 'Light',
   user_fullname: '',
   user_image: '',
   user_image_url: '',

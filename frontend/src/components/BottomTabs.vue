@@ -342,7 +342,7 @@ async function openPeriChat() {
   justify-content: center;
   gap: 4px;
   flex-direction: column;
-  color: #6b7280;
+  color: var(--ink-gray-5);
   font-size: 11px;
   font-weight: 600;
   line-height: 1.15;
@@ -355,7 +355,7 @@ async function openPeriChat() {
 }
 
 .navbar-item.active {
-  color: #2563eb;
+  color: var(--ink-blue-3);
 }
 
 .navbar-item:active {
@@ -401,7 +401,7 @@ async function openPeriChat() {
   justify-content: center;
   overflow: hidden;
   border-radius: 9999px;
-  background: linear-gradient(135deg, #dbeafe, #eff6ff);
+  background: linear-gradient(135deg, var(--surface-blue-2), var(--surface-blue-1));
   box-shadow: 0 8px 18px rgba(37, 99, 235, 0.28);
   transform: translateY(-8px);
 }
@@ -413,7 +413,7 @@ async function openPeriChat() {
 }
 
 .peri-avatar-fallback {
-  color: #2563eb;
+  color: var(--ink-blue-3);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -438,7 +438,7 @@ async function openPeriChat() {
 }
 
 .peri-item.active .navbar-label {
-  color: #2563eb;
+  color: var(--ink-blue-3);
 }
 
 @keyframes peri-pulse {
@@ -462,8 +462,8 @@ async function openPeriChat() {
     width: 15rem;
     flex-direction: column;
     border-top: 0;
-    border-right: 1px solid #e5e7eb;
-    background: rgba(249, 250, 251, 0.98);
+    border-right: 1px solid var(--outline-gray-1);
+    background: var(--surface-sidebar);
     box-shadow: 8px 0 24px rgba(15, 23, 42, 0.05);
     transition: width 0.2s ease;
   }
@@ -477,7 +477,7 @@ async function openPeriChat() {
     min-height: 4.5rem;
     align-items: center;
     gap: 0.75rem;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--outline-gray-1);
     padding: 0.875rem 1rem;
   }
 
@@ -526,14 +526,14 @@ async function openPeriChat() {
   }
 
   .navbar-item:hover {
-    background: rgba(255, 255, 255, 0.8);
-    color: #1f2937;
+    background: color-mix(in srgb, var(--surface-base) 80%, transparent);
+    color: var(--ink-gray-8);
   }
 
   .navbar-item.active {
-    border-color: #e5e7eb;
-    background: #ffffff;
-    color: #2563eb;
+    border-color: var(--outline-gray-1);
+    background: var(--surface-base);
+    color: var(--ink-blue-3);
     box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
   }
 
@@ -568,7 +568,7 @@ async function openPeriChat() {
     margin: 0.75rem;
     border-radius: 0.75rem;
     padding: 0.625rem 0.75rem;
-    color: #4b5563;
+    color: var(--ink-gray-6);
     font-size: 0.875rem;
     font-weight: 500;
     text-align: left;
@@ -576,8 +576,8 @@ async function openPeriChat() {
   }
 
   .desktop-sidebar-collapse:hover {
-    background: #ffffff;
-    color: #111827;
+    background: var(--surface-base);
+    color: var(--ink-gray-9);
   }
 
   .sidebar-collapsed .desktop-sidebar-header,

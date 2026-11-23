@@ -200,6 +200,8 @@ describe('Embedded Flow viewport sizing', () => {
     await navigation()
     const viewport = new EventTarget()
     viewport.height = 844
+    viewport.scale = 1
+    viewport.offsetTop = 0
     const original = Object.getOwnPropertyDescriptor(window, 'visualViewport')
     Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport })
     try {
@@ -214,11 +216,24 @@ describe('Embedded Flow viewport sizing', () => {
         MissingHoursReminder: true, PwaUpdatePrompt: true, PwaInstallPrompt: true,
       } } })
       await flushPromises()
+      expect(document.documentElement.classList.contains('verto-flow-active')).toBe(true)
       expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('844px')
       viewport.height = 480
       viewport.dispatchEvent(new Event('resize'))
       expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('480px')
+      viewport.offsetTop = 168
+      viewport.dispatchEvent(new Event('scroll'))
+      expect(document.documentElement.style.getPropertyValue('--verto-viewport-top')).toBe('168px')
+      // Pinching must not squeeze the full app into the zoomed visual viewport.
+      viewport.scale = 2
+      viewport.height = 240
+      viewport.offsetTop = 300
+      viewport.dispatchEvent(new Event('resize'))
+      expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('480px')
+      expect(document.documentElement.style.getPropertyValue('--verto-viewport-top')).toBe('168px')
       await router.push('/'); await flushPromises()
+      expect(document.documentElement.classList.contains('verto-flow-active')).toBe(false)
+      expect(document.documentElement.style.getPropertyValue('--verto-viewport-top')).toBe('')
       expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('')
       viewport.height = 600
       viewport.dispatchEvent(new Event('resize'))
@@ -228,5 +243,86 @@ describe('Embedded Flow viewport sizing', () => {
       if (original) Object.defineProperty(window, 'visualViewport', original)
       else delete window.visualViewport
     }
+  })
+})
+
+describe('Flow iframe and shadow DOM integration', () => {
+  let dispose, doc
+  afterEach(() => {
+    dispose?.(); dispose = undefined
+    document.documentElement.removeAttribute('data-theme')
+    document.documentElement.removeAttribute('data-theme-mode')
+  })
+
+  async function attachStyles() {
+    const { installEmbeddedFlowStyles } = await import('../src/lib/flowFrame')
+    doc = document.implementation.createHTMLDocument('Flow')
+    dispose = installEmbeddedFlowStyles(doc)
+  }
+
+  it('raises a phone shadow editor and its formatted text to 16px without changing viewport zoom', async () => {
+    const { installEmbeddedFlowStyles } = await import('../src/lib/flowFrame')
+    const size = { width: window.innerWidth, height: window.innerHeight }
+    const host = document.createElement('div')
+    document.body.append(host)
+    const root = host.attachShadow({ mode: 'open' })
+    root.innerHTML = '<style>.editor { font-size: 14px } .editor span { font-size: 12px }</style><div contenteditable="true" class="editor"><span>Draft</span></div>'
+    window.happyDOM.setWindowSize({ width: 390, height: 844 })
+    try {
+      const editor = root.querySelector('.editor')
+      expect(getComputedStyle(editor).fontSize).toBe('14px')
+      const viewport = document.querySelector('meta[name="viewport"]')?.content
+      dispose = installEmbeddedFlowStyles(document)
+      await flushPromises()
+      expect(getComputedStyle(editor).fontSize).toBe('16px')
+      expect(getComputedStyle(editor.querySelector('span')).fontSize).toBe('16px')
+      expect(document.querySelector('meta[name="viewport"]')?.content).toBe(viewport)
+    } finally {
+      dispose?.(); host.remove(); window.happyDOM.setWindowSize(size)
+    }
+  })
+
+  it('styles an existing shadow composer and newly mounted islands before focusing', async () => {
+    await attachStyles()
+    const host = doc.createElement('div')
+    doc.body.append(host)
+    // Flow appends its host, attaches a shadow root, then marks data-panel.
+    const root = host.attachShadow({ mode: 'open' })
+    root.innerHTML = '<div contenteditable="true"><p>Draft</p></div>'
+    host.toggleAttribute('data-panel', false)
+    host.setAttribute('data-panel', '')
+    await flushPromises()
+    const style = root.querySelector('style[data-verto-flow-mobile]')
+    expect(style).not.toBeNull()
+    expect(style.sheet.cssRules.length).toBeGreaterThan(0)
+    root.querySelector('[contenteditable]').replaceWith(doc.createElement('textarea'))
+    await flushPromises()
+    expect(root.querySelectorAll('style[data-verto-flow-mobile]')).toHaveLength(1)
+    dispose()
+    expect(root.querySelector('style[data-verto-flow-mobile]')).toBeNull()
+    expect(doc.querySelector('style[data-verto-flow-mobile]')).toBeNull()
+    const laterHost = doc.createElement('div')
+    laterHost.attachShadow({ mode: 'open' })
+    doc.body.append(laterHost)
+    await flushPromises()
+    expect(laterHost.shadowRoot.children).toHaveLength(0)
+  })
+
+  it('mirrors the app theme into Flow and corrects a late native theme change', async () => {
+    document.documentElement.dataset.theme = 'dark'
+    document.documentElement.dataset.themeMode = 'automatic'
+    await attachStyles()
+    expect(doc.documentElement.dataset.theme).toBe('dark')
+    expect(doc.documentElement.style.colorScheme).toBe('dark')
+    document.documentElement.dataset.theme = 'light'
+    await flushPromises()
+    expect(doc.documentElement.dataset.theme).toBe('light')
+    doc.documentElement.dataset.theme = 'dark'
+    await flushPromises()
+    expect(doc.documentElement.dataset.theme).toBe('light')
+    dispose()
+    document.documentElement.dataset.theme = 'dark'
+    await flushPromises()
+    expect(doc.documentElement.dataset.theme).toBe('light')
   })
 })

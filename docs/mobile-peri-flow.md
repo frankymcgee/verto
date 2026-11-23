@@ -49,3 +49,23 @@ Flow is embedded from the same site and uses its existing login cookie. If a
 reverse proxy adds `X-Frame-Options: DENY` or CSP `frame-ancestors 'none'`, it must
 permit same-origin embedding for `/flow`; do not allow arbitrary external
 origins. An expired login returns to the normal sign-in page in the same tab.
+
+## Keyboard and theme
+
+On the Flow route, the mobile shell follows the visible viewport's height and
+vertical offset while its outer document stays fixed. Only Flow's own content
+scrolls. Phone text controls are at least 16px inside the iframe and its open
+shadow roots, including asynchronously mounted editors. Manual pinch zoom is
+retained without shrinking the app layout into the magnified viewport.
+
+The avatar menu's **Theme** selector offers **Light**, **Dark** and **Automatic**.
+It saves the user's existing `User.desk_theme` through Desk's native theme
+endpoint. Mobile reads it with the startup response, synchronises changes
+between Mobile tabs for the same user, and checks for Desk changes when the
+app regains focus or visibility. Desk uses the same saved preference when it
+loads. Automatic follows each device's colour scheme.
+
+Embedded Flow follows the app's active theme without reloading its conversation.
+The iframe mirrors the document theme that Flow's own island observes. Mobile
+surfaces, text and navigation use Frappe UI's theme colours; signature canvases
+and project-specific colours retain their purpose.

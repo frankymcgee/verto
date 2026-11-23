@@ -26,6 +26,7 @@ import { useRoute } from 'vue-router'
 import { apiRequest } from '../lib/api'
 import { useMobileBoot } from '../lib/mobileBoot'
 import { consumeFlowPrompt, pendingFlowPrompt } from '../lib/periChat'
+import { installEmbeddedFlowStyles } from '../lib/flowFrame'
 
 const route = useRoute()
 const { boot } = useMobileBoot()
@@ -35,6 +36,7 @@ const error = ref('')
 const frame = ref<HTMLIFrameElement | null>(null)
 const storageKey = `verto:peri:flow-session:${boot.value.user}:${boot.value.peri_flow_agent}`
 let disposed = false
+let removeFrameStyles: (() => void) | undefined
 
 function rememberSession(name: string) {
   try { sessionStorage.setItem(storageKey, name) } catch { /* Session recall is optional. */ }
@@ -80,10 +82,17 @@ async function openChat(forceNew = false) {
 }
 
 function onFrameLoad() {
+  removeFrameStyles?.()
+  removeFrameStyles = undefined
   try {
     const location = frame.value?.contentWindow?.location
     if (location?.pathname === '/login') {
       window.location.assign(`/login?redirect-to=${encodeURIComponent(window.location.pathname + window.location.search)}`)
+      return
+    }
+    const doc = frame.value?.contentDocument
+    if (doc && (location?.pathname === '/flow' || location?.pathname.startsWith('/flow/'))) {
+      removeFrameStyles = installEmbeddedFlowStyles(doc)
     }
   } catch { /* A browser-managed error page cannot be inspected. */ }
 }
@@ -91,6 +100,7 @@ function onFrameLoad() {
 onMounted(() => { void openChat() })
 onBeforeUnmount(() => {
   disposed = true
+  removeFrameStyles?.()
   try {
     const path = frame.value?.contentWindow?.location.pathname || ''
     const match = path.match(/^\/flow\/s\/([^/]+)$/)
@@ -105,8 +115,8 @@ onBeforeUnmount(() => {
   height: 100%;
   min-height: 0;
   flex-direction: column;
-  overflow: hidden;
-  background: white;
+  overflow: clip;
+  background: var(--surface-base, white);
 }
 .flow-chat-frame {
   display: block;

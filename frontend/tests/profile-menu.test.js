@@ -11,6 +11,7 @@ const calls = vi.hoisted(() => ({
   sync: vi.fn(),
   browser: vi.fn(),
   navigate: vi.fn(),
+  setTheme: vi.fn(),
   employeeId: 'HR-EMP-001',
   queued: 0,
 }))
@@ -58,6 +59,9 @@ vi.mock('../src/pwa/useOfflineSync', () => ({
   }),
 }))
 vi.mock('../src/lib/appBrowser', () => ({ openAppBrowser: calls.browser }))
+vi.mock('../src/lib/mobileTheme', () => ({ useMobileTheme: () => ({
+  themePreference: ref('Light'), themeSaving: ref(false), themeError: ref(''), setTheme: calls.setTheme,
+}) }))
 let w
 const click = async (text) => {
   const el = [...document.querySelectorAll('button')].find(
@@ -75,6 +79,14 @@ afterEach(() => {
   calls.queued = 0
 })
 describe('Profile menu', () => {
+  it('offers the shared theme choices from the avatar menu', async () => {
+    w = mount(AppHeader, { attachTo: document.body, global: { stubs: { AboutAppToast: true } } })
+    await w.find('[aria-label="Open profile menu"]').trigger('click'); await flushPromises()
+    const control = document.querySelector('#mobile-user-theme')
+    expect([...control.options].map(option => option.value)).toEqual(['Light', 'Dark', 'Automatic'])
+    control.value = 'Dark'; control.dispatchEvent(new Event('change', { bubbles: true }))
+    expect(calls.setTheme).toHaveBeenCalledWith('Dark')
+  })
   it('shows the waiting count and opens the upload queue from the offline section', async () => {
     calls.queued = 2
     w = mount(AppHeader, {
