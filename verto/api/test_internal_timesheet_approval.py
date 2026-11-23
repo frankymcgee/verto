@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 import frappe
 from frappe.tests import IntegrationTestCase
 
+from verto.api import automate
 from verto.api import internal_timesheet_approval as internal
 from verto.api import timesheet_signing as signing
 
@@ -398,6 +399,73 @@ class TestInternalApprovalInvalidation(TestCase):
 
 
 class TestInternalApprovalIntegration(IntegrationTestCase):
+    def test_verification_email_consolidates_pending_drafts_for_the_scheduled_week(self):
+        def make_project(day):
+            project = frappe.get_doc({
+                "doctype": "Project",
+                "name": f"IV-PROJ-{frappe.generate_hash(length=10)}",
+                "project_name": f"Internal verification {day}",
+                "day_of_the_week": day,
+                "timesheet_email_list": "client@example.test",
+            })
+            project.db_insert()
+            return project.name
+
+        def make_timesheet(project, **values):
+            doc = frappe.get_doc({
+                "doctype": "Timesheet",
+                "name": f"IV-TS-{frappe.generate_hash(length=10)}",
+                "employee_name": "Employee name omitted from email",
+                "parent_project": project,
+                "custom_monday_date": "2030-11-18",
+                "custom_sunday_date": "2030-11-24",
+                "docstatus": 0,
+                "internal_approved": 0,
+                **values,
+            })
+            doc.db_insert()
+            return doc.name
+
+        friday_project = make_project("Friday")
+        sunday_project = make_project("Sunday")
+        monday_project = make_project("Monday")
+        pending = [make_timesheet(friday_project), make_timesheet(friday_project), make_timesheet(sunday_project)]
+        make_timesheet(monday_project)
+        make_timesheet(friday_project, docstatus=1)
+        make_timesheet(friday_project, docstatus=2)
+        make_timesheet(friday_project, internal_approved=1)
+        make_timesheet(friday_project, custom_monday_date="2030-11-11", custom_sunday_date="2030-11-17")
+
+        settings = frappe._dict(
+            email_recipients=["office@example.test", "approver@example.test"],
+            bcc_email_list=["audit@example.test"],
+            reply_to_email="accounts@example.test",
+        )
+        with (
+            patch.object(automate, "nowdate", return_value="2030-11-22"),
+            patch.object(automate, "get_verto_mobile_email_settings", return_value=settings),
+            patch.object(frappe.utils, "get_url", side_effect=lambda path: f"https://verto.example.test{path}"),
+            patch.object(frappe, "sendmail") as sendmail,
+        ):
+            automate.send_weekly_timesheet_verification()
+            sendmail.assert_called_once()
+            mail = sendmail.call_args.kwargs
+            self.assertEqual(mail["recipients"], settings.email_recipients)
+            self.assertEqual(mail["bcc"], settings.bcc_email_list)
+            self.assertEqual(mail["reply_to"], settings.reply_to_email)
+            self.assertNotIn("attachments", mail)
+            self.assertNotIn("Employee name omitted from email", mail["message"])
+            self.assertIn(
+                'href="https://verto.example.test/app/internal-timesheet-approval?week_start=2030-11-18"',
+                mail["message"],
+            )
+
+            for name in pending:
+                frappe.db.set_value("Timesheet", name, "internal_approved", 1)
+            sendmail.reset_mock()
+            automate.send_weekly_timesheet_verification()
+            sendmail.assert_not_called()
+
     def test_real_review_with_null_parent_project_retains_stale_limit_protection(self):
         suffix = frappe.generate_hash(length=10)
         project = frappe.get_doc(dict(doctype="Project", name="IA-PROJ-" + suffix, project_name="Missing parent test", max_ds_hrs=12))
