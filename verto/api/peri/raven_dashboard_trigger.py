@@ -1,4 +1,5 @@
 import frappe
+from verto.api.peri.prompts import build_project_dashboard_prompt
 
 
 @frappe.whitelist()
@@ -23,7 +24,7 @@ def send_dashboard_analysis_command(project_scope_name):
     workspace = "Mine Site Support"
     bot_name = "P.E.R.I."
     channel_name = f"{user_email} _ {bot_name}"
-    command = f"Analyse the dashboard for {project_scope_name}"
+    command = build_project_dashboard_prompt(project_scope_name)
 
     channel_id = get_or_create_peri_channel(
         channel_name=channel_name,

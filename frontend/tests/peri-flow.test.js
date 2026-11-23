@@ -4,6 +4,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { inject } from 'vue'
 
 const mocks = vi.hoisted(() => ({ api: vi.fn(), raven: vi.fn() }))
+const analysisPrompt = 'Analyse the "Shutdown Safety Metrics" Insights dashboard for project "SPT2603 | PORT MAJOR". Apply the project filters and cover every chart.'
 vi.mock('../src/lib/api', () => ({ apiRequest: mocks.api }))
 vi.mock('../src/pages/Chat.vue', () => ({ default: {
   setup() { mocks.raven() }, template: '<div class="raven-chat">Raven chat</div>',
@@ -21,6 +22,7 @@ beforeEach(() => {
     if (url.endsWith('open_peri_chat')) return { message: { url: '/flow/s/test-session', session: 'test-session' } }
     if (url.endsWith('frappe.flow.api.run')) return { message: { run: 'run-1', status: 'started' } }
     if (url.endsWith('get_or_create_peri_channel')) return { message: { channel_id: 'raven-peri' } }
+    if (url.endsWith('get_project_dashboard_prompt')) return { message: analysisPrompt }
     throw new Error(`Unexpected API: ${url}`)
   })
 })
@@ -102,7 +104,10 @@ describe('PERI navigation and project analysis', () => {
     expect(await navigation('SPT2603 | PORT MAJOR')).toEqual({ path: '/chat/peri', query: {
       channel: 'raven-peri', mode: 'ai', auto: 'analyse',
     } })
-    expect(sessionStorage.getItem('verto_peri_autosend_message')).toBe('Analyse the dashboard for SPT2603 | PORT MAJOR')
+    expect(sessionStorage.getItem('verto_peri_autosend_message')).toBe(analysisPrompt)
+    const promptCall = mocks.api.mock.calls.find(([url]) => url.endsWith('get_project_dashboard_prompt'))
+    expect(promptCall[1].method).toBe('POST')
+    expect(promptCall[1].body.get('project')).toBe('SPT2603 | PORT MAJOR')
   })
 
   it('starts a fresh Flow conversation and sends the project prompt exactly once', async () => {
@@ -114,7 +119,7 @@ describe('PERI navigation and project analysis', () => {
     expect(runs).toHaveLength(1)
     expect(runs[0][1].method).toBe('POST')
     expect(runs[0][1].body.get('session')).toBe('test-session')
-    expect(runs[0][1].body.get('message')).toBe('Analyse the dashboard for SPT2603 | PORT MAJOR')
+    expect(runs[0][1].body.get('message')).toBe(analysisPrompt)
     wrapper.unmount(); wrapper = undefined
     await open(target)
     expect(mocks.api.mock.calls.filter(([url]) => url.endsWith('frappe.flow.api.run'))).toHaveLength(1)
@@ -127,6 +132,20 @@ describe('PERI navigation and project analysis', () => {
     await useMobileBoot().reloadMobileBoot()
     await open(target)
     expect(mocks.api.mock.calls.some(([url]) => url.endsWith('frappe.flow.api.run'))).toBe(false)
+  })
+
+  it.each(['Raven', 'Flow'])('does not start analysis if its prompt fails to load (%s)', async version => {
+    settings.peri_chat_version = version
+    sessionStorage.setItem('verto_peri_autosend_message', 'Stale project request')
+    sessionStorage.setItem('verto:peri:flow-prompt', 'Stale project request')
+    mocks.api.mockImplementation(async url => {
+      if (url.endsWith('get_mobile_boot')) return { message: settings }
+      throw new Error('Could not prepare dashboard analysis')
+    })
+    await expect(navigation('SPT2603 | PORT MAJOR')).rejects.toThrow('Could not prepare dashboard analysis')
+    expect(sessionStorage.getItem('verto_peri_autosend_message')).toBeNull()
+    expect(sessionStorage.getItem('verto:peri:flow-prompt')).toBeNull()
+    expect(mocks.api.mock.calls.some(([url]) => url.includes('get_or_create_peri_channel') || url.endsWith('frappe.flow.api.run'))).toBe(false)
   })
 
   it('does not send the queued prompt after navigating away during session creation', async () => {
