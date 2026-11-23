@@ -24,7 +24,7 @@
       <Button variant="ghost"
         v-if="isOnline && summary.total > 0"
         type="button"
-        class="shrink-0 rounded-6 bg-white/80 px-2.5 py-1 text-xs-semibold text-ink-gray-8 shadow-sm active:scale-95 disabled:opacity-60"
+        class="shrink-0 rounded-6 bg-surface-gray-2 px-2.5 py-1 text-xs-semibold text-ink-gray-8 shadow-sm active:scale-95 disabled:opacity-60"
         :disabled="isSyncing"
         @click="syncNow"
       >

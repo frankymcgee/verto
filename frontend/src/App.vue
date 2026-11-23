@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { FrappeUIProvider } from 'frappe-ui'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { apiRequest } from './lib/api'
 import { useMobileBoot } from './lib/mobileBoot'
+import { installMobileTheme } from './lib/mobileTheme'
 
 type FrappeResponse<T> = {
   message: T
@@ -17,10 +18,14 @@ const route = useRoute()
 const hasEmployeeProfile = ref(false)
 
 const {
+  boot,
   loadMobileBoot,
   appName,
   faviconUrl,
 } = useMobileBoot()
+
+const stopTheme = installMobileTheme(boot)
+onBeforeUnmount(stopTheme)
 
 const pageTitle = computed(() => {
   if (typeof route.meta?.title === 'string' && route.meta.title.trim()) {

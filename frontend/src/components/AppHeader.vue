@@ -102,6 +102,23 @@
           </div>
 
           <div class="border-b border-outline-gray-1 px-3 py-2.5">
+            <label :for="props.compact ? 'desktop-user-theme' : 'mobile-user-theme'" class="mb-1 block text-sm-medium text-ink-gray-9">Theme</label>
+            <select
+              :id="props.compact ? 'desktop-user-theme' : 'mobile-user-theme'"
+              :value="themePreference"
+              :disabled="themeSaving || !offlineIsOnline"
+              class="w-full rounded-6 border border-outline-gray-2 bg-surface-gray-1 px-2 py-1.5 text-base text-ink-gray-9"
+              @change="handleThemeChange"
+            >
+              <option value="Light">Light</option>
+              <option value="Dark">Dark</option>
+              <option value="Automatic">Automatic</option>
+            </select>
+            <p class="mt-1 text-xs text-ink-gray-5">Shared with Desk. Automatic follows your device.</p>
+            <p v-if="themeError" role="alert" class="mt-1 text-xs text-ink-red-3">{{ themeError }}</p>
+          </div>
+
+          <div class="border-b border-outline-gray-1 px-3 py-2.5">
             <Button variant="ghost"
               type="button"
               class="mb-2 w-full justify-start px-0 text-left"
@@ -239,6 +256,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AboutAppToast from './AboutAppToast.vue'
 import { useMobileBoot } from '../lib/mobileBoot'
+import { useMobileTheme } from '../lib/mobileTheme'
 import { openAppBrowser } from '../lib/appBrowser'
 import { useOfflineSync } from '../pwa/useOfflineSync'
 import { usePushNotifications } from '../pwa/usePushNotifications'
@@ -253,6 +271,10 @@ const props = withDefaults(
 )
 
 const route = useRoute()
+const { themePreference, themeSaving, themeError, setTheme } = useMobileTheme()
+function handleThemeChange(event: Event) {
+  void setTheme((event.target as HTMLSelectElement).value as 'Light' | 'Dark' | 'Automatic')
+}
 const router = useRouter()
 
 const {

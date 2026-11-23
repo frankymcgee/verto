@@ -1,10 +1,11 @@
 <!-- VERTO_MOBILE_SHELL_OFFLINE_SYNC_2026_08_24 -->
 <template>
   <div
-    class="mobile-shell overflow-hidden bg-gray-50 text-gray-900"
+    class="mobile-shell overflow-hidden bg-surface-gray-1 text-ink-gray-9"
+    :class="{ 'mobile-shell--flow': isFlowPeriPage }"
     @click.capture="handleAppBrowserLinkClick"
   >
-    <div class="mobile-shell-frame mx-auto flex w-full flex-col overflow-hidden bg-gray-50">
+    <div class="mobile-shell-frame mx-auto flex w-full flex-col overflow-hidden bg-surface-gray-1">
       <div class="mobile-shell-content flex min-h-0 min-w-0 flex-1 flex-col">
         <div class="mobile-shell-header">
           <AppHeader />
@@ -64,12 +65,24 @@ function syncAndroidBrowserViewport() {
     return
   }
 
-  const viewportHeight = window.visualViewport?.height || window.innerHeight
+  const viewport = window.visualViewport
+  // A pinch zoom also reduces visualViewport.height. Keep the layout at its
+  // unzoomed size, instead of squeezing it into the magnified screen.
+  const scale = isFlowPeriPage.value ? viewport?.scale || 1 : 1
+  const viewportHeight = viewport ? viewport.height * scale : window.innerHeight
 
   if (viewportHeight > 0) {
     document.documentElement.style.setProperty(
       '--verto-viewport-height',
       `${Math.round(viewportHeight)}px`
+    )
+  }
+
+  // Safari can pan the visual viewport as it focuses a field inside a frame.
+  // Follow that offset as well as keyboard height so the header stays in view.
+  if (isFlowPeriPage.value && scale === 1) {
+    document.documentElement.style.setProperty(
+      '--verto-viewport-top', `${Math.max(0, viewport?.offsetTop || 0)}px`
     )
   }
 }
@@ -92,6 +105,7 @@ function removeAndroidBrowserViewportSync() {
   window.visualViewport?.removeEventListener('resize', syncAndroidBrowserViewport)
   window.visualViewport?.removeEventListener('scroll', syncAndroidBrowserViewport)
   document.documentElement.style.removeProperty('--verto-viewport-height')
+  document.documentElement.style.removeProperty('--verto-viewport-top')
 }
 
 function clearForegroundNotifications() {
@@ -99,6 +113,7 @@ function clearForegroundNotifications() {
 }
 
 onMounted(() => {
+  document.documentElement.classList.toggle('verto-flow-active', isFlowPeriPage.value)
   clearForegroundNotifications()
   document.addEventListener('visibilitychange', clearForegroundNotifications)
   window.addEventListener('focus', clearForegroundNotifications)
@@ -107,12 +122,14 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  document.documentElement.classList.remove('verto-flow-active')
   document.removeEventListener('visibilitychange', clearForegroundNotifications)
   window.removeEventListener('focus', clearForegroundNotifications)
   removeAndroidBrowserViewportSync()
 })
 
 watch(isFlowPeriPage, () => {
+  document.documentElement.classList.toggle('verto-flow-active', isFlowPeriPage.value)
   removeAndroidBrowserViewportSync()
   installAndroidBrowserViewportSync()
 })
@@ -150,6 +167,16 @@ watch(
   max-width: var(--verto-shell-max-width);
 }
 
+.mobile-shell--flow {
+  position: fixed;
+  top: var(--verto-viewport-top, 0px);
+  right: 0;
+  left: 0;
+  height: var(--verto-viewport-height, 100dvh);
+  min-height: 0;
+  overflow: clip;
+}
+
 .mobile-shell-content {
   isolation: isolate;
 }
@@ -174,7 +201,7 @@ watch(
 }
 
 .mobile-shell-main--flow {
-  overflow: hidden;
+  overflow: clip;
   touch-action: auto;
 }
 

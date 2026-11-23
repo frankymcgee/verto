@@ -1,5 +1,6 @@
 import frappe
 from frappe.utils import cint, flt, get_url
+from verto.api.mobile.theme import normalise_theme
 
 
 SETTINGS_DOCTYPE = "Verto Mobile Settings"
@@ -360,7 +361,7 @@ def get_mobile_boot():
     user_details = frappe.db.get_value(
         "User",
         frappe.session.user,
-        ["full_name", "user_image"],
+        ["full_name", "user_image", "desk_theme"],
         as_dict=True,
     ) or {}
 
@@ -415,6 +416,7 @@ def get_mobile_boot():
         # Current user
         "user": frappe.session.user,
         "user_fullname": user_details.get("full_name") or frappe.session.user,
+        "theme_preference": normalise_theme(user_details.get("desk_theme")),
         "user_image": user_image,
         "user_image_url": absolute_url(user_image),
     }
