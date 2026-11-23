@@ -43,6 +43,30 @@ html.verto-flow-active body {
   width: 100%;
 }
 
+/* Installed iOS can report 894px for innerHeight/dvh and the fixed containing
+   box on a 956px screen, while lvh correctly includes the 62px top safe area.
+   Keep the root in document flow at that full height: a fixed body clips the
+   extra region even if its child is taller. The shell alone shrinks to the
+   visual viewport while the keyboard is open. */
+html.verto-flow-active.verto-flow-standalone-ios,
+html.verto-flow-standalone-ios body,
+html.verto-flow-standalone-ios #app {
+  height: 100vh;
+  height: 100lvh;
+}
+
+html.verto-flow-standalone-ios body {
+  position: relative;
+  inset: auto;
+}
+
+html.verto-flow-standalone-ios .mobile-shell--flow {
+  position: absolute;
+  bottom: auto;
+  height: var(--verto-viewport-height, 100vh);
+  height: var(--verto-viewport-height, 100lvh);
+}
+
 
 /* Keep all Verto drawer/sheet scrollers touch-scrollable across Android Chrome
    browser mode and installed PWAs while preserving iOS momentum scrolling. */

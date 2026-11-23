@@ -47,7 +47,7 @@ import MissingHoursReminder from '../components/MissingHoursReminder.vue'
 import PwaUpdatePrompt from '../components/PwaUpdatePrompt.vue'
 import PwaInstallPrompt from '../components/PwaInstallPrompt.vue'
 import { handleAppBrowserLinkClick } from '../lib/appBrowser'
-import { isAndroidDevice, isStandalonePwa } from '../pwa/displayMode'
+import { isAndroidDevice, isIosDevice, isStandalonePwa } from '../pwa/displayMode'
 import { clearNotificationIndicators } from '../pwa/clearNotificationIndicators'
 import { usePushNotifications } from '../pwa/usePushNotifications'
 import { useMobileBoot } from '../lib/mobileBoot'
@@ -57,6 +57,7 @@ const route = useRoute()
 const mainEl = ref<HTMLElement | null>(null)
 const { initialisePushNotifications } = usePushNotifications()
 const useAndroidBrowserViewport = isAndroidDevice() && !isStandalonePwa()
+const useIosStandaloneViewport = isIosDevice() && isStandalonePwa()
 const { periChatVersion } = useMobileBoot()
 const isFlowPeriPage = computed(() => route.path === '/chat/peri' && periChatVersion.value === 'Flow')
 let viewportSyncInstalled = false
@@ -88,8 +89,8 @@ function syncAndroidBrowserViewport() {
     flowViewportWidth = window.innerWidth
     const keyboardVisible = flowEditing && flowIdleHeight - viewportHeight > 100
     if (!keyboardVisible) {
-      // At rest, CSS's dynamic viewport fills the app reliably. A fixed pixel
-      // height from visualViewport can leave Safari's toolbar-sized gap below it.
+      // Leave idle sizing to CSS. Installed iOS uses lvh because its reported
+      // visual/dynamic viewport can exclude the top safe area a second time.
       root.style.removeProperty('--verto-viewport-height')
       root.style.removeProperty('--verto-viewport-top')
       root.style.removeProperty('--verto-flow-footer-safe-bottom')
@@ -143,8 +144,13 @@ function clearForegroundNotifications() {
   void clearNotificationIndicators()
 }
 
-onMounted(() => {
+function syncFlowRootClasses() {
   document.documentElement.classList.toggle('verto-flow-active', isFlowPeriPage.value)
+  document.documentElement.classList.toggle('verto-flow-standalone-ios', isFlowPeriPage.value && useIosStandaloneViewport)
+}
+
+onMounted(() => {
+  syncFlowRootClasses()
   clearForegroundNotifications()
   document.addEventListener('visibilitychange', clearForegroundNotifications)
   window.addEventListener('focus', clearForegroundNotifications)
@@ -154,13 +160,14 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.documentElement.classList.remove('verto-flow-active')
+  document.documentElement.classList.remove('verto-flow-standalone-ios')
   document.removeEventListener('visibilitychange', clearForegroundNotifications)
   window.removeEventListener('focus', clearForegroundNotifications)
   removeAndroidBrowserViewportSync()
 })
 
 watch(isFlowPeriPage, () => {
-  document.documentElement.classList.toggle('verto-flow-active', isFlowPeriPage.value)
+  syncFlowRootClasses()
   removeAndroidBrowserViewportSync()
   installAndroidBrowserViewportSync()
 })
