@@ -1,5 +1,8 @@
 // Flow is a same-origin page whose UI is mounted in an open shadow root.
 // Verto's normal mobile form styles cannot cross either boundary.
+import type { InjectionKey } from 'vue'
+
+export const flowEditingKey: InjectionKey<(editing: boolean) => void> = Symbol('flow-editing')
 const TEXT_CONTROL_STYLES = `
   input, textarea, select,
   [contenteditable]:not([contenteditable="false"]), [role="textbox"],
@@ -18,9 +21,22 @@ const EMBEDDED_STYLES = `
   @media (pointer: coarse) { ${TEXT_CONTROL_STYLES} }
 `
 
-export function installEmbeddedFlowStyles(doc: Document) {
+export function installEmbeddedFlowStyles(doc: Document, onEditingChange?: (editing: boolean) => void) {
   const styles = new Map<Document | ShadowRoot, HTMLStyleElement>()
   const observers: MutationObserver[] = []
+  let disposed = false
+  function reportEditing() {
+    if (disposed) return
+    let active = doc.activeElement
+    while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement
+    onEditingChange?.(doc.hasFocus() && Boolean(active?.matches('input, textarea, [role="textbox"], [contenteditable]:not([contenteditable="false"])')))
+  }
+  const onBlur = () => queueMicrotask(reportEditing)
+  doc.addEventListener('focusin', reportEditing, true)
+  doc.addEventListener('focusout', onBlur, true)
+  doc.defaultView?.addEventListener('focus', reportEditing)
+  doc.defaultView?.addEventListener('blur', onBlur)
+  reportEditing()
   const parent = document.documentElement
   function syncTheme() {
     const root = doc.documentElement
@@ -75,6 +91,12 @@ export function installEmbeddedFlowStyles(doc: Document) {
 
   install(doc)
   return () => {
+    disposed = true
+    doc.removeEventListener('focusin', reportEditing, true)
+    doc.removeEventListener('focusout', onBlur, true)
+    doc.defaultView?.removeEventListener('focus', reportEditing)
+    doc.defaultView?.removeEventListener('blur', onBlur)
+    onEditingChange?.(false)
     observers.forEach(observer => observer.disconnect())
     styles.forEach(style => style.remove())
     styles.clear()

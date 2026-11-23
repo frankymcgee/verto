@@ -52,13 +52,17 @@ origins. An expired login returns to the normal sign-in page in the same tab.
 
 ## Keyboard and theme
 
-On the Flow route, the mobile shell follows the visible viewport's height and
-vertical offset while its outer document stays fixed. Only Flow's own content
-scrolls. Phone text controls are at least 16px inside the iframe and its open
+On the Flow route, the mobile shell uses the normal dynamic viewport at rest.
+While a text field is focused and the keyboard reduces the visible viewport,
+the shell follows its height and vertical offset without reserving another
+home-indicator gap above the keyboard. Its outer document stays fixed; only
+Flow's own content scrolls. Phone text controls are at least 16px inside the iframe and its open
 shadow roots, including asynchronously mounted editors. Manual pinch zoom is
 retained without shrinking the app layout into the magnified viewport.
 
-The avatar menu's **Theme** selector offers **Light**, **Dark** and **Automatic**.
+The avatar menu's **Theme** row shows the current preference. Tap it to expand
+**Light**, **Dark** and **Automatic**; the choices collapse after selection or
+when the profile menu closes.
 It saves the user's existing `User.desk_theme` through Desk's native theme
 endpoint. Mobile reads it with the startup response, synchronises changes
 between Mobile tabs for the same user, and checks for Desk changes when the

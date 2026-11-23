@@ -102,19 +102,28 @@
           </div>
 
           <div class="border-b border-outline-gray-1 px-3 py-2.5">
-            <label :for="props.compact ? 'desktop-user-theme' : 'mobile-user-theme'" class="mb-1 block text-sm-medium text-ink-gray-9">Theme</label>
-            <select
-              :id="props.compact ? 'desktop-user-theme' : 'mobile-user-theme'"
-              :value="themePreference"
-              :disabled="themeSaving || !offlineIsOnline"
-              class="w-full rounded-6 border border-outline-gray-2 bg-surface-gray-1 px-2 py-1.5 text-base text-ink-gray-9"
-              @change="handleThemeChange"
+            <button
+              type="button"
+              class="flex w-full items-center justify-between gap-3 text-sm-medium text-ink-gray-9"
+              :aria-expanded="themeOptionsOpen"
+              :aria-controls="props.compact ? 'desktop-user-theme' : 'mobile-user-theme'"
+              @click="themeOptionsOpen = !themeOptionsOpen"
             >
-              <option value="Light">Light</option>
-              <option value="Dark">Dark</option>
-              <option value="Automatic">Automatic</option>
-            </select>
-            <p class="mt-1 text-xs text-ink-gray-5">Shared with Desk. Automatic follows your device.</p>
+              <span>Theme</span>
+              <span class="text-ink-gray-5">{{ themePreference }} <span aria-hidden="true">{{ themeOptionsOpen ? '⌃' : '⌄' }}</span></span>
+            </button>
+            <div v-if="themeOptionsOpen" :id="props.compact ? 'desktop-user-theme' : 'mobile-user-theme'" role="group" aria-label="Theme choices" class="mt-2 space-y-1">
+              <button
+                v-for="choice in themeChoices" :key="choice"
+                type="button" :aria-pressed="themePreference === choice"
+                :disabled="themeSaving || !offlineIsOnline"
+                class="flex w-full items-center justify-between rounded-6 px-2 py-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-2 disabled:opacity-60"
+                @click="handleThemeChange(choice)"
+              >
+                <span>{{ choice }}</span><span v-if="themePreference === choice" aria-hidden="true">✓</span>
+              </button>
+              <p class="pt-1 text-xs text-ink-gray-5">Shared with Desk. Automatic follows your device.</p>
+            </div>
             <p v-if="themeError" role="alert" class="mt-1 text-xs text-ink-red-3">{{ themeError }}</p>
           </div>
 
@@ -272,8 +281,11 @@ const props = withDefaults(
 
 const route = useRoute()
 const { themePreference, themeSaving, themeError, setTheme } = useMobileTheme()
-function handleThemeChange(event: Event) {
-  void setTheme((event.target as HTMLSelectElement).value as 'Light' | 'Dark' | 'Automatic')
+const themeChoices = ['Light', 'Dark', 'Automatic'] as const
+const themeOptionsOpen = ref(false)
+async function handleThemeChange(choice: typeof themeChoices[number]) {
+  await setTheme(choice)
+  if (!themeError.value) themeOptionsOpen.value = false
 }
 const router = useRouter()
 
@@ -314,6 +326,7 @@ const {
 } = useOfflineSync()
 
 const menuOpen = ref(false)
+watch(menuOpen, () => { themeOptionsOpen.value = false })
 const aboutOpen = ref(false)
 const iconFailed = ref(false)
 const userImageFailed = ref(false)

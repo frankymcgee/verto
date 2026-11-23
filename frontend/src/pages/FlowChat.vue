@@ -21,15 +21,16 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { inject, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { apiRequest } from '../lib/api'
 import { useMobileBoot } from '../lib/mobileBoot'
 import { consumeFlowPrompt, pendingFlowPrompt } from '../lib/periChat'
-import { installEmbeddedFlowStyles } from '../lib/flowFrame'
+import { flowEditingKey, installEmbeddedFlowStyles } from '../lib/flowFrame'
 
 const route = useRoute()
 const { boot } = useMobileBoot()
+const setEditing = inject(flowEditingKey, () => {})
 const src = ref('')
 const loading = ref(false)
 const error = ref('')
@@ -92,7 +93,7 @@ function onFrameLoad() {
     }
     const doc = frame.value?.contentDocument
     if (doc && (location?.pathname === '/flow' || location?.pathname.startsWith('/flow/'))) {
-      removeFrameStyles = installEmbeddedFlowStyles(doc)
+      removeFrameStyles = installEmbeddedFlowStyles(doc, setEditing)
     }
   } catch { /* A browser-managed error page cannot be inspected. */ }
 }
