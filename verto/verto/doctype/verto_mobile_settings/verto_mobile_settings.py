@@ -11,6 +11,10 @@ class VertoMobileSettings(Document):
         from verto.api.mobile.voice_jha_print import validate_jha_print_settings
 
         self._validate_global_notification_list()
+        if self.get("peri_chat_version") == "Flow":
+            from verto.api.mobile.flow import validate_flow_settings
+
+            validate_flow_settings(self)
         validate_jha_print_settings(self)
 
     def _validate_global_notification_list(self):

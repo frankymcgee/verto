@@ -15,7 +15,10 @@
         <main
           ref="mainEl"
           class="mobile-shell-main min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
-          :class="{ 'mobile-shell-main--interactive': route.name === 'project-gantt' || route.name === 'project-map' }"
+          :class="{
+            'mobile-shell-main--interactive': route.name === 'project-gantt' || route.name === 'project-map',
+            'mobile-shell-main--flow': isFlowPeriPage,
+          }"
         >
           <div class="mobile-shell-page mx-auto h-full w-full max-w-[var(--verto-shell-max-width,28rem)]">
             <router-view />
@@ -33,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import BottomTabs from '../components/BottomTabs.vue'
@@ -46,14 +49,18 @@ import { handleAppBrowserLinkClick } from '../lib/appBrowser'
 import { isAndroidDevice, isStandalonePwa } from '../pwa/displayMode'
 import { clearNotificationIndicators } from '../pwa/clearNotificationIndicators'
 import { usePushNotifications } from '../pwa/usePushNotifications'
+import { useMobileBoot } from '../lib/mobileBoot'
 
 const route = useRoute()
 const mainEl = ref<HTMLElement | null>(null)
 const { initialisePushNotifications } = usePushNotifications()
 const useAndroidBrowserViewport = isAndroidDevice() && !isStandalonePwa()
+const { periChatVersion } = useMobileBoot()
+const isFlowPeriPage = computed(() => route.path === '/chat/peri' && periChatVersion.value === 'Flow')
+let viewportSyncInstalled = false
 
 function syncAndroidBrowserViewport() {
-  if (!useAndroidBrowserViewport) {
+  if (!useAndroidBrowserViewport && !isFlowPeriPage.value) {
     return
   }
 
@@ -68,21 +75,19 @@ function syncAndroidBrowserViewport() {
 }
 
 function installAndroidBrowserViewportSync() {
-  if (!useAndroidBrowserViewport) {
+  if (viewportSyncInstalled || (!useAndroidBrowserViewport && !isFlowPeriPage.value)) {
     return
   }
 
   syncAndroidBrowserViewport()
+  viewportSyncInstalled = true
   window.addEventListener('resize', syncAndroidBrowserViewport, { passive: true })
   window.visualViewport?.addEventListener('resize', syncAndroidBrowserViewport, { passive: true })
   window.visualViewport?.addEventListener('scroll', syncAndroidBrowserViewport, { passive: true })
 }
 
 function removeAndroidBrowserViewportSync() {
-  if (!useAndroidBrowserViewport) {
-    return
-  }
-
+  viewportSyncInstalled = false
   window.removeEventListener('resize', syncAndroidBrowserViewport)
   window.visualViewport?.removeEventListener('resize', syncAndroidBrowserViewport)
   window.visualViewport?.removeEventListener('scroll', syncAndroidBrowserViewport)
@@ -105,6 +110,11 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', clearForegroundNotifications)
   window.removeEventListener('focus', clearForegroundNotifications)
   removeAndroidBrowserViewportSync()
+})
+
+watch(isFlowPeriPage, () => {
+  removeAndroidBrowserViewportSync()
+  installAndroidBrowserViewportSync()
 })
 
 watch(
@@ -161,6 +171,15 @@ watch(
 
 .mobile-shell-main--interactive {
   touch-action: auto;
+}
+
+.mobile-shell-main--flow {
+  overflow: hidden;
+  touch-action: auto;
+}
+
+.mobile-shell-main--flow .mobile-shell-page {
+  max-width: none;
 }
 
 @media (min-width: 480px) {

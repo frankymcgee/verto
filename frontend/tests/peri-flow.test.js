@@ -1,0 +1,232 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import { createMemoryHistory, createRouter } from 'vue-router'
+
+const mocks = vi.hoisted(() => ({ api: vi.fn(), raven: vi.fn() }))
+vi.mock('../src/lib/api', () => ({ apiRequest: mocks.api }))
+vi.mock('../src/pages/Chat.vue', () => ({ default: {
+  setup() { mocks.raven() }, template: '<div class="raven-chat">Raven chat</div>',
+} }))
+
+let wrapper
+let settings
+beforeEach(() => {
+  vi.resetModules()
+  vi.resetAllMocks()
+  sessionStorage.clear()
+  settings = { user: 'worker@example.test', peri_chat_version: 'Flow', peri_flow_agent: 'PERI' }
+  mocks.api.mockImplementation(async url => {
+    if (url.endsWith('get_mobile_boot')) return { message: settings }
+    if (url.endsWith('open_peri_chat')) return { message: { url: '/flow/s/test-session', session: 'test-session' } }
+    if (url.endsWith('frappe.flow.api.run')) return { message: { run: 'run-1', status: 'started' } }
+    if (url.endsWith('get_or_create_peri_channel')) return { message: { channel_id: 'raven-peri' } }
+    throw new Error(`Unexpected API: ${url}`)
+  })
+})
+afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.unstubAllGlobals() })
+
+async function navigation(project) {
+  const { preparePeriChatRoute } = await import('../src/lib/periChat')
+  return preparePeriChatRoute(project)
+}
+
+async function open(route = '/chat/peri', component = 'AskPeri') {
+  const page = (await import(`../src/pages/${component}.vue`)).default
+  const router = createRouter({ history: createMemoryHistory(), routes: [
+    { path: '/chat/peri', component: page },
+  ] })
+  await router.push(route)
+  await router.isReady()
+  wrapper = mount(page, { global: { plugins: [router] } })
+  await vi.dynamicImportSettled()
+  await flushPromises()
+  await flushPromises()
+  return router
+}
+
+describe('Ask PERI backend selection', () => {
+  it('opens native Flow inline and never initialises Raven or opens a window', async () => {
+    const popup = vi.spyOn(window, 'open')
+    await open()
+    expect(wrapper.get('iframe').attributes('src')).toBe('/flow/s/test-session')
+    expect(wrapper.get('iframe').attributes('title')).toContain('PERI')
+    expect(wrapper.find('.app-browser-drawer').exists()).toBe(false)
+    expect(mocks.raven).not.toHaveBeenCalled()
+    expect(mocks.api.mock.calls.some(([url]) => url.includes('raven'))).toBe(false)
+    expect(popup).not.toHaveBeenCalled()
+    popup.mockRestore()
+  })
+
+  it('retains Raven for existing sites without a version setting', async () => {
+    delete settings.peri_chat_version
+    await open()
+    expect(wrapper.find('.raven-chat').exists()).toBe(true)
+    expect(wrapper.find('iframe').exists()).toBe(false)
+    expect(mocks.api.mock.calls.some(([url]) => url.includes('open_peri_chat'))).toBe(false)
+  })
+
+  it('waits for settings before mounting either backend', async () => {
+    let resolve
+    mocks.api.mockImplementation(() => new Promise(r => { resolve = r }))
+    await open()
+    expect(wrapper.text()).toContain('Loading Ask PERI')
+    expect(mocks.raven).not.toHaveBeenCalled()
+    mocks.api.mockResolvedValue({ message: { url: '/flow/s/test-session', session: 'test-session' } })
+    resolve({ message: settings })
+    await vi.dynamicImportSettled(); await flushPromises()
+    expect(wrapper.find('iframe').exists()).toBe(true)
+    expect(mocks.raven).not.toHaveBeenCalled()
+  })
+
+  it('shows a boot failure with retry instead of starting Raven with defaults', async () => {
+    mocks.api.mockRejectedValueOnce(new Error('Settings unavailable'))
+    await open()
+    expect(wrapper.get('[role="alert"]').text()).toContain('Settings unavailable')
+    expect(mocks.raven).not.toHaveBeenCalled()
+    await wrapper.get('button').trigger('click'); await vi.dynamicImportSettled(); await flushPromises()
+    expect(wrapper.find('iframe').exists()).toBe(true)
+  })
+})
+
+describe('PERI navigation and project analysis', () => {
+  it('routes to Flow without resolving a Raven channel and clears stale Raven prompts', async () => {
+    sessionStorage.setItem('verto_peri_autosend_message', 'Old Raven prompt')
+    expect(await navigation()).toEqual({ path: '/chat/peri', query: { mode: 'ai' } })
+    expect(mocks.api).toHaveBeenCalledTimes(1)
+    expect(sessionStorage.getItem('verto_peri_autosend_message')).toBeNull()
+  })
+
+  it('keeps the Raven channel and project autosend behaviour when selected', async () => {
+    settings.peri_chat_version = 'Raven'
+    expect(await navigation('SPT2603 | PORT MAJOR')).toEqual({ path: '/chat/peri', query: {
+      channel: 'raven-peri', mode: 'ai', auto: 'analyse',
+    } })
+    expect(sessionStorage.getItem('verto_peri_autosend_message')).toBe('Analyse the dashboard for SPT2603 | PORT MAJOR')
+  })
+
+  it('starts a fresh Flow conversation and sends the project prompt exactly once', async () => {
+    const target = await navigation('SPT2603 | PORT MAJOR')
+    await open(target)
+    const calls = mocks.api.mock.calls
+    expect(calls.find(([url]) => url.endsWith('open_peri_chat'))[1].body.get('new_chat')).toBe('1')
+    const runs = calls.filter(([url]) => url.endsWith('frappe.flow.api.run'))
+    expect(runs).toHaveLength(1)
+    expect(runs[0][1].method).toBe('POST')
+    expect(runs[0][1].body.get('session')).toBe('test-session')
+    expect(runs[0][1].body.get('message')).toBe('Analyse the dashboard for SPT2603 | PORT MAJOR')
+    wrapper.unmount(); wrapper = undefined
+    await open(target)
+    expect(mocks.api.mock.calls.filter(([url]) => url.endsWith('frappe.flow.api.run'))).toHaveLength(1)
+  })
+
+  it('does not replay a prompt queued by a different account', async () => {
+    const target = await navigation('Private project')
+    const { useMobileBoot } = await import('../src/lib/mobileBoot')
+    settings = { ...settings, user: 'other@example.test' }
+    await useMobileBoot().reloadMobileBoot()
+    await open(target)
+    expect(mocks.api.mock.calls.some(([url]) => url.endsWith('frappe.flow.api.run'))).toBe(false)
+  })
+
+  it('does not send the queued prompt after navigating away during session creation', async () => {
+    const target = await navigation('Project')
+    let resolve
+    mocks.api.mockImplementation(url => url.endsWith('open_peri_chat')
+      ? new Promise(r => { resolve = r }) : Promise.resolve({ message: settings }))
+    await open(target)
+    wrapper.unmount(); wrapper = undefined
+    resolve({ message: { url: '/flow/s/test-session', session: 'test-session' } })
+    await flushPromises()
+    expect(mocks.api.mock.calls.some(([url]) => url.endsWith('frappe.flow.api.run'))).toBe(false)
+  })
+})
+
+describe('Flow errors and recall', () => {
+  it('shows access errors inline and retries without opening another surface', async () => {
+    await navigation()
+    mocks.api.mockRejectedValueOnce(new Error('Flow Agent access denied'))
+    await open()
+    expect(wrapper.get('[role="alert"]').text()).toContain('Flow Agent access denied')
+    expect(wrapper.find('iframe').exists()).toBe(false)
+    await wrapper.get('button').trigger('click'); await flushPromises()
+    expect(wrapper.find('iframe').exists()).toBe(true)
+  })
+
+  it('can recover from an unusable remembered conversation by starting a new one', async () => {
+    await navigation()
+    mocks.api.mockRejectedValueOnce(new Error('This PERI conversation belongs to another user.'))
+    await open()
+    const button = wrapper.findAll('button').find(b => b.text() === 'Start a new PERI chat')
+    await button.trigger('click'); await flushPromises()
+    const calls = mocks.api.mock.calls.filter(([url]) => url.endsWith('open_peri_chat'))
+    expect(calls.at(-1)[1].body.get('new_chat')).toBe('1')
+    expect(wrapper.find('iframe').exists()).toBe(true)
+  })
+
+  it('rejects external iframe URLs', async () => {
+    await navigation()
+    mocks.api.mockResolvedValueOnce({ message: { url: 'https://other.test/flow/s/chat', session: 'chat' } })
+    await open()
+    expect(wrapper.get('[role="alert"]').text()).toContain('invalid conversation URL')
+    expect(wrapper.find('iframe').exists()).toBe(false)
+  })
+
+  it('opens the conversation after an ambiguous run error and does not resend on reload', async () => {
+    const target = await navigation('Project')
+    mocks.api.mockImplementation(async url => {
+      if (url.endsWith('open_peri_chat')) return { message: { url: '/flow/s/test-session', session: 'test-session' } }
+      if (url.endsWith('frappe.flow.api.run')) throw new Error('Connection lost')
+      return { message: settings }
+    })
+    await open(target)
+    expect(wrapper.get('[role="alert"]').text()).toContain('Check the conversation before sending')
+    expect(wrapper.find('iframe').exists()).toBe(true)
+    wrapper.unmount(); wrapper = undefined
+    await open(target)
+    expect(mocks.api.mock.calls.filter(([url]) => url.endsWith('frappe.flow.api.run'))).toHaveLength(1)
+  })
+
+  it('recalls conversations using a user and agent scoped storage key', async () => {
+    sessionStorage.setItem('verto:peri:flow-session:worker@example.test:PERI', 'my-chat')
+    await open()
+    const call = mocks.api.mock.calls.find(([url]) => url.endsWith('open_peri_chat'))
+    expect(call[1].body.get('session')).toBe('my-chat')
+    expect(sessionStorage.getItem('verto:peri:flow-session:worker@example.test:PERI')).toBe('test-session')
+  })
+})
+
+describe('Embedded Flow viewport sizing', () => {
+  it('resizes with the keyboard viewport and restores the normal shell on leaving Flow', async () => {
+    await navigation()
+    const viewport = new EventTarget()
+    viewport.height = 844
+    const original = Object.getOwnPropertyDescriptor(window, 'visualViewport')
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport })
+    try {
+      const shell = (await import('../src/layouts/MobileShell.vue')).default
+      const router = createRouter({ history: createMemoryHistory(), routes: [
+        { path: '/chat/peri', component: { template: '<div>Flow</div>' } },
+        { path: '/', component: { template: '<div>Home</div>' } },
+      ] })
+      await router.push('/chat/peri'); await router.isReady()
+      wrapper = mount(shell, { global: { plugins: [router], stubs: {
+        AppHeader: true, BottomTabs: true, AppBrowserDrawer: true, OfflineSyncStatus: true,
+        MissingHoursReminder: true, PwaUpdatePrompt: true, PwaInstallPrompt: true,
+      } } })
+      await flushPromises()
+      expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('844px')
+      viewport.height = 480
+      viewport.dispatchEvent(new Event('resize'))
+      expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('480px')
+      await router.push('/'); await flushPromises()
+      expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('')
+      viewport.height = 600
+      viewport.dispatchEvent(new Event('resize'))
+      expect(document.documentElement.style.getPropertyValue('--verto-viewport-height')).toBe('')
+    } finally {
+      wrapper?.unmount(); wrapper = undefined
+      if (original) Object.defineProperty(window, 'visualViewport', original)
+      else delete window.visualViewport
+    }
+  })
+})

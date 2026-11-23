@@ -390,6 +390,8 @@ def get_mobile_boot():
         ),
 
         # Chat/Raven defaults
+        "peri_chat_version": "Flow" if get_setting(settings, "peri_chat_version") == "Flow" else "Raven",
+        "peri_flow_agent": get_setting(settings, "peri_flow_agent", "PERI"),
         "default_workspace": get_setting(settings, 
             "default_workspace",
             DEFAULT_BOOT["default_workspace"],

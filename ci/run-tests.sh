@@ -62,8 +62,9 @@ echo '::group::Verify native mobile profile and self-service access'
 (
   cd "$VERTO_CI_BENCH"
 ./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_mobile_profile.py'
+./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_mobile_peri_flow.py'
 cd apps/verto/frontend
-yarn test:ui tests/profile-menu.test.js tests/my-profile.test.js tests/mobile-startup.test.js
+yarn test:ui tests/profile-menu.test.js tests/my-profile.test.js tests/mobile-startup.test.js tests/peri-flow.test.js
 )
 echo '::endgroup::'
 

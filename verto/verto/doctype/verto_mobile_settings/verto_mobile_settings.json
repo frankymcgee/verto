@@ -25,6 +25,8 @@
   "pwa_installation_screenshots_section",
   "pwa_screenshots",
   "peri_settings_section",
+  "peri_chat_version",
+  "peri_flow_agent",
   "default_workspace",
   "default_chat_channel",
   "column_break_dlnx",
@@ -188,6 +190,23 @@
    "fieldname": "peri_settings_section",
    "fieldtype": "Section Break",
    "label": "PERI Settings"
+  },
+  {
+   "default": "Raven",
+   "description": "Choose the chat shown inside the Ask PERI page. Team chat continues to use Raven.",
+   "fieldname": "peri_chat_version",
+   "fieldtype": "Select",
+   "label": "Ask PERI Version",
+   "options": "Raven\nFlow"
+  },
+  {
+   "default": "PERI",
+   "depends_on": "eval:doc.peri_chat_version == 'Flow'",
+   "mandatory_depends_on": "eval:doc.peri_chat_version == 'Flow'",
+   "description": "Exact Flow Agent ID, for example PERI. Users need Flow access and permission to use this agent.",
+   "fieldname": "peri_flow_agent",
+   "fieldtype": "Data",
+   "label": "PERI Flow Agent"
   },
   {
    "fieldname": "column_break_dlnx",

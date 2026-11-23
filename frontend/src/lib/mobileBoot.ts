@@ -19,6 +19,8 @@ export type MobileBoot = {
 
   default_workspace: string
   default_chat_channel: string
+  peri_chat_version: 'Raven' | 'Flow'
+  peri_flow_agent: string
   peri_bot_name: string
   peri_bot_user: string
   peri_bot_image: string
@@ -62,6 +64,8 @@ const defaultBoot: MobileBoot = {
 
   default_workspace: '',
   default_chat_channel: 'general',
+  peri_chat_version: 'Raven',
+  peri_flow_agent: 'PERI',
   peri_bot_name: 'P.E.R.I.',
   peri_bot_user: '',
   peri_bot_image: '',
@@ -242,6 +246,7 @@ export function useMobileBoot() {
 
     defaultWorkspace: computed(() => boot.value.default_workspace),
     defaultChatChannel: computed(() => boot.value.default_chat_channel || 'general'),
+    periChatVersion: computed(() => boot.value.peri_chat_version === 'Flow' ? 'Flow' : 'Raven'),
     periBotName: computed(() => boot.value.peri_bot_name || 'P.E.R.I.'),
     periBotUser: computed(() => boot.value.peri_bot_user),
     periBotImage: computed(() => boot.value.peri_bot_image || ''),
