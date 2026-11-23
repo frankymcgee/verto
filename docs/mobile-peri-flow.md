@@ -25,7 +25,12 @@ new-chat controls remain available. Session recall is scoped to the current
 user and configured agent, and ownership is checked on the server.
 
 **Analyse with PERI** on a project opens a fresh conversation with that agent
-and sends the same project dashboard request used by the Raven shortcut. It
+and sends the same project dashboard request used by the Raven shortcut. The
+shared request explicitly names **Shutdown Safety Metrics**, preserves the full
+project reference, and asks PERI to apply and verify project filters before
+analysing every chart. Other dashboards remain available through normal chat.
+See [dashboard filter tools and agent instructions](peri-dashboard-analysis.md)
+for the matching Dashboard Analysis configuration. It
 does not create a Raven channel in Flow mode. If a connection fails while the
 analysis is starting, check the displayed conversation before sending again:
 the mobile app deliberately does not automatically repeat a paid AI run.

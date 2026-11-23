@@ -23,20 +23,34 @@ export async function preparePeriChatRoute(project?: string): Promise<RouteLocat
   const { loadMobileBoot, error } = useMobileBoot()
   const boot = await loadMobileBoot()
   if (error.value) throw new Error(error.value)
-  const message = project ? `Analyse the dashboard for ${project}` : ''
-
-  if (boot.peri_chat_version === 'Flow') {
-    try {
+  try {
+    consumeFlowPrompt()
+    if (project || boot.peri_chat_version === 'Flow') {
       sessionStorage.removeItem('verto_peri_autosend_message')
       sessionStorage.removeItem('verto_peri_source_project')
-      consumeFlowPrompt()
-    } catch { /* Normal navigation does not require storage. */ }
+    }
+  } catch { /* Normal navigation does not require prompt storage. */ }
+
+  let message = ''
+  if (project) {
+    const body = new FormData()
+    body.set('project', project)
+    const data = await apiRequest<{ message: string }>(
+      '/api/method/verto.api.peri.prompts.get_project_dashboard_prompt',
+      { method: 'POST', body },
+    )
+    if (!data.message || typeof data.message !== 'string') {
+      throw new Error('Could not prepare the project dashboard analysis.')
+    }
+    message = data.message
+  }
+
+  if (boot.peri_chat_version === 'Flow') {
     const request = message ? crypto.randomUUID() : ''
     if (message) sessionStorage.setItem(FLOW_PROMPT_KEY, JSON.stringify({ id: request, user: boot.user, message }))
     return { path: '/chat/peri', query: { mode: 'ai', ...(request ? { request } : {}) } }
   }
 
-  try { consumeFlowPrompt() } catch { /* Raven navigation does not require Flow storage. */ }
   const data = await apiRequest<{ message: any }>('/api/method/verto.api.mobile.raven.get_or_create_peri_channel')
   const value = data.message?.channel || data.message?.message || data.message
   const channel = typeof value === 'string' ? value : value?.name || value?.channel_id || value?.channel_name
