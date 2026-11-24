@@ -24,6 +24,10 @@ describe('Frappe UI v1 integration',()=>{
     expect(wrapper.emitted('updateFilters').at(-1)[0].company).toBe('DG')
     wrapper.findComponent(DateRangePicker).vm.$emit('update:modelValue',['2026-09-01','2026-09-30']);await settle()
     expect(wrapper.emitted('updateDateRange').at(-1)[0]).toEqual({from:'2026-09-01',to:'2026-09-30'})
+    wrapper.findComponent(DateRangePicker).vm.$emit('update:modelValue',[]);await settle()
+    expect(wrapper.emitted('updateDateRange').at(-1)[0]).toEqual({from:null,to:null})
+    company.vm.$emit('update:modelValue',null);await settle()
+    expect(wrapper.emitted('updateFilters').at(-1)[0].company).toBe('')
     await wrapper.find('[aria-label="Next period"]').trigger('click')
     expect(wrapper.emitted('addToMonth').at(-1)).toEqual([12])
   })
@@ -58,5 +62,29 @@ describe('Frappe UI v1 integration',()=>{
     const confirm=[...confirmDialog.querySelectorAll('button')].find(el=>el.textContent.trim()==='Confirm')
     await new DOMWrapper(confirm).trigger('click');await settle()
     expect(saves).toBe(1)
+  })
+})
+
+describe('Frappe UI 1.2 date entry', () => {
+  it.each(['3-11-2026', '3/11/26', '03.11.2026'])('uses the configured Australian date order for %s', async typed => {
+    const { DatePicker } = await import('frappe-ui')
+    wrapper = mount(DatePicker, { props: { label: 'Shift date', format: 'DD-MM-YYYY' } })
+    const input = wrapper.get('input')
+    await input.setValue(typed)
+    await input.trigger('blur')
+    await settle()
+    expect(wrapper.emitted('update:modelValue').at(-1)).toEqual(['2026-11-03'])
+  })
+
+  it('does not dirty a saved timestamp when its display hides seconds', async () => {
+    const { DateTimePicker } = await import('frappe-ui')
+    wrapper = mount(DateTimePicker, { props: {
+      label: 'Shift time', format: 'DD-MM-YYYY HH:mm', modelValue: '2026-11-03 18:07:42',
+    } })
+    const input = wrapper.get('input')
+    await input.trigger('focus')
+    await input.trigger('blur')
+    await settle()
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
   })
 })

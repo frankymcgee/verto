@@ -17,10 +17,10 @@
               role="button"
             >
               <div class="flex items-center gap-2">
-                <Icon name="lucide-layers" class="h-4 w-4 text-gray-500" />
+                <Icon icon="lucide-layers" class="h-4 w-4 text-gray-500" />
                 <span class="font-medium">Projects</span>
                 <Icon
-                  name="lucide-chevron-down"
+                  icon="lucide-chevron-down"
                   class="h-4 w-4 text-gray-400 transition-transform duration-200 ml-1"
                   :class="internalCollapsed ? '-rotate-90' : ''"
                   aria-hidden="true"
@@ -64,7 +64,7 @@
                 <div class="flex items-center gap-3 text-xs text-gray-600">
                   <span class="inline-flex items-center gap-1.5">
                     <Icon
-                      name="lucide-check-circle"
+                      icon="lucide-check-circle"
                       class="h-3.5 w-3.5 text-green-500"
                       aria-hidden="true"
                     />
@@ -74,7 +74,7 @@
                 <div class="flex items-center gap-3 text-xs text-gray-600">
                   <span class="inline-flex items-center gap-1.5">
                     <Icon
-                      name="lucide-x-circle"
+                      icon="lucide-x-circle"
                       class="h-3.5 w-3.5 text-red-500"
                       aria-hidden="true"
                     />
@@ -84,7 +84,7 @@
                 <div class="flex items-center gap-3 text-xs text-gray-600">
                   <span class="inline-flex items-center gap-1.5">
                     <Icon
-                      name="lucide-sun"
+                      icon="lucide-sun"
                       class="h-3.5 w-3.5 text-orange-500"
                       aria-hidden="true"
                     />
@@ -94,7 +94,7 @@
                 <div class="flex items-center gap-3 text-xs text-gray-600">
                   <span class="inline-flex items-center gap-1.5">
                     <Icon
-                      name="lucide-moon"
+                      icon="lucide-moon"
                       class="h-3.5 w-3.5 text-blue-500"
                       aria-hidden="true"
                     />
@@ -103,7 +103,7 @@
                 </div>
                 <div class="flex items-center gap-3 text-xs text-gray-600">
                   <span class="inline-flex items-center gap-1.5">
-                    <span class="inline-block h-3.5 w-3.5 rounded-sm border" :style="cancelledProjectStyle()" aria-hidden="true"></span>
+                    <span class="inline-block h-3.5 w-3.5 rounded-1 border" :style="cancelledProjectStyle()" aria-hidden="true"></span>
                     Cancelled
                   </span>
                 </div>
@@ -142,7 +142,7 @@
                   <div class="bar-content overflow-hidden">
                     <div class="flex items-center gap-2">
                       <Icon
-                        :name="
+                        :icon="
                           bar.hasPO ? 'lucide-check-circle' : 'lucide-x-circle'
                         "
                         class="h-3.5 w-3.5 flex-shrink-0"
@@ -158,7 +158,7 @@
                         {{ dayjs(bar.projectEnd).format("D MMM") }}
                       </span>
                       <Icon
-                        name="lucide-sun"
+                        icon="lucide-sun"
                         class="h-3.5 w-3.5 flex-shrink-0 text-orange-500"
                         aria-hidden="true"
                       />
@@ -166,7 +166,7 @@
                         bar.day_shift
                       }}</span>
                       <Icon
-                        name="lucide-moon"
+                        icon="lucide-moon"
                         class="h-3.5 w-3.5 flex-shrink-0 text-blue-500"
                         aria-hidden="true"
                       />

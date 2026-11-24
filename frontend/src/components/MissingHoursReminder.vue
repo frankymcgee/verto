@@ -17,13 +17,13 @@
       >
         <header class="flex shrink-0 items-center justify-between gap-3 border-b border-outline-gray-1 px-4 py-3">
           <h2 id="missing-hours-title" class="text-base font-semibold">Missing timesheet hours</h2>
-          <button type="button" class="rounded-lg bg-surface-gray-2 px-3 py-2 text-sm font-semibold" @click="open = false">Close</button>
+          <button type="button" class="rounded-6 bg-surface-gray-2 px-3 py-2 text-sm font-semibold" @click="open = false">Close</button>
         </header>
         <div class="min-h-0 overflow-y-auto px-4 py-3 pb-[max(env(safe-area-inset-bottom,0px),1rem)]">
           <p class="mb-3 text-sm text-ink-gray-6">These reminders stay until your hours are saved. Hours saved offline will clear after they sync.</p>
           <ul class="space-y-2">
             <li v-for="reminder in reminders" :key="reminder.name">
-              <button type="button" class="flex w-full items-center justify-between gap-3 rounded-xl border border-outline-amber-1 bg-surface-amber-1 p-3 text-left" @click="reviewShift(reminder)">
+              <button type="button" class="flex w-full items-center justify-between gap-3 rounded-7 border border-outline-amber-1 bg-surface-amber-1 p-3 text-left" @click="reviewShift(reminder)">
                 <span class="min-w-0">
                   <span class="block font-semibold">{{ formatDate(reminder.date) }} · {{ reminder.shift_type }}</span>
                   <span v-if="reminder.project_name || reminder.project" class="block break-words text-sm text-ink-gray-6">{{ reminder.project_name || reminder.project }}</span>

@@ -9,7 +9,7 @@
     "test:ui": "vitest run"
   },
   "dependencies": {
-    "frappe-ui": "1.0.2",
+    "frappe-ui": "file:../frappe-ui",
     "reka-ui": "2.10.4",
     "vue": "^3.5.12",
     "vue-router": "^4.3.2"

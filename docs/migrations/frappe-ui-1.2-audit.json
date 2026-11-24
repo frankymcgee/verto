@@ -1,0 +1,59 @@
+{
+  "date": "2026-11-24",
+  "release": "frappe-ui@1.2.0",
+  "submodule_commit": "a9e454c1f82fd189f63031a97c05c94466046e0a",
+  "apps": {
+    "root": {
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0
+      },
+      "dependencies": 254,
+      "devDependencies": 0,
+      "optionalDependencies": 0,
+      "totalDependencies": 254
+    },
+    "frontend": {
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0
+      },
+      "dependencies": 719,
+      "devDependencies": 0,
+      "optionalDependencies": 0,
+      "totalDependencies": 719
+    },
+    "planner": {
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0
+      },
+      "dependencies": 373,
+      "devDependencies": 0,
+      "optionalDependencies": 0,
+      "totalDependencies": 373
+    },
+    "investigations": {
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0
+      },
+      "dependencies": 374,
+      "devDependencies": 0,
+      "optionalDependencies": 0,
+      "totalDependencies": 374
+    }
+  }
+}

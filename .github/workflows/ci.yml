@@ -72,7 +72,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_local_voice_bridge.py' -v
 
   mobile-forms:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: Mobile form row saves and offline updates
     steps:
       - uses: actions/checkout@v4
@@ -98,34 +98,57 @@ jobs:
           python3 -m unittest discover -s ../tests -p 'test_peri_dashboard_filters.py'
           python3 -m unittest discover -s ../tests -p 'test_mobile_theme.py'
 
-      - uses: actions/setup-python@v5
-        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+  browser-ui:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    name: Browser layout and security
+    timeout-minutes: 15
+    container:
+      # Match the Python package below; includes Chromium/WebKit and OS libraries.
+      image: mcr.microsoft.com/playwright/python:v1.62.0-noble@sha256:aa81288e738725378becba5b3e06cb0f3a7f012a610e87e8d767a090ea3f740d
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@v4
         with:
-          python-version: '3.12'
-      - name: Install isolated layout-test browsers
-        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install Yarn and locate its cache
+        id: yarn-cache
         run: |
-          python -m pip install playwright==1.62.0
-          python -m playwright install --with-deps chromium webkit
-      - name: Measure phone and desktop Flow footer placement
-        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-        working-directory: frontend
-        run: |
-          yarn build
-          python tests/mobile-shell-layout.e2e.py
-      - name: Verify sanitization and dependency compatibility in Chromium
-        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+          npm install --global yarn@1.22.22
+          echo "dir=$(yarn cache dir)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.dir }}
+          key: ${{ runner.os }}-verto-browser-yarn-${{ hashFiles('yarn.lock', 'frontend/yarn.lock', 'planner/yarn.lock', 'investigations/yarn.lock') }}
+          restore-keys: ${{ runner.os }}-verto-browser-yarn-
+      - name: Install application and browser client dependencies
         run: |
           yarn install --frozen-lockfile --non-interactive
+          yarn --cwd frontend install --frozen-lockfile --non-interactive
           yarn --cwd planner install --frozen-lockfile --non-interactive
           yarn --cwd investigations install --frozen-lockfile --non-interactive
+          python3 -m venv /tmp/verto-browser-venv
+          /tmp/verto-browser-venv/bin/pip install playwright==1.62.0
+          echo "/tmp/verto-browser-venv/bin" >> "$GITHUB_PATH"
+      - name: Measure phone and desktop Flow footer placement
+        run: |
+          yarn build:frontend
+          python frontend/tests/mobile-shell-layout.e2e.py
+      - name: Verify HTML security and dependency compatibility
+        run: |
           node --test tests/dependency-compatibility.test.mjs
           python tests/security-html.e2e.py
+      - name: Build planner and verify investigations
+        run: |
           yarn build:planner
           yarn --cwd investigations test:ui
           yarn build:investigations
       - uses: actions/upload-artifact@v4
-        if: always() && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+        if: always()
         with:
           name: mobile-shell-layout
           path: frontend/test-results/
@@ -137,6 +160,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          submodules: recursive
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:

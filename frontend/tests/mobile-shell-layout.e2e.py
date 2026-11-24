@@ -1,5 +1,7 @@
 """Measure the built mobile shell in real browser engines, without a Frappe site."""
 
+import argparse
+import os
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -168,14 +170,17 @@ def check_layout(browser, origin, engine, width, height, shortfall, ios_standalo
         context.close()
 
 
-def main():
+def main(engines=("chromium", "webkit")):
     RESULTS.mkdir(exist_ok=True)
     server = ThreadingHTTPServer(("127.0.0.1", 0), partial(Handler, directory=str(PUBLIC)))
     Thread(target=server.serve_forever, daemon=True).start()
     try:
         with sync_playwright() as playwright:
-            for engine in ("chromium", "webkit"):
-                browser = getattr(playwright, engine).launch()
+            for engine in engines:
+                launch_options = {}
+                if engine == "chromium" and os.environ.get("CHROMIUM_BINARY"):
+                    launch_options["executable_path"] = os.environ["CHROMIUM_BINARY"]
+                browser = getattr(playwright, engine).launch(**launch_options)
                 try:
                     for width, height in ((440, 956), (1440, 900)):
                         for shortfall in (0, 62):
@@ -189,4 +194,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--browser", action="append", choices=("chromium", "webkit"))
+    args = parser.parse_args()
+    main(tuple(args.browser) if args.browser else ("chromium", "webkit"))
