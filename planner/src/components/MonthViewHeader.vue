@@ -57,6 +57,7 @@ import { computed, reactive, ref, watch } from "vue";
 import {
   Combobox,
   DateRangePicker,
+  type DateRangeValue,
   Button,
 } from "frappe-ui";
 import type { Dayjs } from "dayjs";
@@ -101,9 +102,9 @@ function goToNextPeriod() {
   emit("addToMonth", props.viewMode === "year" ? 12 : 1);
 }
 
-/** Date range model (support string/object/array from different frappe-ui builds) */
-const dateRangeValue = ref<string[]>([]);
-function normalizeRange(v: string[]) {
+/** Frappe UI emits a two-date tuple, or [] when cleared. */
+const dateRangeValue = ref<DateRangeValue>([]);
+function normalizeRange(v: DateRangeValue) {
   return { from: v?.[0] || null, to: v?.[1] || null };
 }
 

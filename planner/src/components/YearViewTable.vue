@@ -42,7 +42,7 @@
                 <div class="year-project-header-content px-2 py-1.5">
                   <div class="flex items-center justify-between gap-2 text-xs-semibold text-gray-800">
                     <div class="flex min-w-0 items-center gap-1.5">
-                      <Icon name="lucide-briefcase" class="year-project-header-icon" />
+                      <Icon icon="lucide-briefcase" class="year-project-header-icon" />
                       <span>Projects</span>
                     </div>
 
@@ -124,31 +124,31 @@
 
                   <div class="year-project-legend mt-1">
                     <div class="year-project-legend-item">
-                      <Icon name="lucide-check-circle" class="year-legend-icon year-legend-po-entered" />
+                      <Icon icon="lucide-check-circle" class="year-legend-icon year-legend-po-entered" />
                       <span>PO Entered</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <Icon name="lucide-x-circle" class="year-legend-icon year-legend-po-missing" />
+                      <Icon icon="lucide-x-circle" class="year-legend-icon year-legend-po-missing" />
                       <span>PO Missing</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <Icon name="lucide-bar-chart-2" class="year-legend-icon year-legend-gantt-available" />
+                      <Icon icon="lucide-bar-chart-2" class="year-legend-icon year-legend-gantt-available" />
                       <span>Gantt Available</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <Icon name="lucide-alert-triangle" class="year-legend-icon year-legend-gantt-missing" />
+                      <Icon icon="lucide-alert-triangle" class="year-legend-icon year-legend-gantt-missing" />
                       <span>Gantt Missing</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <Icon name="lucide-sun" class="year-legend-icon year-legend-ds-requested" />
+                      <Icon icon="lucide-sun" class="year-legend-icon year-legend-ds-requested" />
                       <span># DS Requested</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <Icon name="lucide-moon" class="year-legend-icon year-legend-ns-requested" />
+                      <Icon icon="lucide-moon" class="year-legend-icon year-legend-ns-requested" />
                       <span># NS Requested</span>
                     </div>
                     <div class="year-project-legend-item">
-                      <span class="inline-block h-3 w-3 rounded-sm border" :style="cancelledProjectStyle()" aria-hidden="true"></span>
+                      <span class="inline-block h-3 w-3 rounded-1 border" :style="cancelledProjectStyle()" aria-hidden="true"></span>
                       <span>Cancelled</span>
                     </div>
                   </div>
@@ -266,7 +266,7 @@
                       :class="projectHasGantt(segment.project) ? 'year-project-gantt-available' : 'year-project-gantt-missing'"
                       :title="projectGanttStatusLabel(segment.project)"
                     >
-                      <Icon :name="projectHasGantt(segment.project) ? 'lucide-bar-chart-2' : 'lucide-alert-triangle'" class="year-project-inline-icon" />
+                      <Icon :icon="projectHasGantt(segment.project) ? 'lucide-bar-chart-2' : 'lucide-alert-triangle'" class="year-project-inline-icon" />
                     </span>
 
                     <span
@@ -274,12 +274,12 @@
                       :class="segment.poEntered ? 'year-project-po-entered' : 'year-project-po-missing'"
                       :title="segment.poEntered ? 'PO Entered' : 'PO Missing'"
                     >
-                      <Icon :name="segment.poEntered ? 'lucide-check-circle' : 'lucide-x-circle'" class="year-project-inline-icon" />
+                      <Icon :icon="segment.poEntered ? 'lucide-check-circle' : 'lucide-x-circle'" class="year-project-inline-icon" />
                     </span>
 
                     <span class="year-project-request-group" :title="projectPersonnelCountTitle(segment, 'ds')">
                       <span class="year-project-request year-project-request-ds">
-                        <Icon name="lucide-sun" class="year-project-request-icon" />
+                        <Icon icon="lucide-sun" class="year-project-request-icon" />
                       </span>
                       <span
                         class="year-project-request-count"
@@ -291,7 +291,7 @@
 
                     <span class="year-project-request-group" :title="projectPersonnelCountTitle(segment, 'ns')">
                       <span class="year-project-request year-project-request-ns">
-                        <Icon name="lucide-moon" class="year-project-request-icon" />
+                        <Icon icon="lucide-moon" class="year-project-request-icon" />
                       </span>
                       <span
                         class="year-project-request-count"
@@ -319,7 +319,7 @@
       >
         <span class="year-table-resizer-line"></span>
         <span class="year-table-resizer-handle" aria-hidden="true">
-          <Icon name="lucide-menu" class="year-table-resizer-icon" />
+          <Icon icon="lucide-menu" class="year-table-resizer-icon" />
         </span>
         <span class="year-table-resizer-line"></span>
       </div>

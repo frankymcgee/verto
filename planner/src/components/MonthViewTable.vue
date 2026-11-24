@@ -212,7 +212,7 @@
                 >
                   <div class="flex items-center space-x-1">
                     <Icon
-                      name="lucide-clock"
+                      icon="lucide-clock"
                       class="text-gray-400"
                       style="height: 0.82rem; width: 0.82rem"
                     />
@@ -225,7 +225,7 @@
                     class="flex items-center space-x-1"
                   >
                     <Icon
-                      name="lucide-map-pin"
+                      icon="lucide-map-pin"
                       class="text-gray-400"
                       style="height: 0.82rem; width: 0.82rem"
                     />

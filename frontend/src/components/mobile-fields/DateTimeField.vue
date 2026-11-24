@@ -87,7 +87,7 @@ function clearTime() {
           <button
             v-if="!required && date && !disabled"
             type="button"
-            class="pointer-events-auto me-1 flex size-6 items-center justify-center rounded hover:bg-surface-gray-3"
+            class="pointer-events-auto me-1 flex size-6 items-center justify-center rounded-4 hover:bg-surface-gray-3"
             :aria-label="`Clear ${label || 'date'}`"
             @mousedown.prevent
             @click="clearDate"
@@ -117,7 +117,7 @@ function clearTime() {
           <button
             v-if="!combined && !required && time && !disabled"
             type="button"
-            class="pointer-events-auto me-1 flex size-6 items-center justify-center rounded hover:bg-surface-gray-3"
+            class="pointer-events-auto me-1 flex size-6 items-center justify-center rounded-4 hover:bg-surface-gray-3"
             :aria-label="`Clear ${label || 'time'}`"
             @mousedown.prevent
             @click="clearTime"

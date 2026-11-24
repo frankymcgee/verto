@@ -74,7 +74,7 @@
             </div>
 
             <Icon
-              name="lucide-chevron-down"
+              icon="lucide-chevron-down"
               class="hidden h-4 w-4 text-gray-400 md:block"
             />
           </button>

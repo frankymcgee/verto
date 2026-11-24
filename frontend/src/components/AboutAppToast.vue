@@ -31,7 +31,7 @@
             <p class="my-3 text-xs">Captures screen and layout measurements from before this panel opened. No conversation, form contents or account details are included. Nothing is sent automatically.</p>
             <Button :disabled="!layoutReport" @click="copyLayoutReport">Copy layout report</Button>
             <p v-if="copyStatus" role="status" class="mt-2 text-xs">{{ copyStatus }}</p>
-            <textarea v-if="manualReport" :value="manualReport" readonly aria-label="Layout report" class="mt-2 h-48 w-full rounded border border-outline-gray-2 bg-surface-gray-1 p-2 text-base" @focus="($event.target as HTMLTextAreaElement).select()" />
+            <textarea v-if="manualReport" :value="manualReport" readonly aria-label="Layout report" class="mt-2 h-48 w-full rounded-4 border border-outline-gray-2 bg-surface-gray-1 p-2 text-base" @focus="($event.target as HTMLTextAreaElement).select()" />
           </details>
           <p class="mt-4 text-center text-xs text-ink-gray-5">{{ copyrightText || 'Copyright 2026 Webwire Pty Ltd' }}</p>
         </div>

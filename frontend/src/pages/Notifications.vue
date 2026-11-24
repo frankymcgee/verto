@@ -18,7 +18,7 @@
       <li v-for="item in items" :key="item.name" class="rounded-7 border border-outline-gray-1 bg-surface-base p-3">
         <div class="flex items-start justify-between gap-2">
           <p class="break-words font-medium">{{ item.title }}</p>
-          <span v-if="!item.is_read" class="rounded bg-surface-gray-2 px-2 py-0.5 text-xs">Unread</span>
+          <span v-if="!item.is_read" class="rounded-4 bg-surface-gray-2 px-2 py-0.5 text-xs">Unread</span>
         </div>
         <p class="mt-1 whitespace-pre-line break-words text-sm text-ink-gray-7">{{ item.body }}</p>
         <p class="mt-2 text-xs text-ink-gray-5">{{ displayDate(item.creation) }}</p>
