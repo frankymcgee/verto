@@ -15,3 +15,9 @@ if (typeof Element !== 'undefined') {
   Element.prototype.setPointerCapture ??= function () {}
   Element.prototype.releasePointerCapture ??= function () {}
 }
+
+// Happy DOM 21 omits browser dialogs. Tests spy on these inert defaults.
+if (typeof window !== 'undefined') {
+  window.alert ??= function () {}
+  window.confirm ??= function () { return false }
+}

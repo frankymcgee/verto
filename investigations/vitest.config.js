@@ -10,6 +10,6 @@ export default defineConfig({
     environment: 'happy-dom',
     include: ['tests/*.test.js'],
     pool: 'threads',
-    poolOptions: { threads: { singleThread: true } },
+    maxWorkers: 1,
   },
 })

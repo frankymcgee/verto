@@ -10,6 +10,6 @@ export default defineConfig({
     include: ['tests/*.test.js'],
     setupFiles: ['tests/setup.js'],
     pool: 'threads',
-    poolOptions: { threads: { singleThread: true } },
+    maxWorkers: 1,
   },
 })

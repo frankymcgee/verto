@@ -15,17 +15,21 @@
     "vue-router": "^4.3.2"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^4.4.0",
+    "@vitejs/plugin-vue": "^5.2.4",
     "@vue/test-utils": "2.4.6",
     "autoprefixer": "^10.4.19",
-    "happy-dom": "20.8.4",
+    "happy-dom": "21.0.4",
     "postcss": "^8.4.5",
     "tailwindcss": "^3.4.3",
     "typescript": "^5.4.5",
-    "vite": "^5.4.10",
-    "vitest": "2.1.9"
+    "vite": "^6.4.6",
+    "vitest": "4.1.12"
   },
   "engines": {
     "node": ">=20.19.0"
+  },
+  "resolutions": {
+    "vite": "6.4.6",
+    "**/@tailwindcss/typography/postcss-selector-parser": "6.1.5"
   }
 }
