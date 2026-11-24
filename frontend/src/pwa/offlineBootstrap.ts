@@ -109,6 +109,10 @@ export async function primeOfflineData() {
   )
 
   const bootstrap = data.message || {}
+  const actor = bootstrap.user || bootstrap.shift_calendar?.user || ''
+  if (!actor || actor === 'Guest' || !bootstrap.schemas || typeof bootstrap.schemas !== 'object') {
+    throw new Error('The offline download could not be verified. Your previously saved offline data has been kept.')
+  }
   // Validate before modifying caches or the offline actor. Existing editors
   // still receive the original schema+values response, including offline.
   const editDocs = Object.entries(bootstrap.edit_docs || {}).map(([key, payload]) => {
@@ -117,7 +121,6 @@ export async function primeOfflineData() {
     const { schema_key: _schemaKey, ...document } = payload
     return [key, { ...document, schema }] as const
   })
-  const actor = bootstrap.user || bootstrap.shift_calendar?.user || ''
   const previousActor = getOfflineActor()
 
   if (actor && previousActor && previousActor !== actor) {

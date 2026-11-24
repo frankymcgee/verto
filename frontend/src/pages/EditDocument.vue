@@ -46,7 +46,7 @@
 
       <!-- Error State -->
       <section
-        v-else-if="error"
+        v-else-if="loadError"
         class="rounded-7 shadow-sm border border-red-200 bg-red-50 p-3"
       >
         <div class="space-y-2">
@@ -55,7 +55,7 @@
           </p>
 
           <p class="whitespace-pre-wrap text-sm text-red-700">
-            {{ cleanServerMessage(error) }}
+            {{ cleanServerMessage(loadError) }}
           </p>
         </div>
       </section>
@@ -66,6 +66,10 @@
         class="space-y-3"
         @submit.prevent="saveForm"
       >
+        <section v-if="error" role="alert" class="rounded-7 border border-red-200 bg-red-50 p-3">
+          <p class="whitespace-pre-wrap text-sm text-red-700">{{ cleanServerMessage(error) }}</p>
+          <p class="mt-1 text-xs text-red-700">Your changes are still in this form. You can keep editing and try saving again.</p>
+        </section>
         <!-- Permission Warning -->
         <section
           v-if="!canWrite"
@@ -511,6 +515,7 @@ const saving = ref(false)
 const saved = ref(false)
 const savedOffline = ref(false)
 const error = ref('')
+const loadError = ref('')
 const schema = ref<FormSchema | null>(null)
 const values = ref<Record<string, any>>({})
 const files = ref<File[]>([])
@@ -1112,6 +1117,7 @@ function setLoadedValues(loadedValues: Record<string, any>) {
 
 async function loadEditDocument() {
   loading.value = true
+  loadError.value = ''
   error.value = ''
   messages.value = []
   warnings.value = []
@@ -1159,7 +1165,7 @@ async function loadEditDocument() {
       return
     }
 
-    error.value = err instanceof Error ? err.message : 'Could not load document.'
+    loadError.value = err instanceof Error ? err.message : 'Could not load document.'
   } finally {
     loading.value = false
   }

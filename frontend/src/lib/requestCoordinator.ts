@@ -1,4 +1,5 @@
 import { createReadCoordinator, stableKey } from '../../../shared/requestCoordinator'
+import { serverReachable } from './connection'
 
 const reads = createReadCoordinator(4)
 // Frappe also exposes writes through GET (notably get_or_create_*), so HTTP
@@ -35,7 +36,7 @@ export function coordinateApiRead<T>(url: string, options: RequestInit, operatio
 
   // Cached forms must remain available immediately when the connection drops,
   // even if previous online requests have not timed out yet.
-  if (!navigator.onLine) return operation()
+  if (!navigator.onLine || !serverReachable.value) return operation()
 
   let body: unknown = options.body || ''
   if (body instanceof FormData || body instanceof URLSearchParams) {
