@@ -3,7 +3,7 @@
 The latest stable npm release and GitHub release both identify **1.2.0**,
 published 11 November 2026. Verto pins upstream tag `v1.2.0` at commit
 `a9e454c1f82fd189f63031a97c05c94466046e0a`; it does not track unreleased `main`.
-Verto's version is incremented to **16.3.152** with this change.
+Verto's version is incremented to **16.3.153** with this change.
 
 ## Documentation reviewed
 
@@ -73,7 +73,9 @@ mcr.microsoft.com/playwright/python:v1.62.0-noble@sha256:aa81288e738725378becba5
 
 The registry tag/digest was verified. It includes Chromium, WebKit and their
 Linux libraries. The job installs the matching Python client `playwright==1.62.0`
-in a virtual environment; there is no `playwright install --with-deps` or apt
+in a virtual environment created with the image's bundled `virtualenv` module
+(the image does not include the system `ensurepip` needed by `python -m venv`);
+there is no `playwright install --with-deps` or apt
 installation on each run. The image and client must be updated together.
 
 The browser job keeps the phone/desktop and iOS-standalone viewport model,

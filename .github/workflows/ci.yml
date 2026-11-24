@@ -131,7 +131,7 @@ jobs:
           yarn --cwd frontend install --frozen-lockfile --non-interactive
           yarn --cwd planner install --frozen-lockfile --non-interactive
           yarn --cwd investigations install --frozen-lockfile --non-interactive
-          python3 -m venv /tmp/verto-browser-venv
+          python3 -m virtualenv /tmp/verto-browser-venv
           /tmp/verto-browser-venv/bin/pip install playwright==1.62.0
           echo "/tmp/verto-browser-venv/bin" >> "$GITHUB_PATH"
       - name: Measure phone and desktop Flow footer placement
