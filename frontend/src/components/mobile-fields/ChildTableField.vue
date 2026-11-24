@@ -106,6 +106,9 @@
             </div>
 
             <div class="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+7rem)]">
+          <HandoverDraftPanel v-if="canDraftHandover" :handover-doctype="parentDoctype || ''" :project="project || ''" :docname="parentName"
+            :row-date="draftRow.date" :coverage="draftRow.coverage" :field-labels="handoverFieldLabels"
+            :disabled="disabled || rowSaving || Boolean(busy)" @busy="periPreparing = $event" @apply="applyHandoverDraft" />
           <template
             v-for="childField in visibleChildFields"
             :key="childField.fieldname"
@@ -325,6 +328,8 @@ import DateTimeField from './DateTimeField.vue'
 import LinkField from './LinkField.vue'
 import SignatureField from './SignatureField.vue'
 import RatingField from './RatingField.vue'
+import { handoverDraftHtml, handoverNarrativeFields, type HandoverDraft } from '../../lib/handoverDraft'
+const HandoverDraftPanel = defineAsyncComponent(() => import('../HandoverDraftPanel.vue'))
 const RichTextEditorField = defineAsyncComponent(() => import('./RichTextEditorField.vue'))
 
 type MobileField = {
@@ -361,6 +366,9 @@ const props = defineProps<{
   field: MobileField
   disabled?: boolean
   busy?: boolean
+  parentDoctype?: string
+  parentName?: string
+  project?: string
   saveRows?: (rows: Record<string, any>[]) => Promise<boolean | void>
 }>()
 
@@ -373,7 +381,21 @@ const editingIndex = ref<number | null>(null)
 const draftRow = ref<Record<string, any>>({})
 const rowSaving = ref(false)
 const saveError = ref('')
-const locked = computed(() => rowSaving.value || Boolean(props.busy))
+const periPreparing = ref(false)
+const locked = computed(() => rowSaving.value || periPreparing.value || Boolean(props.busy))
+const canDraftHandover = computed(() => !props.disabled && !draftRow.value.signoff && ['Safety Handover', 'Lead Safety Handover'].includes(props.parentDoctype || '') &&
+  (props.field.child_doctype || props.field.options) === 'Handover Information')
+const handoverFieldLabels = computed(() => Object.fromEntries(childFields.value.filter(field => handoverNarrativeFields.has(field.fieldname)).map(field => [field.fieldname, field.label])))
+
+function applyHandoverDraft(draft: HandoverDraft, replace: boolean) {
+  if (locked.value || props.disabled) return
+  for (const field of childFields.value) {
+    const text = draft.fields[field.fieldname]
+    if (!handoverNarrativeFields.has(field.fieldname) || !text?.trim() || isFieldReadOnly(field)) continue
+    if (!replace && String(draftRow.value[field.fieldname] || '').trim()) continue
+    draftRow.value[field.fieldname] = field.fieldtype === 'Text Editor' ? handoverDraftHtml(text, draft.sources) : text
+  }
+}
 
 const rows = computed(() => {
   return Array.isArray(props.modelValue) ? props.modelValue : []

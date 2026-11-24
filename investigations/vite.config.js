@@ -5,6 +5,7 @@ import { copyFileSync, mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 export default defineConfig({
+  resolve: { dedupe: ['vue', 'frappe-ui', 'reka-ui'] },
   base: '/assets/verto/investigations/',
   plugins: [
     vue(),

@@ -92,11 +92,12 @@ jobs:
       - name: Verify mobile forms, offline persistence and chat
         working-directory: frontend
         run: |
-          yarn test:ui tests/child-row-save.test.js tests/mobile-ui.test.js tests/form-controls.test.js tests/rating-fields.test.js tests/offline-sync.test.js tests/offline-request-efficiency.test.js tests/connection-resilience.test.js tests/pwa-refresh-safety.test.js tests/service-worker-resilience.test.js tests/failed-uploads.test.js tests/profile-menu.test.js tests/chat-view.test.js tests/home-location.test.js tests/peri-flow.test.js tests/mobile-theme.test.js
+          yarn test:ui tests/child-row-save.test.js tests/mobile-ui.test.js tests/form-controls.test.js tests/rating-fields.test.js tests/offline-sync.test.js tests/offline-request-efficiency.test.js tests/connection-resilience.test.js tests/pwa-refresh-safety.test.js tests/service-worker-resilience.test.js tests/failed-uploads.test.js tests/handover-draft.test.js tests/photo-annotation.test.js tests/profile-menu.test.js tests/chat-view.test.js tests/home-location.test.js tests/peri-flow.test.js tests/mobile-theme.test.js
           python3 -m unittest discover -s ../tests -p 'test_mobile_gantt.py'
           python3 -m unittest discover -s ../tests -p 'test_mobile_peri_flow.py'
           python3 -m unittest discover -s ../tests -p 'test_peri_dashboard_filters.py'
           python3 -m unittest discover -s ../tests -p 'test_mobile_theme.py'
+          python3 -m unittest discover -s ../tests -p 'test_handover_draft.py'
 
   browser-ui:
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
@@ -138,6 +139,7 @@ jobs:
         run: |
           yarn build:frontend
           python frontend/tests/mobile-shell-layout.e2e.py
+          python frontend/tests/field-tools.e2e.py
       - name: Verify HTML security and dependency compatibility
         run: |
           node --test tests/dependency-compatibility.test.mjs

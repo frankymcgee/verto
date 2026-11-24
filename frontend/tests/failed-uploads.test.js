@@ -11,7 +11,7 @@ vi.mock('../src/lib/mobileBoot', () => ({ useMobileBoot: () => ({ user: ref('wor
 vi.mock('../src/pwa/useOfflineSync', () => ({ useOfflineSync: () => ({ isOnline: ref(mocks.online), refreshSummary: mocks.summary }) }))
 vi.mock('../src/pwa/offlineQueue', async importOriginal => ({
   ...await importOriginal(),
-  getPendingOfflineQueueItems: mocks.list,
+  getVisibleOfflineQueueItems: mocks.list,
   discardFailedOfflineQueueItem: mocks.discard,
   syncOfflineQueueItem: mocks.sync,
 }))
@@ -53,10 +53,11 @@ describe('Upload queue page', () => {
     const [waiting, interrupted, active] = wrapper.findAll('article')
     expect(waiting.text()).toContain('Waiting to sync')
     expect(interrupted.text()).toContain('Waiting to retry')
-    expect(active.text()).toContain('Syncing')
+    expect(active.text()).toContain('Saving document')
     expect(active.get('button').attributes('disabled')).toBeDefined()
     expect(wrapper.text()).not.toContain('Remove upload')
 
+    mocks.list.mockResolvedValue([])
     await click('Sync now')
     expect(mocks.sync).toHaveBeenCalledWith('waiting', { user: 'worker@example.test' })
     expect(wrapper.text()).toContain('uploaded successfully')
@@ -115,5 +116,31 @@ describe('Upload queue page', () => {
     expect(wrapper.get('[role="alert"]').text()).toContain('syncing')
     expect(wrapper.text()).not.toContain('removed from the upload queue')
     expect(wrapper.findAll('article')).toHaveLength(1)
+  })
+
+  it('shows accepted attachment counts, the blocked filename and the retry reason', async () => {
+    mocks.list.mockResolvedValue([upload({
+      status: 'queued', sync_stage: 'uploading_attachments', attachment_count: 3, uploaded_attachment_count: 1,
+      last_error: 'Connection interrupted while uploading site.jpg', next_retry_at: Date.now() + 60_000,
+      server_result: { doctype: 'Field Interaction', name: 'FI-1' },
+    })])
+    await openPage()
+    expect(wrapper.text()).toContain('1 of 3 attachments uploaded')
+    expect(wrapper.text()).toContain('Connection interrupted while uploading site.jpg')
+    expect(wrapper.text()).toContain('Automatic retry after')
+    expect(wrapper.get('progress').attributes()).toMatchObject({ value: '1', max: '3' })
+    expect(wrapper.text()).not.toContain('Confirmed by server: complete')
+  })
+
+  it('keeps server confirmations visible with no retry or discard controls', async () => {
+    mocks.list.mockResolvedValue([upload({ status: 'synced', sync_stage: 'confirmed',
+      confirmed_at: new Date().toISOString(), attachment_count: 2, uploaded_attachment_count: 2,
+      last_error: '', server_result: { doctype: 'Field Interaction', name: 'FI-1' },
+    })])
+    await openPage()
+    expect(wrapper.find('article').text()).toContain('Confirmed by server')
+    expect(wrapper.find('article').text()).toContain('2 of 2 attachments uploaded')
+    expect(wrapper.find('article').findAll('button')).toHaveLength(0)
+    expect(wrapper.text()).not.toContain('may still be waiting')
   })
 })

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { IDBFactory, IDBKeyRange } from 'fake-indexeddb'
+import { IDBFactory, IDBKeyRange, IDBObjectStore } from 'fake-indexeddb'
 import { Blob, File } from 'node:buffer'
 
 vi.mock('../src/lib/diagnostics', () => ({ reportClientError: vi.fn() }))
@@ -422,5 +422,105 @@ describe('Timesheet visibility while a connection returns', () => {
     const rows = await queue.mergePendingTimesheets([{ name: 'TS-1', duration: 3600 }], '2026-11-01', '2026-11-30', actor)
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({ name: 'TS-1', offline_queued: true })
+  })
+})
+
+describe('Durable upload progress and annotated evidence', () => {
+  it('persists and uploads photo bytes even when the database rejects native Blob/File values', async () => {
+    const put = IDBObjectStore.prototype.put
+    const rejectBlobs = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (value, ...args) {
+      if (value.attachments?.some(attachment => attachment.blob instanceof Blob) || value.attachment?.blob instanceof Blob) {
+        throw new DOMException('Error preparing Blob/File data to be stored in object store', 'DataCloneError')
+      }
+      return put.call(this, value, ...args)
+    })
+    try {
+      const attachment = queue.makeOfflineAttachment(new File(['original bytes'], 'original.jpg', { type: 'image/jpeg' }))
+      const item = await queue.queueMobileDocumentAction(input({ attachments: [attachment] }))
+      const restored = await queue.getOfflineQueueItem(item.id)
+      expect(await restored.attachments[0].blob.text()).toBe('original bytes')
+      await queue.syncOfflineQueueItem(item.id)
+      expect(await attachmentUploads()[0][1].body.text()).toBe('original bytes')
+      expect((await queue.getOfflineQueueItem(item.id)).status).toBe('synced')
+    } finally { rejectBlobs.mockRestore() }
+  })
+
+  it('still uploads a legacy native-Blob queue record without changing its attachment ID', async () => {
+    const item = await queue.queueMobileDocumentAction(input())
+    const photo = queue.makeOfflineAttachment(new Blob(['legacy evidence']), 'legacy.jpg')
+    await new Promise((resolve, reject) => {
+      const open = indexedDB.open('verto-mobile-offline-db', 3)
+      open.onerror = () => reject(open.error)
+      open.onsuccess = () => {
+        const transaction = open.result.transaction('offline_queue', 'readwrite')
+        transaction.objectStore('offline_queue').put({ ...item, attachments: [photo] })
+        transaction.oncomplete = () => { open.result.close(); resolve() }
+        transaction.onerror = () => { open.result.close(); reject(transaction.error) }
+      }
+    })
+    await queue.syncOfflineQueueItem(item.id)
+    expect(attachmentMetadata(attachmentUploads()[0][1]).attachment_id).toBe(photo.id)
+    expect(await attachmentUploads()[0][1].body.text()).toBe('legacy evidence')
+  })
+
+  it('records accepted stages and only confirms after both originals, copies and the review request arrive', async () => {
+    const photos = [queue.makeOfflineAttachment(new Blob(['original bytes']), 'original.jpg'),
+      queue.makeOfflineAttachment(new Blob(['marked copy']), 'original-annotated.jpg')]
+    await queue.queueMobileDocumentAction(input({ attachments: photos }))
+    const document = deferred(), first = deferred(), second = deferred(), review = deferred()
+    fetch.mockReturnValueOnce(document.promise).mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise).mockReturnValueOnce(review.promise)
+    const sync = queue.syncOfflineQueueItem('document-stable', { user: actor })
+    await vi.waitFor(async () => expect((await queue.getOfflineQueueItem('document-stable')).sync_stage).toBe('saving_document'))
+    document.resolve(response())
+    await vi.waitFor(() => expect(attachmentUploads()).toHaveLength(1))
+    expect(await queue.getOfflineQueueItem('document-stable')).toMatchObject({
+      server_result: result, sync_stage: 'uploading_attachments', attachment_count: 2,
+      uploaded_attachment_count: 0, active_attachment_name: 'original.jpg',
+    })
+    first.resolve(response({ file_url: '/private/files/original.jpg' }))
+    await vi.waitFor(() => expect(attachmentUploads()).toHaveLength(2))
+    expect(await queue.getOfflineQueueItem('document-stable')).toMatchObject({ uploaded_attachment_count: 1, active_attachment_name: 'original-annotated.jpg' })
+    second.resolve(response({ file_url: '/private/files/copy.jpg' }))
+    await vi.waitFor(async () => expect((await queue.getOfflineQueueItem('document-stable')).sync_stage).toBe('requesting_review'))
+    expect((await queue.getOfflineQueueItem('document-stable')).status).toBe('syncing')
+    review.resolve(response({ queued: true })); await sync
+    const confirmed = await queue.getOfflineQueueItem('document-stable')
+    expect(confirmed).toMatchObject({ status: 'synced', sync_stage: 'confirmed', attachment_count: 2, uploaded_attachment_count: 2, attachments: [] })
+    expect(confirmed.confirmed_at).toBeTruthy()
+    expect(await queue.getPendingOfflineQueueItems(actor)).toEqual([])
+    expect((await queue.getVisibleOfflineQueueItems(actor)).map(item => item.id)).toEqual(['document-stable'])
+    expect(await queue.getVisibleOfflineQueueItems('other@example.test')).toEqual([])
+    expect(await attachmentUploads()[0][1].body.text()).toBe('original bytes')
+    expect(await attachmentUploads()[1][1].body.text()).toBe('marked copy')
+  })
+
+  it('retains partial attachment progress across a dropout and resumes without uploading accepted evidence again', async () => {
+    const attachments = ['original.jpg', 'annotated.jpg'].map(name => queue.makeOfflineAttachment(new Blob([name]), name))
+    await queue.queueMobileDocumentAction(input({ attachments }))
+    fetch.mockResolvedValueOnce(response()).mockResolvedValueOnce(response({ file_url: '/private/files/original.jpg' }))
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    await expect(queue.syncOfflineQueueItem('document-stable')).rejects.toThrow()
+    const saved = await queue.getOfflineQueueItem('document-stable')
+    expect(saved).toMatchObject({ status: 'queued', sync_stage: 'uploading_attachments', attachment_count: 2, uploaded_attachment_count: 1 })
+    expect(saved.attachments).toHaveLength(2)
+    await queue.syncOfflineQueueItem('document-stable')
+    expect(fetch.mock.calls.filter(([url]) => url.endsWith('sync_action'))).toHaveLength(1)
+    expect(attachmentUploads().map(([, options]) => attachmentMetadata(options).file_name)).toEqual(['original.jpg', 'annotated.jpg', 'annotated.jpg'])
+  })
+
+  it('bounds recent confirmation history while retaining every pending item', async () => {
+    for (let index = 0; index < 25; index++) {
+      const item = await queue.queueMobileDocumentAction(input({ operationId: `done-${index}` }))
+      await queue.updateOfflineQueueItem({ ...item, status: 'synced', confirmed_at: new Date(Date.now() - index * 1000).toISOString() })
+    }
+    const old = await queue.queueMobileDocumentAction(input({ operationId: 'old' }))
+    await queue.updateOfflineQueueItem({ ...old, status: 'synced', confirmed_at: '2020-01-01T00:00:00Z' })
+    await queue.queueMobileDocumentAction(input({ operationId: 'pending' }))
+    const visible = await queue.getVisibleOfflineQueueItems(actor)
+    expect(visible).toHaveLength(21)
+    expect(visible[0].id).toBe('pending')
+    expect(visible.some(item => item.id === 'old')).toBe(false)
+    expect(await queue.getOfflineQueueSummary(actor)).toMatchObject({ total: 1 })
   })
 })

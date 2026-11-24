@@ -5,9 +5,10 @@ import { Button, Dialog } from 'frappe-ui'
 import { DialogDescription } from 'reka-ui'
 import { useMobileBoot } from '../lib/mobileBoot'
 import { useOfflineSync } from '../pwa/useOfflineSync'
+import { uploadProgress, retryExplanation } from '../lib/uploadProgress'
 import {
   discardFailedOfflineQueueItem,
-  getPendingOfflineQueueItems,
+  getVisibleOfflineQueueItems,
   hasActiveSyncLease,
   syncOfflineQueueItem,
   type OfflineQueueItem,
@@ -48,16 +49,13 @@ function savedAt(item: OfflineQueueItem) {
 }
 
 function uploadStatus(item: OfflineQueueItem) {
-  if (hasActiveSyncLease(item)) return 'Syncing'
-  if (item.status === 'failed') return 'Failed'
-  if (item.status === 'syncing') return 'Waiting to retry'
-  return 'Waiting to sync'
+  return uploadProgress(item).label
 }
 
 async function refreshList() {
   const request = ++listRequest
   try {
-    const rows = await getPendingOfflineQueueItems(user.value)
+    const rows = await getVisibleOfflineQueueItems(user.value)
     if (request === listRequest) items.value = rows
   } catch {
     if (request === listRequest) {
@@ -83,14 +81,20 @@ async function refresh() {
 
 async function retry(item: OfflineQueueItem) {
   if (busyId.value || !isOnline.value || hasActiveSyncLease(item)) return
+  const actor = user.value
   busyId.value = item.id
   error.value = ''
   notice.value = ''
   try {
-    await syncOfflineQueueItem(item.id, { user: user.value })
-    notice.value = `${title(item)} uploaded successfully.`
+    await syncOfflineQueueItem(item.id, { user: actor })
+    await refreshList()
+    if (actor === user.value) {
+      const remaining = items.value.find(current => current.id === item.id && current.status !== 'synced')
+      notice.value = remaining ? `${title(item)} still has work in the queue. Follow its progress above.`
+        : `${title(item)} uploaded successfully and was confirmed by the server.`
+    }
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'The upload failed. Your saved work is still on this device.'
+    if (actor === user.value) error.value = err instanceof Error ? err.message : 'The upload failed. Your saved work is still on this device.'
   } finally {
     busyId.value = ''
     await refreshList()
@@ -155,6 +159,7 @@ onBeforeUnmount(() => {
     <p v-if="!isOnline" class="text-sm text-ink-gray-6">Connect to retry uploads. You can remove failed uploads while offline.</p>
     <p v-if="error" role="alert" class="whitespace-pre-wrap break-words text-sm text-red-700">{{ error }}</p>
     <p v-if="notice" role="status" class="text-sm text-ink-gray-7">{{ notice }}</p>
+    <p class="text-xs text-ink-gray-5">Uploads are confirmed only after Verto accepts the document and all attachments. Up to 20 confirmations from the last 24 hours are shown.</p>
     <p v-if="loading" role="status" class="py-6 text-sm text-ink-gray-6">Loading uploads…</p>
     <p v-else-if="!items.length && !error" class="rounded-7 border border-outline-gray-1 bg-surface-base p-4 text-sm text-ink-gray-6">No pending uploads for your account on this device.</p>
 
@@ -163,18 +168,29 @@ onBeforeUnmount(() => {
         <div class="flex items-start justify-between gap-2">
           <h2 class="min-w-0 break-words text-base-semibold text-ink-gray-9">{{ title(item) }}</h2>
           <span class="shrink-0 rounded-5 px-2 py-1 text-xs-medium"
-            :class="item.status === 'failed' && !hasActiveSyncLease(item) ? 'bg-red-50 text-red-800' : 'bg-surface-gray-2 text-ink-gray-7'">
+            :class="item.status === 'synced' ? 'bg-green-50 text-green-800' : item.status === 'failed' && !hasActiveSyncLease(item) ? 'bg-red-50 text-red-800' : 'bg-surface-gray-2 text-ink-gray-7'">
             {{ uploadStatus(item) }}
           </span>
         </div>
         <p v-if="reference(item)" class="break-words text-sm text-ink-gray-7">{{ reference(item) }}</p>
         <p class="mt-1 text-xs text-ink-gray-5">Saved {{ savedAt(item) }} · {{ item.attempts || 0 }} upload attempts</p>
       </div>
-      <p v-if="item.status === 'failed' && !hasActiveSyncLease(item)"
+      <ol class="grid gap-1 text-sm text-ink-gray-6" aria-label="Upload stages">
+        <li v-for="step in uploadProgress(item).steps" :key="step.label" :class="step.done ? 'text-ink-gray-8' : ''">
+          <span aria-hidden="true">{{ step.done ? '✓' : '○' }}</span> {{ step.label }}<span class="sr-only">{{ step.done ? ': complete' : ': pending' }}</span>
+        </li>
+      </ol>
+      <div v-if="uploadProgress(item).total" class="space-y-1">
+        <progress class="h-2 w-full accent-blue-600" :value="uploadProgress(item).uploaded" :max="uploadProgress(item).total" aria-label="Attachments accepted by server" />
+        <p v-if="item.active_attachment_name && hasActiveSyncLease(item)" class="break-words text-xs text-ink-gray-5">{{ item.active_attachment_name }}</p>
+      </div>
+      <p v-if="retryExplanation(item, isOnline)" class="text-sm text-ink-gray-6">{{ retryExplanation(item, isOnline) }}</p>
+      <p v-if="item.last_error && !hasActiveSyncLease(item) && item.status !== 'synced'"
         class="whitespace-pre-wrap break-words rounded-6 bg-red-50 p-3 text-sm text-red-800">{{ item.last_error || 'No error details were recorded.' }}</p>
-      <p v-if="item.server_result?.name" class="text-sm text-ink-gray-6">The document was saved to the server. Photos or other work may still be waiting to upload.</p>
+      <p v-if="item.status === 'synced' && item.confirmed_at" class="text-xs text-ink-gray-5">Confirmed {{ new Date(item.confirmed_at).toLocaleString() }}</p>
+      <p v-else-if="item.server_result?.name" class="text-sm text-ink-gray-6">The document was saved to the server. Photos or other work may still be waiting to upload.</p>
       <p v-else-if="savedDocument(item)" class="text-sm text-ink-gray-6">This upload contains pending changes or photos for an existing document.</p>
-      <div class="flex flex-wrap gap-2">
+      <div v-if="item.status !== 'synced'" class="flex flex-wrap gap-2">
         <Button variant="subtle" :disabled="!isOnline || Boolean(busyId) || hasActiveSyncLease(item)" @click="retry(item)">
           {{ item.status === 'queued' ? 'Sync now' : 'Retry upload' }}
         </Button>
