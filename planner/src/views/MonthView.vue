@@ -7,7 +7,7 @@
     <!-- Toolbar / Title row -->
     <div ref="toolbarRef" class="px-6 py-4 pb-4">
       <div v-if="plannerViewReady" class="flex items-center">
-        <Icon name="lucide-calendar" class="h-7 w-7 text-gray-500 mr-2.5" />
+        <Icon icon="lucide-calendar" class="h-7 w-7 text-gray-500 mr-2.5" />
         <span class="text-3xl-semibold text-gray-500 mr-2">Roster:</span>
         <span class="text-3xl-semibold">{{ activeViewLabel }}</span>
 

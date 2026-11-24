@@ -6,9 +6,9 @@
         aria-label="Apps menu"
         class="planner-apps-trigger flex items-center gap-1.5 rounded-6 border px-3 py-1.5 text-xs-medium text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
       >
-        <Icon name="lucide-grid" class="h-3.5 w-3.5" />
+        <Icon icon="lucide-grid" class="h-3.5 w-3.5" />
         <span class="hidden sm:inline">{{ translate("Apps") }}</span>
-        <Icon name="lucide-chevron-down" class="h-3.5 w-3.5 text-gray-400" />
+        <Icon icon="lucide-chevron-down" class="h-3.5 w-3.5 text-gray-400" />
       </button>
     </template>
 

@@ -189,7 +189,7 @@ onBeforeUnmount(() => {
       <li v-for="{ task, contractor } in popup.locations" :key="task.name" class="py-2">
         <button
           type="button"
-          class="min-h-11 w-full break-words rounded text-left text-sm font-semibold text-blue-700 underline focus-visible:outline focus-visible:outline-2"
+          class="min-h-11 w-full break-words rounded-4 text-left text-sm font-semibold text-blue-700 underline focus-visible:outline focus-visible:outline-2"
           @click="emit('select', task)"
         >{{ task.title }}</button>
         <dl class="grid gap-1 text-xs text-gray-700">
