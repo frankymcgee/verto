@@ -33,42 +33,45 @@
         return /Android/i.test(navigator.userAgent);
     }
 
-    function showMessage(html) {
+    function showMessage(message) {
         if (window.frappe && frappe.msgprint) {
-            frappe.msgprint(html);
+            // Serialize a text node, so dialog markup never comes from the message.
+            const content = document.createElement("div");
+            content.style.whiteSpace = "pre-line";
+            content.textContent = message;
+            frappe.msgprint(content.outerHTML);
             return;
         }
 
-        alert(html.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, ""));
+        alert(message);
     }
 
     function showInstallInstructions() {
         if (isIOS()) {
-            showMessage(`
-                <b>Install this app on iPhone/iPad</b><br><br>
-                1. Open this site in <b>Safari</b>.<br>
-                2. Tap the <b>...</b> button.<br>
-                3. Tap the <b>Share</b> button.<br>
-                4. Scroll down and tap <b>Add to Home Screen</b>.<br>
-                5. Tap <b>Add</b>.
-            `);
+            showMessage([
+                "Install this app on iPhone/iPad",
+                "",
+                "1. Open this site in Safari.",
+                "2. Tap the ... button.",
+                "3. Tap the Share button.",
+                "4. Scroll down and tap Add to Home Screen.",
+                "5. Tap Add.",
+            ].join("\n"));
             return;
         }
 
         if (isAndroid()) {
-            showMessage(`
-                <b>Install this app on Android</b><br><br>
-                1. Tap the browser menu <b>⋮</b>.<br>
-                2. Tap <b>Install app</b> or <b>Add to Home screen</b>.<br>
-                3. Confirm the install.
-            `);
+            showMessage([
+                "Install this app on Android",
+                "",
+                "1. Tap the browser menu ⋮.",
+                "2. Tap Install app or Add to Home screen.",
+                "3. Confirm the install.",
+            ].join("\n"));
             return;
         }
 
-        showMessage(`
-            Use your browser menu and select <b>Install app</b> or 
-            <b>Add to Home Screen</b>.
-        `);
+        showMessage("Use your browser menu and select Install app or Add to Home Screen.");
     }
 
     async function handleInstallClick() {

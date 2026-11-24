@@ -737,7 +737,7 @@
 </template>
 
 <script setup lang="ts">
-import DOMPurify from 'dompurify'
+import { decodeHtmlDeep, escapeHtml, isSafeUrl, sanitiseMessageHtml } from '../lib/chatHtml'
 import { marked } from 'marked'
 import MobileSheet from '../components/MobileSheet.vue'
 import PeriThinkingIndicator from '../components/PeriThinkingIndicator.vue'
@@ -916,31 +916,6 @@ const realtime = useRavenRealtime({
   },
 })
 
-function decodeHtml(value: string) {
-  if (!value) return ''
-
-  const textarea = document.createElement('textarea')
-  textarea.innerHTML = value
-
-  return textarea.value
-}
-
-function decodeHtmlDeep(value: string) {
-  let current = String(value || '')
-
-  for (let index = 0; index < 3; index += 1) {
-    const decoded = decodeHtml(current)
-
-    if (decoded === current) {
-      break
-    }
-
-    current = decoded
-  }
-
-  return current
-}
-
 function containsHtml(value: string) {
   return /<([a-z][\w:-]*)(?:\s[^>]*)?>[\s\S]*?<\/\1>|<(br|hr|img|input|meta|link)(?:\s[^>]*)?\/?>/i.test(value)
 }
@@ -953,28 +928,6 @@ function looksLikeTiptapJson(value: string) {
   const trimmed = String(value || '').trim()
 
   return trimmed.startsWith('{') && trimmed.includes('"type"') && trimmed.includes('"doc"')
-}
-
-function escapeHtml(value: string) {
-  const div = document.createElement('div')
-  div.textContent = value
-  return div.innerHTML
-}
-
-function isSafeUrl(value?: string) {
-  const url = String(value || '').trim()
-
-  return Boolean(
-    url &&
-      (
-        url.startsWith('/') ||
-        url.startsWith('#') ||
-        /^https?:\/\//i.test(url) ||
-        /^mailto:/i.test(url) ||
-        /^tel:/i.test(url) ||
-        /^data:image\/(png|jpeg|jpg|gif|webp|svg\+xml);base64,/i.test(url)
-      )
-  )
 }
 
 function wrapMarks(value: string, marks?: any[]) {
@@ -1089,35 +1042,6 @@ function tiptapJsonToHtml(value: string) {
   } catch {
     return ''
   }
-}
-
-function sanitiseMessageHtml(value: string) {
-  const content = DOMPurify.sanitize(value, {
-    ALLOWED_TAGS: [
-      'a', 'b', 'blockquote', 'br', 'code', 'del', 'div', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-      'hr', 'i', 'img', 'li', 'ol', 'p', 'pre', 's', 'span', 'strong', 'table', 'tbody', 'td', 'th',
-      'thead', 'tr', 'u', 'ul',
-    ],
-    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'width', 'height', 'colspan', 'rowspan', 'start'],
-    ALLOW_ARIA_ATTR: false,
-    ALLOW_DATA_ATTR: false,
-    RETURN_DOM_FRAGMENT: true,
-  })
-
-  for (const link of content.querySelectorAll('a')) {
-    if (!isSafeUrl(link.getAttribute('href') || undefined)) link.removeAttribute('href')
-    link.setAttribute('target', '_blank')
-    link.setAttribute('rel', 'noopener noreferrer')
-  }
-
-  for (const image of content.querySelectorAll('img')) {
-    if (!isSafeUrl(image.getAttribute('src') || undefined)) image.removeAttribute('src')
-    image.setAttribute('loading', 'lazy')
-  }
-
-  const template = document.createElement('template')
-  template.content.append(content)
-  return template.innerHTML.trim()
 }
 
 function getMessageBodyCandidates(message: RavenMessage) {

@@ -113,6 +113,17 @@ jobs:
         run: |
           yarn build
           python tests/mobile-shell-layout.e2e.py
+      - name: Verify sanitization and dependency compatibility in Chromium
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+        run: |
+          yarn install --frozen-lockfile --non-interactive
+          yarn --cwd planner install --frozen-lockfile --non-interactive
+          yarn --cwd investigations install --frozen-lockfile --non-interactive
+          node --test tests/dependency-compatibility.test.mjs
+          python tests/security-html.e2e.py
+          yarn build:planner
+          yarn --cwd investigations test:ui
+          yarn build:investigations
       - uses: actions/upload-artifact@v4
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
         with:
