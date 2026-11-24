@@ -15,6 +15,7 @@ import { clearOfflineReadCache } from '../pwa/offlineSecurity'
 import { withCsrfHeaders } from './csrf'
 import { reportClientError } from './diagnostics'
 import { coordinateApiRead } from './requestCoordinator'
+import { fetchServerJson, serverReachable } from './connection'
 
 const OFFLINE_ACTOR_STORAGE_KEY = 'verto:offline-actor'
 let offlineActorVerified = false
@@ -55,25 +56,6 @@ function getLoginUrl() {
   return `/login?redirect-to=${encodeURIComponent(redirectTo)}`
 }
 
-function isHtmlLoginResponse(response: Response, text: string) {
-  const contentType = response.headers.get('content-type') || ''
-
-  if (!contentType.includes('text/html')) {
-    return false
-  }
-
-  const loweredText = text.toLowerCase()
-
-  return (
-    loweredText.includes('<html') &&
-    (
-      loweredText.includes('/login') ||
-      loweredText.includes('login') ||
-      loweredText.includes('frappe')
-    )
-  )
-}
-
 function extractErrorMessage(data: any, fallback: string) {
   if (!data) {
     return fallback
@@ -92,24 +74,8 @@ function extractErrorMessage(data: any, fallback: string) {
   )
 }
 
-function parseJsonMaybe(text: string) {
-  if (!text) {
-    return null
-  }
-
-  try {
-    return JSON.parse(text)
-  } catch {
-    return null
-  }
-}
-
-function isAuthFailure(response: Response, data: any, rawText: string) {
+function isAuthFailure(response: Response, data: any) {
   if (response.status === 401) {
-    return true
-  }
-
-  if (isHtmlLoginResponse(response, rawText)) {
     return true
   }
 
@@ -138,7 +104,7 @@ function isNetworkFailure(error: unknown) {
 async function ensureOfflineActorForWrite() {
   const storedActor = getOfflineActor()
 
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+  if (!navigator.onLine || !serverReachable.value) {
     return storedActor
   }
 
@@ -147,16 +113,13 @@ async function ensureOfflineActorForWrite() {
   }
 
   try {
-    const response = await fetch('/api/method/frappe.auth.get_logged_user', {
+    const { response, data } = await fetchServerJson('/api/method/frappe.auth.get_logged_user', {
       credentials: 'include',
       headers: {
         Accept: 'application/json',
       },
     })
-    const rawText = await response.text().catch(() => '')
-    const data = parseJsonMaybe(rawText)
-
-    if (isAuthFailure(response, data, rawText)) {
+    if (isAuthFailure(response, data)) {
       redirectToLogin()
       throw new Error('Login required')
     }
@@ -170,7 +133,6 @@ async function ensureOfflineActorForWrite() {
           endpoint: '/api/method/frappe.auth.get_logged_user',
           status: response.status,
           status_text: response.statusText,
-          server_response: rawText,
         },
       })
       throw new Error(
@@ -180,7 +142,7 @@ async function ensureOfflineActorForWrite() {
 
     const currentActor = String(data?.message || '').trim()
 
-    if (!currentActor) {
+    if (!currentActor || currentActor === 'Guest') {
       throw new Error('Could not verify the signed-in user.')
     }
 
@@ -521,7 +483,7 @@ async function submitDurableMobileDocumentWrite<T>(url: string, options: Request
     throw new Error('This document action cannot be saved offline.')
   }
 
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+  if (!navigator.onLine || !serverReachable.value) {
     return queuedResponse
   }
 
@@ -573,7 +535,7 @@ async function performApiRequest<T>(url: string, options: RequestInit): Promise<
     return submitDurableMobileDocumentWrite<T>(url, options)
   }
 
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+  if (!navigator.onLine || !serverReachable.value) {
     if (method !== 'GET') {
       const queued = await queueOfflineWrite<T>(url, options)
 
@@ -594,16 +556,18 @@ async function performApiRequest<T>(url: string, options: RequestInit): Promise<
       headers.set('Accept', 'application/json')
     }
 
-    const response = await fetch(url, {
+    // Interactive cached reads should fail over promptly. AI tools, document
+    // generation and file uploads can legitimately take considerably longer.
+    const timeoutMs = url.startsWith('/api/method/upload_file') ? 600_000
+      : url.includes('get_offline_bootstrap') ? 120_000
+      : cacheableRead || isProcessFieldChange(url) || isPrefillRequest(url) ? 15_000 : 120_000
+    const { response, data } = await fetchServerJson(url, {
       ...options,
       credentials: 'include',
       headers,
-    })
+    }, timeoutMs)
 
-    const rawText = await response.text().catch(() => '')
-    const data = parseJsonMaybe(rawText)
-
-    if (isAuthFailure(response, data, rawText)) {
+    if (isAuthFailure(response, data)) {
       redirectToLogin()
       throw new Error('Login required')
     }
@@ -614,7 +578,7 @@ async function performApiRequest<T>(url: string, options: RequestInit): Promise<
       )
     }
 
-    const result = (data ?? rawText) as T
+    const result = data as T
 
     if (cacheableRead && cacheKey) {
       void cacheApiResponse(cacheKey, result, 'api-request')

@@ -80,6 +80,23 @@ afterEach(() => {
 })
 
 describe('Save Row persists the existing form', () => {
+  it('keeps the editor, entered notes and selected photos visible after a save error', async () => {
+    await render()
+    const notes = wrapper.findAllComponents(FormControl).find(field => field.props('label') === 'Notes')
+    notes.vm.$emit('update:modelValue', 'Do not lose these notes')
+    const picker = wrapper.find('input[type="file"]')
+    Object.defineProperty(picker.element, 'files', { configurable: true, value: [new File(['photo'], 'site.jpg')] })
+    await picker.trigger('change')
+    mocks.api.mockRejectedValueOnce(new Error('Connection interrupted'))
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.find('form').exists()).toBe(true)
+    expect(wrapper.find('[role="alert"]').text()).toContain('Connection interrupted')
+    expect(wrapper.findAllComponents(FormControl).find(field => field.props('label') === 'Notes').find('input').element.value)
+      .toBe('Do not lose these notes')
+    expect(wrapper.text()).toContain('site.jpg')
+  })
+
   it('saves a row, parent edits and selected attachments together, then stays on the form', async () => {
     await render()
     const notes = wrapper.findAllComponents(FormControl).find(field => field.props('label') === 'Notes')

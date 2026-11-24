@@ -2,6 +2,7 @@
 
 import { withCsrfHeaders } from '../lib/csrf'
 import { reportClientError } from '../lib/diagnostics'
+import { fetchServerJson } from '../lib/connection'
 
 export type OfflineQueueItemStatus = 'queued' | 'syncing' | 'synced' | 'failed'
 export type OfflineQueueItemKind = 'mobile_document' | 'attachment_upload' | 'legacy_request' | 'jha_observation'
@@ -26,6 +27,7 @@ export type OfflineQueueItem = {
   status: OfflineQueueItemStatus
   last_error?: string
   last_error_retryable?: boolean
+  next_retry_at?: number
 
   // Mobile document operations.
   action_type?: OfflineDocumentAction
@@ -693,27 +695,10 @@ function extractServerError(data: any, fallback: string) {
   return raw
 }
 
-async function readJsonResponse(response: Response) {
-  const text = await response.text().catch(() => '')
-
-  if (!text) return null
-
-  try {
-    return JSON.parse(text)
-  } catch {
-    return null
-  }
-}
-
-function isLoginRedirect(response: Response) {
-  return response.redirected && new URL(response.url).pathname === '/login'
-}
-
-async function ensureSyncResponse(response: Response, fallbackMessage = `Sync failed with HTTP ${response.status}.`) {
-  const data = await readJsonResponse(response)
-  const serverMessage = extractServerError(data, fallbackMessage)
+async function ensureSyncResponse(response: Response, data: any, fallbackMessage = `Sync failed with HTTP ${response.status}.`) {
+  const serverMessage = response.status === 413 ? fallbackMessage : extractServerError(data, fallbackMessage)
   const normalisedMessage = String(serverMessage || '').toLowerCase()
-  const isAuthFailure = response.status === 401 || isLoginRedirect(response) || (
+  const isAuthFailure = response.status === 401 || (
     response.status === 403 && [
       'login required',
       'not permitted in guest mode',
@@ -777,23 +762,12 @@ async function sendSyncRequest(
   options: RequestInit,
   { attachmentName, legacy = false }: { attachmentName?: string; legacy?: boolean } = {},
 ) {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), attachmentName ? 600_000 : 120_000)
-  try {
-    const response = await fetch(url, { ...options, credentials: 'include', signal: controller.signal })
-    if (legacy && response.ok && !isLoginRedirect(response)) return response
-    const fallback = attachmentName && response.status === 413
-      ? `${attachmentName} exceeds the server's upload size limit.`
-      : undefined
-    return await ensureSyncResponse(response, fallback)
-  } catch (error) {
-    if (controller.signal.aborted) {
-      throw new OfflineSyncError('The server took too long to confirm this upload. You can try again.', { retryable: true })
-    }
-    throw error
-  } finally {
-    clearTimeout(timeout)
-  }
+  const { response, data } = await fetchServerJson(url, options, attachmentName ? 600_000 : 30_000)
+  const fallback = attachmentName && response.status === 413
+    ? `${attachmentName} exceeds the server's upload size limit.`
+    : undefined
+  const result = await ensureSyncResponse(response, data, fallback)
+  return legacy ? response : result
 }
 
 async function uploadQueuedAttachment(input: {
@@ -1043,6 +1017,7 @@ async function performItemSync(id: string, options: SyncItemOptions) {
         uploaded_attachment_ids: hasNewAttachments ? current.uploaded_attachment_ids : [],
         sync_owner: undefined,
         sync_expires_at: undefined,
+        next_retry_at: undefined,
       }
     })
     return result
@@ -1053,12 +1028,14 @@ async function performItemSync(id: string, options: SyncItemOptions) {
       !isRetryableOfflineSyncError(error) &&
       !isOfflineSyncAuthError(error)
 
+    const retryable = isRetryableOfflineSyncError(error)
     await updateClaimedItem(id, owner, () => shouldDelete ? null : ({
-      status: 'failed',
+      status: retryable ? 'queued' : 'failed',
       sync_owner: undefined,
       sync_expires_at: undefined,
       last_error: error instanceof Error ? error.message : 'Sync failed.',
       last_error_retryable: isRetryableOfflineSyncError(error) || isOfflineSyncAuthError(error),
+      next_retry_at: retryable ? Date.now() + Math.min(15_000 * 2 ** Math.min(item.attempts - 1, 5), 300_000) : undefined,
     }))
 
     throw error
@@ -1088,8 +1065,14 @@ async function performQueueSync(user: string) {
 
   let synced = 0
   let failed = 0
+  let interrupted = false
 
   for (const item of pending) {
+    // Validation/permission failures need a user's correction. Connectivity
+    // failures keep their payload/photos and wait with a bounded retry delay.
+    if ((item.next_retry_at || 0) > Date.now() ||
+      (item.status === 'failed' && item.last_error_retryable === false)) continue
+    if (!navigator.onLine) { interrupted = true; break }
     try {
       await syncOfflineQueueItem(item.id, { user })
       synced += 1
@@ -1097,6 +1080,10 @@ async function performQueueSync(user: string) {
       if (err instanceof OfflineSyncError && err.busy) continue
       failed += 1
 
+      if (isRetryableOfflineSyncError(err)) {
+        interrupted = true
+        break
+      }
       if (isOfflineSyncAuthError(err)) {
         break
       }
@@ -1115,7 +1102,7 @@ async function performQueueSync(user: string) {
   return {
     synced,
     failed,
-    skipped: false,
+    skipped: interrupted,
   }
 }
 

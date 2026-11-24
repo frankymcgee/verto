@@ -1418,10 +1418,12 @@ watch(
 )
 
 onMounted(() => {
+  window.addEventListener('pagehide', saveDraftNow)
   loadNewDocument()
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('pagehide', saveDraftNow)
   fieldChangeRequestId += 1
   window.clearTimeout(fieldChangeTimer)
   window.clearTimeout(draftSaveTimer)

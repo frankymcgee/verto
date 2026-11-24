@@ -21,6 +21,17 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('Compact offline download compatibility', () => {
+  it.each([{}, { user: 'Guest', schemas: {} }, { user: 'viewer' }])(
+    'rejects an unverified download without replacing the last working offline data', async message => {
+      mocks.api.mockResolvedValue({ message })
+      window.localStorage.setItem('verto:offline-actor', 'old-viewer')
+      await expect(primeOfflineData()).rejects.toThrow('could not be verified')
+      expect(mocks.cache).not.toHaveBeenCalled()
+      expect(mocks.clear).not.toHaveBeenCalled()
+      expect(window.localStorage.getItem('verto:offline-actor')).toBe('old-viewer')
+    },
+  )
+
   it('restores complete editor responses and stores only a small service-worker actor marker', async () => {
     await primeOfflineData()
     expect(mocks.api.mock.calls[0][0]).toContain('contract_version=2')

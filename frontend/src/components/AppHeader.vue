@@ -161,7 +161,7 @@
               <Button variant="ghost"
                 type="button"
                 class="shrink-0 rounded-6 bg-surface-gray-2 px-2.5 py-1.5 text-xs-semibold text-ink-gray-8 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-                :disabled="!offlineIsOnline || offlineIsPriming || offlineIsSyncing"
+                :disabled="formOpen || !offlineIsOnline || offlineIsPriming || offlineIsSyncing"
                 @click="handleOfflineRefresh"
               >
                 {{ offlineIsPriming ? 'Refreshing' : 'Refresh' }}
@@ -211,10 +211,14 @@
           <Button variant="ghost"
             type="button"
             class="block w-full px-3 py-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1"
+            :disabled="formOpen || !offlineIsOnline"
             @click="reloadApp"
           >
             Reload app
           </Button>
+          <p v-if="formOpen" class="px-3 pb-2 text-xs text-ink-gray-6">
+            App refreshes are paused while this form is open.
+          </p>
 
           <Button variant="ghost"
             type="button"
@@ -271,6 +275,8 @@ import { useMobileTheme } from '../lib/mobileTheme'
 import { openAppBrowser } from '../lib/appBrowser'
 import { useOfflineSync } from '../pwa/useOfflineSync'
 import { usePushNotifications } from '../pwa/usePushNotifications'
+import { formOpen } from '../pwa/formActivity'
+import { requestAppReload } from '../pwa/registerServiceWorker'
 
 const props = withDefaults(
   defineProps<{
@@ -298,7 +304,6 @@ const {
   userFullname,
   employeeId,
   userImageUrl,
-  reloadMobileBoot,
 } = useMobileBoot()
 
 const {
@@ -558,25 +563,9 @@ async function handleNotificationToggle() {
   await enablePushNotifications()
 }
 
-async function clearBrowserCaches() {
-  if ('caches' in window) {
-    const cacheNames = await caches.keys()
-
-    await Promise.all(
-      cacheNames.map((cacheName) => caches.delete(cacheName))
-    )
-  }
-}
-
 async function reloadApp() {
   menuOpen.value = false
-
-  try {
-    await reloadMobileBoot()
-    await clearBrowserCaches()
-  } finally {
-    window.location.reload()
-  }
+  if (!formOpen.value) await requestAppReload()
 }
 
 function openNotifications() {

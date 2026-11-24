@@ -1,7 +1,6 @@
 /// <reference lib="webworker" />
 
-import { clientsClaim } from 'workbox-core'
-import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching'
+import { addPlugins, cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching'
 
 declare let self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{
@@ -106,10 +105,23 @@ const OFFLINE_HTML = `<!doctype html>
 
 console.log('[verto pwa] service worker loading', SW_VERSION)
 
+addPlugins([{
+  // A captive portal can return HTTP 200 HTML even for a JavaScript bundle.
+  // Reject that installation so the last working app and assets stay usable.
+  async cacheWillUpdate({ request, response }) {
+    if (!response || response.status !== 200) return null
+    const path = new URL(request.url).pathname
+    const type = response.headers.get('Content-Type') || ''
+    if (/\.js$/.test(path) && !/(?:javascript|ecmascript)/i.test(type)) return null
+    if (/\.css$/.test(path) && !type.includes('text/css')) return null
+    if (!/\.html$/.test(path) && type.includes('text/html')) return null
+    return response
+  },
+}])
 precacheAndRoute(self.__WB_MANIFEST)
 cleanupOutdatedCaches()
-self.skipWaiting()
-clientsClaim()
+// Activate updates only after the foreground app confirms it is safe. An open
+// editor in any tab must keep its current worker and assets until it is closed.
 
 function createId(prefix = 'offline') {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -346,35 +358,43 @@ async function handleUploadRequest(request: Request) {
   }
 }
 
+async function isVertoShell(response?: Response) {
+  if (!response?.ok || response.redirected) return false
+  const html = await response.clone().text()
+  return html.includes('<div id="app"></div>') && html.includes('/assets/verto/verto-mobile/assets/index.js')
+}
+
 async function handleVertoNavigation(request: Request) {
   const cache = await caches.open(PAGE_CACHE)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 8000)
 
   try {
-    const response = await fetch(request)
+    const response = await fetch(request, { signal: controller.signal, redirect: 'manual' })
+    if (!await isVertoShell(response)) {
+      throw new Error('Verto application shell unavailable')
+    }
+    await cache.put(request, response.clone())
 
-    if (response.ok) {
-      await cache.put(request, response.clone())
+    const rootUrl = new URL('/verto-mobile/', self.location.origin).href
+    const requestUrl = new URL(request.url)
 
-      const rootUrl = new URL('/verto-mobile/', self.location.origin).href
-      const requestUrl = new URL(request.url)
-
-      if (requestUrl.pathname === '/verto-mobile' || requestUrl.pathname === '/verto-mobile/') {
-        await cache.put(rootUrl, response.clone())
-      }
+    if (requestUrl.pathname === '/verto-mobile' || requestUrl.pathname === '/verto-mobile/') {
+      await cache.put(rootUrl, response.clone())
     }
 
     return response
   } catch {
     const exact = await cache.match(request)
 
-    if (exact) {
+    if (exact && await isVertoShell(exact)) {
       return exact
     }
 
     const rootUrl = new URL('/verto-mobile/', self.location.origin).href
     const root = await cache.match(rootUrl)
 
-    if (root) {
+    if (root && await isVertoShell(root)) {
       return root
     }
 
@@ -385,6 +405,8 @@ async function handleVertoNavigation(request: Request) {
         'Cache-Control': 'no-store',
       },
     })
+  } finally {
+    clearTimeout(timeout)
   }
 }
 
@@ -435,7 +457,11 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') {
-    self.skipWaiting()
+    event.waitUntil((async () => {
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      if (windows.some(client => /\/verto-mobile\/(?:new|edit|voice-jha|jha)\//.test(new URL(client.url).pathname))) return
+      await self.skipWaiting()
+    })())
   }
 })
 

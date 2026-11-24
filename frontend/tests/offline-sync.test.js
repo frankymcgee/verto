@@ -116,7 +116,7 @@ describe('Durable mobile submission retries', () => {
     expect(fetch.mock.calls.map(([, options]) => options.body.get('operation_id'))).toEqual([next.id])
   })
 
-  it('retains a timed-out form and its photos and continues with the next upload', async () => {
+  it('retains a timed-out form and its photos, pauses the batch and backs off before retrying', async () => {
     const attachment = queue.makeOfflineAttachment(new Blob(['photo']), 'photo.jpg')
     const first = await queue.queueMobileDocumentAction(input({ attachments: [attachment] }))
     const next = await queue.queueMobileDocumentAction(input({ operationId: 'next-form' }))
@@ -131,17 +131,20 @@ describe('Durable mobile submission retries', () => {
     try {
       const sync = queue.syncOfflineQueue(actor)
       const signal = await started.promise
-      await vi.advanceTimersByTimeAsync(120_000)
+      await vi.advanceTimersByTimeAsync(30_000)
       expect(signal.aborted).toBe(true)
-      expect(await sync).toEqual({ synced: 1, failed: 1, skipped: false })
+      expect(await sync).toEqual({ synced: 0, failed: 1, skipped: true })
     } finally {
       vi.useRealTimers()
     }
 
     const failed = await queue.getOfflineQueueItem(first.id)
-    expect(failed).toMatchObject({ status: 'failed', last_error_retryable: true, last_error: expect.stringContaining('too long') })
+    expect(failed).toMatchObject({ status: 'queued', last_error_retryable: true, last_error: expect.stringContaining('too long') })
+    expect(failed.next_retry_at).toBeGreaterThan(Date.now())
     expect(failed.attachments[0].id).toBe(attachment.id)
-    expect((await queue.getOfflineQueueItem(next.id)).status).toBe('synced')
+    expect((await queue.getOfflineQueueItem(next.id)).status).toBe('queued')
+    await queue.syncOfflineQueue(actor)
+    expect((await queue.getOfflineQueueItem(first.id)).attempts).toBe(1)
     await queue.syncOfflineQueueItem(first.id, { user: actor })
     const operationIds = fetch.mock.calls.filter(([url]) => url.endsWith('sync_action'))
       .map(([, options]) => options.body.get('operation_id'))
@@ -189,8 +192,8 @@ describe('Durable mobile submission retries', () => {
   it('keeps the operation ID after the server accepts a write but its response is lost', async () => {
     await queue.queueMobileDocumentAction(input())
     fetch.mockRejectedValueOnce(new TypeError('Network failure'))
-    await expect(queue.syncOfflineQueueItem('document-stable', { deleteOnPermanentFailure: true })).rejects.toThrow('Network')
-    expect((await queue.getOfflineQueueItem('document-stable')).status).toBe('failed')
+    await expect(queue.syncOfflineQueueItem('document-stable', { deleteOnPermanentFailure: true })).rejects.toThrow('Connection unavailable')
+    expect((await queue.getOfflineQueueItem('document-stable')).status).toBe('queued')
     await queue.syncOfflineQueueItem('document-stable')
     expect(fetch.mock.calls.map(([, options]) => options.body.get('operation_id'))).toEqual(['document-stable', 'document-stable'])
   })
@@ -198,8 +201,8 @@ describe('Durable mobile submission retries', () => {
   it('retains an ambiguous HTTP 200 response for a safe retry', async () => {
     await queue.queueMobileDocumentAction(input())
     fetch.mockResolvedValueOnce(new Response('<html>Proxy error</html>'))
-    await expect(queue.syncOfflineQueueItem('document-stable', { deleteOnPermanentFailure: true })).rejects.toThrow('could not be confirmed')
-    expect((await queue.getOfflineQueueItem('document-stable')).status).toBe('failed')
+    await expect(queue.syncOfflineQueueItem('document-stable', { deleteOnPermanentFailure: true })).rejects.toThrow('Connection unavailable')
+    expect((await queue.getOfflineQueueItem('document-stable')).status).toBe('queued')
   })
 
   it('sends a restored photo as a Blob with its original name, type and bytes', async () => {
@@ -254,7 +257,7 @@ describe('Durable mobile submission retries', () => {
     await queue.queueMobileDocumentAction(input({ attachments, values }))
     fetch.mockResolvedValueOnce(response()).mockResolvedValueOnce(response())
       .mockRejectedValueOnce(new TypeError('Network failure'))
-    await expect(queue.syncOfflineQueueItem('document-stable')).rejects.toThrow('Network')
+    await expect(queue.syncOfflineQueueItem('document-stable')).rejects.toThrow('Connection unavailable')
     await queue.syncOfflineQueueItem('document-stable')
     const writes = fetch.mock.calls.filter(([url]) => url.endsWith('sync_action'))
     expect(writes).toHaveLength(1)

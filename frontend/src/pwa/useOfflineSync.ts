@@ -8,11 +8,13 @@ import {
   type OfflineQueueSummary,
 } from './offlineQueue'
 import { primeOfflineData } from './offlineBootstrap'
+import { checkServerConnection, connectionLost, serverReachable } from '../lib/connection'
+import { formOpen } from './formActivity'
 
 const LAST_OFFLINE_REFRESH_KEY = 'verto:offline-last-refresh-at'
 const { user } = useMobileBoot()
 
-const isOnline = ref(typeof navigator === 'undefined' ? true : navigator.onLine)
+const isOnline = serverReachable
 const isSyncing = ref(false)
 const isPriming = ref(false)
 const showReadyConfirmation = ref(false)
@@ -33,10 +35,18 @@ let primeTimer: number | undefined
 let readyConfirmationTimer: number | undefined
 let watcherCount = 0
 let syncPromise: Promise<void> | null = null
+let resumePromise: Promise<void> | null = null
+let reconnectTimer: number | undefined
+let pendingPrime = true
+
+watch(formOpen, (open) => {
+  if (!open && pendingPrime && watcherCount > 0) void initialiseOfflineSync()
+})
 
 watch(user, () => {
   summary.value = emptySummary
   lastSyncMessage.value = ''
+  pendingPrime = true
   if (watcherCount > 0) void initialiseOfflineSync()
 })
 
@@ -84,9 +94,12 @@ async function refreshSummary() {
 }
 
 async function primeNow(options: { showConfirmation?: boolean } = {}) {
-  if (!isOnline.value || isPriming.value) {
+  if (formOpen.value || reconnectTimer) {
+    pendingPrime = true
     return false
   }
+  if (isPriming.value || !await checkServerConnection()) return false
+  if (formOpen.value || isPriming.value) return false
 
   isPriming.value = true
   offlineRefreshError.value = ''
@@ -99,6 +112,7 @@ async function primeNow(options: { showConfirmation?: boolean } = {}) {
     }
 
     saveLastOfflineRefreshAt(new Date().toISOString())
+    pendingPrime = false
 
     if (options.showConfirmation !== false) {
       brieflyShowReadyConfirmation()
@@ -106,6 +120,7 @@ async function primeNow(options: { showConfirmation?: boolean } = {}) {
 
     return true
   } catch (err) {
+    pendingPrime = true
     offlineRefreshError.value = 'Could not update offline data. Check your connection and try again.'
     console.warn('[verto offline sync] Could not refresh offline dataset', err)
     return false
@@ -122,6 +137,7 @@ function syncNow(options: { refreshOffline?: boolean } = {}) {
 
 async function performSync(options: { refreshOffline?: boolean }) {
   const actor = user.value
+  if (!actor || actor === 'Guest' || !await checkServerConnection()) return
   isSyncing.value = true
   lastSyncMessage.value = ''
 
@@ -130,7 +146,7 @@ async function performSync(options: { refreshOffline?: boolean }) {
     if (user.value !== actor) return
 
     if (result.skipped) {
-      lastSyncMessage.value = 'Offline — queued items will sync when connection returns.'
+      lastSyncMessage.value = 'Connection interrupted. Saved items will retry automatically.'
     } else if (result.failed > 0) {
       lastSyncMessage.value = `${result.synced} synced, ${result.failed} failed.`
     } else if (result.synced > 0) {
@@ -146,19 +162,35 @@ async function performSync(options: { refreshOffline?: boolean }) {
 }
 
 async function resumeQueuedWork() {
-  isOnline.value = navigator.onLine
   await refreshSummary()
-  if (isOnline.value && (summary.value.queued > 0 || summary.value.failed > 0)) {
+  if (reconnectTimer) return
+  if (!user.value || user.value === 'Guest' || !await checkServerConnection()) return
+  if (summary.value.queued > 0 || summary.value.failed > 0) {
     await syncNow({ refreshOffline: false })
   }
 }
 
-async function initialiseOfflineSync() {
-  const actor = user.value
-  await resumeQueuedWork()
-  if (isOnline.value && actor && actor !== 'Guest' && actor === user.value) {
-    await primeNow()
-  }
+function initialiseOfflineSync() {
+  if (resumePromise) return resumePromise
+  resumePromise = (async () => {
+    const actor = user.value
+    await resumeQueuedWork()
+    if (isOnline.value && pendingPrime && actor && actor !== 'Guest' && actor === user.value) await primeNow()
+  })().finally(() => { resumePromise = null })
+  return resumePromise
+}
+
+function handleOnline() {
+  window.clearTimeout(reconnectTimer)
+  isOnline.value = false
+  // Radio connections often flap repeatedly. Wait for a quiet period and then
+  // verify Verto itself before starting uploads or large offline downloads.
+  reconnectTimer = window.setTimeout(() => {
+    reconnectTimer = undefined
+    const lastRefresh = Date.parse(lastOfflineRefreshAt.value) || 0
+    pendingPrime ||= Date.now() - lastRefresh >= 15 * 60_000
+    void initialiseOfflineSync()
+  }, 5000)
 }
 
 function handleForeground() {
@@ -166,7 +198,9 @@ function handleForeground() {
 }
 
 function handleOffline() {
-  isOnline.value = false
+  window.clearTimeout(reconnectTimer)
+  reconnectTimer = undefined
+  connectionLost()
   lastSyncMessage.value = 'Offline mode active. Forms and cached shifts remain available.'
   void refreshSummary()
 }
@@ -191,7 +225,7 @@ function startOfflineSyncWatcher() {
 
   void initialiseOfflineSync()
 
-  window.addEventListener('online', initialiseOfflineSync)
+  window.addEventListener('online', handleOnline)
   window.addEventListener('offline', handleOffline)
   window.addEventListener('pageshow', handleForeground)
   document.addEventListener('visibilitychange', handleForeground)
@@ -204,13 +238,12 @@ function startOfflineSyncWatcher() {
   }, 5000)
 
   autoSyncTimer = window.setInterval(() => {
-    if (navigator.onLine && (summary.value.queued > 0 || summary.value.failed > 0)) {
-      void syncNow()
-    }
+    if (document.visibilityState === 'visible') void initialiseOfflineSync()
   }, 30000)
 
   primeTimer = window.setInterval(() => {
-    if (navigator.onLine && user.value && user.value !== 'Guest' && document.visibilityState === 'visible' && !isSyncing.value) {
+    pendingPrime = true
+    if (user.value && user.value !== 'Guest' && document.visibilityState === 'visible' && !isSyncing.value) {
       void primeNow({ showConfirmation: false })
     }
   }, 15 * 60 * 1000)
@@ -223,7 +256,8 @@ function stopOfflineSyncWatcher() {
     return
   }
 
-  window.removeEventListener('online', initialiseOfflineSync)
+  window.removeEventListener('online', handleOnline)
+  window.clearTimeout(reconnectTimer)
   window.removeEventListener('offline', handleOffline)
   window.removeEventListener('pageshow', handleForeground)
   document.removeEventListener('visibilitychange', handleForeground)

@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import MobileShell from '../layouts/MobileShell.vue'
+import { setFormPath } from '../pwa/formActivity'
 
 const Home = () => import('../pages/Home.vue')
 const Forms = () => import('../pages/Forms.vue')
@@ -106,10 +107,16 @@ const routes = [
   },
 ]
 
-export default createRouter({
+const router = createRouter({
   history: createWebHistory('/verto-mobile/'),
   routes,
   scrollBehavior() {
     return { top: 0, left: 0 }
   },
 })
+
+router.afterEach((to, _from, failure) => {
+  if (!failure) setFormPath(to.path)
+})
+
+export default router

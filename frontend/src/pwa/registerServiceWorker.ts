@@ -1,4 +1,7 @@
 // VERTO_PWA_AUTO_UPDATE_AND_PUSH_2026_08_09
+import { watch } from 'vue'
+import { checkServerConnection, serverReachable } from '../lib/connection'
+import { formOpen } from './formActivity'
 
 const SERVICE_WORKER_URL = '/verto-mobile-sw.js'
 const SERVICE_WORKER_SCOPE = '/verto-mobile'
@@ -10,6 +13,17 @@ let registrationPromise: Promise<ServiceWorkerRegistration | null> | null = null
 let updateInterval: number | undefined
 let lastUpdateCheck = 0
 let reloadStarted = false
+let pendingReload = false
+let pendingUpdate = false
+let applyingReload = false
+let updateCheckPromise: Promise<void> | null = null
+
+watch([formOpen, serverReachable], () => {
+  if (!formOpen.value && serverReachable.value) {
+    if (pendingReload) void reloadWhenSafe()
+    else if (pendingUpdate) void checkForUpdate(true)
+  }
+})
 
 function isLocalhost() {
   return ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)
@@ -22,13 +36,21 @@ function canUseServiceWorker() {
   )
 }
 
-function reloadOnceForNewController() {
-  if (reloadStarted) {
-    return
+async function reloadWhenSafe() {
+  if (reloadStarted || applyingReload || formOpen.value || document.hidden) return
+  applyingReload = true
+  try {
+    if (!await checkServerConnection(true) || formOpen.value || document.hidden) return
+    reloadStarted = true
+    window.location.reload()
+  } finally {
+    applyingReload = false
   }
+}
 
-  reloadStarted = true
-  window.location.reload()
+export function requestAppReload() {
+  pendingReload = true
+  return reloadWhenSafe()
 }
 
 async function removeLegacyAssetScopedWorkers() {
@@ -46,10 +68,18 @@ async function removeLegacyAssetScopedWorkers() {
   )
 }
 
-async function checkForUpdate(force = false) {
+function checkForUpdate(force = false) {
+  if (updateCheckPromise) return updateCheckPromise
+  updateCheckPromise = performUpdateCheck(force).finally(() => { updateCheckPromise = null })
+  return updateCheckPromise
+}
+
+async function performUpdateCheck(force: boolean) {
   if (!registration) {
     return
   }
+  pendingUpdate = true
+  if (formOpen.value || document.hidden || !await checkServerConnection() || formOpen.value) return
 
   const now = Date.now()
 
@@ -61,6 +91,8 @@ async function checkForUpdate(force = false) {
 
   try {
     await registration.update()
+    pendingUpdate = false
+    activateWaitingWorker(registration)
   } catch (error) {
     console.warn('[verto pwa] update check failed', error)
   }
@@ -77,6 +109,7 @@ function installUpdateChecks() {
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
+      if (pendingReload) void reloadWhenSafe()
       void checkForUpdate()
     }
   })
@@ -86,7 +119,8 @@ function installUpdateChecks() {
   })
 
   window.addEventListener('online', () => {
-    void checkForUpdate(true)
+    // The offline sync manager verifies the server after the connection settles.
+    pendingUpdate = true
   })
 }
 
@@ -106,7 +140,7 @@ export function registerVertoServiceWorker() {
     console.info('[verto pwa] service worker controller changed')
 
     if (hadControllerAtStartup) {
-      reloadOnceForNewController()
+      void requestAppReload()
     }
   })
 
@@ -135,6 +169,10 @@ export function registerVertoServiceWorker() {
 
         installingWorker.addEventListener('statechange', () => {
           console.info('[verto pwa] service worker state', installingWorker.state)
+          if (installingWorker.state === 'installed') {
+            pendingUpdate = true
+            void checkForUpdate(true)
+          }
         })
       })
 
@@ -163,7 +201,7 @@ export function registerVertoServiceWorker() {
 function activateWaitingWorker(currentRegistration: ServiceWorkerRegistration) {
   const waitingWorker = currentRegistration.waiting
 
-  if (!waitingWorker) {
+  if (!waitingWorker || formOpen.value || !serverReachable.value || document.hidden) {
     return false
   }
 
@@ -172,10 +210,12 @@ function activateWaitingWorker(currentRegistration: ServiceWorkerRegistration) {
 }
 
 export async function updateVertoServiceWorkerAndReload() {
+  pendingUpdate = true
+  if (formOpen.value || !await checkServerConnection(true) || formOpen.value) return
   const currentRegistration = registration || await registerVertoServiceWorker()
 
   if (!currentRegistration) {
-    window.location.reload()
+    await requestAppReload()
     return
   }
 
