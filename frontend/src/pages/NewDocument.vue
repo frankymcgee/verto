@@ -307,6 +307,8 @@
                   v-else
                   v-model="values[field.fieldname]"
                   :field="field"
+                  :parent-doctype="schema?.doctype || ''"
+                  :project="values.project"
                 />
               </template>
             </div>
@@ -326,26 +328,7 @@
               </p>
             </div>
 
-            <input
-              type="file"
-              multiple
-              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-              class="block w-full rounded-4 border border-outline-gray-2 bg-surface-base px-3 py-2 text-sm text-ink-gray-7 file:mr-3 file:rounded-4 file:border-0 file:bg-surface-gray-2 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink-gray-8"
-              @change="handleFiles"
-            />
-
-            <div
-              v-if="files.length"
-              class="flex flex-wrap gap-2"
-            >
-              <Badge
-                v-for="file in files"
-                :key="file.name + file.size"
-                variant="subtle"
-              >
-                {{ file.name }}
-              </Badge>
-            </div>
+            <AttachmentPicker v-model="files" :disabled="submitting" @busy="annotationBusy = $event" />
           </div>
         </section>
 
@@ -358,7 +341,7 @@
             size="lg"
             class="w-full"
             :loading="submitting"
-            :disabled="submitting"
+            :disabled="submitting || annotationBusy"
           >
             Submit
           </Button>
@@ -425,7 +408,6 @@ import MobileSheet from '../components/MobileSheet.vue'
 import { defineAsyncComponent, computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  Badge,
   TabButtons,
   Button,
   Checkbox,
@@ -447,6 +429,7 @@ import LinkField from '../components/mobile-fields/LinkField.vue'
 import ChildTableField from '../components/mobile-fields/ChildTableField.vue'
 import SignatureField from '../components/mobile-fields/SignatureField.vue'
 import RatingField from '../components/mobile-fields/RatingField.vue'
+import AttachmentPicker from '../components/AttachmentPicker.vue'
 const RichTextEditorField = defineAsyncComponent(() => import('../components/mobile-fields/RichTextEditorField.vue'))
 
 export type MobileField = {
@@ -530,6 +513,7 @@ const actionErrorCanRetry = ref(false)
 const schema = ref<FormSchema | null>(null)
 const values = ref<Record<string, any>>({})
 const files = ref<File[]>([])
+const annotationBusy = ref(false)
 const messages = ref<string[]>([])
 const warnings = ref<string[]>([])
 const activeTab = ref('')
@@ -942,11 +926,6 @@ function isFieldReadOnly(field: MobileField) {
     evaluateReadOnlyDependsOn(field.read_only_depends_on, values.value)
 }
 
-function handleFiles(event: Event) {
-  const input = event.target as HTMLInputElement
-  files.value = Array.from(input.files || [])
-}
-
 function isBlankValue(value: any) {
   if (value === undefined || value === null) {
     return true
@@ -1343,7 +1322,7 @@ async function createDocument() {
 }
 
 async function submitForm() {
-  if (submitting.value) return
+  if (submitting.value || annotationBusy.value) return
   submitting.value = true
   // The queued payload is a snapshot. Ignore dependency responses from
   // before submission so they cannot change the form during a photo upload.

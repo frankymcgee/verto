@@ -424,3 +424,66 @@ describe('Timesheet visibility while a connection returns', () => {
     expect(rows[0]).toMatchObject({ name: 'TS-1', offline_queued: true })
   })
 })
+
+describe('Durable upload progress and annotated evidence', () => {
+  it('records accepted stages and only confirms after both originals, copies and the review request arrive', async () => {
+    const photos = [queue.makeOfflineAttachment(new Blob(['original bytes']), 'original.jpg'),
+      queue.makeOfflineAttachment(new Blob(['marked copy']), 'original-annotated.jpg')]
+    await queue.queueMobileDocumentAction(input({ attachments: photos }))
+    const document = deferred(), first = deferred(), second = deferred(), review = deferred()
+    fetch.mockReturnValueOnce(document.promise).mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise).mockReturnValueOnce(review.promise)
+    const sync = queue.syncOfflineQueueItem('document-stable', { user: actor })
+    await vi.waitFor(async () => expect((await queue.getOfflineQueueItem('document-stable')).sync_stage).toBe('saving_document'))
+    document.resolve(response())
+    await vi.waitFor(() => expect(attachmentUploads()).toHaveLength(1))
+    expect(await queue.getOfflineQueueItem('document-stable')).toMatchObject({
+      server_result: result, sync_stage: 'uploading_attachments', attachment_count: 2,
+      uploaded_attachment_count: 0, active_attachment_name: 'original.jpg',
+    })
+    first.resolve(response({ file_url: '/private/files/original.jpg' }))
+    await vi.waitFor(() => expect(attachmentUploads()).toHaveLength(2))
+    expect(await queue.getOfflineQueueItem('document-stable')).toMatchObject({ uploaded_attachment_count: 1, active_attachment_name: 'original-annotated.jpg' })
+    second.resolve(response({ file_url: '/private/files/copy.jpg' }))
+    await vi.waitFor(async () => expect((await queue.getOfflineQueueItem('document-stable')).sync_stage).toBe('requesting_review'))
+    expect((await queue.getOfflineQueueItem('document-stable')).status).toBe('syncing')
+    review.resolve(response({ queued: true })); await sync
+    const confirmed = await queue.getOfflineQueueItem('document-stable')
+    expect(confirmed).toMatchObject({ status: 'synced', sync_stage: 'confirmed', attachment_count: 2, uploaded_attachment_count: 2, attachments: [] })
+    expect(confirmed.confirmed_at).toBeTruthy()
+    expect(await queue.getPendingOfflineQueueItems(actor)).toEqual([])
+    expect((await queue.getVisibleOfflineQueueItems(actor)).map(item => item.id)).toEqual(['document-stable'])
+    expect(await queue.getVisibleOfflineQueueItems('other@example.test')).toEqual([])
+    expect(await attachmentUploads()[0][1].body.text()).toBe('original bytes')
+    expect(await attachmentUploads()[1][1].body.text()).toBe('marked copy')
+  })
+
+  it('retains partial attachment progress across a dropout and resumes without uploading accepted evidence again', async () => {
+    const attachments = ['original.jpg', 'annotated.jpg'].map(name => queue.makeOfflineAttachment(new Blob([name]), name))
+    await queue.queueMobileDocumentAction(input({ attachments }))
+    fetch.mockResolvedValueOnce(response()).mockResolvedValueOnce(response({ file_url: '/private/files/original.jpg' }))
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    await expect(queue.syncOfflineQueueItem('document-stable')).rejects.toThrow()
+    const saved = await queue.getOfflineQueueItem('document-stable')
+    expect(saved).toMatchObject({ status: 'queued', sync_stage: 'uploading_attachments', attachment_count: 2, uploaded_attachment_count: 1 })
+    expect(saved.attachments).toHaveLength(2)
+    await queue.syncOfflineQueueItem('document-stable')
+    expect(fetch.mock.calls.filter(([url]) => url.endsWith('sync_action'))).toHaveLength(1)
+    expect(attachmentUploads().map(([, options]) => attachmentMetadata(options).file_name)).toEqual(['original.jpg', 'annotated.jpg', 'annotated.jpg'])
+  })
+
+  it('bounds recent confirmation history while retaining every pending item', async () => {
+    for (let index = 0; index < 25; index++) {
+      const item = await queue.queueMobileDocumentAction(input({ operationId: `done-${index}` }))
+      await queue.updateOfflineQueueItem({ ...item, status: 'synced', confirmed_at: new Date(Date.now() - index * 1000).toISOString() })
+    }
+    const old = await queue.queueMobileDocumentAction(input({ operationId: 'old' }))
+    await queue.updateOfflineQueueItem({ ...old, status: 'synced', confirmed_at: '2020-01-01T00:00:00Z' })
+    await queue.queueMobileDocumentAction(input({ operationId: 'pending' }))
+    const visible = await queue.getVisibleOfflineQueueItems(actor)
+    expect(visible).toHaveLength(21)
+    expect(visible[0].id).toBe('pending')
+    expect(visible.some(item => item.id === 'old')).toBe(false)
+    expect(await queue.getOfflineQueueSummary(actor)).toMatchObject({ total: 1 })
+  })
+})

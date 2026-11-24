@@ -7,7 +7,7 @@
     <div
       role="status"
       aria-live="polite"
-      class="rounded-7 border px-3 py-2 text-sm shadow-sm"
+      class="flex items-center justify-between gap-3 rounded-7 border px-3 py-2 text-sm shadow-sm"
       :class="bannerClass"
     >
       <div class="min-w-0">
@@ -22,13 +22,15 @@
           {{ detailLabel }}
         </p>
       </div>
-
+      <Button v-if="isOnline && summary.total > 0" type="button" variant="ghost" class="shrink-0"
+        :disabled="isSyncing" :loading="isSyncing" @click="syncNow()">Sync now</Button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Button } from 'frappe-ui'
 import { useOfflineSync } from '../pwa/useOfflineSync'
 
 const {
@@ -41,6 +43,7 @@ const {
   summary,
   statusLabel,
   lastSyncMessage,
+  syncNow,
 } = useOfflineSync()
 
 const formattedRefreshTime = computed(() => {

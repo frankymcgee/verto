@@ -7,6 +7,7 @@ import { fetchServerJson } from '../lib/connection'
 export type OfflineQueueItemStatus = 'queued' | 'syncing' | 'synced' | 'failed'
 export type OfflineQueueItemKind = 'mobile_document' | 'attachment_upload' | 'legacy_request' | 'jha_observation'
 export type OfflineDocumentAction = 'create' | 'update'
+export type OfflineSyncStage = 'saving_document' | 'uploading_attachments' | 'requesting_review' | 'confirmed'
 
 export type OfflineAttachment = {
   id: string
@@ -28,6 +29,11 @@ export type OfflineQueueItem = {
   last_error?: string
   last_error_retryable?: boolean
   next_retry_at?: number
+  sync_stage?: OfflineSyncStage
+  attachment_count?: number
+  uploaded_attachment_count?: number
+  active_attachment_name?: string
+  confirmed_at?: string
 
   // Mobile document operations.
   action_type?: OfflineDocumentAction
@@ -632,6 +638,18 @@ export async function getPendingOfflineQueueItems(user: string) {
   })
 }
 
+// Keep recent server confirmations visible without retaining uploaded photo blobs.
+// Pending counts and automatic retries continue to use getPendingOfflineQueueItems.
+export async function getVisibleOfflineQueueItems(user: string) {
+  if (!user || user === 'Guest') return []
+  const items = (await getOfflineQueueItems()).filter(item => queueItemBelongsToUser(item, user))
+  const recent = items.filter(item => item.status === 'synced' && item.confirmed_at &&
+    (item.values?.__verto_offline_user || item.values?.actor) === user &&
+    Date.parse(item.confirmed_at) >= Date.now() - 24 * 60 * 60_000)
+    .sort((a, b) => String(b.confirmed_at).localeCompare(String(a.confirmed_at))).slice(0, 20)
+  return [...items.filter(item => item.status !== 'synced'), ...recent]
+}
+
 export function hasActiveSyncLease(item: OfflineQueueItem) {
   return Boolean(item.sync_owner && (item.sync_expires_at || 0) > Date.now())
 }
@@ -830,6 +848,7 @@ async function syncMobileDocumentItem(item: OfflineQueueItem, owner: string) {
 
   let result: Record<string, any> = item.server_result || {}
   if (!result?.doctype || !result?.name) {
+    await updateClaimedItem(item.id, owner, () => ({ sync_stage: 'saving_document' }))
     const message = await sendSyncRequest('/api/method/verto.api.mobile.offline.sync_action', {
       method: 'POST',
       headers: withCsrfHeaders(undefined, 'POST'),
@@ -846,10 +865,17 @@ async function syncMobileDocumentItem(item: OfflineQueueItem, owner: string) {
   }
 
   item.server_result = result
-  await updateClaimedItem(item.id, owner, () => ({ server_result: result }))
+  await updateClaimedItem(item.id, owner, () => ({
+    server_result: result,
+    attachment_count: (item.attachments || []).length,
+    uploaded_attachment_count: (item.uploaded_attachment_ids || []).length,
+  }))
 
   for (const attachment of item.attachments || []) {
     if (item.uploaded_attachment_ids?.includes(attachment.id)) continue
+    await updateClaimedItem(item.id, owner, () => ({
+      sync_stage: 'uploading_attachments', active_attachment_name: attachment.name,
+    }))
     await uploadQueuedAttachment({
       operationId: item.id,
       attachment,
@@ -857,28 +883,41 @@ async function syncMobileDocumentItem(item: OfflineQueueItem, owner: string) {
       targetName,
     })
     item.uploaded_attachment_ids = [...(item.uploaded_attachment_ids || []), attachment.id]
-    await updateClaimedItem(item.id, owner, () => ({ uploaded_attachment_ids: item.uploaded_attachment_ids }))
+    await updateClaimedItem(item.id, owner, () => ({
+      uploaded_attachment_ids: item.uploaded_attachment_ids,
+      uploaded_attachment_count: item.uploaded_attachment_ids!.length,
+      active_attachment_name: undefined,
+    }))
   }
 
   if ((item.attachments || []).length) {
+    await updateClaimedItem(item.id, owner, () => ({ sync_stage: 'requesting_review' }))
     await queuePhotoAnalysis(targetDoctype, targetName)
   }
 
   return result
 }
 
-async function syncAttachmentUploadItem(item: OfflineQueueItem) {
+async function syncAttachmentUploadItem(item: OfflineQueueItem, owner: string) {
   if (!item.target_doctype || !item.target_name || !item.attachment) {
     throw new Error('Offline attachment upload is incomplete.')
   }
 
-  const result = await uploadQueuedAttachment({
+  await updateClaimedItem(item.id, owner, () => ({
+    sync_stage: 'uploading_attachments', attachment_count: 1,
+    active_attachment_name: item.attachment!.name,
+  }))
+  const result = item.server_result || await uploadQueuedAttachment({
     operationId: item.id,
     attachment: item.attachment,
     targetDoctype: item.target_doctype,
     targetName: item.target_name,
   })
 
+  await updateClaimedItem(item.id, owner, () => ({
+    server_result: result, uploaded_attachment_count: 1,
+    active_attachment_name: undefined, sync_stage: 'requesting_review',
+  }))
   await queuePhotoAnalysis(item.target_doctype, item.target_name)
   return result
 }
@@ -921,7 +960,7 @@ async function replayQueueItem(item: OfflineQueueItem, owner: string) {
   }
 
   if (item.kind === 'attachment_upload') {
-    return syncAttachmentUploadItem(item)
+    return syncAttachmentUploadItem(item, owner)
   }
 
   return replayLegacyQueueItem(item)
@@ -1005,15 +1044,22 @@ async function performItemSync(id: string, options: SyncItemOptions) {
   try {
     const result = await replayQueueItem(item, owner)
     await updateClaimedItem(id, owner, (current) => {
-      if (item.kind !== 'mobile_document') return null
+      // Legacy requests have no stable document receipt to display afterwards.
+      if (!['mobile_document', 'attachment_upload', 'jha_observation'].includes(item.kind)) return null
       const hasNewAttachments = current.attachments?.some(
         attachment => !current.uploaded_attachment_ids?.includes(attachment.id)
       )
       // Keep the receipt result for a retry, including photos added while a sync was running.
       return {
         status: hasNewAttachments ? 'queued' : 'synced',
+        sync_stage: hasNewAttachments ? undefined : 'confirmed',
+        confirmed_at: hasNewAttachments ? undefined : nowIso(),
+        active_attachment_name: undefined,
+        attachment_count: (current.attachments || []).length || (current.attachment ? 1 : 0),
+        uploaded_attachment_count: (current.uploaded_attachment_ids || []).length || (current.attachment ? 1 : 0),
         server_result: result,
         attachments: hasNewAttachments ? current.attachments : [],
+        attachment: undefined,
         uploaded_attachment_ids: hasNewAttachments ? current.uploaded_attachment_ids : [],
         sync_owner: undefined,
         sync_expires_at: undefined,

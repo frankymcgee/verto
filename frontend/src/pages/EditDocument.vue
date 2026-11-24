@@ -301,6 +301,9 @@
                   v-else
                   v-model="values[field.fieldname]"
                   :field="field"
+                  :parent-doctype="schema?.doctype || ''"
+                  :parent-name="docname"
+                  :project="values.project"
                   :disabled="!canWrite || isFieldReadOnly(field)"
                   :busy="saving"
                   :save-rows="rows => saveTableRows(field, rows)"
@@ -364,27 +367,7 @@
               </p>
             </div>
 
-            <input
-              type="file"
-              multiple
-              :disabled="saving"
-              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-              class="block w-full rounded-4 border border-outline-gray-2 bg-surface-base px-3 py-2 text-sm text-ink-gray-7 file:mr-3 file:rounded-4 file:border-0 file:bg-surface-gray-2 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink-gray-8"
-              @change="handleFiles"
-            />
-
-            <div
-              v-if="files.length"
-              class="flex flex-wrap gap-2"
-            >
-              <Badge
-                v-for="file in files"
-                :key="file.name + file.size"
-                variant="subtle"
-              >
-                {{ file.name }}
-              </Badge>
-            </div>
+            <AttachmentPicker v-model="files" :disabled="saving" @update:model-value="saved = false" @busy="annotationBusy = $event" />
           </div>
         </section>
 
@@ -400,7 +383,7 @@
             size="lg"
             class="w-full"
             :loading="saving"
-            :disabled="saving || saved"
+            :disabled="saving || saved || annotationBusy"
           >
             Save Changes
           </Button>
@@ -414,7 +397,6 @@
 import { defineAsyncComponent, computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  Badge,
   TabButtons,
   Button,
   Checkbox,
@@ -436,6 +418,7 @@ import LinkField from '../components/mobile-fields/LinkField.vue'
 import ChildTableField from '../components/mobile-fields/ChildTableField.vue'
 import SignatureField from '../components/mobile-fields/SignatureField.vue'
 import RatingField from '../components/mobile-fields/RatingField.vue'
+import AttachmentPicker from '../components/AttachmentPicker.vue'
 const RichTextEditorField = defineAsyncComponent(() => import('../components/mobile-fields/RichTextEditorField.vue'))
 import type { MobileField } from './NewDocument.vue'
 
@@ -519,6 +502,7 @@ const loadError = ref('')
 const schema = ref<FormSchema | null>(null)
 const values = ref<Record<string, any>>({})
 const files = ref<File[]>([])
+const annotationBusy = ref(false)
 const existingFiles = ref<ExistingFile[]>([])
 const messages = ref<string[]>([])
 const warnings = ref<string[]>([])
@@ -799,13 +783,6 @@ function isFieldMandatory(field: MobileField) {
 function isFieldReadOnly(field: MobileField) {
   return Boolean(field.read_only) ||
     evaluateReadOnlyDependsOn(field.read_only_depends_on, values.value)
-}
-
-function handleFiles(event: Event) {
-  if (saving.value) return
-  const input = event.target as HTMLInputElement
-  files.value = Array.from(input.files || [])
-  saved.value = false
 }
 
 function isBlankValue(value: any) {
@@ -1202,7 +1179,7 @@ async function saveDocument(overrides: Record<string, any> = {}) {
 }
 
 async function persistForm(overrides: Record<string, any> = {}, navigateBack = false) {
-  if (saving.value) return false
+  if (saving.value || annotationBusy.value) return false
   if (!canWrite.value) {
     throw new Error('You do not have permission to save this document.')
   }
@@ -1252,7 +1229,7 @@ async function saveTableRows(field: MobileField, rows: Record<string, any>[]) {
 }
 
 async function saveForm() {
-  if (saving.value || saved.value) return
+  if (saving.value || saved.value || annotationBusy.value) return
   try {
     await persistForm({}, true)
   } catch (err) {

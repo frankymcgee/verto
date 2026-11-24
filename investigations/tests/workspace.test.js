@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Combobox, FormControl, Select, SidebarItem } from 'frappe-ui'
 import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import App from '../src/App.vue'
-import { call, downloadReport } from '../src/api'
+import { call, downloadReport, uploadFile } from '../src/api'
+import PrivateFileInput from '../src/components/PrivateFileInput.vue'
 import { categories, draft } from '../src/model'
 import whyBranches from './fixtures/why-branches.json'
 
@@ -92,6 +93,7 @@ async function open(hash = '', value = record()) {
 }
 beforeEach(() => {
   call.mockReset()
+  uploadFile.mockReset()
   downloadReport.mockReset().mockResolvedValue(undefined)
   window.innerWidth = 1280
   vi.spyOn(window, 'print').mockImplementation(() => {})
@@ -104,6 +106,39 @@ afterEach(() => {
 })
 
 describe('investigations workspace', () => {
+  it('retains original photo evidence and creates a separate unverified annotated copy', async () => {
+    await open('INV-00001', record({ evidence: [{ entry_id: 'E-1', title: 'Barrier photo', evidence_type: 'Equipment', notes: 'Original observation', verification_status: 'Unverified' }] }))
+    await section('Evidence register').trigger('click')
+    const original = new File(['original bytes'], 'barrier.jpg', { type: 'image/jpeg' })
+    const annotated = new File(['marked copy'], 'barrier-annotated.jpg', { type: 'image/jpeg' })
+    uploadFile.mockResolvedValueOnce('/private/files/barrier.jpg').mockResolvedValueOnce('/private/files/barrier-annotated.jpg')
+    const input = wrapper.findComponent(PrivateFileInput)
+    expect(input.props('annotationEnabled')).toBe(true)
+    input.vm.$emit('annotated', { original, annotated })
+    await flushPromises()
+    expect(uploadFile).toHaveBeenNthCalledWith(1, original, 'INV-00001')
+    expect(uploadFile).toHaveBeenNthCalledWith(2, annotated, 'INV-00001')
+    await button('Save investigation').trigger('click'); await flushPromises()
+    const evidence = call.mock.calls.find(([method]) => method === 'save_investigation')[1].data.evidence
+    expect(evidence).toHaveLength(2)
+    expect(evidence[0]).toMatchObject({ file: '/private/files/barrier.jpg', notes: 'Original observation' })
+    expect(evidence[1]).toMatchObject({ file: '/private/files/barrier-annotated.jpg', verification_status: 'Unverified' })
+    expect(evidence[1].notes).toContain('Annotated copy of evidence E-1')
+  })
+
+  it('retains the original reference if uploading its annotated copy fails', async () => {
+    await open('INV-00001', record({ evidence: [{ entry_id: 'E-1', title: 'Barrier photo', verification_status: 'Unverified' }] }))
+    await section('Evidence register').trigger('click')
+    uploadFile.mockResolvedValueOnce('/private/files/barrier.jpg').mockRejectedValueOnce(new Error('Copy upload failed'))
+    wrapper.findComponent(PrivateFileInput).vm.$emit('annotated', { original: new File(['source'], 'source.jpg'), annotated: new File(['copy'], 'copy.jpg') })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Copy upload failed')
+    await button('Save investigation').trigger('click'); await flushPromises()
+    const evidence = call.mock.calls.find(([method]) => method === 'save_investigation')[1].data.evidence
+    expect(evidence).toHaveLength(1)
+    expect(evidence[0].file).toBe('/private/files/barrier.jpg')
+  })
+
   it('opens a dedicated dashboard and starts a new investigation', async () => {
     await open()
     expect(wrapper.text()).toContain('Start with the facts')

@@ -558,7 +558,9 @@
                       v-if="editable && doc.name"
                       :label="row.file ? 'Replace attachment' : 'Attach file'"
                       :disabled="busy"
+                      annotation-enabled
                       @change="attach(row, 'file', $event)"
+                      @annotated="attachAnnotated(row, $event)"
                     />
                     <span v-else-if="editable" class="help"
                       >Save the draft before attaching files.</span
@@ -1756,6 +1758,24 @@ async function attach(row, field, event) {
     )
   })
   event.target.value = ''
+}
+async function attachAnnotated(row, { original, annotated }) {
+  if (!original || !annotated || !doc.value.name) return
+  await run(async () => {
+    if (doc.value.evidence.length >= 200) throw new Error('Use no more than 200 evidence entries.')
+    // Keep the source bytes in the original evidence entry. The marked-up copy
+    // is a separate, unverified item with an explicit reference to that source.
+    const originalUrl = await uploadFile(original, doc.value.name)
+    row.file = originalUrl
+    const annotatedUrl = await uploadFile(annotated, doc.value.name)
+    doc.value.evidence.push({
+      entry_id: id('E'), title: `${row.title || original.name} (annotated copy)`.slice(0, 140),
+      evidence_type: row.evidence_type || 'Other', observed_at: row.observed_at || '',
+      file: annotatedUrl, verification_status: 'Unverified', verification_notes: '',
+      notes: `Annotated copy of evidence ${row.entry_id}. Original attachment: ${originalUrl}. Marks are reviewer annotations.`,
+    })
+    flash('Original photo and annotated copy uploaded. Review and save the investigation to retain both evidence references.')
+  })
 }
 async function useSource() {
   await run(async () => {
