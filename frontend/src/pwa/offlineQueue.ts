@@ -3,6 +3,7 @@
 import { withCsrfHeaders } from '../lib/csrf'
 import { reportClientError } from '../lib/diagnostics'
 import { fetchServerJson } from '../lib/connection'
+import { hydrateAttachment, hydrateQueueAttachments, serialiseQueueAttachments } from './attachmentStorage'
 
 export type OfflineQueueItemStatus = 'queued' | 'syncing' | 'synced' | 'failed'
 export type OfflineQueueItemKind = 'mobile_document' | 'attachment_upload' | 'legacy_request' | 'jha_observation'
@@ -15,7 +16,8 @@ export type OfflineAttachment = {
   type: string
   size: number
   last_modified: number
-  blob: Blob
+  blob?: Blob
+  data?: ArrayBuffer
 }
 
 export type OfflineQueueItem = {
@@ -447,7 +449,7 @@ export async function queueMobileDocumentAction(input: {
 }) {
   const timestamp = nowIso()
 
-  const item: OfflineQueueItem = {
+  const item: OfflineQueueItem = await serialiseQueueAttachments<OfflineQueueItem>({
     id: input.operationId || createOfflineId('document'),
     kind: 'mobile_document',
     type: `mobile_document_${input.actionType}`,
@@ -461,7 +463,7 @@ export async function queueMobileDocumentAction(input: {
     updated_at: timestamp,
     attempts: 0,
     status: 'queued',
-  }
+  })
 
   const queued = await withStore(QUEUE_STORE, 'readwrite', async (store) => {
     const existing: OfflineQueueItem | undefined = await requestToPromise(store.get(item.id))
@@ -487,7 +489,7 @@ export async function queueMobileDocumentAction(input: {
     return item
   })
   dispatchQueueUpdated()
-  return queued
+  return hydrateQueueAttachments(queued)
 }
 
 export async function queueJhaObservation(values: Record<string, any>) {
@@ -578,9 +580,10 @@ export async function attachFileToDocumentOperation(
 export const attachFileToCreateOperation = attachFileToDocumentOperation
 
 export async function getOfflineQueueItem(id: string) {
-  return withStore<OfflineQueueItem | undefined>(QUEUE_STORE, 'readonly', (store) => {
+  const item = await withStore<OfflineQueueItem | undefined>(QUEUE_STORE, 'readonly', (store) => {
     return requestToPromise(store.get(id))
   })
+  return item ? hydrateQueueAttachments(item) : undefined
 }
 
 export async function getOfflineQueueItems() {
@@ -588,7 +591,7 @@ export async function getOfflineQueueItems() {
     return requestToPromise(store.getAll())
   })
 
-  return (items || []).sort((a, b) => a.created_at.localeCompare(b.created_at))
+  return (items || []).map(hydrateQueueAttachments).sort((a, b) => a.created_at.localeCompare(b.created_at))
 }
 
 export async function getOfflineQueueSummary(user: string): Promise<OfflineQueueSummary> {
@@ -603,9 +606,10 @@ export async function getOfflineQueueSummary(user: string): Promise<OfflineQueue
 }
 
 export async function putOfflineQueueItem(item: OfflineQueueItem) {
+  const stored = await serialiseQueueAttachments(item)
   await withStore(QUEUE_STORE, 'readwrite', async (store) => {
     await requestToPromise(store.put({
-      ...item,
+      ...stored,
       updated_at: nowIso(),
     }))
   })
@@ -794,7 +798,8 @@ async function uploadQueuedAttachment(input: {
   targetDoctype: string
   targetName: string
 }) {
-  const { blob, name } = input.attachment
+  const { blob, name } = hydrateAttachment(input.attachment)
+  if (!blob) throw new Error('The saved attachment data is unavailable.')
   const metadata = encodeURIComponent(JSON.stringify({
     operation_id: input.operationId,
     attachment_id: input.attachment.id,

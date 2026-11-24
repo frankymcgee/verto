@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import { addPlugins, cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching'
+import { serialiseQueueAttachments } from './pwa/attachmentStorage'
 
 declare let self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{
@@ -24,7 +25,8 @@ type OfflineAttachment = {
   type: string
   size: number
   last_modified: number
-  blob: Blob
+  blob?: Blob
+  data?: ArrayBuffer
 }
 
 type OfflineQueueItem = {
@@ -223,9 +225,10 @@ async function getQueueItems() {
 }
 
 async function putQueueItem(item: OfflineQueueItem) {
+  const stored = await serialiseQueueAttachments(item)
   return withOfflineStore(QUEUE_STORE, 'readwrite', async (store) => {
     await idbRequest(store.put({
-      ...item,
+      ...stored,
       updated_at: nowIso(),
     }))
     return undefined

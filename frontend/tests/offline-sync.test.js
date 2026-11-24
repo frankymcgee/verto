@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { IDBFactory, IDBKeyRange } from 'fake-indexeddb'
+import { IDBFactory, IDBKeyRange, IDBObjectStore } from 'fake-indexeddb'
 import { Blob, File } from 'node:buffer'
 
 vi.mock('../src/lib/diagnostics', () => ({ reportClientError: vi.fn() }))
@@ -426,6 +426,43 @@ describe('Timesheet visibility while a connection returns', () => {
 })
 
 describe('Durable upload progress and annotated evidence', () => {
+  it('persists and uploads photo bytes even when the database rejects native Blob/File values', async () => {
+    const put = IDBObjectStore.prototype.put
+    const rejectBlobs = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (value, ...args) {
+      if (value.attachments?.some(attachment => attachment.blob instanceof Blob) || value.attachment?.blob instanceof Blob) {
+        throw new DOMException('Error preparing Blob/File data to be stored in object store', 'DataCloneError')
+      }
+      return put.call(this, value, ...args)
+    })
+    try {
+      const attachment = queue.makeOfflineAttachment(new File(['original bytes'], 'original.jpg', { type: 'image/jpeg' }))
+      const item = await queue.queueMobileDocumentAction(input({ attachments: [attachment] }))
+      const restored = await queue.getOfflineQueueItem(item.id)
+      expect(await restored.attachments[0].blob.text()).toBe('original bytes')
+      await queue.syncOfflineQueueItem(item.id)
+      expect(await attachmentUploads()[0][1].body.text()).toBe('original bytes')
+      expect((await queue.getOfflineQueueItem(item.id)).status).toBe('synced')
+    } finally { rejectBlobs.mockRestore() }
+  })
+
+  it('still uploads a legacy native-Blob queue record without changing its attachment ID', async () => {
+    const item = await queue.queueMobileDocumentAction(input())
+    const photo = queue.makeOfflineAttachment(new Blob(['legacy evidence']), 'legacy.jpg')
+    await new Promise((resolve, reject) => {
+      const open = indexedDB.open('verto-mobile-offline-db', 3)
+      open.onerror = () => reject(open.error)
+      open.onsuccess = () => {
+        const transaction = open.result.transaction('offline_queue', 'readwrite')
+        transaction.objectStore('offline_queue').put({ ...item, attachments: [photo] })
+        transaction.oncomplete = () => { open.result.close(); resolve() }
+        transaction.onerror = () => { open.result.close(); reject(transaction.error) }
+      }
+    })
+    await queue.syncOfflineQueueItem(item.id)
+    expect(attachmentMetadata(attachmentUploads()[0][1]).attachment_id).toBe(photo.id)
+    expect(await attachmentUploads()[0][1].body.text()).toBe('legacy evidence')
+  })
+
   it('records accepted stages and only confirms after both originals, copies and the review request arrive', async () => {
     const photos = [queue.makeOfflineAttachment(new Blob(['original bytes']), 'original.jpg'),
       queue.makeOfflineAttachment(new Blob(['marked copy']), 'original-annotated.jpg')]

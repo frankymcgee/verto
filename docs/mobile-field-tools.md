@@ -47,6 +47,9 @@ reuse operation/attachment receipts and resume after accepted attachments. Recen
 confirmations are shown for the current account on this device (up to 20 from the
 last 24 hours); uploaded blobs are released. These records do not increase pending
 counts or get replayed by automatic sync. Existing pending records remain usable.
+Photo bytes are persisted before opening the IndexedDB transaction, avoiding
+WebKit's native Blob/File storage failure. Existing Blob-based queue entries are
+still readable and retain their original operation and attachment identifiers.
 
 ## Photo annotation
 
