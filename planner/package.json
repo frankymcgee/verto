@@ -21,7 +21,8 @@
     "vue": "^3.5.12",
     "vue-router": "^4.3.2",
     "reka-ui": "2.10.4",
-    "socket.io-client": "4.8.3"
+    "socket.io-client": "4.8.3",
+    "dompurify": "^3.5.0"
   },
   "devDependencies": {
     "@vue/test-utils": "2.4.6",
@@ -34,6 +35,8 @@
   },
   "resolutions": {
     "vite": "6.4.6",
-    "**/@tailwindcss/typography/postcss-selector-parser": "6.1.5"
+    "**/@tailwindcss/typography/postcss-selector-parser": "6.1.5",
+    "**/editorconfig/minimatch": "11.0.1",
+    "**/js-beautify/glob": "14.0.2"
   }
 }

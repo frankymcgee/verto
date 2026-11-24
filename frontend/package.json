@@ -20,7 +20,8 @@
     "socket.io-client": "4.7.1",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0",
-    "reka-ui": "2.10.4"
+    "reka-ui": "2.10.4",
+    "entities": "^7.0.1"
   },
   "devDependencies": {
     "fake-indexeddb": "6.2.7",
@@ -49,6 +50,10 @@
   "resolutions": {
     "vite": "6.4.6",
     "**/@tailwindcss/typography/postcss-selector-parser": "6.1.5",
-    "**/engine.io-client/ws": "8.21.0"
+    "**/engine.io-client/ws": "8.21.0",
+    "**/editorconfig/minimatch": "11.0.1",
+    "**/js-beautify/glob": "14.0.2",
+    "**/@vue/language-core/minimatch": "11.0.1",
+    "**/workbox-build/glob": "14.0.2"
   }
 }

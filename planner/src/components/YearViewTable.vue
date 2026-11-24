@@ -558,6 +558,7 @@
 </template>
 
 <script setup lang="ts">
+import { htmlToPlainText } from '../utils/plainText'
 import { coalesceResource } from "../utils/coalesceResource";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import colors from 'tailwindcss/colors'
@@ -1946,34 +1947,7 @@ function plainTextFromHtml(value: string | null | undefined) {
   const cached = htmlPlainTextCache.get(raw)
   if (cached !== undefined) return cached
 
-  const withLineBreaks = raw
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<\/li>/gi, '\n')
-
-  let output = ''
-
-  if (typeof DOMParser !== 'undefined') {
-    const parsed = new DOMParser().parseFromString(withLineBreaks, 'text/html')
-    output = (parsed.body.textContent || '')
-      .replace(/\u00a0/g, ' ')
-      .replace(/[ \t]+\n/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim()
-  } else {
-    output = withLineBreaks
-      .replace(/<[^>]*>/g, '')
-      .replace(/&nbsp;/gi, ' ')
-      .replace(/&amp;/gi, '&')
-      .replace(/&lt;/gi, '<')
-      .replace(/&gt;/gi, '>')
-      .replace(/&quot;/gi, '"')
-      .replace(/&#39;/gi, "'")
-      .replace(/[ \t]+\n/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim()
-  }
+  const output = htmlToPlainText(raw)
 
   // Keep the cache bounded so long sessions do not keep growing indefinitely.
   if (htmlPlainTextCache.size > 300) htmlPlainTextCache.clear()

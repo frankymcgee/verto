@@ -1,0 +1,308 @@
+{
+  "date": "2026-11-24",
+  "baseline_commit": "51926fe1322afde0c1ced4fc7f026e0cf17d6d0e",
+  "dependabot_alert_access": false,
+  "code_scanning_alert_access": false,
+  "apps": {
+    "root": {
+      "before": {
+        "distinct_advisories": 5,
+        "summary": {
+          "info": 0,
+          "low": 1,
+          "moderate": 1,
+          "high": 3,
+          "critical": 0
+        },
+        "advisories": {
+          "https://github.com/advisories/GHSA-mwcw-c2x4-8c55": {
+            "package": "nanoid",
+            "severity": "moderate",
+            "patched_ranges": [
+              ">=5.0.9"
+            ],
+            "installed_paths": [
+              {
+                "version": "4.0.2",
+                "paths": [
+                  "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>nanoid"
+                ]
+              }
+            ]
+          },
+          "https://github.com/advisories/GHSA-28wg-ghj8-5hjv": {
+            "package": "nanoid",
+            "severity": "high",
+            "patched_ranges": [
+              ">=5.1.16"
+            ],
+            "installed_paths": [
+              {
+                "version": "4.0.2",
+                "paths": [
+                  "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>nanoid"
+                ]
+              }
+            ]
+          },
+          "https://github.com/advisories/GHSA-2v37-7h3g-55p8": {
+            "package": "nanoid",
+            "severity": "high",
+            "patched_ranges": [
+              ">=5.1.6"
+            ],
+            "installed_paths": [
+              {
+                "version": "4.0.2",
+                "paths": [
+                  "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>nanoid"
+                ]
+              }
+            ]
+          },
+          "https://github.com/advisories/GHSA-xwg4-73v4-xw9w": {
+            "package": "nanoid",
+            "severity": "high",
+            "patched_ranges": [
+              ">=5.1.11"
+            ],
+            "installed_paths": [
+              {
+                "version": "4.0.2",
+                "paths": [
+                  "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>nanoid"
+                ]
+              }
+            ]
+          },
+          "https://github.com/advisories/GHSA-238p-pmpm-9mq7": {
+            "package": "katex",
+            "severity": "low",
+            "patched_ranges": [
+              ">=0.18.2"
+            ],
+            "installed_paths": [
+              {
+                "version": "0.16.47",
+                "paths": [
+                  "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>mermaid>katex"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "after": {
+        "distinct_advisories": 0,
+        "summary": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 0,
+          "critical": 0
+        },
+        "advisories": {}
+      }
+    },
+    "frontend": {
+      "before": {
+        "distinct_advisories": 2,
+        "summary": {
+          "info": 0,
+          "low": 0,
+          "moderate": 5,
+          "high": 0,
+          "critical": 0
+        },
+        "advisories": {
+          "https://github.com/advisories/GHSA-g3hv-75wg-m249": {
+            "package": "minimatch",
+            "severity": "moderate",
+            "patched_ranges": [
+              ">=11.0.1"
+            ],
+            "installed_paths": [
+              {
+                "version": "10.2.6",
+                "paths": [
+                  "vite-plugin-pwa>workbox-build>glob>minimatch"
+                ]
+              },
+              {
+                "version": "9.0.9",
+                "paths": [
+                  "vue-tsc>@vue/language-core>minimatch",
+                  "@vue/test-utils>js-beautify>editorconfig>minimatch"
+                ]
+              }
+            ]
+          },
+          "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4": {
+            "package": "glob",
+            "severity": "moderate",
+            "patched_ranges": [
+              ">=14.0.2"
+            ],
+            "installed_paths": [
+              {
+                "version": "11.1.0",
+                "paths": [
+                  "vite-plugin-pwa>workbox-build>glob"
+                ]
+              },
+              {
+                "version": "10.5.0",
+                "paths": [
+                  "@vue/test-utils>js-beautify>glob"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "after": {
+        "distinct_advisories": 0,
+        "summary": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 0,
+          "critical": 0
+        },
+        "advisories": {}
+      }
+    },
+    "planner": {
+      "before": {
+        "distinct_advisories": 2,
+        "summary": {
+          "info": 0,
+          "low": 0,
+          "moderate": 2,
+          "high": 0,
+          "critical": 0
+        },
+        "advisories": {
+          "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4": {
+            "package": "glob",
+            "severity": "moderate",
+            "patched_ranges": [
+              ">=14.0.2"
+            ],
+            "installed_paths": [
+              {
+                "version": "10.5.0",
+                "paths": [
+                  "@vue/test-utils>js-beautify>glob"
+                ]
+              }
+            ]
+          },
+          "https://github.com/advisories/GHSA-g3hv-75wg-m249": {
+            "package": "minimatch",
+            "severity": "moderate",
+            "patched_ranges": [
+              ">=11.0.1"
+            ],
+            "installed_paths": [
+              {
+                "version": "9.0.9",
+                "paths": [
+                  "@vue/test-utils>js-beautify>editorconfig>minimatch"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "after": {
+        "distinct_advisories": 0,
+        "summary": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 0,
+          "critical": 0
+        },
+        "advisories": {}
+      }
+    },
+    "investigations": {
+      "before": {
+        "distinct_advisories": 2,
+        "summary": {
+          "info": 0,
+          "low": 0,
+          "moderate": 2,
+          "high": 0,
+          "critical": 0
+        },
+        "advisories": {
+          "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4": {
+            "package": "glob",
+            "severity": "moderate",
+            "patched_ranges": [
+              ">=14.0.2"
+            ],
+            "installed_paths": [
+              {
+                "version": "10.5.0",
+                "paths": [
+                  "@vue/test-utils>js-beautify>glob"
+                ]
+              }
+            ]
+          },
+          "https://github.com/advisories/GHSA-g3hv-75wg-m249": {
+            "package": "minimatch",
+            "severity": "moderate",
+            "patched_ranges": [
+              ">=11.0.1"
+            ],
+            "installed_paths": [
+              {
+                "version": "9.0.9",
+                "paths": [
+                  "@vue/test-utils>js-beautify>editorconfig>minimatch"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "after": {
+        "distinct_advisories": 0,
+        "summary": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 0,
+          "critical": 0
+        },
+        "advisories": {}
+      }
+    }
+  },
+  "distinct_before": 7,
+  "distinct_after": 0,
+  "installed_overrides": {
+    "root": {
+      "converterNanoid": "5.1.16",
+      "katex": "0.18.2"
+    },
+    "frontend": {
+      "glob": "14.0.2",
+      "editorconfigMinimatch": "11.0.1",
+      "vueMinimatch": "11.0.1",
+      "workboxGlob": "14.0.2"
+    },
+    "planner": {
+      "glob": "14.0.2",
+      "editorconfigMinimatch": "11.0.1"
+    },
+    "investigations": {
+      "glob": "14.0.2",
+      "editorconfigMinimatch": "11.0.1"
+    }
+  }
+}

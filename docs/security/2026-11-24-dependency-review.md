@@ -1,5 +1,9 @@
 # Dependency security review — 24 November 2026
 
+> Follow-up: the seven remaining advisory IDs recorded below are resolved in the
+> [dependency and HTML security follow-up](2026-11-24-security-followup.md).
+> This document preserves the original PR #114 audit results.
+
 PR #113 was verified through GitHub's API as merged into `version-16` at
 2026-11-24 02:20:48 UTC (10:20:48 AWST), merge commit
 `32e2779b009df589f24b74fa461f0813a88b8043`, before repository edits. Work uses
