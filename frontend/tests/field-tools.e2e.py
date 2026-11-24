@@ -27,6 +27,27 @@ RESULTS = ROOT / "frontend/test-results"
 USER = "layout@example.test"
 
 
+class Handler(layout.Handler):
+    def do_POST(self):
+        if urlparse(self.path).path != "/api/method/upload_file":
+            self.send_error(404)
+            return
+        metadata = json.loads(unquote(self.headers["X-Verto-Attachment"]))
+        content = self.rfile.read(int(self.headers["Content-Length"]))
+        state = self.server.photo_state
+        rejected = "-annotated-" in metadata["file_name"] and state["reject_copy"]
+        if rejected:
+            state["failures"].append(metadata)
+            message = "The annotated copy needs a retry."
+        else:
+            state["uploads"].append((metadata, content))
+            message = {"file_url": "/private/files/" + metadata["file_name"]}
+        self.send_response(403 if rejected else 200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"message": message}).encode())
+
+
 def form_values(request):
     message = message_from_bytes(b"Content-Type: " + request.headers["content-type"].encode() + b"\r\n\r\n" + request.post_data_buffer)
     return {part.get_param("name", header="content-disposition"): part.get_payload(decode=True).decode() for part in message.get_payload()}
@@ -39,15 +60,15 @@ def fixture_image():
     return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 640, 480, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(pixels)) + chunk(b"IEND", b"")
 
 
-def check_photos(browser, origin, engine, width):
+def check_photos(browser, server, origin, engine, width):
     context = browser.new_context(viewport={"width": width, "height": 956}, has_touch=width < 600,
                                   is_mobile=width < 600, service_workers="block", locale="en-AU")
     page = context.new_page()
     failures, uploads, actions = [], [], []
-    reject_copy = True
+    state = {"failures": failures, "uploads": uploads, "reject_copy": True}
+    server.photo_state = state
 
     def api(route):
-        nonlocal reject_copy
         method = urlparse(route.request.url).path.rsplit("/", 1)[-1]
         message = None
         if method.endswith("get_logged_user"): message = USER
@@ -59,12 +80,10 @@ def check_photos(browser, origin, engine, width):
             payload = form_values(route.request); actions.append(payload)
             message = {"ok": True, "result": {"doctype": "Field Interaction", "name": "FI-BROWSER-1", "route": "/forms"}}
         elif method == "upload_file":
-            metadata = json.loads(unquote(route.request.headers["x-verto-attachment"]))
-            if "-annotated-" in metadata["file_name"] and reject_copy:
-                failures.append(metadata)
-                route.fulfill(status=403, content_type="application/json", body=json.dumps({"message": "The annotated copy needs a retry."})); return
-            uploads.append((metadata, route.request.post_data_buffer))
-            message = {"file_url": "/private/files/" + metadata["file_name"]}
+            # Verify bytes received over HTTP. WebKit's protocol represents
+            # intercepted postData as UTF-8, which cannot preserve image bytes.
+            route.continue_()
+            return
         elif method.endswith("queue_submitted_form_review"): message = {"queued": True}
         elif method.endswith("get_mobile_form_options"): message = []
         if message is None: layout.mock_api(route)
@@ -132,7 +151,7 @@ def check_photos(browser, origin, engine, width):
             geometry = page.evaluate("""() => ({content:document.querySelector('.mobile-shell-content').getBoundingClientRect().width,
               sidebar:document.querySelector('.bottom-tabs').getBoundingClientRect().x})""")
             assert geometry["content"] > width - 400 and geometry["sidebar"] < 1, geometry
-        reject_copy = False
+        state["reject_copy"] = False
         page.get_by_role("button", name="Retry upload", exact=True).click()
         expect(page.get_by_text("Confirmed by server", exact=True).first).to_be_visible()
         expect(page.get_by_text("2 of 2 attachments uploaded")).to_be_visible()
@@ -216,7 +235,7 @@ def check_handover(browser, origin, engine):
 
 def main(engines):
     RESULTS.mkdir(exist_ok=True)
-    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(layout.Handler, directory=str(layout.PUBLIC)))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(Handler, directory=str(layout.PUBLIC)))
     Thread(target=server.serve_forever, daemon=True).start()
     try:
         with sync_playwright() as playwright:
@@ -228,7 +247,7 @@ def main(engines):
                 browser = getattr(playwright, engine).launch(**options)
                 try:
                     origin = f"http://127.0.0.1:{server.server_port}"
-                    for width in (440, 1280): check_photos(browser, origin, engine, width)
+                    for width in (440, 1280): check_photos(browser, server, origin, engine, width)
                     check_handover(browser, origin, engine)
                 finally: browser.close()
     finally:
