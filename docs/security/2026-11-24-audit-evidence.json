@@ -1,0 +1,2018 @@
+{
+  "date": "2026-11-24",
+  "before": {
+    "root": {
+      "advisories": {
+        "https://github.com/advisories/GHSA-p98j-92pf-mc4p": {
+          "package": "dompurify",
+          "severity": "low",
+          "patched": [
+            ">=3.4.16"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>mermaid>dompurify"
+          ],
+          "versions": [
+            "3.4.14"
+          ]
+        },
+        "https://github.com/advisories/GHSA-6688-9rhm-gjv2": {
+          "package": "dompurify",
+          "severity": "low",
+          "patched": [
+            ">=3.4.16"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>mermaid>dompurify"
+          ],
+          "versions": [
+            "3.4.14"
+          ]
+        },
+        "https://github.com/advisories/GHSA-c6gr-qvv4-5v3f": {
+          "package": "dompurify",
+          "severity": "low",
+          "patched": [
+            ">=3.4.17"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>mermaid>dompurify"
+          ],
+          "versions": [
+            "3.4.14"
+          ]
+        },
+        "https://github.com/advisories/GHSA-cg2g-xh64-v4q7": {
+          "package": "dompurify",
+          "severity": "low",
+          "patched": [
+            ">=3.4.17"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>mermaid>dompurify"
+          ],
+          "versions": [
+            "3.4.14"
+          ]
+        },
+        "https://github.com/advisories/GHSA-mrv2-3pqr-j5jr": {
+          "package": "dompurify",
+          "severity": "low",
+          "patched": [
+            ">=3.4.17"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>mermaid>dompurify"
+          ],
+          "versions": [
+            "3.4.14"
+          ]
+        },
+        "https://github.com/advisories/GHSA-68fv-2mgg-jv7q": {
+          "package": "source-map-js",
+          "severity": "high",
+          "patched": [
+            ">=1.2.2"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>sass>source-map-js"
+          ],
+          "versions": [
+            "1.2.1"
+          ]
+        },
+        "https://github.com/advisories/GHSA-mwcw-c2x4-8c55": {
+          "package": "nanoid",
+          "severity": "moderate",
+          "patched": [
+            ">=3.3.8",
+            ">=5.0.9"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>nanoid",
+            "@excalidraw/excalidraw>nanoid"
+          ],
+          "versions": [
+            "3.3.3",
+            "4.0.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-28wg-ghj8-5hjv": {
+          "package": "nanoid",
+          "severity": "high",
+          "patched": [
+            ">=3.3.16",
+            ">=5.1.16"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>nanoid",
+            "@excalidraw/excalidraw>nanoid"
+          ],
+          "versions": [
+            "3.3.3",
+            "4.0.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-2v37-7h3g-55p8": {
+          "package": "nanoid",
+          "severity": "high",
+          "patched": [
+            ">=3.3.18",
+            ">=5.1.6"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>nanoid",
+            "@excalidraw/excalidraw>nanoid"
+          ],
+          "versions": [
+            "3.3.3",
+            "4.0.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-xwg4-73v4-xw9w": {
+          "package": "nanoid",
+          "severity": "high",
+          "patched": [
+            ">=3.3.12",
+            ">=5.1.11"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>nanoid",
+            "@excalidraw/excalidraw>nanoid"
+          ],
+          "versions": [
+            "3.3.3",
+            "4.0.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-r5fr-rjxr-66jc": {
+          "package": "lodash-es",
+          "severity": "high",
+          "patched": [
+            ">=4.18.0"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>@mermaid-js/parser>langium>chevrotain>@chevrotain/cst-dts-gen>@chevrotain/gast>lodash-es",
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>@mermaid-js/parser>langium>chevrotain>@chevrotain/gast>lodash-es",
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>@mermaid-js/parser>langium>chevrotain>lodash-es"
+          ],
+          "versions": [
+            "4.17.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-xxjr-mmjv-4gpg": {
+          "package": "lodash-es",
+          "severity": "moderate",
+          "patched": [
+            ">=4.17.23"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>@mermaid-js/parser>langium>chevrotain>@chevrotain/cst-dts-gen>@chevrotain/gast>lodash-es",
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>@mermaid-js/parser>langium>chevrotain>@chevrotain/gast>lodash-es",
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>@mermaid-js/parser>langium>chevrotain>lodash-es"
+          ],
+          "versions": [
+            "4.17.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-238p-pmpm-9mq7": {
+          "package": "katex",
+          "severity": "low",
+          "patched": [
+            ">=0.18.2"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>mermaid>katex"
+          ],
+          "versions": [
+            "0.16.47"
+          ]
+        }
+      },
+      "path_findings": 21,
+      "summary": {
+        "info": 0,
+        "low": 6,
+        "moderate": 5,
+        "high": 10,
+        "critical": 0
+      }
+    },
+    "frontend": {
+      "advisories": {
+        "https://github.com/advisories/GHSA-67mh-4wv8-2f99": {
+          "package": "esbuild",
+          "severity": "moderate",
+          "patched": [
+            ">=0.25.0"
+          ],
+          "paths": [
+            "vite>esbuild",
+            "vitest>vite-node>vite>esbuild",
+            "vitest>vite>esbuild"
+          ],
+          "versions": [
+            "0.21.5"
+          ]
+        },
+        "https://github.com/advisories/GHSA-4w7w-66w2-5vf9": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.2"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-v6wh-96g9-6wx3": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.3"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-698v-4r3x-3vcv": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.4"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-r825-w8mm-5pxw": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.4"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-587h-7wmj-h5pm": {
+          "package": "vite",
+          "severity": "high",
+          "patched": [
+            ">=6.4.4"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-9jrq-w75r-8gcw": {
+          "package": "vite",
+          "severity": "low",
+          "patched": [
+            ">=6.4.4"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-rq7h-c2jc-7f22": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.4"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-fx2h-pf6j-xcff": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.3"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-5xrq-8626-4rwp": {
+          "package": "vitest",
+          "severity": "critical",
+          "patched": [
+            ">=3.2.6"
+          ],
+          "paths": [
+            "vitest"
+          ],
+          "versions": [
+            "2.1.9"
+          ]
+        },
+        "https://github.com/advisories/GHSA-82fw-gwwq-j7x9": {
+          "package": "vitest",
+          "severity": "moderate",
+          "patched": [
+            ">=4.1.11"
+          ],
+          "paths": [
+            "vitest",
+            "vitest>@vitest/mocker"
+          ],
+          "versions": [
+            "2.1.9"
+          ]
+        },
+        "https://github.com/advisories/GHSA-5gmw-xhrv-c9v3": {
+          "package": "tinypool",
+          "severity": "critical",
+          "patched": [
+            ">=2.1.1"
+          ],
+          "paths": [
+            "vitest>tinypool"
+          ],
+          "versions": [
+            "1.1.1"
+          ]
+        },
+        "https://github.com/advisories/GHSA-85c8-ppgw-ccpr": {
+          "package": "tinypool",
+          "severity": "critical",
+          "patched": [
+            ">=2.1.2"
+          ],
+          "paths": [
+            "vitest>tinypool"
+          ],
+          "versions": [
+            "1.1.1"
+          ]
+        },
+        "https://github.com/advisories/GHSA-qxg6-89mg-rqv8": {
+          "package": "@vitest/mocker",
+          "severity": "moderate",
+          "patched": [
+            ">=4.1.12"
+          ],
+          "paths": [
+            "vitest>@vitest/mocker"
+          ],
+          "versions": [
+            "2.1.9"
+          ]
+        },
+        "https://github.com/advisories/GHSA-w4gp-fjgq-3q4g": {
+          "package": "happy-dom",
+          "severity": "high",
+          "patched": [
+            ">=20.8.9"
+          ],
+          "paths": [
+            "happy-dom"
+          ],
+          "versions": [
+            "20.8.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-6q6h-j7hj-3r64": {
+          "package": "happy-dom",
+          "severity": "high",
+          "patched": [
+            ">=20.8.8"
+          ],
+          "paths": [
+            "happy-dom"
+          ],
+          "versions": [
+            "20.8.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-834v-8h66-3h79": {
+          "package": "happy-dom",
+          "severity": "high",
+          "patched": [
+            ">=21.0.4"
+          ],
+          "paths": [
+            "happy-dom"
+          ],
+          "versions": [
+            "20.8.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-c8p4-j97h-3vg8": {
+          "package": "happy-dom",
+          "severity": "high",
+          "patched": [
+            ">=21.0.0"
+          ],
+          "paths": [
+            "happy-dom"
+          ],
+          "versions": [
+            "20.8.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-5fpq-26gf-qwcr": {
+          "package": "happy-dom",
+          "severity": "moderate",
+          "patched": [
+            ">=20.14.6"
+          ],
+          "paths": [
+            "happy-dom"
+          ],
+          "versions": [
+            "20.8.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-58qx-3vcg-4xpx": {
+          "package": "ws",
+          "severity": "moderate",
+          "patched": [
+            ">=8.20.1"
+          ],
+          "paths": [
+            "frappe-ui>socket.io-client>engine.io-client>ws",
+            "socket.io-client>engine.io-client>ws"
+          ],
+          "versions": [
+            "8.17.1"
+          ]
+        },
+        "https://github.com/advisories/GHSA-96hv-2xvq-fx4p": {
+          "package": "ws",
+          "severity": "high",
+          "patched": [
+            ">=8.21.0"
+          ],
+          "paths": [
+            "frappe-ui>socket.io-client>engine.io-client>ws",
+            "socket.io-client>engine.io-client>ws"
+          ],
+          "versions": [
+            "8.17.1"
+          ]
+        },
+        "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp": {
+          "package": "brace-expansion",
+          "severity": "high",
+          "patched": [
+            ">=2.1.2",
+            ">=5.0.7"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>editorconfig>minimatch>brace-expansion",
+            "vite-plugin-pwa>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>ejs>jake>filelist>minimatch>brace-expansion",
+            "vite-plugin-pwa>workbox-build>glob>minimatch>brace-expansion",
+            "vue-tsc>@vue/language-core>minimatch>brace-expansion"
+          ],
+          "versions": [
+            "2.1.0",
+            "5.0.6"
+          ]
+        },
+        "https://github.com/advisories/GHSA-mh99-v99m-4gvg": {
+          "package": "brace-expansion",
+          "severity": "high",
+          "patched": [
+            ">=2.1.3",
+            ">=5.0.8"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>editorconfig>minimatch>brace-expansion",
+            "vite-plugin-pwa>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>ejs>jake>filelist>minimatch>brace-expansion",
+            "vite-plugin-pwa>workbox-build>glob>minimatch>brace-expansion",
+            "vue-tsc>@vue/language-core>minimatch>brace-expansion"
+          ],
+          "versions": [
+            "2.1.0",
+            "5.0.6"
+          ]
+        },
+        "https://github.com/advisories/GHSA-rgw5-rvv9-x895": {
+          "package": "brace-expansion",
+          "severity": "high",
+          "patched": [
+            ">=2.1.4",
+            ">=5.0.9"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>editorconfig>minimatch>brace-expansion",
+            "vite-plugin-pwa>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>ejs>jake>filelist>minimatch>brace-expansion",
+            "vite-plugin-pwa>workbox-build>glob>minimatch>brace-expansion",
+            "vue-tsc>@vue/language-core>minimatch>brace-expansion"
+          ],
+          "versions": [
+            "2.1.0",
+            "5.0.6"
+          ]
+        },
+        "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr": {
+          "package": "brace-expansion",
+          "severity": "moderate",
+          "patched": [
+            ">=2.1.7",
+            ">=5.0.12"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>editorconfig>minimatch>brace-expansion",
+            "vite-plugin-pwa>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>ejs>jake>filelist>minimatch>brace-expansion",
+            "vite-plugin-pwa>workbox-build>glob>minimatch>brace-expansion",
+            "vue-tsc>@vue/language-core>minimatch>brace-expansion"
+          ],
+          "versions": [
+            "2.1.0",
+            "5.0.6"
+          ]
+        },
+        "https://github.com/advisories/GHSA-qhr7-859c-m2p7": {
+          "package": "brace-expansion",
+          "severity": "high",
+          "patched": [
+            ">=2.1.6",
+            ">=5.0.11"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>editorconfig>minimatch>brace-expansion",
+            "vite-plugin-pwa>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>ejs>jake>filelist>minimatch>brace-expansion",
+            "vite-plugin-pwa>workbox-build>glob>minimatch>brace-expansion",
+            "vue-tsc>@vue/language-core>minimatch>brace-expansion"
+          ],
+          "versions": [
+            "2.1.0",
+            "5.0.6"
+          ]
+        },
+        "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p": {
+          "package": "brace-expansion",
+          "severity": "high",
+          "patched": [
+            ">=2.1.5",
+            ">=5.0.10"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>editorconfig>minimatch>brace-expansion",
+            "vite-plugin-pwa>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>ejs>jake>filelist>minimatch>brace-expansion",
+            "vite-plugin-pwa>workbox-build>glob>minimatch>brace-expansion",
+            "vue-tsc>@vue/language-core>minimatch>brace-expansion"
+          ],
+          "versions": [
+            "2.1.0",
+            "5.0.6"
+          ]
+        },
+        "https://github.com/advisories/GHSA-g3hv-75wg-m249": {
+          "package": "minimatch",
+          "severity": "moderate",
+          "patched": [
+            ">=11.0.1"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>editorconfig>minimatch",
+            "vite-plugin-pwa>workbox-build>glob>minimatch",
+            "vue-tsc>@vue/language-core>minimatch"
+          ],
+          "versions": [
+            "10.2.5",
+            "9.0.9"
+          ]
+        },
+        "https://github.com/advisories/GHSA-g2v6-rqmx-r4w6": {
+          "package": "@vue/server-renderer",
+          "severity": "high",
+          "patched": [
+            ">=3.5.42"
+          ],
+          "paths": [
+            "vue>@vue/server-renderer"
+          ],
+          "versions": [
+            "3.5.34"
+          ]
+        },
+        "https://github.com/advisories/GHSA-v2hh-gcrm-f6hx": {
+          "package": "fast-uri",
+          "severity": "high",
+          "patched": [
+            ">=3.1.4"
+          ],
+          "paths": [
+            "vite-plugin-pwa>workbox-build>ajv>fast-uri"
+          ],
+          "versions": [
+            "3.1.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-7p8r-x3mc-p8w7": {
+          "package": "fast-uri",
+          "severity": "high",
+          "patched": [
+            ">=3.1.5"
+          ],
+          "paths": [
+            "vite-plugin-pwa>workbox-build>ajv>fast-uri"
+          ],
+          "versions": [
+            "3.1.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-f65p-4m7j-42xc": {
+          "package": "fast-uri",
+          "severity": "high",
+          "patched": [
+            ">=3.1.6"
+          ],
+          "paths": [
+            "vite-plugin-pwa>workbox-build>ajv>fast-uri"
+          ],
+          "versions": [
+            "3.1.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-fph4-wmhf-6fwf": {
+          "package": "fast-uri",
+          "severity": "high",
+          "patched": [
+            ">=3.1.6"
+          ],
+          "paths": [
+            "vite-plugin-pwa>workbox-build>ajv>fast-uri"
+          ],
+          "versions": [
+            "3.1.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-jqff-g426-hqxp": {
+          "package": "fast-uri",
+          "severity": "high",
+          "patched": [
+            ">=3.1.6"
+          ],
+          "paths": [
+            "vite-plugin-pwa>workbox-build>ajv>fast-uri"
+          ],
+          "versions": [
+            "3.1.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-4c8g-83qw-93j6": {
+          "package": "fast-uri",
+          "severity": "high",
+          "patched": [
+            ">=3.1.3"
+          ],
+          "paths": [
+            "vite-plugin-pwa>workbox-build>ajv>fast-uri"
+          ],
+          "versions": [
+            "3.1.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-qw65-cvwx-89v3": {
+          "package": "fast-uri",
+          "severity": "high",
+          "patched": [
+            ">=3.1.7"
+          ],
+          "paths": [
+            "vite-plugin-pwa>workbox-build>ajv>fast-uri"
+          ],
+          "versions": [
+            "3.1.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-hrr3-gc8f-f4qj": {
+          "package": "fast-uri",
+          "severity": "moderate",
+          "patched": [
+            ">=3.1.8"
+          ],
+          "paths": [
+            "vite-plugin-pwa>workbox-build>ajv>fast-uri"
+          ],
+          "versions": [
+            "3.1.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-w74x-v6f9-j3xg": {
+          "package": "fast-uri",
+          "severity": "moderate",
+          "patched": [
+            ">=3.1.9"
+          ],
+          "paths": [
+            "vite-plugin-pwa>workbox-build>ajv>fast-uri"
+          ],
+          "versions": [
+            "3.1.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-xhq7-xmqj-769h": {
+          "package": "fast-uri",
+          "severity": "low",
+          "patched": [
+            ">=3.1.9"
+          ],
+          "paths": [
+            "vite-plugin-pwa>workbox-build>ajv>fast-uri"
+          ],
+          "versions": [
+            "3.1.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-333x-w4r6-6crp": {
+          "package": "fast-uri",
+          "severity": "low",
+          "patched": [
+            ">=3.1.9"
+          ],
+          "paths": [
+            "vite-plugin-pwa>workbox-build>ajv>fast-uri"
+          ],
+          "versions": [
+            "3.1.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp": {
+          "package": "postcss",
+          "severity": "moderate",
+          "patched": [
+            ">=8.5.23"
+          ],
+          "paths": [
+            "postcss",
+            "tailwindcss>postcss",
+            "vitest>vite-node>vite>postcss",
+            "vitest>vite>postcss"
+          ],
+          "versions": [
+            "8.5.15"
+          ]
+        },
+        "https://github.com/advisories/GHSA-r28c-9q8g-f849": {
+          "package": "postcss",
+          "severity": "high",
+          "patched": [
+            ">=8.5.18"
+          ],
+          "paths": [
+            "postcss",
+            "tailwindcss>postcss",
+            "vitest>vite-node>vite>postcss",
+            "vitest>vite>postcss"
+          ],
+          "versions": [
+            "8.5.15"
+          ]
+        },
+        "https://github.com/advisories/GHSA-2m8v-j782-fhvr": {
+          "package": "socket.io-parser",
+          "severity": "high",
+          "patched": [
+            ">=4.2.7"
+          ],
+          "paths": [
+            "frappe-ui>socket.io-client>socket.io-parser",
+            "socket.io-client>socket.io-parser"
+          ],
+          "versions": [
+            "4.2.6"
+          ]
+        },
+        "https://github.com/advisories/GHSA-28wg-ghj8-5hjv": {
+          "package": "nanoid",
+          "severity": "high",
+          "patched": [
+            ">=3.3.16"
+          ],
+          "paths": [
+            "postcss>nanoid",
+            "tailwindcss>postcss>nanoid",
+            "vitest>vite-node>vite>postcss>nanoid",
+            "vitest>vite>postcss>nanoid"
+          ],
+          "versions": [
+            "3.3.12"
+          ]
+        },
+        "https://github.com/advisories/GHSA-2v37-7h3g-55p8": {
+          "package": "nanoid",
+          "severity": "high",
+          "patched": [
+            ">=3.3.18"
+          ],
+          "paths": [
+            "postcss>nanoid",
+            "tailwindcss>postcss>nanoid",
+            "vitest>vite-node>vite>postcss>nanoid",
+            "vitest>vite>postcss>nanoid"
+          ],
+          "versions": [
+            "3.3.12"
+          ]
+        },
+        "https://github.com/advisories/GHSA-w9m9-85wc-3x92": {
+          "package": "postcss-selector-parser",
+          "severity": "low",
+          "patched": [
+            ">=6.1.3"
+          ],
+          "paths": [
+            "tailwindcss>postcss-nested>postcss-selector-parser",
+            "tailwindcss>postcss-selector-parser"
+          ],
+          "versions": [
+            "6.1.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-rj75-hqrm-r3gf": {
+          "package": "postcss-selector-parser",
+          "severity": "moderate",
+          "patched": [
+            ">=6.1.5"
+          ],
+          "paths": [
+            "frappe-ui>@tailwindcss/typography>postcss-selector-parser",
+            "tailwindcss>postcss-nested>postcss-selector-parser",
+            "tailwindcss>postcss-selector-parser"
+          ],
+          "versions": [
+            "6.0.10",
+            "6.1.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-c83g-rgw3-j3cx": {
+          "package": "browserslist",
+          "severity": "high",
+          "patched": [
+            ">=4.28.7"
+          ],
+          "paths": [
+            "autoprefixer>browserslist",
+            "vite-plugin-pwa>workbox-build>@babel/core>@babel/helper-compilation-targets>browserslist",
+            "vite-plugin-pwa>workbox-build>@babel/preset-env>@babel/plugin-transform-classes>@babel/helper-compilation-targets>browserslist",
+            "vite-plugin-pwa>workbox-build>@babel/preset-env>babel-plugin-polyfill-corejs2>@babel/helper-define-polyfill-provider>@babel/helper-compilation-targets>browserslist"
+          ],
+          "versions": [
+            "4.28.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-73wf-gq98-2v4g": {
+          "package": "browserslist",
+          "severity": "high",
+          "patched": [
+            ">=4.28.7"
+          ],
+          "paths": [
+            "autoprefixer>browserslist",
+            "vite-plugin-pwa>workbox-build>@babel/core>@babel/helper-compilation-targets>browserslist",
+            "vite-plugin-pwa>workbox-build>@babel/preset-env>@babel/plugin-transform-classes>@babel/helper-compilation-targets>browserslist",
+            "vite-plugin-pwa>workbox-build>@babel/preset-env>babel-plugin-polyfill-corejs2>@babel/helper-define-polyfill-provider>@babel/helper-compilation-targets>browserslist"
+          ],
+          "versions": [
+            "4.28.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-w5vr-8v7q-w6rv": {
+          "package": "baseline-browser-mapping",
+          "severity": "moderate",
+          "patched": [
+            ">=2.11.0"
+          ],
+          "paths": [
+            "autoprefixer>browserslist>baseline-browser-mapping",
+            "vite-plugin-pwa>workbox-build>@babel/core>@babel/helper-compilation-targets>browserslist>baseline-browser-mapping",
+            "vite-plugin-pwa>workbox-build>@babel/preset-env>@babel/plugin-transform-classes>@babel/helper-compilation-targets>browserslist>baseline-browser-mapping",
+            "vite-plugin-pwa>workbox-build>@babel/preset-env>babel-plugin-polyfill-corejs2>@babel/helper-define-polyfill-provider>@babel/helper-compilation-targets>browserslist>baseline-browser-mapping"
+          ],
+          "versions": [
+            "2.10.32"
+          ]
+        },
+        "https://github.com/advisories/GHSA-p98j-92pf-mc4p": {
+          "package": "dompurify",
+          "severity": "low",
+          "patched": [
+            ">=3.4.16"
+          ],
+          "paths": [
+            "dompurify",
+            "frappe-ui>dompurify"
+          ],
+          "versions": [
+            "3.4.15"
+          ]
+        },
+        "https://github.com/advisories/GHSA-6688-9rhm-gjv2": {
+          "package": "dompurify",
+          "severity": "low",
+          "patched": [
+            ">=3.4.16"
+          ],
+          "paths": [
+            "dompurify",
+            "frappe-ui>dompurify"
+          ],
+          "versions": [
+            "3.4.15"
+          ]
+        },
+        "https://github.com/advisories/GHSA-c6gr-qvv4-5v3f": {
+          "package": "dompurify",
+          "severity": "low",
+          "patched": [
+            ">=3.4.17"
+          ],
+          "paths": [
+            "dompurify",
+            "frappe-ui>dompurify"
+          ],
+          "versions": [
+            "3.4.15"
+          ]
+        },
+        "https://github.com/advisories/GHSA-cg2g-xh64-v4q7": {
+          "package": "dompurify",
+          "severity": "low",
+          "patched": [
+            ">=3.4.17"
+          ],
+          "paths": [
+            "dompurify",
+            "frappe-ui>dompurify"
+          ],
+          "versions": [
+            "3.4.15"
+          ]
+        },
+        "https://github.com/advisories/GHSA-mrv2-3pqr-j5jr": {
+          "package": "dompurify",
+          "severity": "low",
+          "patched": [
+            ">=3.4.17"
+          ],
+          "paths": [
+            "dompurify",
+            "frappe-ui>dompurify"
+          ],
+          "versions": [
+            "3.4.15"
+          ]
+        },
+        "https://github.com/advisories/GHSA-68fv-2mgg-jv7q": {
+          "package": "source-map-js",
+          "severity": "high",
+          "patched": [
+            ">=1.2.2"
+          ],
+          "paths": [
+            "postcss>source-map-js",
+            "tailwindcss>postcss>source-map-js",
+            "vitest>vite-node>vite>postcss>source-map-js",
+            "vitest>vite>postcss>source-map-js",
+            "vue>@vue/compiler-sfc>@vue/compiler-ssr>@vue/compiler-dom>@vue/compiler-core>source-map-js"
+          ],
+          "versions": [
+            "1.2.1"
+          ]
+        },
+        "https://github.com/advisories/GHSA-m5mm-p8h7-m29v": {
+          "package": "serialize-javascript",
+          "severity": "low",
+          "patched": [
+            ">=7.1.3"
+          ],
+          "paths": [
+            "vite-plugin-pwa>workbox-build>@rollup/plugin-terser>serialize-javascript"
+          ],
+          "versions": [
+            "7.0.5"
+          ]
+        },
+        "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4": {
+          "package": "glob",
+          "severity": "moderate",
+          "patched": [
+            ">=14.0.2"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>glob",
+            "vite-plugin-pwa>workbox-build>glob"
+          ],
+          "versions": [
+            "10.5.0",
+            "11.1.0"
+          ]
+        }
+      },
+      "path_findings": 134,
+      "summary": {
+        "info": 0,
+        "low": 18,
+        "moderate": 49,
+        "high": 64,
+        "critical": 3
+      }
+    },
+    "planner": {
+      "advisories": {
+        "https://github.com/advisories/GHSA-67mh-4wv8-2f99": {
+          "package": "esbuild",
+          "severity": "moderate",
+          "patched": [
+            ">=0.25.0"
+          ],
+          "paths": [
+            "vite>esbuild",
+            "vitest>vite-node>vite>esbuild",
+            "vitest>vite>esbuild"
+          ],
+          "versions": [
+            "0.21.5"
+          ]
+        },
+        "https://github.com/advisories/GHSA-4w7w-66w2-5vf9": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.2"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-v6wh-96g9-6wx3": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.3"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-698v-4r3x-3vcv": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.4"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-r825-w8mm-5pxw": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.4"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-587h-7wmj-h5pm": {
+          "package": "vite",
+          "severity": "high",
+          "patched": [
+            ">=6.4.4"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-9jrq-w75r-8gcw": {
+          "package": "vite",
+          "severity": "low",
+          "patched": [
+            ">=6.4.4"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-rq7h-c2jc-7f22": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.4"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-fx2h-pf6j-xcff": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.3"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-5xrq-8626-4rwp": {
+          "package": "vitest",
+          "severity": "critical",
+          "patched": [
+            ">=3.2.6"
+          ],
+          "paths": [
+            "vitest"
+          ],
+          "versions": [
+            "2.1.9"
+          ]
+        },
+        "https://github.com/advisories/GHSA-82fw-gwwq-j7x9": {
+          "package": "vitest",
+          "severity": "moderate",
+          "patched": [
+            ">=4.1.11"
+          ],
+          "paths": [
+            "vitest",
+            "vitest>@vitest/mocker"
+          ],
+          "versions": [
+            "2.1.9"
+          ]
+        },
+        "https://github.com/advisories/GHSA-5gmw-xhrv-c9v3": {
+          "package": "tinypool",
+          "severity": "critical",
+          "patched": [
+            ">=2.1.1"
+          ],
+          "paths": [
+            "vitest>tinypool"
+          ],
+          "versions": [
+            "1.1.1"
+          ]
+        },
+        "https://github.com/advisories/GHSA-85c8-ppgw-ccpr": {
+          "package": "tinypool",
+          "severity": "critical",
+          "patched": [
+            ">=2.1.2"
+          ],
+          "paths": [
+            "vitest>tinypool"
+          ],
+          "versions": [
+            "1.1.1"
+          ]
+        },
+        "https://github.com/advisories/GHSA-qxg6-89mg-rqv8": {
+          "package": "@vitest/mocker",
+          "severity": "moderate",
+          "patched": [
+            ">=4.1.12"
+          ],
+          "paths": [
+            "vitest>@vitest/mocker"
+          ],
+          "versions": [
+            "2.1.9"
+          ]
+        },
+        "https://github.com/advisories/GHSA-w4gp-fjgq-3q4g": {
+          "package": "happy-dom",
+          "severity": "high",
+          "patched": [
+            ">=20.8.9"
+          ],
+          "paths": [
+            "happy-dom"
+          ],
+          "versions": [
+            "20.8.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-6q6h-j7hj-3r64": {
+          "package": "happy-dom",
+          "severity": "high",
+          "patched": [
+            ">=20.8.8"
+          ],
+          "paths": [
+            "happy-dom"
+          ],
+          "versions": [
+            "20.8.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-834v-8h66-3h79": {
+          "package": "happy-dom",
+          "severity": "high",
+          "patched": [
+            ">=21.0.4"
+          ],
+          "paths": [
+            "happy-dom"
+          ],
+          "versions": [
+            "20.8.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-c8p4-j97h-3vg8": {
+          "package": "happy-dom",
+          "severity": "high",
+          "patched": [
+            ">=21.0.0"
+          ],
+          "paths": [
+            "happy-dom"
+          ],
+          "versions": [
+            "20.8.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-5fpq-26gf-qwcr": {
+          "package": "happy-dom",
+          "severity": "moderate",
+          "patched": [
+            ">=20.14.6"
+          ],
+          "paths": [
+            "happy-dom"
+          ],
+          "versions": [
+            "20.8.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr": {
+          "package": "brace-expansion",
+          "severity": "moderate",
+          "patched": [
+            ">=2.1.7"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>editorconfig>minimatch>brace-expansion"
+          ],
+          "versions": [
+            "2.1.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-qhr7-859c-m2p7": {
+          "package": "brace-expansion",
+          "severity": "high",
+          "patched": [
+            ">=2.1.6"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>editorconfig>minimatch>brace-expansion"
+          ],
+          "versions": [
+            "2.1.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p": {
+          "package": "brace-expansion",
+          "severity": "high",
+          "patched": [
+            ">=2.1.5"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>editorconfig>minimatch>brace-expansion"
+          ],
+          "versions": [
+            "2.1.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-p98j-92pf-mc4p": {
+          "package": "dompurify",
+          "severity": "low",
+          "patched": [
+            ">=3.4.16"
+          ],
+          "paths": [
+            "frappe-ui>dompurify"
+          ],
+          "versions": [
+            "3.4.15"
+          ]
+        },
+        "https://github.com/advisories/GHSA-6688-9rhm-gjv2": {
+          "package": "dompurify",
+          "severity": "low",
+          "patched": [
+            ">=3.4.16"
+          ],
+          "paths": [
+            "frappe-ui>dompurify"
+          ],
+          "versions": [
+            "3.4.15"
+          ]
+        },
+        "https://github.com/advisories/GHSA-c6gr-qvv4-5v3f": {
+          "package": "dompurify",
+          "severity": "low",
+          "patched": [
+            ">=3.4.17"
+          ],
+          "paths": [
+            "frappe-ui>dompurify"
+          ],
+          "versions": [
+            "3.4.15"
+          ]
+        },
+        "https://github.com/advisories/GHSA-cg2g-xh64-v4q7": {
+          "package": "dompurify",
+          "severity": "low",
+          "patched": [
+            ">=3.4.17"
+          ],
+          "paths": [
+            "frappe-ui>dompurify"
+          ],
+          "versions": [
+            "3.4.15"
+          ]
+        },
+        "https://github.com/advisories/GHSA-mrv2-3pqr-j5jr": {
+          "package": "dompurify",
+          "severity": "low",
+          "patched": [
+            ">=3.4.17"
+          ],
+          "paths": [
+            "frappe-ui>dompurify"
+          ],
+          "versions": [
+            "3.4.15"
+          ]
+        },
+        "https://github.com/advisories/GHSA-68fv-2mgg-jv7q": {
+          "package": "source-map-js",
+          "severity": "high",
+          "patched": [
+            ">=1.2.2"
+          ],
+          "paths": [
+            "postcss>source-map-js",
+            "vite>postcss>source-map-js",
+            "vitest>vite-node>vite>postcss>source-map-js",
+            "vitest>vite>postcss>source-map-js",
+            "vue>@vue/compiler-sfc>@vue/compiler-ssr>@vue/compiler-dom>@vue/compiler-core>source-map-js"
+          ],
+          "versions": [
+            "1.2.1"
+          ]
+        },
+        "https://github.com/advisories/GHSA-rj75-hqrm-r3gf": {
+          "package": "postcss-selector-parser",
+          "severity": "moderate",
+          "patched": [
+            ">=6.1.5"
+          ],
+          "paths": [
+            "frappe-ui>@tailwindcss/typography>postcss-selector-parser",
+            "tailwindcss>postcss-nested>postcss-selector-parser",
+            "tailwindcss>postcss-selector-parser"
+          ],
+          "versions": [
+            "6.0.10",
+            "6.1.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4": {
+          "package": "glob",
+          "severity": "moderate",
+          "patched": [
+            ">=14.0.2"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>glob"
+          ],
+          "versions": [
+            "10.5.0"
+          ]
+        },
+        "https://github.com/advisories/GHSA-g3hv-75wg-m249": {
+          "package": "minimatch",
+          "severity": "moderate",
+          "patched": [
+            ">=11.0.1"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>editorconfig>minimatch"
+          ],
+          "versions": [
+            "9.0.9"
+          ]
+        }
+      },
+      "path_findings": 56,
+      "summary": {
+        "info": 0,
+        "low": 8,
+        "moderate": 31,
+        "high": 14,
+        "critical": 3
+      }
+    },
+    "investigations": {
+      "advisories": {
+        "https://github.com/advisories/GHSA-67mh-4wv8-2f99": {
+          "package": "esbuild",
+          "severity": "moderate",
+          "patched": [
+            ">=0.25.0"
+          ],
+          "paths": [
+            "vite>esbuild",
+            "vitest>vite-node>vite>esbuild",
+            "vitest>vite>esbuild"
+          ],
+          "versions": [
+            "0.21.5"
+          ]
+        },
+        "https://github.com/advisories/GHSA-4w7w-66w2-5vf9": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.2"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-v6wh-96g9-6wx3": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.3"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-698v-4r3x-3vcv": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.4"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-r825-w8mm-5pxw": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.4"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-587h-7wmj-h5pm": {
+          "package": "vite",
+          "severity": "high",
+          "patched": [
+            ">=6.4.4"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-9jrq-w75r-8gcw": {
+          "package": "vite",
+          "severity": "low",
+          "patched": [
+            ">=6.4.4"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-rq7h-c2jc-7f22": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.4"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-fx2h-pf6j-xcff": {
+          "package": "vite",
+          "severity": "moderate",
+          "patched": [
+            ">=6.4.3"
+          ],
+          "paths": [
+            "vite",
+            "vitest>vite",
+            "vitest>vite-node>vite"
+          ],
+          "versions": [
+            "5.4.21"
+          ]
+        },
+        "https://github.com/advisories/GHSA-5xrq-8626-4rwp": {
+          "package": "vitest",
+          "severity": "critical",
+          "patched": [
+            ">=3.2.6"
+          ],
+          "paths": [
+            "vitest"
+          ],
+          "versions": [
+            "2.1.9"
+          ]
+        },
+        "https://github.com/advisories/GHSA-82fw-gwwq-j7x9": {
+          "package": "vitest",
+          "severity": "moderate",
+          "patched": [
+            ">=4.1.11"
+          ],
+          "paths": [
+            "vitest",
+            "vitest>@vitest/mocker"
+          ],
+          "versions": [
+            "2.1.9"
+          ]
+        },
+        "https://github.com/advisories/GHSA-5gmw-xhrv-c9v3": {
+          "package": "tinypool",
+          "severity": "critical",
+          "patched": [
+            ">=2.1.1"
+          ],
+          "paths": [
+            "vitest>tinypool"
+          ],
+          "versions": [
+            "1.1.1"
+          ]
+        },
+        "https://github.com/advisories/GHSA-85c8-ppgw-ccpr": {
+          "package": "tinypool",
+          "severity": "critical",
+          "patched": [
+            ">=2.1.2"
+          ],
+          "paths": [
+            "vitest>tinypool"
+          ],
+          "versions": [
+            "1.1.1"
+          ]
+        },
+        "https://github.com/advisories/GHSA-qxg6-89mg-rqv8": {
+          "package": "@vitest/mocker",
+          "severity": "moderate",
+          "patched": [
+            ">=4.1.12"
+          ],
+          "paths": [
+            "vitest>@vitest/mocker"
+          ],
+          "versions": [
+            "2.1.9"
+          ]
+        },
+        "https://github.com/advisories/GHSA-w4gp-fjgq-3q4g": {
+          "package": "happy-dom",
+          "severity": "high",
+          "patched": [
+            ">=20.8.9"
+          ],
+          "paths": [
+            "happy-dom"
+          ],
+          "versions": [
+            "20.8.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-6q6h-j7hj-3r64": {
+          "package": "happy-dom",
+          "severity": "high",
+          "patched": [
+            ">=20.8.8"
+          ],
+          "paths": [
+            "happy-dom"
+          ],
+          "versions": [
+            "20.8.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-834v-8h66-3h79": {
+          "package": "happy-dom",
+          "severity": "high",
+          "patched": [
+            ">=21.0.4"
+          ],
+          "paths": [
+            "happy-dom"
+          ],
+          "versions": [
+            "20.8.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-c8p4-j97h-3vg8": {
+          "package": "happy-dom",
+          "severity": "high",
+          "patched": [
+            ">=21.0.0"
+          ],
+          "paths": [
+            "happy-dom"
+          ],
+          "versions": [
+            "20.8.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-5fpq-26gf-qwcr": {
+          "package": "happy-dom",
+          "severity": "moderate",
+          "patched": [
+            ">=20.14.6"
+          ],
+          "paths": [
+            "happy-dom"
+          ],
+          "versions": [
+            "20.8.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-rj75-hqrm-r3gf": {
+          "package": "postcss-selector-parser",
+          "severity": "moderate",
+          "patched": [
+            ">=6.1.5"
+          ],
+          "paths": [
+            "frappe-ui>@tailwindcss/typography>postcss-selector-parser",
+            "tailwindcss>postcss-nested>postcss-selector-parser",
+            "tailwindcss>postcss-selector-parser"
+          ],
+          "versions": [
+            "6.0.10",
+            "6.1.4"
+          ]
+        },
+        "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4": {
+          "package": "glob",
+          "severity": "moderate",
+          "patched": [
+            ">=14.0.2"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>glob"
+          ],
+          "versions": [
+            "10.5.0"
+          ]
+        },
+        "https://github.com/advisories/GHSA-g3hv-75wg-m249": {
+          "package": "minimatch",
+          "severity": "moderate",
+          "patched": [
+            ">=11.0.1"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>editorconfig>minimatch"
+          ],
+          "versions": [
+            "9.0.9"
+          ]
+        }
+      },
+      "path_findings": 43,
+      "summary": {
+        "info": 0,
+        "low": 3,
+        "moderate": 30,
+        "high": 7,
+        "critical": 3
+      }
+    }
+  },
+  "after": {
+    "root": {
+      "advisories": {
+        "https://github.com/advisories/GHSA-mwcw-c2x4-8c55": {
+          "package": "nanoid",
+          "severity": "moderate",
+          "patched": [
+            ">=5.0.9"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>nanoid"
+          ],
+          "versions": [
+            "4.0.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-28wg-ghj8-5hjv": {
+          "package": "nanoid",
+          "severity": "high",
+          "patched": [
+            ">=5.1.16"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>nanoid"
+          ],
+          "versions": [
+            "4.0.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-2v37-7h3g-55p8": {
+          "package": "nanoid",
+          "severity": "high",
+          "patched": [
+            ">=5.1.6"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>nanoid"
+          ],
+          "versions": [
+            "4.0.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-xwg4-73v4-xw9w": {
+          "package": "nanoid",
+          "severity": "high",
+          "patched": [
+            ">=5.1.11"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>nanoid"
+          ],
+          "versions": [
+            "4.0.2"
+          ]
+        },
+        "https://github.com/advisories/GHSA-238p-pmpm-9mq7": {
+          "package": "katex",
+          "severity": "low",
+          "patched": [
+            ">=0.18.2"
+          ],
+          "paths": [
+            "@excalidraw/excalidraw>@excalidraw/mermaid-to-excalidraw>mermaid>katex"
+          ],
+          "versions": [
+            "0.16.47"
+          ]
+        }
+      },
+      "path_findings": 5,
+      "summary": {
+        "info": 0,
+        "low": 1,
+        "moderate": 1,
+        "high": 3,
+        "critical": 0
+      }
+    },
+    "frontend": {
+      "advisories": {
+        "https://github.com/advisories/GHSA-g3hv-75wg-m249": {
+          "package": "minimatch",
+          "severity": "moderate",
+          "patched": [
+            ">=11.0.1"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>editorconfig>minimatch",
+            "vite-plugin-pwa>workbox-build>glob>minimatch",
+            "vue-tsc>@vue/language-core>minimatch"
+          ],
+          "versions": [
+            "10.2.6",
+            "9.0.9"
+          ]
+        },
+        "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4": {
+          "package": "glob",
+          "severity": "moderate",
+          "patched": [
+            ">=14.0.2"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>glob",
+            "vite-plugin-pwa>workbox-build>glob"
+          ],
+          "versions": [
+            "10.5.0",
+            "11.1.0"
+          ]
+        }
+      },
+      "path_findings": 5,
+      "summary": {
+        "info": 0,
+        "low": 0,
+        "moderate": 5,
+        "high": 0,
+        "critical": 0
+      }
+    },
+    "planner": {
+      "advisories": {
+        "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4": {
+          "package": "glob",
+          "severity": "moderate",
+          "patched": [
+            ">=14.0.2"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>glob"
+          ],
+          "versions": [
+            "10.5.0"
+          ]
+        },
+        "https://github.com/advisories/GHSA-g3hv-75wg-m249": {
+          "package": "minimatch",
+          "severity": "moderate",
+          "patched": [
+            ">=11.0.1"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>editorconfig>minimatch"
+          ],
+          "versions": [
+            "9.0.9"
+          ]
+        }
+      },
+      "path_findings": 2,
+      "summary": {
+        "info": 0,
+        "low": 0,
+        "moderate": 2,
+        "high": 0,
+        "critical": 0
+      }
+    },
+    "investigations": {
+      "advisories": {
+        "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4": {
+          "package": "glob",
+          "severity": "moderate",
+          "patched": [
+            ">=14.0.2"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>glob"
+          ],
+          "versions": [
+            "10.5.0"
+          ]
+        },
+        "https://github.com/advisories/GHSA-g3hv-75wg-m249": {
+          "package": "minimatch",
+          "severity": "moderate",
+          "patched": [
+            ">=11.0.1"
+          ],
+          "paths": [
+            "@vue/test-utils>js-beautify>editorconfig>minimatch"
+          ],
+          "versions": [
+            "9.0.9"
+          ]
+        }
+      },
+      "path_findings": 2,
+      "summary": {
+        "info": 0,
+        "low": 0,
+        "moderate": 2,
+        "high": 0,
+        "critical": 0
+      }
+    }
+  }
+}

@@ -10,3 +10,6 @@ Element.prototype.hasPointerCapture ??= function () {
 }
 Element.prototype.setPointerCapture ??= function () {}
 Element.prototype.releasePointerCapture ??= function () {}
+
+// Happy DOM 21 omits printing. Tests spy on this inert default.
+window.print ??= function () {}
