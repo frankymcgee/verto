@@ -11,14 +11,14 @@ const listId = useId()
 async function reveal() {
   expanded.value = true
   await nextTick()
-  root.value?.scrollIntoView({ block: 'center', behavior: 'instant' })
+  root.value?.scrollIntoView({ block: 'start', behavior: 'instant' })
   root.value?.focus({ preventScroll: true })
 }
 defineExpose({ reveal })
 </script>
 
 <template>
-  <section ref="root" tabindex="-1" aria-label="Submission checklist" class="submission-checklist rounded-7 border border-outline-gray-2 bg-surface-base p-3 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-outline-gray-3">
+  <section ref="root" tabindex="-1" aria-label="Submission checklist" class="submission-checklist scroll-mt-3 rounded-7 border border-outline-gray-2 bg-surface-base p-3 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-outline-gray-3">
     <div class="flex items-center justify-between gap-3">
       <div class="min-w-0">
         <h2 class="text-sm-semibold text-ink-gray-9">Submission checklist</h2>

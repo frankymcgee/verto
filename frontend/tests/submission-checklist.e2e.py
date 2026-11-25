@@ -134,6 +134,35 @@ def check_form(browser, origin, engine, width, edit):
         context.close()
 
 
+def check_long_form(browser, origin, engine):
+    context = fixture.context_for(browser, 440)
+    page = context.new_page()
+    normal_api = fixture.api_fixture([])
+
+    def api(route):
+        method = urlparse(route.request.url).path.rsplit("/", 1)[-1]
+        if method.endswith("get_form_schema"):
+            schema = {**SCHEMA, "fields": [{"fieldname": f"answer_{i}", "label": f"Answer {i}", "fieldtype": "Data", "required": True} for i in range(30)]}
+            route.fulfill(content_type="application/json", body=json.dumps({"message": schema}))
+        elif method.endswith("get_prefill_values"):
+            route.fulfill(content_type="application/json", body=json.dumps({"message": {"values": {}}}))
+        else: normal_api(route)
+
+    page.route("**/api/method/**", api)
+    try:
+        page.goto(f"{origin}/verto-mobile/new/field-interaction")
+        page.get_by_role("button", name="Submit", exact=True).click()
+        checklist = page.locator('form [aria-label="Submission checklist"]')
+        expect(checklist).to_contain_text("30 items need attention")
+        expect(checklist.get_by_role("heading", name="Submission checklist", exact=True)).to_be_in_viewport()
+        expect(checklist.get_by_role("button", name=re.compile("^Answer 0"))).to_be_in_viewport()
+        assert queued_count(page) == 0
+        page.screenshot(path=str(RESULTS / f"{engine}-checklist-long-form.png"))
+        print(f"{engine} long form: checklist heading and first item remain visible with 30 missing answers", flush=True)
+    finally:
+        context.close()
+
+
 def main(engines):
     RESULTS.mkdir(exist_ok=True)
     server = ThreadingHTTPServer(("127.0.0.1", 0), partial(fixture.layout.Handler, directory=str(fixture.layout.PUBLIC)))
@@ -149,6 +178,7 @@ def main(engines):
                 try:
                     for width in (320, 440, 1280):
                         for edit in (False, True): check_form(browser, f"http://127.0.0.1:{server.server_port}", engine, width, edit)
+                    check_long_form(browser, f"http://127.0.0.1:{server.server_port}", engine)
                 finally:
                     browser.close()
     finally:
