@@ -37,6 +37,8 @@ not a claim that the background worker has definitely failed.
 
 The queue reuses the internal review's validation rules. Readable neighboring
 weeks and other projects for the same employees participate in overlap checks.
+Project filters retain mismatched logs on the selected project's weekly records,
+and records with inconsistent week dates remain visible for correction.
 Source records are read through normal list/document permissions. Check coverage
 explains unavailable checks; missing-hour inference is disabled if a required
 source cannot be read. Restricted individual records can still need administrator

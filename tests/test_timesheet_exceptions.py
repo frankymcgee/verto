@@ -163,6 +163,18 @@ class TestTimesheetExceptions(unittest.TestCase):
         self.assertEqual(self.codes(items), {"daily_hours_mismatch", "total_mismatch"})
         self.assertNotIn("comments", repr(items))
 
+    def test_project_filter_retains_mismatched_logs_on_a_selected_weekly_record(self):
+        self.doc.time_logs[0].project = "PROJ-2"
+        items = self.queue(project="PROJ-1")
+        self.assertIn("project_mismatch", self.codes(items))
+        self.assertTrue(any(link["name"] == self.doc.name for item in items for link in item["links"]))
+
+    def test_records_selected_by_work_start_date_retain_wrong_week_flags(self):
+        self.doc.custom_monday_date = "2026-09-28"
+        self.doc.custom_sunday_date = "2026-10-04"
+        self.context["selected_timesheets"] = {self.doc.name}
+        self.assertIn("outside_week", self.codes(self.queue()))
+
     def test_explicit_daily_identity_wins_over_owner_and_duplicate_names_are_ambiguous(self):
         source = self.context["daily"]["DAILY-1"]
         source.update(current_user="Another employee", owner="worker@example.test")

@@ -170,13 +170,13 @@ def build_queue(docs, context, monday, current, *, project=None, attendance=None
     review._cross_checks(rows)
     items = []
     for row in rows:
-        selected_week = not row["name"] or getdate(row["week_start"]) == monday
+        selected_week = not row["name"] or row["name"] in context.get("selected_timesheets", set()) or getdate(row["week_start"]) == monday
         if row["name"] and selected_week and (not project or row["project"] == project) and row["flags"]:
             items.append(_item(f"weekly:{row['name']}", row["employee"], row["project"], monday, row["flags"], context,
                                title="Weekly timesheet needs review", links=[_link("Timesheet", row["name"], "Open weekly timesheet")], approved=row["internal_approved"]))
         for entry in row["entries"]:
             _sanitize_flags(entry, access, context)
-            if not selected_week or (project and entry["project"] != project):
+            if not selected_week or (project and entry["project"] != project and row.get("project") != project):
                 continue
             links = _source_links(entry, context, weekly=bool(row["name"]))
             if entry["hours"] > 0:
@@ -251,7 +251,8 @@ def get_timesheet_exceptions(week_start=None, project=None):
         daily_filters["project_id"] = project
     daily = _read("Daily Timesheet", warnings, filters=daily_filters, fields=review._fields("Daily Timesheet", DAILY_FIELDS))
     employee_ids = sorted({doc.get("employee") for doc in docs if doc.get("employee")} | {row.employee for row in shifts or [] if row.employee})
-    context = {"employees": {}, "daily": {}, "shifts": shifts or [], "types": {}, "projects": {}, "user_names": {}}
+    context = {"employees": {}, "daily": {}, "shifts": shifts or [], "types": {}, "projects": {}, "user_names": {},
+               "selected_timesheets": {doc.name for doc in docs}}
     access = {"shifts": shifts is not None, "daily": daily is not None}
     identities = sorted({str(row.get("current_user") or row.get("employee_name")) for row in daily or [] if row.get("current_user") or row.get("employee_name")})
     daily_users = sorted({row.get("owner") for row in daily or [] if row.get("owner")} | set(identities))
@@ -287,6 +288,8 @@ def get_timesheet_exceptions(week_start=None, project=None):
     access["types"] = types is not None
     context["types"] = {row.name: row for row in types or []}
     project_ids = sorted({row.get("custom_project") for row in context["shifts"] if row.get("custom_project")} | {p for doc in docs for p in [doc.get("parent_project"), *[log.get("project") for log in doc.time_logs]] if p} | {row.get("project_id") for row in context["daily"].values() if row.get("project_id")})
+    if project and project not in project_ids:
+        project_ids.append(project)
     projects = _read("Project", warnings, filters={"name": ["in", project_ids]}, fields=review._fields("Project", ["name", "project_name", "max_ds_hrs", "max_ns_hrs", "max_fly_hrs"])) if project_ids else []
     context["projects"] = {row.name: row for row in projects or []}
     from verto.api.mobile.push_notifications import _get_timesheet_reminder_exclusions
