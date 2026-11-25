@@ -6,7 +6,7 @@
         <label class="block text-sm-medium text-ink-gray-8">
           {{ field.label || field.fieldname }}
           <span
-            v-if="field.required"
+            v-if="required ?? field.required"
             class="text-red-500"
           >
             *
@@ -81,7 +81,7 @@
 
     <MobileSheet :open="Boolean(drawerOpen)" :title="drawerTitle" :dismissible="!locked" @update:open="!$event && closeDrawer()">
 <template v-if="drawerOpen">
-          <section class="rounded-7 shadow-sm drawer-panel flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-base shadow-xl">
+          <section ref="rowForm" class="rounded-7 shadow-sm drawer-panel flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-b-none rounded-t-3xl border border-outline-gray-1 bg-surface-base shadow-xl">
             <div class="shrink-0 border-b border-outline-gray-1 bg-surface-base px-4 py-3">
               <div class="flex items-center justify-between gap-3">
                 <div class="min-w-0">
@@ -106,6 +106,7 @@
             </div>
 
             <div class="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+7rem)]">
+          <SubmissionChecklist v-if="!disabled" ref="rowChecklistPanel" :issues="rowIssues" :disabled="locked" @navigate="navigateRowIssue" />
           <HandoverDraftPanel v-if="canDraftHandover" :handover-doctype="parentDoctype || ''" :project="project || ''" :docname="parentName"
             :row-date="draftRow.date" :coverage="draftRow.coverage" :field-labels="handoverFieldLabels"
             :disabled="disabled || rowSaving || Boolean(busy)" @busy="periPreparing = $event" @apply="applyHandoverDraft" />
@@ -134,7 +135,9 @@
 
             <div
               v-else-if="!isLayoutField(childField)"
-              class="space-y-1"
+              :data-form-field="childField.fieldname"
+              tabindex="-1"
+              class="space-y-1 focus:outline focus:outline-2 focus:outline-offset-4 focus:outline-outline-gray-3"
             >
               <DateTimeField
                 v-if="isDateTimeField(childField.fieldtype)"
@@ -264,6 +267,7 @@
               <p v-if="saveError" role="alert" class="mb-3 whitespace-pre-wrap text-sm text-red-700">
                 {{ saveError }}
               </p>
+              <Button v-if="parentIncomplete" type="button" variant="subtle" class="mb-3 w-full justify-center" :disabled="locked" @click="keepRowAndReviewForm">Keep row and review form</Button>
               <div class="flex gap-2">
           <Button
             v-if="!disabled && editingIndex !== null"
@@ -309,7 +313,7 @@
 
 <script setup lang="ts">
 import MobileSheet from '../MobileSheet.vue'
-import { defineAsyncComponent, computed, ref, watch } from 'vue'
+import { defineAsyncComponent, computed, nextTick, ref, watch } from 'vue'
 import {
   Button,
   Checkbox,
@@ -328,6 +332,9 @@ import DateTimeField from './DateTimeField.vue'
 import LinkField from './LinkField.vue'
 import SignatureField from './SignatureField.vue'
 import RatingField from './RatingField.vue'
+import SubmissionChecklist from '../SubmissionChecklist.vue'
+import { useSubmissionChecklist } from '../../lib/useSubmissionChecklist'
+import { findSubmissionField, focusSubmissionField, IncompleteSubmissionError, type SubmissionIssue } from '../../lib/submissionChecklist'
 import { handoverDraftHtml, handoverNarrativeFields, type HandoverDraft } from '../../lib/handoverDraft'
 const HandoverDraftPanel = defineAsyncComponent(() => import('../HandoverDraftPanel.vue'))
 const RichTextEditorField = defineAsyncComponent(() => import('./RichTextEditorField.vue'))
@@ -364,6 +371,7 @@ type SelectValue = string | number | bigint | Record<string, any> | undefined
 const props = defineProps<{
   modelValue?: Record<string, any>[]
   field: MobileField
+  required?: boolean
   disabled?: boolean
   busy?: boolean
   parentDoctype?: string
@@ -374,6 +382,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: Record<string, any>[]]
+  'review-form': []
 }>()
 
 const drawerOpen = ref(false)
@@ -381,6 +390,7 @@ const editingIndex = ref<number | null>(null)
 const draftRow = ref<Record<string, any>>({})
 const rowSaving = ref(false)
 const saveError = ref('')
+const parentIncomplete = ref(false)
 const periPreparing = ref(false)
 const locked = computed(() => rowSaving.value || periPreparing.value || Boolean(props.busy))
 const canDraftHandover = computed(() => !props.disabled && !draftRow.value.signoff && ['Safety Handover', 'Lead Safety Handover'].includes(props.parentDoctype || '') &&
@@ -416,6 +426,8 @@ const childFields = computed(() => {
 })
 
 const visibleChildFields = computed(() => getVisibleFormFields(childFields.value, draftRow.value))
+const { root: rowForm, panel: rowChecklistPanel, issues: rowIssues, validate: validateRow, navigate: navigateRowIssue, reset: resetChecklist } = useSubmissionChecklist(childFields, draftRow)
+let checkingRow = false
 
 const rowSummaries = computed(() => rows.value.map((row, index) => {
   const summaryFields = getVisibleFormFields(childFields.value, createDraftFromRow(row))
@@ -618,6 +630,8 @@ function openNewRow() {
   }
 
   editingIndex.value = null
+  resetChecklist()
+  parentIncomplete.value = false
   saveError.value = ''
   draftRow.value = createDraftFromRow()
   drawerOpen.value = true
@@ -625,6 +639,8 @@ function openNewRow() {
 
 function openExistingRow(index: number) {
   if (locked.value) return
+  resetChecklist()
+  parentIncomplete.value = false
   saveError.value = ''
   editingIndex.value = index
   draftRow.value = createDraftFromRow(rows.value[index])
@@ -637,15 +653,10 @@ function closeDrawer() {
   editingIndex.value = null
   draftRow.value = {}
   saveError.value = ''
+  parentIncomplete.value = false
 }
 
-async function saveRow() {
-  if (locked.value) return
-  if (props.disabled) {
-    closeDrawer()
-    return
-  }
-
+function rowsWithDraft() {
   // The parent saves the full row, including any hidden field values.
   const cleaned: Record<string, any> = {
     ...draftRow.value,
@@ -674,8 +685,25 @@ async function saveRow() {
     }
   }
 
+  return nextRows
+}
+
+async function saveRow() {
+  if (locked.value || checkingRow) return
+  if (props.disabled) {
+    closeDrawer()
+    return
+  }
+  checkingRow = true
+  try {
+    if (!await validateRow()) return
+  } finally {
+    checkingRow = false
+  }
+  const nextRows = rowsWithDraft()
   rowSaving.value = true
   saveError.value = ''
+  parentIncomplete.value = false
   try {
     if (props.saveRows) {
       // The parent applies the saved document, including server-normalised rows.
@@ -687,10 +715,28 @@ async function saveRow() {
     closeDrawer()
   } catch (err) {
     saveError.value = err instanceof Error ? err.message : 'Could not save row.'
+    if (err instanceof IncompleteSubmissionError) parentIncomplete.value = true
   } finally {
     rowSaving.value = false
   }
 }
+
+function keepRowAndReviewForm() {
+  if (locked.value || !parentIncomplete.value) return
+  emit('update:modelValue', rowsWithDraft())
+  closeDrawer()
+  emit('review-form')
+}
+
+async function revealIssue(issue: SubmissionIssue) {
+  if (props.disabled || locked.value) return
+  if (issue.rowIndex !== undefined && rows.value[issue.rowIndex]) openExistingRow(issue.rowIndex)
+  else openNewRow()
+  await nextTick()
+  if (issue.childFieldname) focusSubmissionField(findSubmissionField(rowForm.value, issue.childFieldname))
+  else await rowChecklistPanel.value?.reveal()
+}
+defineExpose({ revealIssue })
 
 function deleteRow() {
   if (props.disabled || locked.value || editingIndex.value === null) {

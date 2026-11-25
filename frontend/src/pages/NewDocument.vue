@@ -66,6 +66,8 @@
       <!-- Form -->
       <form
         v-else
+        ref="formEl"
+        novalidate
         class="space-y-3"
         @submit.prevent="submitForm"
       >
@@ -177,7 +179,9 @@
                 <!-- Non-table Fields -->
                 <div
                   v-else-if="field.fieldtype !== 'Table'"
-                  class="space-y-1"
+                  :data-form-field="field.fieldname"
+                  tabindex="-1"
+                  class="space-y-1 scroll-mt-4 focus:outline focus:outline-2 focus:outline-offset-4 focus:outline-outline-gray-3"
                 >
                   <DateTimeField
                     v-if="isDateTimeField(field.fieldtype)"
@@ -305,8 +309,13 @@
                 <!-- Child Table -->
                 <ChildTableField
                   v-else
+                  :ref="el => registerTable(field.fieldname, el)"
                   v-model="values[field.fieldname]"
                   :field="field"
+                  :required="isFieldMandatory(field)"
+                  :disabled="isFieldReadOnly(field) || submitting"
+                  :data-form-field="field.fieldname"
+                  tabindex="-1"
                   :parent-doctype="schema?.doctype || ''"
                   :project="values.project"
                 />
@@ -333,6 +342,7 @@
         </section>
 
         <!-- Submit Button -->
+        <SubmissionChecklist ref="checklistPanel" :issues="submissionIssues" :disabled="submitting" @navigate="navigateIssue" />
         <div class="pt-1">
           <Button
             type="submit"
@@ -432,6 +442,8 @@ import SignatureField from '../components/mobile-fields/SignatureField.vue'
 import RatingField from '../components/mobile-fields/RatingField.vue'
 import TimesheetHoursConfirmation from '../components/TimesheetHoursConfirmation.vue'
 import AttachmentPicker from '../components/AttachmentPicker.vue'
+import SubmissionChecklist from '../components/SubmissionChecklist.vue'
+import { useSubmissionChecklist } from '../lib/useSubmissionChecklist'
 const RichTextEditorField = defineAsyncComponent(() => import('../components/mobile-fields/RichTextEditorField.vue'))
 
 export type MobileField = {
@@ -519,6 +531,8 @@ const annotationBusy = ref(false)
 const messages = ref<string[]>([])
 const warnings = ref<string[]>([])
 const activeTab = ref('')
+const { root: formEl, panel: checklistPanel, issues: submissionIssues, validate: validateSubmission, navigate: navigateIssue, registerTable } = useSubmissionChecklist(computed(() => schema.value?.fields || []), values, activeTab)
+let checkingSubmission = false
 const draftRestored = ref(false)
 const draftHadFiles = ref(false)
 const draftReady = ref(false)
@@ -1326,7 +1340,13 @@ async function createDocument(submittedValues: Record<string, any>) {
 }
 
 async function submitForm() {
-  if (submitting.value || annotationBusy.value) return
+  if (submitting.value || annotationBusy.value || checkingSubmission) return
+  checkingSubmission = true
+  try {
+    if (!await validateSubmission()) return
+  } finally {
+    checkingSubmission = false
+  }
   submitting.value = true
   // The queued payload is a snapshot. Ignore dependency responses from
   // before submission so they cannot change the form during a photo upload.

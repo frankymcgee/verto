@@ -17,6 +17,10 @@ compatibility target.
 - Configurable forms and project tools from Verto Mobile Settings; conditional
   field/section visibility, child tables, emoji ratings, signatures, attachments
   and quarter-hour time selection. Saving a child row also saves its parent edits.
+- A live **submission checklist** lists missing required fields, signatures and
+  table entries, with links to the correct tab or row. Checks run before online
+  saves or offline queueing; blocked row saves can keep the row locally while the
+  rest of the form is completed.
 - Offline forms, daily timesheets and shift access, with stable operation IDs and
   server receipts to prevent duplicate submissions on reconnect. The upload queue
   shows acknowledgement, attachment progress, retry reasons and recent confirmations.
@@ -154,6 +158,7 @@ or merge a change automatically.
 | Reminders, limits and client rejection | [Shift reminders](docs/shift-timesheet-reminders.md), [hour limits](docs/timesheet-hour-limit-alerts.md), [weekly rejection](docs/weekly-timesheet-rejection.md) |
 | Handover drafts, photo markup and upload progress | [Mobile field tools](docs/mobile-field-tools.md) |
 | Mobile status notifications | [Sync toasts](docs/mobile-status-notifications.md) |
+| Form readiness and validation | [Submission checklist](docs/submission-checklist.md) |
 | Offline/mobile performance | [Mobile performance](docs/mobile-performance.md), [request efficiency](docs/request-efficiency.md) |
 | QR codes and public web forms | [QR scanner](docs/mobile-qr-scanner.md), [web form attachments](docs/web-form-attachments.md) |
 | Planner | [Live collaboration](docs/planner-live-collaboration.md) |
