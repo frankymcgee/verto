@@ -14,6 +14,7 @@ const calls = vi.hoisted(() => ({
   setTheme: vi.fn(),
   employeeId: 'HR-EMP-001',
   queued: 0,
+  canReview: false,
 }))
 vi.mock('vue-router', () => ({
   useRoute: () => ({ path: '/', fullPath: '/', meta: {} }),
@@ -26,6 +27,7 @@ vi.mock('../src/lib/mobileBoot', () => ({
     user: ref('user@example.test'),
     userFullname: ref('Test User'),
     employeeId: ref(calls.employeeId),
+    canReviewTimesheets: ref(calls.canReview),
     userImageUrl: ref(''),
     reloadMobileBoot: vi.fn(),
   }),
@@ -77,6 +79,7 @@ afterEach(() => {
   vi.clearAllMocks()
   calls.employeeId = 'HR-EMP-001'
   calls.queued = 0
+  calls.canReview = false
 })
 describe('Profile menu', () => {
   it.each([false, true])('expands theme choices only on request (compact=%s)', async compact => {
@@ -177,4 +180,13 @@ describe('Profile menu', () => {
     await click('About')
     expect(w.findComponent({ name: 'AboutAppToast' }).props('open')).toBe(true)
   })
+})
+
+
+it('offers the exceptions queue only to timesheet reviewers', async () => {
+  calls.canReview = true
+  w = mount(AppHeader, { attachTo: document.body })
+  await w.find('[aria-label="Open profile menu"]').trigger('click')
+  await click('Timesheet exceptions')
+  expect(calls.navigate).toHaveBeenCalledWith({ name: 'timesheet-exceptions' })
 })

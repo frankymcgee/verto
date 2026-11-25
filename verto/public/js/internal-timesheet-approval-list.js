@@ -8,6 +8,7 @@
             if (previous) previous.call(this, listview);
             const roles = ["System Manager", "Accounts Manager", "HR Manager", "Projects Manager", "Verto Planner Manager"];
             if (frappe.session.user !== "Administrator" && !roles.some(role => (frappe.user_roles || []).includes(role))) return;
+            listview.page.add_inner_button(__("Timesheet exceptions"), () => { window.location.href = "/verto-mobile/timesheet-exceptions"; });
             listview.page.add_inner_button(__("Internal Review"), () => frappe.set_route("internal-timesheet-approval"));
             listview.page.add_action_item(__("Review & Approve Selected"), function () {
                 const names = listview.get_checked_items().map(row => row.name);

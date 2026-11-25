@@ -1,5 +1,6 @@
 """Verify self-service profile scope without requiring a running Frappe site."""
 import importlib.util
+import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 import unittest
@@ -8,11 +9,14 @@ from unittest.mock import Mock, patch
 
 class TestMobileProfile(unittest.TestCase):
     def setUp(self):
+        self.enterContext(patch("sys.path", [str(Path(__file__).parents[1]), *sys.path]))
         self.frappe = ModuleType("frappe")
         self.frappe.whitelist = lambda **kwargs: lambda function: function
         self.frappe.session = SimpleNamespace(user="worker@example.test")
         self.frappe.local = SimpleNamespace(response_headers={})
         self.frappe.PermissionError = PermissionError
+        self.frappe.get_roles = Mock(return_value=["Employee"])
+        self.frappe.has_permission = Mock(return_value=True)
 
         def throw(message, exc):
             raise exc(message)
@@ -79,10 +83,14 @@ class TestMobileProfile(unittest.TestCase):
     def test_boot_navigation_returns_the_same_employee_id(self):
         with patch.dict("sys.modules", {"verto.api.mobile.profile": self.profile}):
             navigation = self.load("navigation")
-        self.assertEqual(navigation.get_navigation_access(), {"has_employee_profile": True, "employee_id": "HR-EMP-001"})
+        self.assertEqual(navigation.get_navigation_access(), {"has_employee_profile": True, "employee_id": "HR-EMP-001", "can_review_timesheets": False})
+        self.frappe.get_roles.return_value = ["HR Manager"]
+        self.assertTrue(navigation.get_navigation_access()["can_review_timesheets"])
+        self.frappe.has_permission.return_value = False
+        self.assertFalse(navigation.get_navigation_access()["can_review_timesheets"])
         self.frappe.db.get_value.return_value = None
         self.frappe.db.get_value.side_effect = None
-        self.assertEqual(navigation.get_navigation_access(), {"has_employee_profile": False, "employee_id": ""})
+        self.assertEqual(navigation.get_navigation_access(), {"has_employee_profile": False, "employee_id": "", "can_review_timesheets": False})
 
 
 if __name__ == "__main__":

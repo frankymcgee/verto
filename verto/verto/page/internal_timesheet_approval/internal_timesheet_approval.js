@@ -59,6 +59,7 @@ frappe.InternalTimesheetReview = class {
               <div class="ita-project" data-project></div>
               <label class="ita-check"><span><input type="checkbox" data-include-approved> Include internally approved</span></label>
               <button type="button" class="btn btn-primary" data-load>Review week</button>
+              <a class="btn btn-default" data-exceptions href="/verto-mobile/timesheet-exceptions">Timesheet exceptions</a>
             </div>
             <p class="ita-muted" data-scope></p>
             <div class="ita-metrics" data-metrics></div>
@@ -107,6 +108,12 @@ frappe.InternalTimesheetReview = class {
         this.sequence = 0;
         this.drawn = false;
         this.project = frappe.ui.form.make_control({ parent: this.find("project"), df: { fieldname: "project", fieldtype: "Link", options: "Project", label: "Project (blank for all)", placeholder: "All projects" }, render_input: true });
+        this.find("exceptions").addEventListener("click", (event) => {
+            const params = new URLSearchParams({ week_start: this.find("week").value });
+            const project = this.project.get_value();
+            if (project) params.set("project", project);
+            event.currentTarget.href = `/verto-mobile/timesheet-exceptions?${params}`;
+        });
         this.find("load").addEventListener("click", () => { this.explicitNames = null; this.load(); });
         this.find("select-clean").addEventListener("click", () => this.selectRows(false));
         this.find("select-all").addEventListener("click", () => this.selectRows(true));
@@ -136,19 +143,21 @@ frappe.InternalTimesheetReview = class {
     link(doctype, name, label) { return `<a href="/app/${doctype}/${encodeURIComponent(name)}" target="_blank" rel="noopener">${this.escape(label || name)}</a>`; }
     message(text, error = false) { this.find("status").textContent = text; this.find("status").classList.toggle("ita-error", error); }
 
-    show() {
+    async show() {
         const options = frappe.route_options || {};
         const query = new URLSearchParams(window.location.search);
         let names = options.timesheets || query.get("timesheets");
         const weekStart = options.week_start || query.get("week_start");
+        const project = options.project || query.get("project");
         if (typeof names === "string") { try { names = JSON.parse(names); } catch { names = null; } }
         if (Array.isArray(names) && names.length) {
             this.explicitNames = names;
         } else if (weekStart) {
             this.explicitNames = null;
-            this.find("week").value = weekStart;
         }
-        if (options.timesheets || options.week_start) frappe.route_options = null;
+        if (weekStart) this.find("week").value = weekStart;
+        if (options.timesheets || options.week_start || options.project) frappe.route_options = null;
+        if (project) await this.project.set_value(project);
         if (!this.find("week").value) {
             const today = new Date(`${frappe.datetime.get_today()}T12:00:00`);
             today.setDate(today.getDate() - ((today.getDay() + 6) % 7) - 7);

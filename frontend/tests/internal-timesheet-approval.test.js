@@ -46,7 +46,7 @@ beforeEach(() => {
     pages: { 'internal-timesheet-approval': {} }, session: { user: 'manager@example.test' }, user_roles: ['HR Manager'],
     datetime: { get_today: () => '2026-10-13' }, route_options: null, listview_settings: {}, set_route: vi.fn(), msgprint: vi.fn(),
     show_alert: vi.fn(), call: options => calls.push(options),
-    ui: { make_app_page: () => ({ body: document.body }), form: { make_control: () => ({ get_value: () => '' }) } },
+    ui: { make_app_page: () => ({ body: document.body }), form: { make_control: () => ({ get_value: () => '', set_value: vi.fn() }) } },
   })
   new Function(script)()
   const wrapper = {}
@@ -158,9 +158,21 @@ describe('Existing Timesheet list actions', () => {
     const list = { page: { add_inner_button: vi.fn(), add_action_item: vi.fn() }, get_checked_items: () => [{ name: 'CLEAN' }] }
     frappe.listview_settings.Timesheet.onload(list)
     expect(old).toHaveBeenCalledWith(list)
-    expect(list.page.add_inner_button.mock.calls[0][0]).toBe('Internal Review')
+    expect(list.page.add_inner_button.mock.calls.map(([label]) => label)).toEqual(['Timesheet exceptions', 'Internal Review'])
     list.page.add_action_item.mock.calls[0][1]()
     expect(frappe.route_options).toEqual({ timesheets: ['CLEAN'] })
     expect(frappe.set_route).toHaveBeenCalledWith('internal-timesheet-approval')
   })
+})
+
+
+it('prefills the project and exact selection when arriving from the exceptions queue', async () => {
+  load()
+  calls.length = 0
+  frappe.route_options = { project: 'PROJ-1', week_start: '2026-10-05', timesheets: ['FLAGGED'] }
+  await view.show()
+  expect(view.project.set_value).toHaveBeenCalledWith('PROJ-1')
+  expect(find('week').value).toBe('2026-10-05')
+  expect(calls[0].args.timesheets).toEqual(['FLAGGED'])
+  expect(frappe.route_options).toBeNull()
 })

@@ -220,6 +220,14 @@
             App refreshes are paused while this form is open.
           </p>
 
+          <Button v-if="canReviewTimesheets" variant="ghost"
+            type="button"
+            class="block w-full px-3 py-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1"
+            @click="menuOpen = false; router.push({ name: 'timesheet-exceptions' })"
+          >
+            Timesheet exceptions
+          </Button>
+
           <Button variant="ghost"
             type="button"
             class="block w-full px-3 py-2 text-left text-sm text-ink-gray-8 hover:bg-surface-gray-1"
@@ -303,6 +311,7 @@ const {
   user,
   userFullname,
   employeeId,
+  canReviewTimesheets,
   userImageUrl,
 } = useMobileBoot()
 

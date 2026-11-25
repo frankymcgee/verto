@@ -149,8 +149,10 @@ echo '::endgroup::'
 echo '::group::Verify consolidated internal Timesheet approval'
 (
   cd "$VERTO_CI_BENCH"
+./env/bin/python -m unittest discover -s apps/verto/tests -p 'test_timesheet_exceptions.py'
 bench --site test_site run-tests --app verto --module verto.api.test_internal_timesheet_approval --skip-before-tests
+bench --site test_site run-tests --app verto --module verto.api.test_timesheet_exceptions --skip-before-tests
 cd apps/verto/frontend
-yarn test:ui tests/internal-timesheet-approval.test.js
+yarn test:ui tests/internal-timesheet-approval.test.js tests/timesheet-exceptions.test.js tests/child-row-save.test.js
 )
 echo '::endgroup::'

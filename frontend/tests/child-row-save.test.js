@@ -194,12 +194,14 @@ describe('Save Row persists the existing form', () => {
     doctype = 'Daily Timesheet'
     await render()
     await addRow('Timesheet entry')
-    window.confirm.mockReturnValueOnce(false)
     await click('Save Row')
-    expect(window.confirm).toHaveBeenCalled()
+    expect(document.querySelector('[data-timesheet-hours]').textContent).toBe('1.00 hours')
+    expect(window.confirm).not.toHaveBeenCalled()
+    await click('Review hours')
     expect(updates()).toHaveLength(0)
     expect(table().findComponent(BottomSheet).props('open')).toBe(true)
     await click('Save Row')
+    await click('Save 1.00 hours')
     expect(updates()).toHaveLength(1)
   })
 
@@ -266,5 +268,46 @@ describe('Save Row persists the existing form', () => {
     await flushPromises()
     const create = mocks.api.mock.calls.find(([url]) => url.includes('create_mobile_doc'))
     expect(JSON.parse(create[1].body.get('values')).rows[0].entry).toBe('Draft entry')
+  })
+})
+
+
+describe('Daily timesheet hours dialog', () => {
+  for (const [label, component, endpoint] of [
+    ['new', NewDocument, 'create_mobile_doc'], ['edit', EditDocument, 'update_mobile_doc'],
+  ]) {
+    it(`confirms the exact ${label} payload once and retains entries on cancellation`, async () => {
+      doctype = 'Daily Timesheet'
+      await render(component)
+      const duration = wrapper.findAllComponents(FormControl).find(field => field.props('label') === 'Duration')
+      duration.vm.$emit('update:modelValue', 45000)
+      await flushPromises()
+      await wrapper.find('form').trigger('submit')
+      await flushPromises()
+      expect(document.querySelector('[role="dialog"]').textContent).toContain('12.50 hours')
+      expect(mocks.api.mock.calls.filter(([url]) => url.includes(endpoint))).toHaveLength(0)
+      await click('Review hours')
+      expect(duration.find('input').element.value).toBe('45000')
+      await wrapper.find('form').trigger('submit')
+      await flushPromises()
+      await wrapper.find('form').trigger('submit')
+      duration.vm.$emit('update:modelValue', 3600)
+      await click(`${label === 'new' ? 'Submit' : 'Save'} 12.50 hours`)
+      const writes = mocks.api.mock.calls.filter(([url]) => url.includes(endpoint))
+      expect(writes).toHaveLength(1)
+      expect(JSON.parse(writes[0][1].body.get('values')).duration).toBe(45000)
+      expect(window.confirm).not.toHaveBeenCalled()
+    })
+  }
+
+  it('cancels an unmounted dialog without saving', async () => {
+    doctype = 'Daily Timesheet'
+    await render()
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    wrapper.unmount()
+    wrapper = null
+    await flushPromises()
+    expect(updates()).toHaveLength(0)
   })
 })
