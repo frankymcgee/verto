@@ -63,6 +63,8 @@
       <!-- Form -->
       <form
         v-else
+        ref="formEl"
+        novalidate
         class="space-y-3"
         @submit.prevent="saveForm"
       >
@@ -171,7 +173,9 @@
                 <!-- Non-table Fields -->
                 <div
                   v-else-if="field.fieldtype !== 'Table'"
-                  class="space-y-1"
+                  :data-form-field="field.fieldname"
+                  tabindex="-1"
+                  class="space-y-1 scroll-mt-4 focus:outline focus:outline-2 focus:outline-offset-4 focus:outline-outline-gray-3"
                 >
                   <DateTimeField
                     v-if="isDateTimeField(field.fieldtype)"
@@ -299,8 +303,12 @@
                 <!-- Child Table -->
                 <ChildTableField
                   v-else
+                  :ref="el => registerTable(field.fieldname, el)"
                   v-model="values[field.fieldname]"
                   :field="field"
+                  :required="isFieldMandatory(field)"
+                  :data-form-field="field.fieldname"
+                  tabindex="-1"
                   :parent-doctype="schema?.doctype || ''"
                   :parent-name="docname"
                   :project="values.project"
@@ -308,6 +316,7 @@
                   :busy="saving"
                   :save-rows="rows => saveTableRows(field, rows)"
                   @update:model-value="saved = false"
+                  @review-form="validateSubmission()"
                 />
               </template>
             </div>
@@ -372,6 +381,7 @@
         </section>
 
         <!-- Save Button -->
+        <SubmissionChecklist v-if="canWrite" ref="checklistPanel" :issues="submissionIssues" :disabled="saving" @navigate="navigateIssue" />
         <div
           v-if="canWrite"
           class="pt-1"
@@ -420,6 +430,9 @@ import ChildTableField from '../components/mobile-fields/ChildTableField.vue'
 import SignatureField from '../components/mobile-fields/SignatureField.vue'
 import RatingField from '../components/mobile-fields/RatingField.vue'
 import TimesheetHoursConfirmation from '../components/TimesheetHoursConfirmation.vue'
+import SubmissionChecklist from '../components/SubmissionChecklist.vue'
+import { useSubmissionChecklist } from '../lib/useSubmissionChecklist'
+import { IncompleteSubmissionError } from '../lib/submissionChecklist'
 import AttachmentPicker from '../components/AttachmentPicker.vue'
 const RichTextEditorField = defineAsyncComponent(() => import('../components/mobile-fields/RichTextEditorField.vue'))
 import type { MobileField } from './NewDocument.vue'
@@ -509,6 +522,8 @@ const existingFiles = ref<ExistingFile[]>([])
 const messages = ref<string[]>([])
 const warnings = ref<string[]>([])
 const activeTab = ref('')
+const { root: formEl, panel: checklistPanel, issues: submissionIssues, validate: validateSubmission, check: checkSubmission, navigate: navigateIssue, registerTable } = useSubmissionChecklist(computed(() => schema.value?.fields || []), values, activeTab)
+let checkingSubmission = false
 const canWrite = ref(false)
 const docstatus = ref(0)
 
@@ -1222,6 +1237,7 @@ async function persistForm(overrides: Record<string, any> = {}, navigateBack = f
 }
 
 async function saveTableRows(field: MobileField, rows: Record<string, any>[]) {
+  if (checkSubmission({ ...values.value, [field.fieldname]: rows }).length) throw new IncompleteSubmissionError()
   try {
     return await persistForm({ [field.fieldname]: rows })
   } catch (err) {
@@ -1230,12 +1246,16 @@ async function saveTableRows(field: MobileField, rows: Record<string, any>[]) {
 }
 
 async function saveForm() {
-  if (saving.value || saved.value || annotationBusy.value) return
+  if (saving.value || saved.value || annotationBusy.value || checkingSubmission) return
+  checkingSubmission = true
   try {
+    if (!await validateSubmission()) return
     await persistForm({}, true)
   } catch (err) {
     if (err instanceof Error && err.message === 'Login required') return
     error.value = err instanceof Error ? err.message : 'Could not save document.'
+  } finally {
+    checkingSubmission = false
   }
 }
 

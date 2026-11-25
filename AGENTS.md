@@ -64,6 +64,13 @@ feature requests or abandoned approaches as implemented functionality.
 - Save Row persists existing parent edits and selected attachments together.
   Preserve linked project/task identity and invalidate stale dependency responses
   before saving; failed saves keep the row editor and draft available.
+- Keep the submission checklist shared across new/edit forms and row editors.
+  Reuse field/section visibility and conditional mandatory/read-only rules;
+  numeric zero is valid, and blank editor markup is empty. Preserve native input
+  validity checks when aggregating errors across tabs. Block incomplete saves
+  before offline queueing. If another parent item blocks Save Row, offer the
+  explicit Keep row and review form action without writing or losing attachments.
+  Checklist navigation opens the exact tab/row without submitting the form.
 - Keep signatures/client approvals separate from internal approval. Preserve
   immutable internal audits and stale-source/changed-content protection.
 - Preserve original photographs; save annotated copies as separate attachments.

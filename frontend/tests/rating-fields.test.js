@@ -185,6 +185,7 @@ describe('Mood ratings in mobile documents and rows', () => {
     await choose(rowMood, 5)
     await click('Save Row')
     expect(requests('create_mobile_doc')).toHaveLength(0)
+    await choose(rating('Mood'), 3)
     await wrapper.find('form').trigger('submit')
     await flushPromises()
     expect(JSON.parse(requests('create_mobile_doc')[0][1].body.get('values')).rows[0].mood).toBe(1)
