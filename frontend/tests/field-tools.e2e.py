@@ -226,7 +226,7 @@ def check_handover(browser, origin, engine):
         row = saves[0]["table_hhdr"][0]
         assert "Advisor original notes" in row["shift_findings"] and "Suggested replacement" not in row["shift_findings"], row
         assert not row["signoff"], "Applying a draft must not sign the row"
-        assert 'href="/app/field-interaction/FI-1"' in row["actions"]
+        assert 'href="/desk/field-interaction/FI-1"' in row["actions"]
         print(f"{engine}: handover prepared without writes; reviewed row saved with source links and existing notes", flush=True)
     finally:
         page.screenshot(path=str(RESULTS / f"{engine}-handover-draft.png"))

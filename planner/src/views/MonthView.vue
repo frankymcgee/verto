@@ -286,7 +286,7 @@ const VIEW_OPTIONS = [
   "Shift Schedule Assignment",
 ].map((label) => ({
   label,
-  onClick: () => goTo(`/app/${label.toLowerCase().split(" ").join("-")}`),
+  onClick: () => goTo(`/desk/${label.toLowerCase().split(" ").join("-")}`),
 }));
 
 function setViewMode(mode: ViewMode) {

@@ -1,4 +1,5 @@
 import { escapeText, escapeAttribute } from 'entities'
+import { toDeskUrl } from './deskRoute'
 
 export type HandoverSource = { id: string; doctype: string; name: string; recorded_at: string; time_basis: string; url: string }
 export type HandoverDraft = {
@@ -28,8 +29,9 @@ export function handoverDraftHtml(text: string, sources: HandoverSource[]) {
   const escaped = escapeText(text).replace(/\n/g, '<br>')
   const linked = escaped.replace(/\[S\d+\]/g, token => {
     const source = sources.find(source => `[${source.id}]` === token)
-    if (!source || !/^\/app\/[a-z0-9-]+\/[^?#]*$/.test(source.url)) return token
-    return `<a href="${escapeAttribute(source.url)}" target="_blank" rel="noopener noreferrer">${token}</a>`
+    const url = source ? toDeskUrl(source.url) : ''
+    if (!/^\/desk\/[a-z0-9-]+\/[^?#]*$/.test(url)) return token
+    return `<a href="${escapeAttribute(url)}" target="_blank" rel="noopener noreferrer">${token}</a>`
   })
   return `<p>${linked}</p>`
 }

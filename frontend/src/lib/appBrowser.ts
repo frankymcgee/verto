@@ -1,4 +1,5 @@
 // VERTO_APP_BROWSER_DRAWER_2026_06_11
+import { toDeskUrl } from './deskRoute'
 
 export type AppBrowserRequest = {
   url: string
@@ -72,7 +73,7 @@ export function openAppBrowser(request: AppBrowserRequest | string, fallbackTitl
     ? { url: request, title: fallbackTitle }
     : request
 
-  const url = String(payload.url || '').trim()
+  const url = toDeskUrl(payload.url)
 
   if (!url) {
     return

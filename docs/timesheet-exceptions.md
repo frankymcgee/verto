@@ -4,7 +4,9 @@
 
 In Verto Mobile, open the profile menu and select **Timesheet exceptions**.
 The same queue is linked from the Desk Timesheet list and Internal Timesheet
-Approval page. Its route is `/verto-mobile/timesheet-exceptions`.
+Approval page. Its route is `/verto-mobile/timesheet-exceptions`. Desk record/review links use
+`/desk/...`. The embedded browser also converts saved same-site `/app/...` links
+to `/desk/...`, preserving document IDs, queries and fragments.
 
 Access requires Timesheet read permission and Administrator or one of: System
 Manager, Accounts Manager, HR Manager, Projects Manager, Verto Planner Manager.
@@ -29,6 +31,13 @@ A shift becomes due one hour after its configured end, including an overnight
 end on the next date. Full-day leave, On Leave attendance and dated reminder
 exclusions suppress missing-hour warnings. A half day still requires checking
 worked hours. SD uses entered start time for the existing DS/NS split and limits.
+
+Cancelled weekly Timesheets are excluded from reconciliation, including records
+marked Cancelled in their status field. A daily entry referenced only by a
+cancelled weekly sheet is ignored instead of reappearing as waiting for processing.
+An active amended sheet can still reuse that daily entry. Cancelling a Timesheet
+does not cancel its allocation; an active due allocation can still show missing
+hours when no valid current submission exists.
 
 Daily entries are counted once when linked to a weekly log. An unlinked daily
 record appears under weekly processing instead of asking for a duplicate entry;

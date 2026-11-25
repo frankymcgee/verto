@@ -56,6 +56,31 @@ class TestTimesheetExceptionsIntegration(IntegrationTestCase):
         self.assertEqual(self.report()["items"], [])
         self.assertEqual(frappe.db.get_value("Timesheet", weekly.name, "internal_approved"), 0)
 
+    def test_cancelled_weekly_does_not_return_its_daily_as_processing_and_amendment_still_works(self):
+        daily = self.make("Daily Timesheet", current_user=self.employee.employee_name, date="2026-10-05", project_id=self.project.name,
+                          start_time="06:00:00", end_time="18:00:00", duration=43200, shift_allocation=self.shift.name, shift=self.shift_type.name,
+                          comments="Work completed")
+        cancelled = self.make("Timesheet", employee=self.employee.name, employee_name=self.employee.employee_name, parent_project=self.project.name,
+                              custom_monday_date="2026-10-05", custom_sunday_date="2026-10-11", start_date="2026-10-05", total_hours=12,
+                              docstatus=2, status="Cancelled")
+        cancelled.append("time_logs", dict(from_time="2026-10-05 06:00:00", to_time="2026-10-05 18:00:00", hours=12, project=self.project.name,
+                                           shift_type=self.shift_type.name, daily_timesheet_id=daily.name, description="Work completed"))
+        for row in cancelled.time_logs:
+            row.db_insert()
+        result = self.report()
+        self.assertEqual(self.codes(result), {"missing_hours"})
+        self.assertFalse(any(link["doctype"] in {"Timesheet", "Daily Timesheet"} for item in result["items"] for link in item["links"]))
+        # Older weekly records may have only ERPNext's standard start date.
+        frappe.db.set_value("Timesheet", cancelled.name, "custom_monday_date", None)
+        self.assertEqual(self.codes(self.report()), {"missing_hours"})
+        amended = self.make("Timesheet", employee=self.employee.name, employee_name=self.employee.employee_name, parent_project=self.project.name,
+                            custom_monday_date="2026-10-05", custom_sunday_date="2026-10-11", start_date="2026-10-05", total_hours=12, amended_from=cancelled.name)
+        for log in cancelled.time_logs:
+            amended.append("time_logs", {key: log.get(key) for key in ("from_time", "to_time", "hours", "project", "shift_type", "daily_timesheet_id", "description")})
+        for row in amended.time_logs:
+            row.db_insert()
+        self.assertEqual(self.report()["items"], [])
+
     def test_guest_cannot_query_timesheet_exceptions(self):
         frappe.set_user("Guest")
         with self.assertRaises(frappe.PermissionError):

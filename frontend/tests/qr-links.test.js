@@ -66,6 +66,7 @@ describe('document QR destinations', () => {
     expect(parseQrLink('/verto-mobile/new/field-interaction?project=PROJ-1', origin)).toEqual({ kind: 'mobile', url: '/new/field-interaction?project=PROJ-1' })
   })
   it('resolves standard Desk and print links as documents, never executes a print action', () => {
+    expect(parseQrLink('/desk/field-interaction/FI%2F001', origin)).toEqual({ kind: 'desk', doctype: 'field-interaction', name: 'FI/001' })
     expect(parseQrLink('/app/field-interaction/FI%2F001', origin)).toEqual({ kind: 'desk', doctype: 'field-interaction', name: 'FI/001' })
     expect(parseQrLink('/printview?doctype=Take+5&name=T-1&trigger_print=1', origin)).toEqual({ kind: 'desk', doctype: 'Take 5', name: 'T-1', revision: undefined })
   })

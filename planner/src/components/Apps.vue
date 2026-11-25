@@ -49,6 +49,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { toDeskUrl } from "../../../frontend/src/lib/deskRoute";
 import { usePlannerSettings } from "../utils/settings";
 import { Icon, Popover } from "frappe-ui";
 import { usePlannerBootstrap } from "../utils/bootstrap";
@@ -98,7 +99,7 @@ const appOptions = computed<AppOption[]>(() => {
       name: "frappe",
       logo: deskIcon.value,
       title: translate("Desk"),
-      route: "/app",
+      route: "/desk",
     },
     {
       name: "planner",
@@ -118,7 +119,7 @@ const appOptions = computed<AppOption[]>(() => {
       name: app.name,
       logo: app.logo,
       title: translate(app.title || app.name),
-      route: app.route || "/app",
+      route: toDeskUrl(app.route || "/desk"),
     });
   }
 

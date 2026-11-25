@@ -140,7 +140,7 @@ frappe.InternalTimesheetReview = class {
     escape(value) { return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]); }
     hours(value) { return Number(value || 0).toFixed(2); }
     date(value) { return new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" }); }
-    link(doctype, name, label) { return `<a href="/app/${doctype}/${encodeURIComponent(name)}" target="_blank" rel="noopener">${this.escape(label || name)}</a>`; }
+    link(doctype, name, label) { return `<a href="/desk/${doctype}/${encodeURIComponent(name)}" target="_blank" rel="noopener">${this.escape(label || name)}</a>`; }
     message(text, error = false) { this.find("status").textContent = text; this.find("status").classList.toggle("ita-error", error); }
 
     async show() {
