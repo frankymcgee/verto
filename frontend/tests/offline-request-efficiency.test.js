@@ -119,6 +119,24 @@ describe('Offline refresh requests', () => {
     expect(mocks.sync).toHaveBeenCalledTimes(2)
   })
 
+  it('keeps sync busy until refreshed queue counts and the receipt result are available', async () => {
+    mocks.summary.mockResolvedValue({ total: 0, queued: 0, failed: 0, syncing: 0 })
+    const { useOfflineSync } = await import('../src/pwa/useOfflineSync')
+    let state
+    wrapper = mount({ setup() { state = useOfflineSync(); return {} }, template: '<div />' })
+    await flushPromises()
+    let finishSummary
+    mocks.summary.mockImplementationOnce(() => new Promise(resolve => { finishSummary = resolve }))
+    const pending = state.syncNow({ refreshOffline: false })
+    await flushPromises()
+    expect(state.isSyncing.value).toBe(true)
+    expect(state.lastSyncResult.value).toEqual({ synced: 1, failed: 0, skipped: false })
+    finishSummary({ total: 0, queued: 0, failed: 0, syncing: 0 })
+    await pending
+    expect(state.isSyncing.value).toBe(false)
+    expect(state.summary.value.total).toBe(0)
+  })
+
   it.each(['/new/field-interaction', '/edit/daily-timesheet/TS-1', '/voice-jha/WORK-1'])(
     'defers automatic and manual offline refreshes throughout an open form: %s', async path => {
       const { setFormPath } = await import('../src/pwa/formActivity')

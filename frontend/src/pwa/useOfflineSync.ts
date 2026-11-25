@@ -21,6 +21,7 @@ const showReadyConfirmation = ref(false)
 const lastOfflineRefreshAt = ref(readLastOfflineRefreshAt())
 const offlineRefreshError = ref('')
 const lastSyncMessage = ref('')
+const lastSyncResult = ref<{ synced: number; failed: number; skipped: boolean; error?: string } | null>(null)
 const emptySummary: OfflineQueueSummary = {
   queued: 0,
   syncing: 0,
@@ -46,6 +47,7 @@ watch(formOpen, (open) => {
 watch(user, () => {
   summary.value = emptySummary
   lastSyncMessage.value = ''
+  lastSyncResult.value = null
   pendingPrime = true
   if (watcherCount > 0) void initialiseOfflineSync()
 })
@@ -140,10 +142,12 @@ async function performSync(options: { refreshOffline?: boolean }) {
   if (!actor || actor === 'Guest' || !await checkServerConnection()) return
   isSyncing.value = true
   lastSyncMessage.value = ''
+  lastSyncResult.value = null
 
   try {
     const result = await syncOfflineQueue(actor)
     if (user.value !== actor) return
+    lastSyncResult.value = { synced: result.synced, failed: result.failed, skipped: Boolean(result.skipped) }
 
     if (result.skipped) {
       lastSyncMessage.value = 'Connection interrupted. Saved items will retry automatically.'
@@ -154,10 +158,13 @@ async function performSync(options: { refreshOffline?: boolean }) {
       if (options.refreshOffline !== false) await primeNow()
     }
   } catch (err) {
-    if (user.value === actor) lastSyncMessage.value = err instanceof Error ? err.message : 'Sync failed.'
+    if (user.value === actor) {
+      lastSyncMessage.value = err instanceof Error ? err.message : 'Sync failed.'
+      lastSyncResult.value = { synced: 0, failed: 0, skipped: false, error: lastSyncMessage.value }
+    }
   } finally {
-    isSyncing.value = false
     await refreshSummary()
+    isSyncing.value = false
   }
 }
 
@@ -340,6 +347,7 @@ export function useOfflineSync() {
     hasQueuedItems,
     statusLabel,
     lastSyncMessage,
+    lastSyncResult,
     refreshSummary,
     syncNow,
     primeNow,
