@@ -136,12 +136,12 @@ function update(current: typeof state.value) {
         ? `${current.summary.total} item${current.summary.total === 1 ? '' : 's'} saved on this device. Sync resumes when Verto is reachable.${queueHelp}`
         : 'Verto cannot be reached. Any queued work stays on this device.',
       action: current.summary.total > 0 ? queueAction : undefined })
-  } else if (current.syncing && syncingWork) {
+  } else if ((current.syncing && syncingWork) || current.summary.syncing > 0) {
     show({ key: 'syncing', type: 'info', title: 'Syncing saved work…', progress: true,
-      description: current.message || 'Your saved work is uploading. You can keep using Verto.', action: queueAction })
+      description: current.syncing && current.message ? current.message : 'Your saved work is uploading. You can keep using Verto.', action: queueAction })
   } else if (current.summary.failed > 0) {
     show({ key: `failed:${current.summary.failed}`, type: 'error', title: `${current.summary.failed} upload${current.summary.failed === 1 ? '' : 's'} need${current.summary.failed === 1 ? 's' : ''} attention`,
-      description: (current.message || 'Your saved work remains in Upload queue for review and retry.') + queueHelp, action: queueAction })
+      description: 'Your saved work remains in Upload queue for review and retry.' + queueHelp, action: queueAction })
   } else if (current.result?.error && current.summary.total > 0) {
     show({ key: 'sync-error', type: 'error', title: 'Could not finish syncing', description: current.result.error + queueHelp, action: queueAction })
   } else if (current.refreshError) {
@@ -154,7 +154,7 @@ function update(current: typeof state.value) {
       description: 'Keep Verto open while offline data is prepared.', progress: true })
   } else if (current.summary.total > 0) {
     show({ key: `queued:${current.summary.total}`, type: 'info', title: `${current.summary.total} item${current.summary.total === 1 ? '' : 's'} waiting to sync`,
-      description: (current.message || 'Saved work will upload automatically when the connection is ready.') + queueHelp, action: queueAction })
+      description: 'Saved work will upload automatically when the connection is ready.' + queueHelp, action: queueAction })
   } else if (completed && (current.result?.synced || 0) > 0 && !current.result?.skipped) {
     lastReadyAt = current.refreshedAt
     show({ key: 'synced', type: 'success', title: 'Saved work synced', description: current.message || 'Your saved work was confirmed by the server.' })

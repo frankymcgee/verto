@@ -89,6 +89,19 @@ describe('Offline sync toast', () => {
     expect(calls.dismiss).toHaveBeenCalledWith(id)
   })
 
+  it('shows direct form uploads as syncing without announcing stale background receipts', async () => {
+    source('lastSyncResult', { synced: 4, failed: 0, skipped: false })
+    source('lastSyncMessage', '4 queued items synced.')
+    count({ total: 1, syncing: 1 })
+    await render()
+    expect(current().textContent).toContain('Syncing saved work')
+    expect(current().textContent).not.toContain('waiting to sync')
+    expect(current().textContent).not.toContain('4 queued items synced.')
+    count()
+    await settle()
+    expect(calls.success).not.toHaveBeenCalled()
+  })
+
   it('keeps failures persistent and does not repeat identical queue polls', async () => {
     count({ total: 1, failed: 1 })
     await render()
