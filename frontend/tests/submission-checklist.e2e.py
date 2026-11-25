@@ -29,6 +29,20 @@ SCHEMA = {"mobile_doctype": "field-interaction", "doctype": "Field Interaction",
 VALUES = {"notes": "Keep my notes", "quantity": 0, "email": "invalid-email", "rows": [{"detail": "First row"}, {"detail": ""}]}
 
 
+class Handler(fixture.layout.Handler):
+    def do_POST(self):
+        if urlparse(self.path).path != "/api/method/upload_file":
+            self.send_error(404)
+            return
+        metadata = json.loads(unquote(self.headers["X-Verto-Attachment"]))
+        content = self.rfile.read(int(self.headers["Content-Length"]))
+        self.server.attachments.append({"name": metadata["file_name"], "content": content.decode()})
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"message": {"file_url": "/private/files/site-note.txt"}}).encode())
+
+
 def queued_count(page):
     return page.evaluate("""() => new Promise((resolve, reject) => {
         const request = indexedDB.open('verto-mobile-offline-db');
@@ -42,11 +56,12 @@ def queued_count(page):
     })""")
 
 
-def check_form(browser, origin, engine, width, edit):
+def check_form(browser, server, origin, engine, width, edit):
     context = fixture.context_for(browser, width)
     page = context.new_page()
     saves = []
     attachments = []
+    server.attachments = attachments
     normal_api = fixture.api_fixture([])
 
     def api(route):
@@ -63,9 +78,10 @@ def check_form(browser, origin, engine, width, edit):
             saves.append(values)
             message = {"ok": True, "result": {"doctype": "Field Interaction", "name": "FORM-1", "route": "/forms", "values": values, "files": []}}
         elif method == "upload_file":
-            metadata = json.loads(unquote(route.request.headers["x-verto-attachment"]))
-            attachments.append({"name": metadata["file_name"], "content": route.request.post_data_buffer.decode()})
-            message = {"file_url": "/private/files/site-note.txt"}
+            # WebKit may omit intercepted Blob bodies entirely. Verify bytes at
+            # the receiver instead of trusting protocol postData availability.
+            route.continue_()
+            return
         if message is None: normal_api(route)
         else: route.fulfill(content_type="application/json", body=json.dumps({"message": message}))
 
@@ -165,7 +181,7 @@ def check_long_form(browser, origin, engine):
 
 def main(engines):
     RESULTS.mkdir(exist_ok=True)
-    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(fixture.layout.Handler, directory=str(fixture.layout.PUBLIC)))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(Handler, directory=str(fixture.layout.PUBLIC)))
     Thread(target=server.serve_forever, daemon=True).start()
     try:
         with sync_playwright() as playwright:
@@ -177,7 +193,7 @@ def main(engines):
                 browser = getattr(playwright, engine).launch(**options)
                 try:
                     for width in (320, 440, 1280):
-                        for edit in (False, True): check_form(browser, f"http://127.0.0.1:{server.server_port}", engine, width, edit)
+                        for edit in (False, True): check_form(browser, server, f"http://127.0.0.1:{server.server_port}", engine, width, edit)
                     check_long_form(browser, f"http://127.0.0.1:{server.server_port}", engine)
                 finally:
                     browser.close()
