@@ -120,7 +120,7 @@ def check_layout(browser, origin, engine, width, height, shortfall, ios_standalo
                 const r=document.querySelector(selector).getBoundingClientRect();
                 return {top:r.top,bottom:r.bottom,height:r.height};
               };
-              return {viewport:innerHeight,shell:box('.mobile-shell'),frame:box('.mobile-shell-frame'),nav:box('.bottom-tabs')};
+              return {viewport:innerHeight,shell:box('.mobile-shell'),frame:box('.mobile-shell-frame'),nav:box('.bottom-tabs'),main:box('.mobile-shell-main')};
             }""")
 
         if ios_standalone:
@@ -145,17 +145,27 @@ def check_layout(browser, origin, engine, width, height, shortfall, ios_standalo
         print(label, json.dumps(geometry), flush=True)
         page.screenshot(path=str(RESULTS / f"{label}.png"))
 
-        # Sync/offline notices must consume space above the nav, never below it.
+        # Sync notices float without shrinking the page or covering the composer.
+        before_notice = measure()["main"]
         context.set_offline(True)
-        expect(page.locator(".mobile-shell-content [role='status']").first).to_be_visible()
+        notice = page.locator('[data-sonner-toast][data-type="warning"]:not([data-removed="true"])')
+        expect(notice).to_contain_text('Offline mode')
         geometry = measure()
         assert abs(geometry["nav"]["bottom"] - height) <= 1, (label, "offline notice", geometry)
+        assert all(abs(before_notice[key] - geometry["main"][key]) <= 1 for key in before_notice), (label, "notice moved the page", geometry)
+        composer = page.frame_locator("iframe.flow-chat-frame").get_by_role("textbox", name="Message PERI")
+        composer_top = composer.bounding_box()["y"]
+        page.wait_for_function("""top => {
+          const toast=document.querySelector('[data-sonner-toast][data-type="warning"]:not([data-removed="true"])');
+          return toast && toast.getBoundingClientRect().bottom <= top-4;
+        }""", arg=composer_top)
         context.set_offline(False)
 
         if mobile:
             # Resize with the real shadow composer focused. Both the frame and
             # nav must follow the smaller bounds, including the keyboard branch.
-            page.frame_locator("iframe.flow-chat-frame").get_by_role("textbox", name="Message PERI").fill("Keyboard layout check")
+            composer.click()
+            composer.fill("Keyboard layout check")
             page.set_viewport_size({"width": width, "height": 480})
             expect(page.locator(".mobile-shell")).to_have_css("height", "480px")
             geometry = measure()

@@ -128,3 +128,35 @@ html.verto-flow-standalone-ios .mobile-shell--flow {
     font-size: 16px !important;
   }
 }
+
+/* Frappe toasts float above mobile navigation instead of shrinking the page. */
+[data-sonner-toaster] {
+  --offset-left: max(32px, var(--safe-area-left)) !important;
+  --offset-right: max(32px, var(--safe-area-right)) !important;
+  --mobile-offset-left: max(16px, var(--safe-area-left)) !important;
+  --mobile-offset-right: max(16px, var(--safe-area-right)) !important;
+}
+[data-sonner-toaster][data-y-position='bottom'] {
+  bottom: calc(var(--mobile-bottom-tabs-height) + 0.75rem) !important;
+}
+[data-sonner-toaster] [data-sonner-toast] {
+  max-width: calc(100vw - 2rem - var(--safe-area-left) - var(--safe-area-right));
+}
+/* Keep PERI's composer and the JHA microphone reachable during notifications. */
+html.verto-flow-active [data-sonner-toaster][data-y-position='bottom'] {
+  bottom: calc(var(--mobile-bottom-tabs-height) + 7rem) !important;
+}
+html:has(.jha-voice-dock) [data-sonner-toaster][data-y-position='bottom'] {
+  bottom: calc(var(--mobile-bottom-tabs-height) + 11rem) !important;
+}
+@media (min-width: 1024px) {
+  [data-sonner-toaster][data-y-position='bottom'] {
+    bottom: 1.5rem !important;
+  }
+  html.verto-flow-active [data-sonner-toaster][data-y-position='bottom'] {
+    bottom: 7rem !important;
+  }
+  html:has(.jha-voice-dock) [data-sonner-toaster][data-y-position='bottom'] {
+    bottom: 11rem !important;
+  }
+}

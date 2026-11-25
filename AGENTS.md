@@ -75,6 +75,9 @@ feature requests or abandoned approaches as implemented functionality.
   human application/review steps required by each workflow.
 - Do not reload the PWA during open forms or lose local drafts/queued work.
   Use theme tokens and accessible Frappe UI controls for responsive native pages.
+  Sync status uses one updating Frappe toast without a layout bar. Keep persistent
+  state in the avatar/Upload queue, suppress duplicate queue-page notices, and
+  keep toast actions from navigating away from an open form.
 - Generate current-site Desk links with `/desk`. Normalize stored `/app` links
   when opening browser drawers, preserving queries/fragments and unrelated routes.
 

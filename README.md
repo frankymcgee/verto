@@ -20,6 +20,8 @@ compatibility target.
 - Offline forms, daily timesheets and shift access, with stable operation IDs and
   server receipts to prevent duplicate submissions on reconnect. The upload queue
   shows acknowledgement, attachment progress, retry reasons and recent confirmations.
+  Offline preparation, sync progress and errors use one Frappe UI toast above the
+  mobile controls; successful confirmations close automatically.
 - Photo markup with arrows, circles and notes. The original photograph is retained
   and an annotated copy is attached separately.
 - In-app QR scanning for supported documents, a native read-only profile,
@@ -151,6 +153,7 @@ or merge a change automatically.
 | Internal review and signing | [Internal approval](docs/internal-timesheet-approval.md) |
 | Reminders, limits and client rejection | [Shift reminders](docs/shift-timesheet-reminders.md), [hour limits](docs/timesheet-hour-limit-alerts.md), [weekly rejection](docs/weekly-timesheet-rejection.md) |
 | Handover drafts, photo markup and upload progress | [Mobile field tools](docs/mobile-field-tools.md) |
+| Mobile status notifications | [Sync toasts](docs/mobile-status-notifications.md) |
 | Offline/mobile performance | [Mobile performance](docs/mobile-performance.md), [request efficiency](docs/request-efficiency.md) |
 | QR codes and public web forms | [QR scanner](docs/mobile-qr-scanner.md), [web form attachments](docs/web-form-attachments.md) |
 | Planner | [Live collaboration](docs/planner-live-collaboration.md) |
