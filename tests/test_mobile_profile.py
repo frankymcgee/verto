@@ -1,5 +1,6 @@
 """Verify self-service profile scope without requiring a running Frappe site."""
 import importlib.util
+import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 import unittest
@@ -8,6 +9,7 @@ from unittest.mock import Mock, patch
 
 class TestMobileProfile(unittest.TestCase):
     def setUp(self):
+        self.enterContext(patch("sys.path", [str(Path(__file__).parents[1]), *sys.path]))
         self.frappe = ModuleType("frappe")
         self.frappe.whitelist = lambda **kwargs: lambda function: function
         self.frappe.session = SimpleNamespace(user="worker@example.test")

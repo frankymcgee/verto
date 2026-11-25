@@ -265,7 +265,7 @@ def get_timesheet_exceptions(week_start=None, project=None):
             user_rows = _read("User", warnings, filters={"name": ["in", users]}, fields=["name", "full_name"])
             context["user_names"] = {row.name: row.full_name for row in user_rows or []}
         # Other readable weeks/projects for the same staff participate in overlap checks.
-        related = _read("Timesheet", warnings, required=True, cap=WEEKLY_LIMIT, filters={"docstatus": ["!=", 2], "employee": ["in", employee_ids],
+        related = _read("Timesheet", warnings, required=True, cap=3 * WEEKLY_LIMIT, filters={"docstatus": ["!=", 2], "employee": ["in", employee_ids],
                         "custom_monday_date": ["between", [monday - timedelta(days=7), monday + timedelta(days=7)]]}, fields=["name"])
         known = {doc.name for doc in docs}
         docs.extend(_documents([row for row in related if row.name not in known]))

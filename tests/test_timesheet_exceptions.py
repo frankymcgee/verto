@@ -1,6 +1,7 @@
 """Timesheet reconciliation and authorization without a running Frappe site."""
 import copy
 import importlib.util
+import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -29,6 +30,7 @@ def load(name, relative):
 
 class TestTimesheetExceptions(unittest.TestCase):
     def setUp(self):
+        self.enterContext(patch("sys.path", [str(Path(__file__).parents[1]), *sys.path]))
         import verto.api
         frappe = self.frappe = ModuleType("frappe")
         frappe.whitelist = lambda **kwargs: lambda function: function
