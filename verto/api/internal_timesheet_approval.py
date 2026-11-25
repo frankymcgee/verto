@@ -10,8 +10,8 @@ from datetime import time, timedelta
 
 import frappe
 from frappe.utils import cint, getdate, get_datetime, now_datetime, nowdate
+from verto.api.timesheet_access import APPROVER_ROLES
 
-APPROVER_ROLES = {"System Manager", "Accounts Manager", "HR Manager", "Projects Manager", "Verto Planner Manager"}
 AUDIT_DOCTYPE = "Verto Internal Timesheet Approval"
 MAX_TIMESHEETS = 200
 HOURS_TOLERANCE = 1 / 60  # Accept rounding of elapsed time within one minute.
@@ -362,7 +362,7 @@ def _missing_days(rows, context):
                 row["flags"].append({"code": "missing_hours", "message": f"No hours recorded for allocated {label} on {date_key}."})
 
 
-def build_review(docs, context=None):
+def build_review(docs, context=None, *, check_missing_days=True):
     context = context if context is not None else _load_context(docs)
     rows = []
     for doc in docs:
@@ -388,7 +388,11 @@ def build_review(docs, context=None):
                      "approved_by": doc.get("employee_approval_name") or doc.get("employee_approved") or "",
                      "note": str(doc.get("note") or ""), "can_approve": bool(frappe.has_permission("Timesheet", "write", doc=doc))})
     _cross_checks(rows)
-    _missing_days(rows, context)
+    if check_missing_days:
+        _missing_days(rows, context)
+    else:
+        for row in rows:
+            row["missing_days"] = []
     for doc, row in zip(docs, rows):
         row["flag_count"] = len(row["flags"]) + sum(len(entry["flags"]) for entry in row["entries"])
         row["days"] = {str(getdate(row["week_start"]) + timedelta(days=offset)): {"ds": 0, "ns": 0, "flag_count": 0, "allocations": []} for offset in range(7)}

@@ -17,6 +17,7 @@ const routes = [
     path: '/',
     component: MobileShell,
     children: [
+      { path: 'timesheet-exceptions', name: 'timesheet-exceptions', component: () => import('../pages/TimesheetExceptions.vue'), meta: { title: 'Timesheet exceptions' } },
       { path: 'failed-uploads', name: 'failed-uploads', component: () => import('../pages/FailedUploads.vue'), meta: { title: 'Upload queue' } },
       { path: 'notifications', name: 'notifications', component: () => import('../pages/Notifications.vue'), meta: { title: 'Notifications' } },
       { path: 'my-profile', name: 'my-profile', component: () => import('../pages/MyProfile.vue'), meta: { title: 'My profile' } },

@@ -1,189 +1,163 @@
-<div align="center" markdown="1">
-<img src="https://webwire.com.au/files/verto-icon-clear.png" alt="Logo" width="80" height="80">
-<h1 align="center">Webwire Verto</h1>
-**ERPNext v15 Custom App for Operations, Safety, Project Controls, Mobile Workflows and AI-Assisted Insights**
+# Webwire Verto
 
-</div>
+Verto extends **Frappe and ERPNext v16** for shutdown projects, field safety,
+rostering, timesheets, investigations and PERI assisted workflows. Webwire
+maintains this app for desktop browsers and an installable mobile PWA.
 
----
+**Active development targets v16 only.** Work goes into `develop`, with pull
+requests targeting `version-16`. Version 15 is no longer a development or
+compatibility target.
 
-## About The Project
+## What is included
 
-**Webwire Verto** is a custom ERPNext/Frappe application developed to extend ERPNext Version 15 with practical tools for project delivery, shutdown management, safety workflows, mobile field operations, dashboards, automation, and AI-assisted decision support.
+### Mobile field work
 
-The app was originally created to enhance ERPNext for operational and project-based environments where field teams, supervisors, safety advisors, and project leaders require improved visibility, streamlined mobile workflows, and structured safety management processes.
+- Native project/task lists, grouped Gantt charts and maps showing task pins and
+  drawn geometry, with task details and linked **+Form / +CCV** actions.
+- Configurable forms and project tools from Verto Mobile Settings; conditional
+  field/section visibility, child tables, emoji ratings, signatures, attachments
+  and quarter-hour time selection. Saving a child row also saves its parent edits.
+- Offline forms, daily timesheets and shift access, with stable operation IDs and
+  server receipts to prevent duplicate submissions on reconnect. The upload queue
+  shows acknowledgement, attachment progress, retry reasons and recent confirmations.
+- Photo markup with arrows, circles and notes. The original photograph is retained
+  and an annotated copy is attached separately.
+- In-app QR scanning for supported documents, a native read-only profile,
+  notifications, app/version details, push settings and light/dark/automatic themes.
+- Desktop sidebar and mobile navigation; employee-only shift/chat access, safe PWA
+  updates while forms are open, cached field data and request coalescing.
 
----
+### Planner and project controls
 
-## Key Features
+- Project rosters, day/night/fly/stand-down shifts, staffing roles and allocation
+  editing, leave indicators, live collaboration and project-aware task dates.
+- Generic task setup and appending task groups to existing projects; linked task
+  visibility, project tools, handovers, Gameplan, folders and Raven channels.
+- Separate completed/cancelled filters, cancelled-project shading and permission
+  checked removal of cancelled leave with conflicting attendance where required.
 
-### ERPNext v15 Enhancements
+### Timesheets and attendance
 
-- Custom ERPNext Version 15 functionality
-- Enhanced task, project, and shutdown workflow support
-- Custom reports and dashboard extensions
-- Improved project and task visibility
-- Workflow automation through custom scripts and server methods
+- Daily Timesheet processing into weekly Timesheet logs and attendance, with
+  concurrency/duplicate protection and project day/night/fly hour limits.
+- A **Frappe UI confirmation dialog** shows entered hours and shift details before
+  new or edited daily timesheets are saved, including forms queued offline.
+- A **Timesheet exceptions queue** for internal approvers: missing allocated
+  hours (including no weekly document), weekly processing delays, hour/shift/source
+  mismatches, overlaps and approved leave/attendance conflicts. Filter by week,
+  project, employee/record, exception type and priority; open source records and
+  the existing internal review directly.
+- Consolidated internal review with DS/NS columns, validation, comments, one
+  signature for selected records, stale-source checks and an immutable audit.
+  Stand-down follows the actual entered start time for DS/NS columns and limits.
+- Client weekly signing, PDF downloads, rejection with a reason, scheduled email
+  verification and shift-end/next-day reminders with dated exclusions.
 
-### Map and Geolocation Improvements
+### Safety, handovers and PERI
 
-- Enhanced map view customization
-- Topographical map support
-- Improved geolocation display and tracking
-- Field-based task and work area visibility
+- Field Interactions, CCVs, safety/lead safety handovers, safety performance and
+  post-shutdown SWOT reporting focused on improvements and follow-up actions.
+- PERI draft handover rows from a selected reporting window with readable source
+  links and explicit application before saving; signatures and ratings remain manual.
+- Photo analysis with form context and failure/uncertainty notifications.
+- Digital JHA voice facilitation, paper JHA photo import, guided updates/reopening,
+  relevant incident learning, workpack lifecycle, team-leader review and branded
+  PDF/email output. Voice engines and Raven/Flow chat are configured per site.
+- Dynamic Insights dashboard/chart analysis and filter tools, with readable
+  dashboard discovery, saved defaults and quantitative chart context.
+- INX incident import and sanitisation; role-aware AI tools and review workflows.
 
-### Gantt and Project Controls
+### Investigations
 
-- Enhanced Gantt chart functionality
-- Improved task grouping and work area visibility
-- Shutdown and project-specific task navigation
-- Project scope filtering support
-- Integration with Gameplan, handover records, folders, and Raven channels
+- Native investigations with event timelines, 5 Whys, ICAM factors, evidence,
+  corrective actions, verification and PDF reporting.
+- Horizontal chronological timeline layout, branch-aware arrangement and full-width
+  work areas. Photo annotations become separate unverified evidence linked to the original.
 
-### Mobile Browser Experience
+## Supported stack
 
-- Mobile-friendly ERPNext interfaces
-- Bottom navigation for improved usability
-- Simplified task and form access
-- Assigned task dashboards
-- Mobile-first form submission workflows
-- Quick access to Gantt, Maps, Handover, Gameplan, Folders, and Chat
+| Component | Development target |
+| --- | --- |
+| Frappe, ERPNext, HRMS | v16 |
+| Python | 3.14 (`>=3.14,<3.15` in `pyproject.toml`) |
+| Node / Yarn | Node 24 / Yarn Classic 1.22.22 in CI |
+| Frontends | Vue 3 / Vite / Frappe UI |
+| Frappe UI | Pinned repository submodule; currently 1.2.0 |
+| Integrations | Raven, Gameplan; Insights and PERI/Flow features require site configuration |
 
-### Work Health & Safety Module
+Dependency ranges live in `pyproject.toml` and the package manifests. The exact
+integration-test stack and dependency revisions are recorded in `ci/stack.json`.
 
-- Safety metrics tracking and reporting
-- Field interaction workflows
-- Critical Control Verification (CCV) workflows
-- Contractor and supervisor safety insights
-- Positive and at-risk behaviour tracking
-- Compliance percentage reporting
-- Areas-for-improvement reporting
-- Safety handover and lead safety handover support
+## Install or update
 
-### Dashboard and Insights Support
-
-- Frappe Insights workbook and dashboard integration
-- Shutdown Safety Metrics dashboard support
-- Compliance trend analysis
-- Contractor compliance reporting
-- Work area compliance reporting
-- Critical Control Verification compliance cards
-- Positive and at-risk behaviour visualizations
-- Project scope filtering across dashboards
-
-Register `verto.api.peri.insights_context.get_dashboard_context` as a Raven AI
-function on the PERI bot. Give it an optional string `dashboard` and an optional
-object `filters`. In the function description, instruct PERI to call it without
-a dashboard to discover readable Insights dashboards, or with an exact title,
-ID or route to analyse each chart. A filter is keyed by its saved dashboard
-filter name and takes the Insights operator and value. Ask for clarification
-when the requested filter or dashboard cannot be resolved. The tool uses the
-Raven execution user's Insights access and the dashboard's saved defaults.
-
-### Raven and PERI AI Integration
-
-- Raven chat integration
-- Project-specific Raven channel linking
-- User-specific PERI direct message channel support
-- PERI dashboard analysis triggers from assigned task views
-- Backend methods for sending PERI analysis commands to Raven
-- AI-assisted dashboard interpretation and insights
-
----
-
-## Example Use Cases
-
-Webwire Verto supports workflows such as:
-
-- Managing shutdown safety performance
-- Reviewing task and work area compliance
-- Completing field safety forms from mobile devices
-- Tracking positive and at-risk behaviours
-- Monitoring contractor safety performance
-- Triggering PERI AI dashboard analysis from project task lists
-- Navigating between assigned tasks, Gantt charts, maps, handovers, Gameplans, folders, and project chat channels
-- Delivering mobile-friendly ERPNext experiences for field teams
-
----
-
-## Technology Stack
-
-- Frappe Framework
-- ERPNext v15
-- Frappe Insights
-- Raven
-- Python
-- JavaScript
-- HTML/CSS
-- MariaDB
-- Mobile Browser and PWA-focused ERPNext customizations
-
----
-
-## Installation
-
-Install this application into an existing Frappe/ERPNext bench.
+Use an existing v16 bench with the required apps from `pyproject.toml` installed.
+Back up the site before updating it. Replace `SITE` with your site name.
 
 ```bash
 cd frappe-bench
-bench get-app verto <repository-url>
-bench --site <site-name> install-app verto
-bench build
+bench get-app --branch version-16 https://github.com/frankymcgee/verto.git
+cd apps/verto
+git submodule update --init --recursive
+cd ../..
+bench --site SITE install-app verto
+bench build --app verto
 bench restart
 ```
 
-Replace:
+For an existing installation, update the `version-16` checkout and its submodules,
+then run `bench --site SITE migrate`, `bench build --app verto` and `bench restart`.
+The root build script installs locked dependencies and builds mobile, planner and
+investigations assets. Use `/verto-mobile` to open the mobile app.
 
-```text
-<repository-url>
+Configure Verto Mobile Settings for forms/tools, branding, notifications, PERI,
+voice engines and review recipients. Also configure the site's normal role/user
+permissions, workers, scheduler and integration credentials. Features that depend
+on external services require those integrations to be enabled.
+
+## Development and verification
+
+Use `develop` for implementation and open a PR into `version-16`. Follow
+[AGENTS.md](AGENTS.md) for version increments, repository layout and critical
+workflow invariants.
+
+```bash
+git submodule update --init --recursive
+yarn install --frozen-lockfile
+yarn --cwd frontend install --frozen-lockfile
+yarn --cwd planner install --frozen-lockfile
+yarn --cwd investigations install --frozen-lockfile
+yarn dev:frontend
 ```
 
-with the GitHub repository URL.
+- Mobile UI: `yarn --cwd frontend test:ui`.
+- Planner / investigations: `yarn --cwd planner test:ui` and
+  `yarn --cwd investigations test:ui`.
+- Isolated exceptions checks: `python -m unittest discover -s tests -p 'test_timesheet_exceptions.py'`.
+- Build: `yarn build` (all three applications).
+- Frappe integration and fresh installation: see [CI test image](docs/ci-test-image.md).
+  Real-browser regressions use the production build and Playwright Chromium/WebKit.
 
-Replace:
+CI validates the v16 stack, cached test image, migration/fresh install where
+required, frontend regressions, browser layout and security. It does not deploy
+or merge a change automatically.
 
-```text
-<site-name>
-```
+## Feature guides
 
-with your ERPNext site name.
+| Area | Documentation |
+| --- | --- |
+| Timesheet exceptions and hours popup | [Queue and confirmation](docs/timesheet-exceptions.md) |
+| Internal review and signing | [Internal approval](docs/internal-timesheet-approval.md) |
+| Reminders, limits and client rejection | [Shift reminders](docs/shift-timesheet-reminders.md), [hour limits](docs/timesheet-hour-limit-alerts.md), [weekly rejection](docs/weekly-timesheet-rejection.md) |
+| Handover drafts, photo markup and upload progress | [Mobile field tools](docs/mobile-field-tools.md) |
+| Offline/mobile performance | [Mobile performance](docs/mobile-performance.md), [request efficiency](docs/request-efficiency.md) |
+| QR codes and public web forms | [QR scanner](docs/mobile-qr-scanner.md), [web form attachments](docs/web-form-attachments.md) |
+| Planner | [Live collaboration](docs/planner-live-collaboration.md) |
+| Investigations | [Investigations](docs/incident-investigations.md) |
+| PERI dashboards and chat | [Dashboard analysis/filter tools](docs/peri-dashboard-analysis.md), [Flow chat](docs/mobile-peri-flow.md) |
+| JHA voice and paper import | [Voice engines](docs/voice-jha-engines.md), [fieldwork](docs/voice-jha-fieldwork.md), [paper import](docs/voice-jha-paper-import.md) |
+| JHA lifecycle and learning | [Change management](docs/voice-jha-change-management.md), [workpacks](docs/voice-jha-workpack-lifecycle.md), [incidents](docs/voice-jha-incident-learning.md), [PDF/email](docs/voice-jha-print-email.md) |
 
----
+## License and maintainer
 
-## Development Notes
-
-This application is designed to be customized for specific ERPNext v15 environments. Some functionality may depend on custom DocTypes, custom fields, Raven configuration, Frappe Insights dashboards, or organization-specific workflows.
-
-Before deploying to production, review and configure:
-
-- Custom DocTypes
-- Custom Fields
-- Client Scripts
-- Server Scripts and backend API methods
-- Role permissions
-- Raven workspaces and channels
-- Frappe Insights dashboards
-- Mobile workspace pages
-- Safety workflow configurations
-
----
-
-## Project Status
-
-This project is under active development and continues to evolve with new ERPNext, safety, mobile, reporting, and AI-assisted workflow capabilities.
-
----
-
-## License
-
-Distributed under the Apache License 2.0.
-
-For more information, see the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
-
----
-
-## Maintained By
-
-**Webwire**
-
-Website: [https://webwire.com.au](https://webwire.com.au)
+Apache License 2.0; see [license.txt](license.txt). Maintained by
+[Webwire](https://webwire.com.au).

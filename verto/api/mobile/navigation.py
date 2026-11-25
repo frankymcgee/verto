@@ -1,5 +1,6 @@
 import frappe
 from verto.api.mobile.profile import get_user_employee
+from verto.api.timesheet_access import can_review_timesheets
 
 
 def require_login():
@@ -16,4 +17,5 @@ def get_navigation_access():
     return {
         "has_employee_profile": bool(employee_id),
         "employee_id": employee_id,
+        "can_review_timesheets": can_review_timesheets(),
     }

@@ -400,6 +400,7 @@
             </div>
           </section>
         </MobileSheet>
+    <TimesheetHoursConfirmation ref="hoursConfirmation" />
   </section>
 </template>
 
@@ -429,6 +430,7 @@ import LinkField from '../components/mobile-fields/LinkField.vue'
 import ChildTableField from '../components/mobile-fields/ChildTableField.vue'
 import SignatureField from '../components/mobile-fields/SignatureField.vue'
 import RatingField from '../components/mobile-fields/RatingField.vue'
+import TimesheetHoursConfirmation from '../components/TimesheetHoursConfirmation.vue'
 import AttachmentPicker from '../components/AttachmentPicker.vue'
 const RichTextEditorField = defineAsyncComponent(() => import('../components/mobile-fields/RichTextEditorField.vue'))
 
@@ -1302,11 +1304,13 @@ async function loadNewDocument(restoreDraft = true) {
   }
 }
 
-async function createDocument() {
+const hoursConfirmation = ref<InstanceType<typeof TimesheetHoursConfirmation> | null>(null)
+
+async function createDocument(submittedValues: Record<string, any>) {
   const payload = new FormData()
 
   payload.append('mobile_doctype', mobileDoctype)
-  payload.append('values', JSON.stringify(getVisibleValues()))
+  payload.append('values', JSON.stringify(submittedValues))
   payload.append('operation_id', submissionOperationId)
   for (const file of files.value) payload.append('attachments', file, file.name)
 
@@ -1332,16 +1336,14 @@ async function submitForm() {
   saveDraftNow()
 
   try {
-    if (schema.value?.doctype === 'Daily Timesheet' && values.value.duration) {
-      const hours = (Number(values.value.duration) / 3600).toFixed(2)
-      const confirmed = window.confirm(`Your current hours for this shift is ${hours} hours. Is this correct?`)
-
-      if (!confirmed) {
-        return
-      }
+    const submittedValues = JSON.parse(JSON.stringify(getVisibleValues()))
+    const confirmationValues = { ...submittedValues, duration: submittedValues.duration ?? values.value.duration }
+    if (schema.value?.doctype === 'Daily Timesheet' && confirmationValues.duration) {
+      const confirmed = await hoursConfirmation.value?.confirm(confirmationValues, 'Submit')
+      if (!confirmed) return
     }
 
-    const created = await createDocument()
+    const created = await createDocument(submittedValues)
     if (schema.value?.doctype === 'Daily Timesheet' && !created.offline_operation_id) {
       window.dispatchEvent(new Event('verto:timesheet-saved'))
     }
