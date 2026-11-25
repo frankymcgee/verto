@@ -24,6 +24,7 @@ compatibility target.
   and an annotated copy is attached separately.
 - In-app QR scanning for supported documents, a native read-only profile,
   notifications, app/version details, push settings and light/dark/automatic themes.
+  Embedded Desk pages use `/desk`; stored same-site `/app` links are converted when opened.
 - Desktop sidebar and mobile navigation; employee-only shift/chat access, safe PWA
   updates while forms are open, cached field data and request coalescing.
 
@@ -46,7 +47,8 @@ compatibility target.
   hours (including no weekly document), weekly processing delays, hour/shift/source
   mismatches, overlaps and approved leave/attendance conflicts. Filter by week,
   project, employee/record, exception type and priority; open source records and
-  the existing internal review directly.
+  the existing internal review directly. Cancelled weekly sheets and their orphaned
+  daily sources are excluded; active amended sheets retain their daily links.
 - Consolidated internal review with DS/NS columns, validation, comments, one
   signature for selected records, stale-source checks and an immutable audit.
   Stand-down follows the actual entered start time for DS/NS columns and limits.

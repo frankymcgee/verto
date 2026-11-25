@@ -28,7 +28,7 @@ export function parseQrLink(value: string, origin = window.location.origin): QrD
       || path.length === 3 && path[0] === 'edit' && /^[a-z0-9-]+$/.test(path[1])
     if (valid) return { kind: 'mobile', url: `/${parts.slice(1).map(encodeURIComponent).join('/')}${url.search}` }
   }
-  if (parts[0] === 'app' && parts.length === 3) {
+  if (['app', 'desk'].includes(parts[0]) && parts.length === 3) {
     return { kind: 'desk', doctype: parts[1], name: parts[2] }
   }
   if (url.pathname === '/printview') {

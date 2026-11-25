@@ -99,6 +99,7 @@
 </template>
 
 <script setup>
+import { toDeskUrl } from '../../../frontend/src/lib/deskRoute'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
   Avatar,
@@ -130,10 +131,10 @@ const emit = defineEmits(['navigate', 'select-tab', 'open-app'])
 const compact = ref(window.innerWidth <= 760)
 const collapsed = ref(false)
 const appOptions = computed(() => [
-  { label: 'Desk', icon: 'lucide-layout-grid', onClick: () => emit('open-app', '/app') },
+  { label: 'Desk', icon: 'lucide-layout-grid', onClick: () => emit('open-app', '/desk') },
   ...(props.meta.apps || []).map((app) => ({
     label: app.title,
-    onClick: () => emit('open-app', app.route),
+    onClick: () => emit('open-app', toDeskUrl(app.route)),
   })),
 ])
 const sectionIcons = {

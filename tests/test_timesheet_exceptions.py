@@ -81,6 +81,32 @@ class TestTimesheetExceptions(unittest.TestCase):
     def codes(self, items):
         return {issue["code"] for item in items for issue in item["issues"]}
 
+    def test_cancelled_weekly_sources_do_not_reappear_as_pending_daily_hours(self):
+        for values in ({"docstatus": 2}, {"status": "Cancelled"}, {"status": "Canceled"}):
+            with self.subTest(values=values):
+                cancelled = copy.deepcopy(self.doc)
+                cancelled.update(values)
+                items = self.queue([cancelled])
+                self.assertEqual(self.codes(items), {"missing_hours"})
+                self.assertEqual(items[0]["links"], [{"doctype": "Shift Assignment", "name": "SHIFT-1", "label": "Open allocation"}])
+
+    def test_cancelled_hours_do_not_create_overlaps_or_exceed_live_hour_limits(self):
+        cancelled = copy.deepcopy(self.doc)
+        cancelled.update(name="TS-CANCELLED", docstatus=2, total_hours=99)
+        cancelled.time_logs[0].daily_timesheet_id = "DAILY-CANCELLED"
+        source = copy.deepcopy(self.context["daily"]["DAILY-1"])
+        source.name = "DAILY-CANCELLED"
+        self.context["daily"][source.name] = source
+        self.assertEqual(self.queue([self.doc, cancelled]), [])
+
+    def test_an_active_amendment_can_reuse_a_cancelled_sheets_daily_source(self):
+        self.context["cancelled_daily_timesheets"] = {"DAILY-1"}
+        amended = copy.deepcopy(self.doc)
+        amended.name = "TS-AMENDED"
+        self.assertEqual(self.queue([amended]), [])
+        self.context["daily"]["DAILY-1"].duration = 36000
+        self.assertIn("daily_hours_mismatch", self.codes(self.queue([amended])))
+
     def test_clean_day_overnight_and_day_or_night_stand_down_are_clean(self):
         self.assertEqual(self.queue(), [])
         for night in (False, True):
@@ -244,6 +270,13 @@ class TestTimesheetExceptions(unittest.TestCase):
         self.doc.denied = ["read"]
         with self.assertRaises(PermissionError):
             self.api.get_timesheet_exceptions("2026-10-05", "PROJ-1")
+
+    def test_endpoint_excludes_cancelled_weekly_daily_sources_after_loading_related_records(self):
+        self.endpoint_records()
+        self.doc.docstatus = 2
+        items = self.api.get_timesheet_exceptions("2026-10-05", "PROJ-1")["items"]
+        self.assertEqual(self.codes(items), {"missing_hours"})
+        self.assertFalse(any(link["doctype"] in {"Timesheet", "Daily Timesheet"} for item in items for link in item["links"]))
 
     def test_daily_without_an_allocation_or_weekly_document_is_still_visible(self):
         self.endpoint_records(weekly=False, shifts=False)

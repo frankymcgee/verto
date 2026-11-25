@@ -1200,7 +1200,7 @@ function getDocumentPreviewRoute(message?: RavenMessage | null) {
     .toLowerCase()
     .replace(/\s+/g, '-')
 
-  return `/app/${encodeURIComponent(slug)}/${encodeURIComponent(docname)}`
+  return `/desk/${encodeURIComponent(slug)}/${encodeURIComponent(docname)}`
 }
 
 function getDocumentPreviewFields(message?: RavenMessage | null): DocumentPreviewField[] {

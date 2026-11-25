@@ -4,7 +4,9 @@ import Home from '../src/pages/Home.vue'
 import ProjectGantt from '../src/pages/ProjectGantt.vue'
 import ProjectGanttTimeline from '../src/components/ProjectGanttTimeline.vue'
 import ProjectMap from '../src/pages/ProjectMap.vue'
-import { APP_BROWSER_OPEN_EVENT, handleAppBrowserLinkClick } from '../src/lib/appBrowser'
+import AppBrowserDrawer from '../src/components/AppBrowserDrawer.vue'
+import { toDeskUrl } from '../src/lib/deskRoute'
+import { APP_BROWSER_OPEN_EVENT, openAppBrowser, handleAppBrowserLinkClick } from '../src/lib/appBrowser'
 
 const mocks = vi.hoisted(() => ({ api: vi.fn(), navigate: vi.fn(), route: vi.fn() }))
 vi.mock('../src/lib/api', () => ({ apiRequest: mocks.api }))
@@ -332,5 +334,47 @@ describe('Gantt task forms', () => {
       path: '/new/ccv-lifting-operations',
       query: { link_task: 'TASK-2', project: 'PROJ-1' },
     })
+  })
+})
+
+
+describe('Desk links in browser popups', () => {
+  it.each([
+    ['/app', '/desk'], ['/app?view=list#section', '/desk?view=list#section'],
+    ['/app/task/TASK%2F001?project=PROJ-1#notes', '/desk/task/TASK%2F001?project=PROJ-1#notes'],
+    ['/desk/task/T-1', '/desk/task/T-1'], ['/apps', '/apps'], ['/application/test', '/application/test'],
+    ['/assets/verto/file.js', '/assets/verto/file.js'], ['/api/method/frappe.ping', '/api/method/frappe.ping'],
+    ['/verto-mobile/forms', '/verto-mobile/forms'], ['https://other.test/app/task/T-1', 'https://other.test/app/task/T-1'],
+  ])('maps %s to %s', (input, expected) => {
+    expect(toDeskUrl(input, 'https://verto.test')).toBe(expected)
+  })
+
+  it('rewrites absolute and protocol-relative links only on the current site', () => {
+    expect(toDeskUrl('https://verto.test/app/task/T-1?x=1#row', 'https://verto.test')).toBe('https://verto.test/desk/task/T-1?x=1#row')
+    expect(toDeskUrl('//verto.test/app/task/T-1', 'https://verto.test')).toBe('//verto.test/desk/task/T-1')
+  })
+
+  it('opens configured legacy links in the drawer with the Desk path and full query', async () => {
+    wrapper = mount(AppBrowserDrawer)
+    openAppBrowser({ url: '/app/task/TASK%2F001?project=PROJ-1#notes', title: 'Work Summary' })
+    await flushPromises()
+    expect(wrapper.get('iframe').attributes('src')).toBe(`${window.location.origin}/desk/task/TASK%2F001?project=PROJ-1#notes`)
+  })
+
+  it('also normalizes direct drawer events and legacy source links', async () => {
+    wrapper = mount(AppBrowserDrawer)
+    window.dispatchEvent(new CustomEvent(APP_BROWSER_OPEN_EVENT, { detail: { url: '/app/daily-timesheet/TS-1' } }))
+    await flushPromises()
+    expect(wrapper.get('iframe').attributes('src')).toBe(`${window.location.origin}/desk/daily-timesheet/TS-1`)
+    const anchor = document.createElement('a')
+    anchor.href = '/app/project/PROJ-1?tab=tasks'
+    anchor.textContent = 'Project'
+    document.body.append(anchor)
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true })
+    anchor.addEventListener('click', handleAppBrowserLinkClick)
+    anchor.dispatchEvent(event)
+    await flushPromises()
+    expect(event.defaultPrevented).toBe(true)
+    expect(wrapper.get('iframe').attributes('src')).toBe(`${window.location.origin}/desk/project/PROJ-1?tab=tasks`)
   })
 })

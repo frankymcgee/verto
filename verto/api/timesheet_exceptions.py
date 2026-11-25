@@ -41,12 +41,21 @@ def _read(doctype, warnings, *, required=False, cap=LIMIT, **kwargs):
     return rows
 
 
-def _documents(names):
+def _is_cancelled(doc):
+    return cint(doc.get("docstatus")) == 2 or str(doc.get("status") or "").strip().casefold() in {"cancelled", "canceled"}
+
+
+def _daily_names(docs):
+    return {name for doc in docs for log in (doc.get("time_logs") or [])
+            if (name := log.get("daily_timesheet_id") or log.get("custom_daily_timesheet_id"))}
+
+
+def _documents(names, *, include_cancelled=False):
     docs = []
     for row in names:
         doc = frappe.get_doc("Timesheet", row.name)
         doc.check_permission("read")
-        if cint(doc.docstatus) != 2:
+        if include_cancelled or not _is_cancelled(doc):
             docs.append(doc)
     return docs
 
@@ -147,11 +156,16 @@ def build_queue(docs, context, monday, current, *, project=None, attendance=None
     """Pure reconciliation; related records in context have already passed list permissions."""
     access = access or {"daily": True, "shifts": True, "attendance": True, "leave": True, "employees": True, "types": True}
     attendance, leave, exclusions = attendance or [], leave or [], exclusions or {}
+    cancelled_daily = set(context.get("cancelled_daily_timesheets", set())) | _daily_names([doc for doc in docs if _is_cancelled(doc)])
+    docs = [doc for doc in docs if not _is_cancelled(doc)]
+    # A cancellation leaves the Daily Timesheet intact. It is not a new job
+    # waiting to be processed. An active amendment's reference takes precedence.
+    cancelled_daily -= _daily_names(docs)
     weekly_rows = [row for group in review.build_review(docs, context, check_missing_days=False)["groups"] for row in group["rows"]] if docs else []
     linked = {entry["daily_timesheet"] for row in weekly_rows for entry in row["entries"] if entry["daily_timesheet"]}
     daily_rows = []
     for source in context["daily"].values():
-        if source.name in linked or cint(source.get("docstatus")) == 2 or not source.get("date") or not monday <= getdate(source.date) <= monday + timedelta(days=6):
+        if source.name in linked or source.name in cancelled_daily or _is_cancelled(source) or not source.get("date") or not monday <= getdate(source.date) <= monday + timedelta(days=6):
             continue
         employee = _daily_employee(source, context["employees"], context["user_names"])
         if not employee or (project and source.get("project_id") != project):
@@ -265,15 +279,21 @@ def get_timesheet_exceptions(week_start=None, project=None):
         if users and frappe.has_permission("User", "read"):
             user_rows = _read("User", warnings, filters={"name": ["in", users]}, fields=["name", "full_name"])
             context["user_names"] = {row.name: row.full_name for row in user_rows or []}
-        # Other readable weeks/projects for the same staff participate in overlap checks.
-        related = _read("Timesheet", warnings, required=True, cap=3 * WEEKLY_LIMIT, filters={"docstatus": ["!=", 2], "employee": ["in", employee_ids],
-                        "custom_monday_date": ["between", [monday - timedelta(days=7), monday + timedelta(days=7)]]}, fields=["name"])
+        # Other readable weeks/projects participate in overlap checks. Cancelled
+        # records supply exclusion references only and never enter validation.
+        related = _read("Timesheet", warnings, required=True, cap=3 * WEEKLY_LIMIT,
+                        filters={"employee": ["in", employee_ids]}, or_filters=[
+                            ["custom_monday_date", "between", [monday - timedelta(days=7), monday + timedelta(days=7)]],
+                            ["start_date", "between", [monday - timedelta(days=7), sunday + timedelta(days=7)]],
+                        ], fields=["name"])
         known = {doc.name for doc in docs}
-        docs.extend(_documents([row for row in related if row.name not in known]))
+        related_docs = _documents([row for row in related if row.name not in known], include_cancelled=True)
+        context["cancelled_daily_timesheets"] = _daily_names([doc for doc in related_docs if _is_cancelled(doc)])
+        docs.extend(doc for doc in related_docs if not _is_cancelled(doc))
         context["daily"] = {row.name: row for row in daily or [] if _daily_employee(row, context["employees"], context["user_names"]) in employee_ids}
         if daily and len(context["daily"]) != len(daily):
             warnings.append("Some daily submissions could not be matched to a unique readable employee. Check their current user identity and employee mapping.")
-        linked_names = {log.get("daily_timesheet_id") or log.get("custom_daily_timesheet_id") for doc in docs for log in doc.time_logs} - {None, "", *context["daily"]}
+        linked_names = _daily_names(docs) - set(context["daily"])
         if linked_names and access["daily"]:
             sources = _read("Daily Timesheet", warnings, filters={"name": ["in", sorted(linked_names)]}, fields=review._fields("Daily Timesheet", DAILY_FIELDS))
             context["daily"].update({row.name: row for row in sources or []})

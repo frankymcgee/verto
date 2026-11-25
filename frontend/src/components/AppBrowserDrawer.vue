@@ -98,6 +98,7 @@ import {
   APP_BROWSER_OPEN_EVENT,
   type AppBrowserRequest,
 } from '../lib/appBrowser'
+import { toDeskUrl } from '../lib/deskRoute'
 import { isAndroidStandalonePwa } from '../pwa/displayMode'
 
 const open = ref(false)
@@ -108,7 +109,7 @@ const iframeKey = ref(0)
 const hideAndroidBrowserBanner = isAndroidStandalonePwa()
 
 const safeUrl = computed(() => {
-  const value = String(url.value || '').trim()
+  const value = toDeskUrl(url.value)
 
   if (!value) {
     return ''

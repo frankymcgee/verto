@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { toDeskUrl } from '../lib/deskRoute'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Button, Checkbox } from 'frappe-ui'
 import DateTimeField from './mobile-fields/DateTimeField.vue'
@@ -83,7 +84,7 @@ function apply() {
       <details v-if="draft.sources.length" class="text-sm text-ink-gray-7">
         <summary class="cursor-pointer">Source records</summary>
         <ul class="mt-2 space-y-2"><li v-for="source in draft.sources" :key="source.id">
-          <a :href="source.url" target="_blank" rel="noopener noreferrer" class="break-words text-blue-600">[{{ source.id }}] {{ source.doctype }} · {{ source.name }}</a>
+          <a :href="toDeskUrl(source.url)" target="_blank" rel="noopener noreferrer" class="break-words text-blue-600">[{{ source.id }}] {{ source.doctype }} · {{ source.name }}</a>
           <p class="text-xs text-ink-gray-5">{{ source.recorded_at }} · {{ source.time_basis }}</p>
         </li></ul>
       </details>

@@ -587,7 +587,7 @@ const actions = computed(() => {
       onClick: () => {
         deleteDialogOptions.value = {
           title: "Delete Shift?",
-          message: `This will remove Shift Assignment: <a href='/app/shift-assignment/${props.shiftAssignmentName}' target='_blank'><u>${props.shiftAssignmentName}</u></a> scheduled for <b>${selectedDate.value}</b>.`,
+          message: `This will remove Shift Assignment: <a href='/desk/shift-assignment/${props.shiftAssignmentName}' target='_blank'><u>${props.shiftAssignmentName}</u></a> scheduled for <b>${selectedDate.value}</b>.`,
           action: () => deleteCurrentShift.submit(),
         };
         showDeleteDialog.value = true;
@@ -598,7 +598,7 @@ const actions = computed(() => {
       onClick: () => {
         deleteDialogOptions.value = {
           title: "Delete Shift Assignment?",
-          message: `This will delete Shift Assignment: <a href='/app/shift-assignment/${props.shiftAssignmentName}' target='_blank'><u>${props.shiftAssignmentName}</u></a> (scheduled from <b>${form.start_date}</b>${form.end_date ? ` to <b>${form.end_date}</b>` : ""}).`,
+          message: `This will delete Shift Assignment: <a href='/desk/shift-assignment/${props.shiftAssignmentName}' target='_blank'><u>${props.shiftAssignmentName}</u></a> (scheduled from <b>${form.start_date}</b>${form.end_date ? ` to <b>${form.end_date}</b>` : ""}).`,
           action: async () => {
             await shiftAssignment.value.setValue.submit({ docstatus: 2 });
             shiftAssignments.delete.submit(props.shiftAssignmentName as string);
@@ -614,7 +614,7 @@ const actions = computed(() => {
       onClick: () => {
         deleteDialogOptions.value = {
           title: "Delete Shift Schedule Assignment?",
-          message: `This will delete Shift Schedule Assignment: <a href='/app/shift-schedule-assignment/${form.shift_schedule_assignment}' target='_blank'><u>${form.shift_schedule_assignment}</u></a> and all the shifts associated with it.`,
+          message: `This will delete Shift Schedule Assignment: <a href='/desk/shift-schedule-assignment/${form.shift_schedule_assignment}' target='_blank'><u>${form.shift_schedule_assignment}</u></a> and all the shifts associated with it.`,
           action: () => deleteShiftScheduleAssignment.submit(),
         };
         showDeleteDialog.value = true;

@@ -41,7 +41,7 @@ watch([category, search, severity, report], () => { page.value = 0 })
 const slugs: Record<string, string> = { Timesheet: 'timesheet', 'Daily Timesheet': 'daily-timesheet',
   'Shift Assignment': 'shift-assignment', Attendance: 'attendance', 'Leave Application': 'leave-application' }
 function sourceHref(link: Source) {
-  return slugs[link.doctype] ? `/app/${slugs[link.doctype]}/${encodeURIComponent(link.name)}` : '#'
+  return slugs[link.doctype] ? `/desk/${slugs[link.doctype]}/${encodeURIComponent(link.name)}` : '#'
 }
 function reviewHref(item?: Exception) {
   const params = new URLSearchParams({ week_start: report.value?.week_start || week.value })
@@ -49,7 +49,7 @@ function reviewHref(item?: Exception) {
   if (projectId) params.set('project', projectId)
   const weekly = item?.links.find(link => link.doctype === 'Timesheet')
   if (weekly) params.set('timesheets', JSON.stringify([weekly.name]))
-  return `/app/internal-timesheet-approval?${params}`
+  return `/desk/internal-timesheet-approval?${params}`
 }
 function dateLabel(value: string) {
   const date = new Date(`${value}T12:00:00`)

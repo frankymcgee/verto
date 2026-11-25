@@ -120,7 +120,7 @@ def check_queue(browser, origin, engine, width):
         expect(page.get_by_role("main").get_by_role("heading", name="Timesheet exceptions", exact=True)).to_be_visible()
         expect(page.get_by_role("heading", name="Missing advisor", exact=True)).to_be_visible()
         expect(page.get_by_role("button", name="Refresh queue", exact=True)).to_be_enabled()
-        expect(page.get_by_role("link", name="Open allocation", exact=True)).to_have_attribute("href", "/app/shift-assignment/SHIFT-1")
+        expect(page.get_by_role("link", name="Open allocation", exact=True)).to_have_attribute("href", "/desk/shift-assignment/SHIFT-1")
         page.get_by_label("Employee or record", exact=True).fill("Nobody")
         expect(page.get_by_text("No exceptions match these filters.", exact=True)).to_be_visible()
         page.get_by_label("Employee or record", exact=True).fill("Missing advisor")
@@ -128,6 +128,32 @@ def check_queue(browser, origin, engine, width):
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "Queue overflowed the viewport"
         page.screenshot(path=str(RESULTS / f"{engine}-timesheet-exceptions-{width}.png"))
         print(f"{engine} {width}px: exceptions visible, filterable and linked without horizontal overflow", flush=True)
+    finally:
+        context.close()
+
+
+def check_popup_routes(browser, origin, engine):
+    context = context_for(browser, 440)
+    page = context.new_page()
+    page.route("**/api/method/**", api_fixture([]))
+    legacy_requests = []
+    page.route("**/app/**", lambda route: (legacy_requests.append(route.request.url), route.abort()))
+    page.route("**/desk/**", lambda route: route.fulfill(content_type="text/html", body="<html><body>Desk page fixture</body></html>"))
+    try:
+        page.goto(f"{origin}/verto-mobile/timesheet-exceptions")
+        expect(page.get_by_role("heading", name="Missing advisor", exact=True)).to_be_visible()
+        page.evaluate("""() => {
+            const anchor = document.createElement('a');
+            anchor.href='/app/task/TASK%2F001?project=PROJ-1#notes';
+            anchor.textContent='Stored task link';
+            document.querySelector('main').append(anchor);
+            anchor.click();
+        }""")
+        frame = page.get_by_title("Verto browser drawer", exact=True)
+        expect(frame).to_have_attribute("src", f"{origin}/desk/task/TASK%2F001?project=PROJ-1#notes")
+        expect(page.frame_locator('iframe[title="Verto browser drawer"]').get_by_text("Desk page fixture")).to_be_visible()
+        assert not legacy_requests, legacy_requests
+        print(f"{engine}: stored /app link opened /desk with record ID, filter and fragment intact", flush=True)
     finally:
         context.close()
 
@@ -184,6 +210,7 @@ def main(engines):
                         for edit in (False, True): check_confirmation(browser, origin, engine, width, edit)
                         check_queue(browser, origin, engine, width)
                     check_offline_confirmation(browser, origin, engine)
+                    check_popup_routes(browser, origin, engine)
                 finally:
                     browser.close()
     finally:

@@ -1,5 +1,8 @@
 # Scan documents and forms inside Verto
 
+Desk document QR codes accept both current `/desk/...` routes and older
+`/app/...` links; resolved Desk pages open through the current `/desk` route.
+
 Open **Home → Project Tools → Scan QR code**, allow camera access, and point the rear camera at the printed code. The scanner opens the document within Verto and stops the camera as soon as it reads a code. Close the scanner to return Home. Camera access also stops when the app goes into the background; use **Scan again** to restart it.
 
 Supported codes contain a link on the same website as the installed Verto app:

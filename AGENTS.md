@@ -51,6 +51,8 @@ feature requests or abandoned approaches as implemented functionality.
 - The exceptions queue is a live, read-only reconciliation. Keep signing in the
   existing internal approval flow. Do not infer missing hours from truncated or
   unavailable sources; show check coverage and refuse incomplete oversized checks.
+  Ignore cancelled weekly records and their orphaned daily sources, while retaining
+  daily sources reused by active amendments.
 - Reuse internal review shift/hour rules: 16:30 start cutoff, overnight duration,
   day/night/fly project limits, and SD classified using actual entered times.
   Missing hours respect shift end + one hour, full-day leave and dated exclusions.
@@ -73,6 +75,8 @@ feature requests or abandoned approaches as implemented functionality.
   human application/review steps required by each workflow.
 - Do not reload the PWA during open forms or lose local drafts/queued work.
   Use theme tokens and accessible Frappe UI controls for responsive native pages.
+- Generate current-site Desk links with `/desk`. Normalize stored `/app` links
+  when opening browser drawers, preserving queries/fragments and unrelated routes.
 
 ## Verification
 
